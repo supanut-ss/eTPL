@@ -2,7 +2,7 @@ namespace eTPL.API.Models.DTOs
 {
     public class LoginRequest
     {
-        public string Username { get; set; } = string.Empty;
+        public string UserId { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
     }
 
@@ -14,26 +14,30 @@ namespace eTPL.API.Models.DTOs
 
     public class UserDto
     {
-        public int Id { get; set; }
-        public string Username { get; set; } = string.Empty;
-        public string Role { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; }
-        public bool IsActive { get; set; }
+        public string UserId { get; set; } = string.Empty;
+        public string UserLevel { get; set; } = string.Empty;
+        public string? LineId { get; set; }
+        public string? LinePic { get; set; }
+        public string? LineName { get; set; }
     }
 
     public class CreateUserRequest
     {
-        public string Username { get; set; } = string.Empty;
+        public string UserId { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
-        public string Role { get; set; } = "user";
+        public string UserLevel { get; set; } = "user";
+        public string? LineId { get; set; }
+        public string? LinePic { get; set; }
+        public string? LineName { get; set; }
     }
 
     public class UpdateUserRequest
     {
-        public string Username { get; set; } = string.Empty;
         public string? Password { get; set; } // null = ไม่เปลี่ยน password
-        public string Role { get; set; } = "user";
-        public bool IsActive { get; set; } = true;
+        public string UserLevel { get; set; } = "user";
+        public string? LineId { get; set; }
+        public string? LinePic { get; set; }
+        public string? LineName { get; set; }
     }
 
     public class ApiResponse<T>

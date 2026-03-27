@@ -21,14 +21,14 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod());
 });
 
-// ── MySQL DbContext (Users)
-var mySqlConn = builder.Configuration.GetConnectionString("MySql");
-builder.Services.AddDbContext<MySqlDbContext>(options =>
-    options.UseMySql(mySqlConn, ServerVersion.AutoDetect(mySqlConn)));
-
-// ── MS SQL DbContext (Business Data)
+// ── MS SQL DbContext (Users + Business Data)
 builder.Services.AddDbContext<MsSqlDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("MsSql")));
+
+// ── MySQL DbContext (สำรองไว้ถ้ามีใช้ในอนาคต)
+// var mySqlConn = builder.Configuration.GetConnectionString("MySql");
+// builder.Services.AddDbContext<MySqlDbContext>(options =>
+//     options.UseMySql(mySqlConn, ServerVersion.AutoDetect(mySqlConn)));
 
 // ── JWT Authentication
 var jwtConfig = builder.Configuration.GetSection("Jwt");

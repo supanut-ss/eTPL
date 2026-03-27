@@ -8,9 +8,9 @@ namespace eTPL.API.Services
 {
     public class UserService : IUserService
     {
-        private readonly MySqlDbContext _db;
+        private readonly MsSqlDbContext _db;
 
-        public UserService(MySqlDbContext db)
+        public UserService(MsSqlDbContext db)
         {
             _db = db;
         }
@@ -24,7 +24,13 @@ namespace eTPL.API.Services
 
         public async Task<UserDto?> GetByIdAsync(int id)
         {
-            var user = await _db.Users.FindAsync(id);
+            // ไม่ใช้แล้ว — ใช้ GetByUserIdAsync แทน
+            return null;
+        }
+
+        public async Task<UserDto?> GetByUserIdAsync(string userId)
+        {
+            var user = await _db.Users.FindAsync(userId);
             return user == null ? null : ToDto(user);
         }
 
@@ -32,11 +38,12 @@ namespace eTPL.API.Services
         {
             var user = new User
             {
-                Username = request.Username,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-                Role = request.Role,
-                CreatedAt = DateTime.UtcNow,
-                IsActive = true,
+                UserId = request.UserId,
+                Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                UserLevel = request.UserLevel,
+                LineId = request.LineId,
+                LinePic = request.LinePic,
+                LineName = request.LineName,
             };
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
@@ -45,15 +52,22 @@ namespace eTPL.API.Services
 
         public async Task<UserDto?> UpdateAsync(int id, UpdateUserRequest request)
         {
-            var user = await _db.Users.FindAsync(id);
+            // ไม่ใช้ int id — ดู UpdateByUserIdAsync
+            return null;
+        }
+
+        public async Task<UserDto?> UpdateByUserIdAsync(string userId, UpdateUserRequest request)
+        {
+            var user = await _db.Users.FindAsync(userId);
             if (user == null) return null;
 
-            user.Username = request.Username;
-            user.Role = request.Role;
-            user.IsActive = request.IsActive;
+            user.UserLevel = request.UserLevel;
+            user.LineId = request.LineId;
+            user.LinePic = request.LinePic;
+            user.LineName = request.LineName;
 
             if (!string.IsNullOrWhiteSpace(request.Password))
-                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+                user.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
             await _db.SaveChangesAsync();
             return ToDto(user);
@@ -61,7 +75,13 @@ namespace eTPL.API.Services
 
         public async Task<bool> DeleteAsync(int id)
         {
-            var user = await _db.Users.FindAsync(id);
+            // ไม่ใช้ int id — ดู DeleteByUserIdAsync
+            return false;
+        }
+
+        public async Task<bool> DeleteByUserIdAsync(string userId)
+        {
+            var user = await _db.Users.FindAsync(userId);
             if (user == null) return false;
 
             _db.Users.Remove(user);
@@ -71,11 +91,11 @@ namespace eTPL.API.Services
 
         private static UserDto ToDto(User u) => new()
         {
-            Id = u.Id,
-            Username = u.Username,
-            Role = u.Role,
-            CreatedAt = u.CreatedAt,
-            IsActive = u.IsActive,
+            UserId = u.UserId,
+            UserLevel = u.UserLevel,
+            LineId = u.LineId,
+            LinePic = u.LinePic,
+            LineName = u.LineName,
         };
     }
 }

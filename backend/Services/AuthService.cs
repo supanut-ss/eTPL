@@ -11,10 +11,10 @@ namespace eTPL.API.Services
 {
     public class AuthService : IAuthService
     {
-        private readonly MySqlDbContext _db;
+        private readonly MsSqlDbContext _db;
         private readonly IConfiguration _config;
 
-        public AuthService(MySqlDbContext db, IConfiguration config)
+        public AuthService(MsSqlDbContext db, IConfiguration config)
         {
             _db = db;
             _config = config;
@@ -23,9 +23,9 @@ namespace eTPL.API.Services
         public async Task<LoginResponse?> LoginAsync(LoginRequest request)
         {
             var user = await _db.Users
-                .FirstOrDefaultAsync(u => u.Username == request.Username && u.IsActive);
+                .FirstOrDefaultAsync(u => u.UserId == request.UserId);
 
-            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
                 return null;
 
             var token = GenerateJwtToken(user);
@@ -35,11 +35,11 @@ namespace eTPL.API.Services
                 Token = token,
                 User = new UserDto
                 {
-                    Id = user.Id,
-                    Username = user.Username,
-                    Role = user.Role,
-                    CreatedAt = user.CreatedAt,
-                    IsActive = user.IsActive,
+                    UserId = user.UserId,
+                    UserLevel = user.UserLevel,
+                    LineId = user.LineId,
+                    LinePic = user.LinePic,
+                    LineName = user.LineName,
                 }
             };
         }
@@ -52,9 +52,9 @@ namespace eTPL.API.Services
 
             var claims = new[]
             {
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, user.Role),
+                new Claim(ClaimTypes.NameIdentifier, user.UserId),
+                new Claim(ClaimTypes.Name, user.UserId),
+                new Claim(ClaimTypes.Role, user.UserLevel),
             };
 
             var expireHours = int.Parse(_config["Jwt:ExpireHours"] ?? "8");
