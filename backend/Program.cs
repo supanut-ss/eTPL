@@ -3,10 +3,10 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using eTPL.API.Data;
+using eTPL.API.Data.Scaffolded;
 using eTPL.API.Middleware;
 using eTPL.API.Services;
 using eTPL.API.Services.Interfaces;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Controllers
@@ -16,13 +16,17 @@ builder.Services.AddControllers();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
 
 // ── MS SQL DbContext (Users + Business Data)
 builder.Services.AddDbContext<MsSqlDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("MsSql")));
+
+// ── Scaffolded DbContext (ใช้ connection string เดียวกัน)
+builder.Services.AddDbContext<ScaffoldedDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("MsSql")));
 
 // ── MySQL DbContext (สำรองไว้ถ้ามีใช้ในอนาคต)
@@ -53,6 +57,7 @@ builder.Services.AddAuthorization();
 // ── Services (DI)
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
 
 var app = builder.Build();
 

@@ -8,6 +8,8 @@ import AppLayout from "./components/layout/AppLayout";
 import LoginPage from "./pages/LoginPage";
 import MainPage from "./pages/MainPage";
 import UserMasterPage from "./pages/UserMasterPage";
+import PermissionPage from "./pages/PermissionPage";
+import FixturePage from "./pages/FixturePage";
 
 function App() {
   return (
@@ -16,27 +18,37 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
+            {/* Public */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<Navigate to="/main" replace />} />
 
-            {/* Protected routes — ต้อง login ก่อน */}
+            {/* Protected — AppLayout เป็น parent, Outlet render child pages */}
             <Route
+              path="/"
               element={
                 <ProtectedRoute>
                   <AppLayout />
                 </ProtectedRoute>
               }
             >
-              <Route path="/main" element={<MainPage />} />
+              <Route path="main" element={<MainPage />} />
               <Route
-                path="/users"
+                path="users"
                 element={
                   <ProtectedRoute requiredRole="admin">
                     <UserMasterPage />
                   </ProtectedRoute>
                 }
               />
-              {/* TODO: เพิ่ม routes สำหรับ MS SQL business pages ที่นี่ */}
+              <Route
+                path="permissions"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <PermissionPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="fixtures" element={<FixturePage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/main" replace />} />

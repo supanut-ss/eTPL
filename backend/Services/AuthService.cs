@@ -25,7 +25,7 @@ namespace eTPL.API.Services
             var user = await _db.Users
                 .FirstOrDefaultAsync(u => u.UserId == request.UserId);
 
-            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
+            if (user == null || user.Password != request.Password)
                 return null;
 
             var token = GenerateJwtToken(user);

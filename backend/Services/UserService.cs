@@ -39,7 +39,7 @@ namespace eTPL.API.Services
             var user = new User
             {
                 UserId = request.UserId,
-                Password = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                Password = request.Password,
                 UserLevel = request.UserLevel,
                 LineId = request.LineId,
                 LinePic = request.LinePic,
@@ -67,7 +67,7 @@ namespace eTPL.API.Services
             user.LineName = request.LineName;
 
             if (!string.IsNullOrWhiteSpace(request.Password))
-                user.Password = BCrypt.Net.BCrypt.HashPassword(request.Password);
+                user.Password = request.Password;
 
             await _db.SaveChangesAsync();
             return ToDto(user);
