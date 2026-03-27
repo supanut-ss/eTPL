@@ -63,6 +63,7 @@ obj/
 *.csproj.user
 appsettings.Development.json
 appsettings.Local.json
+appsettings.json
 launchSettings.json
 
 # ========================
