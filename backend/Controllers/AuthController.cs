@@ -24,5 +24,14 @@ namespace eTPL.API.Controllers
 
             return Ok(ApiResponse<LoginResponse>.Ok(result, "เข้าสู่ระบบสำเร็จ"));
         }
+        [HttpPost("line-login")]
+        public async Task<IActionResult> LineLogin([FromBody] LineLoginRequest request)
+        {
+            var result = await _authService.LineLoginAsync(request);
+            if (result == null)
+                return Unauthorized(ApiResponse<string>.Fail("ไม่พบบัญชีผู้ใช้ที่ผูกกับ LINE นี้"));
+
+            return Ok(ApiResponse<LoginResponse>.Ok(result, "เข้าสู่ระบบด้วย LINE สำเร็จ"));
+        }
     }
 }

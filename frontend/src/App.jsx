@@ -14,6 +14,8 @@ import FixturePage from "./pages/FixturePage";
 import StandingPage from "./pages/StandingPage";
 import PublicMatchesPage from "./pages/PublicMatchesPage";
 
+import LineCallbackPage from "./pages/LineCallbackPage";
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -23,6 +25,7 @@ function App() {
           <Routes>
             {/* Public */}
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/auth/line/callback" element={<LineCallbackPage />} />
             <Route path="/" element={<Navigate to="/main" replace />} />
 
             {/* AppLayout wraps all app pages */}

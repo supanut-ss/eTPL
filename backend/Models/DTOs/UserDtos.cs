@@ -40,6 +40,12 @@ namespace eTPL.API.Models.DTOs
         public string? LineName { get; set; }
     }
 
+    public class LineLoginRequest
+    {
+        public string Code { get; set; } = string.Empty;
+        public string RedirectUri { get; set; } = string.Empty;
+    }
+
     public class ChangePasswordRequest
     {
         public string CurrentPassword { get; set; } = string.Empty;
