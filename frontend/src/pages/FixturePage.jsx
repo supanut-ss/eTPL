@@ -22,6 +22,7 @@ import {
   EmojiEvents,
 } from "@mui/icons-material";
 import { getFixtures } from "../api/fixtureApi";
+import { useAuth } from "../store/AuthContext";
 
 // แปลง ~/_image/... → https://thaipes.com/_image/...
 const resolveImage = (path) => {
@@ -99,6 +100,8 @@ const TeamCell = ({ player, image, isWinner }) => (
 );
 
 const FixturePage = () => {
+  const { user } = useAuth();
+  const isUserLevel = user?.userLevel !== "admin";
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -262,12 +265,21 @@ const FixturePage = () => {
         alignItems="center"
         mb={3}
       >
-        <Box display="flex" alignItems="center" gap={1}>
+        <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
           <SportsSoccer color="primary" />
           <Typography variant="h5" fontWeight="bold">
             Fixture
           </Typography>
           <Chip label={`${rows.length} matches`} size="small" sx={{ ml: 1 }} />
+          {isUserLevel && (
+            <Chip
+              label="แสดงเฉพาะของคุณ"
+              size="small"
+              color="info"
+              variant="outlined"
+              sx={{ ml: 0.5, fontWeight: 600 }}
+            />
+          )}
         </Box>
         <Tooltip title="รีเฟรช">
           <IconButton onClick={() => fetchFixtures(search)} disabled={loading}>

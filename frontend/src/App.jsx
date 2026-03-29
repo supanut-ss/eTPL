@@ -10,6 +10,7 @@ import MainPage from "./pages/MainPage";
 import UserMasterPage from "./pages/UserMasterPage";
 import PermissionPage from "./pages/PermissionPage";
 import FixturePage from "./pages/FixturePage";
+import StandingPage from "./pages/StandingPage";
 
 function App() {
   return (
@@ -49,6 +50,7 @@ function App() {
                 }
               />
               <Route path="fixtures" element={<FixturePage />} />
+              <Route path="standings" element={<StandingPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/main" replace />} />

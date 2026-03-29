@@ -26,6 +26,7 @@ import {
   AccountCircle,
   Security,
   SportsSoccer,
+  Leaderboard,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 
@@ -34,6 +35,7 @@ const DRAWER_WIDTH = 240;
 const navItems = [
   { label: "Dashboard", path: "/main", icon: <Dashboard /> },
   { label: "ตารางแข่งขัน", path: "/fixtures", icon: <SportsSoccer /> },
+  { label: "ตารางคะแนน", path: "/standings", icon: <Leaderboard /> },
   { label: "จัดการผู้ใช้", path: "/users", icon: <People />, adminOnly: true },
   {
     label: "จัดการสิทธิ์",

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,11 +20,14 @@ namespace eTPL.API.Controllers
         }
 
         // GET api/fixtures?search=teamA
-        // default: platform=PC, division=D1, season=current season (from tbm_current_season where platform=PC)
+        // default: platform=PC, division=D1, season=current season
+        // user level: จะเห็นเฉพาะ match ที่ home หรือ away ตรงกับ userId ของตัวเอง
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] string? search)
         {
-            // ดึง current season ของ platform PC
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userLevel = User.FindFirstValue(ClaimTypes.Role);
+
             var currentSeason = await _db.TbmCurrentSeasons
                 .Where(s => s.Platform == "PC")
                 .Select(s => s.Season)
@@ -34,6 +38,10 @@ namespace eTPL.API.Controllers
 
             if (currentSeason.HasValue)
                 query = query.Where(f => f.Season == currentSeason.Value);
+
+            // user level เห็นเฉพาะ match ของตัวเอง
+            if (userLevel != "admin" && !string.IsNullOrEmpty(userId))
+                query = query.Where(f => f.Home == userId || f.Away == userId);
 
             if (!string.IsNullOrEmpty(search))
                 query = query.Where(f =>
