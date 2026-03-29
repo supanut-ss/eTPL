@@ -116,3 +116,4 @@ out/
 output/
 coverage/
 .nyc_output/
+backend/wwwroot/
