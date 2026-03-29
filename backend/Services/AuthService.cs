@@ -119,6 +119,24 @@ namespace eTPL.API.Services
             };
         }
 
+        public string GetLineAuthorizeUrl(string redirectUri, string state)
+        {
+            var channelId = _config["Line:ChannelId"];
+            if (string.IsNullOrWhiteSpace(channelId) || channelId == "YOUR_LINE_CHANNEL_ID")
+                throw new InvalidOperationException("LINE Channel ID not configured");
+
+            if (string.IsNullOrWhiteSpace(redirectUri))
+                throw new ArgumentException("Redirect URI is required", nameof(redirectUri));
+
+            if (string.IsNullOrWhiteSpace(state))
+                throw new ArgumentException("State is required", nameof(state));
+
+            var encodedRedirectUri = Uri.EscapeDataString(redirectUri);
+            var encodedState = Uri.EscapeDataString(state);
+
+            return $"https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id={channelId}&redirect_uri={encodedRedirectUri}&state={encodedState}&scope=profile";
+        }
+
         private string GenerateJwtToken(eTPL.API.Models.User user)
         {
             var jwtKey = _config["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured");

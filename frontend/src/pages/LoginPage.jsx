@@ -15,7 +15,7 @@ import {
 } from "@mui/material";
 import { Visibility, VisibilityOff, Lock } from "@mui/icons-material";
 import { useAuth } from "../store/AuthContext";
-import { login as loginApi } from "../api/authApi";
+import { getLineLoginUrl, login as loginApi } from "../api/authApi";
 
 const LineIcon = () => (
   <svg
@@ -58,18 +58,28 @@ const LoginPage = () => {
     }
   };
 
-  const handleLineLogin = () => {
-    const channelId = import.meta.env.VITE_LINE_CHANNEL_ID;
-    if (!channelId) {
-      setError("LINE Channel ID ยังไม่ได้ตั้งค่า กรุณาติดต่อผู้ดูแลระบบ");
-      return;
-    }
-    const redirectUri = encodeURIComponent(
-      `${window.location.origin}/auth/line/callback`
-    );
+  const handleLineLogin = async () => {
+    setError("");
     const state = Math.random().toString(36).substring(2, 15);
     sessionStorage.setItem("line_oauth_state", state);
-    window.location.href = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${channelId}&redirect_uri=${redirectUri}&state=${state}&scope=profile`;
+
+    try {
+      const redirectUri = `${window.location.origin}/auth/line/callback`;
+      const res = await getLineLoginUrl({ redirectUri, state });
+      const url = res?.data?.data?.url;
+
+      if (!url) {
+        setError("ไม่สามารถเริ่ม LINE login ได้");
+        return;
+      }
+
+      window.location.href = url;
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "LINE Channel ID ยังไม่ได้ตั้งค่า กรุณาติดต่อผู้ดูแลระบบ",
+      );
+    }
   };
 
   return (

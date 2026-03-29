@@ -6,5 +6,6 @@ namespace eTPL.API.Services.Interfaces
     {
         Task<LoginResponse?> LoginAsync(LoginRequest request);
         Task<LoginResponse?> LineLoginAsync(LineLoginRequest request);
+        string GetLineAuthorizeUrl(string redirectUri, string state);
     }
 }

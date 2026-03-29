@@ -33,5 +33,19 @@ namespace eTPL.API.Controllers
 
             return Ok(ApiResponse<LoginResponse>.Ok(result, "เข้าสู่ระบบด้วย LINE สำเร็จ"));
         }
+
+        [HttpGet("line-login-url")]
+        public IActionResult GetLineLoginUrl([FromQuery] string redirectUri, [FromQuery] string state)
+        {
+            try
+            {
+                var url = _authService.GetLineAuthorizeUrl(redirectUri, state);
+                return Ok(ApiResponse<object>.Ok(new { url }, "สร้างลิงก์ LINE login สำเร็จ"));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<string>.Fail(ex.Message));
+            }
+        }
     }
 }
