@@ -56,5 +56,23 @@ namespace eTPL.API.Controllers
 
             return Ok(ApiResponse<object>.Ok(data));
         }
+
+        // PUT api/fixtures/{id}/score — บันทึกผลการแข่งขัน (admin only)
+        [HttpPut("{id}/score")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> UpdateScore(string id, [FromBody] UpdateScoreRequest request)
+        {
+            var fixture = await _db.TbmFixtureAlls.FindAsync(id);
+            if (fixture == null)
+                return NotFound(ApiResponse<object>.Fail("ไม่พบข้อมูล fixture"));
+
+            fixture.HomeScore = request.HomeScore;
+            fixture.AwayScore = request.AwayScore;
+            fixture.Active = (request.HomeScore != null && request.AwayScore != null) ? "YES" : "NO";
+
+            await _db.SaveChangesAsync();
+
+            return Ok(ApiResponse<object>.Ok(new { fixtureId = id }, "บันทึกผลสำเร็จ"));
+        }
     }
 }

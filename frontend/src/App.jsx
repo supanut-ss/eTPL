@@ -11,6 +11,7 @@ import UserMasterPage from "./pages/UserMasterPage";
 import PermissionPage from "./pages/PermissionPage";
 import FixturePage from "./pages/FixturePage";
 import StandingPage from "./pages/StandingPage";
+import ResultPage from "./pages/ResultPage";
 
 function App() {
   return (
@@ -51,6 +52,14 @@ function App() {
               />
               <Route path="fixtures" element={<FixturePage />} />
               <Route path="standings" element={<StandingPage />} />
+              <Route
+                path="results"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <ResultPage />
+                  </ProtectedRoute>
+                }
+              />
             </Route>
 
             <Route path="*" element={<Navigate to="/main" replace />} />

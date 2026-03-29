@@ -5,3 +5,7 @@ export const getFixtures = (params) =>
 
 export const getFixtureSeasons = () =>
   axiosInstance.get("/api/fixtures/seasons");
+
+export const updateFixtureScore = (fixtureId, homeScore, awayScore) =>
+  axiosInstance.put(`/api/fixtures/${fixtureId}/score`, { homeScore, awayScore });
+

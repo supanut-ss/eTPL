@@ -27,6 +27,7 @@ import {
   Security,
   SportsSoccer,
   Leaderboard,
+  EmojiEvents,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 
@@ -36,6 +37,7 @@ const navItems = [
   { label: "Dashboard", path: "/main", icon: <Dashboard /> },
   { label: "ตารางแข่งขัน", path: "/fixtures", icon: <SportsSoccer /> },
   { label: "ตารางคะแนน", path: "/standings", icon: <Leaderboard /> },
+  { label: "บันทึกผลการแข่งขัน", path: "/results", icon: <EmojiEvents />, adminOnly: true },
   { label: "จัดการผู้ใช้", path: "/users", icon: <People />, adminOnly: true },
   {
     label: "จัดการสิทธิ์",
