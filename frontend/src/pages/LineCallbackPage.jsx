@@ -20,6 +20,9 @@ import {
   lineBind as lineBindApi,
 } from "../api/authApi";
 
+const LINE_OAUTH_STATE_SESSION_KEY = "line_oauth_state";
+const LINE_OAUTH_STATE_LOCAL_KEY = "line_oauth_state_fallback";
+
 const LineCallbackPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -33,7 +36,11 @@ const LineCallbackPage = () => {
   useEffect(() => {
     const code = searchParams.get("code");
     const state = searchParams.get("state");
-    const savedState = sessionStorage.getItem("line_oauth_state");
+    const savedStateFromSession = sessionStorage.getItem(
+      LINE_OAUTH_STATE_SESSION_KEY,
+    );
+    const savedStateFromLocal = localStorage.getItem(LINE_OAUTH_STATE_LOCAL_KEY);
+    const savedState = savedStateFromSession || savedStateFromLocal;
 
     if (!code) {
       setError("ไม่พบ authorization code จาก LINE");
@@ -45,7 +52,8 @@ const LineCallbackPage = () => {
       return;
     }
 
-    sessionStorage.removeItem("line_oauth_state");
+    sessionStorage.removeItem(LINE_OAUTH_STATE_SESSION_KEY);
+    localStorage.removeItem(LINE_OAUTH_STATE_LOCAL_KEY);
 
     const redirectUri = `${window.location.origin}/auth/line/callback`;
 

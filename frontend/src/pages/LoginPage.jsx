@@ -29,6 +29,9 @@ const LineIcon = () => (
   </svg>
 );
 
+const LINE_OAUTH_STATE_SESSION_KEY = "line_oauth_state";
+const LINE_OAUTH_STATE_LOCAL_KEY = "line_oauth_state_fallback";
+
 const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -61,7 +64,8 @@ const LoginPage = () => {
   const handleLineLogin = async () => {
     setError("");
     const state = Math.random().toString(36).substring(2, 15);
-    sessionStorage.setItem("line_oauth_state", state);
+    sessionStorage.setItem(LINE_OAUTH_STATE_SESSION_KEY, state);
+    localStorage.setItem(LINE_OAUTH_STATE_LOCAL_KEY, state);
 
     try {
       const redirectUri = `${window.location.origin}/auth/line/callback`;
