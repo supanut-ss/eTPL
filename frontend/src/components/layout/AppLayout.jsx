@@ -27,8 +27,10 @@ import {
   Security,
   SportsSoccer,
   Leaderboard,
+  Lock,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
+import ChangePasswordDialog from "../ChangePasswordDialog";
 
 const DRAWER_WIDTH = 240;
 
@@ -51,6 +53,7 @@ const AppLayout = () => {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -60,6 +63,9 @@ const AppLayout = () => {
   const filteredNav = navItems.filter(
     (item) => !item.adminOnly || user?.userLevel === "admin",
   );
+
+  const displayName = user?.lineName || user?.userId;
+  const avatarLetter = displayName?.[0]?.toUpperCase();
 
   const drawer = (
     <Box>
@@ -108,12 +114,13 @@ const AppLayout = () => {
             eTPL
           </Typography>
 
-          <Tooltip title={user?.username}>
+          <Tooltip title={displayName}>
             <IconButton
               onClick={(e) => setAnchorEl(e.currentTarget)}
               color="inherit"
             >
               <Avatar
+                src={user?.linePic || undefined}
                 sx={{
                   width: 32,
                   height: 32,
@@ -121,7 +128,7 @@ const AppLayout = () => {
                   fontSize: 14,
                 }}
               >
-                {user?.username?.[0]?.toUpperCase()}
+                {!user?.linePic && avatarLetter}
               </Avatar>
             </IconButton>
           </Tooltip>
@@ -131,10 +138,31 @@ const AppLayout = () => {
             onClose={() => setAnchorEl(null)}
           >
             <MenuItem disabled>
-              <AccountCircle sx={{ mr: 1 }} />
-              {user?.username} ({user?.role})
+              <Avatar
+                src={user?.linePic || undefined}
+                sx={{ width: 28, height: 28, mr: 1, bgcolor: "secondary.main", fontSize: 13 }}
+              >
+                {!user?.linePic && avatarLetter}
+              </Avatar>
+              <Box>
+                <Typography variant="body2" fontWeight="bold">
+                  {displayName}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {user?.userLevel}
+                </Typography>
+              </Box>
             </MenuItem>
             <Divider />
+            <MenuItem
+              onClick={() => {
+                setAnchorEl(null);
+                setChangePasswordOpen(true);
+              }}
+            >
+              <Lock sx={{ mr: 1 }} fontSize="small" />
+              เปลี่ยนรหัสผ่าน
+            </MenuItem>
             <MenuItem onClick={handleLogout}>
               <Logout sx={{ mr: 1 }} fontSize="small" />
               ออกจากระบบ
@@ -185,8 +213,14 @@ const AppLayout = () => {
       >
         <Outlet />
       </Box>
+
+      <ChangePasswordDialog
+        open={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+      />
     </Box>
   );
 };
 
 export default AppLayout;
+

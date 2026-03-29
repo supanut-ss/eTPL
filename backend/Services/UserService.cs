@@ -89,6 +89,16 @@ namespace eTPL.API.Services
             return true;
         }
 
+        public async Task<bool> ChangePasswordAsync(string userId, string currentPassword, string newPassword)
+        {
+            var user = await _db.Users.FindAsync(userId);
+            if (user == null || user.Password != currentPassword) return false;
+
+            user.Password = newPassword;
+            await _db.SaveChangesAsync();
+            return true;
+        }
+
         private static UserDto ToDto(User u) => new()
         {
             UserId = u.UserId,

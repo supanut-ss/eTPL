@@ -40,6 +40,12 @@ namespace eTPL.API.Models.DTOs
         public string? LineName { get; set; }
     }
 
+    public class ChangePasswordRequest
+    {
+        public string CurrentPassword { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
+    }
+
     public class ApiResponse<T>
     {
         public bool Success { get; set; }
