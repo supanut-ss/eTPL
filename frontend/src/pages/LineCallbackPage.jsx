@@ -15,7 +15,10 @@ import {
   MenuItem,
 } from "@mui/material";
 import { useAuth } from "../store/AuthContext";
-import { lineAuth as lineAuthApi, lineBind as lineBindApi } from "../api/authApi";
+import {
+  lineAuth as lineAuthApi,
+  lineBind as lineBindApi,
+} from "../api/authApi";
 
 const LineCallbackPage = () => {
   const [searchParams] = useSearchParams();
@@ -67,7 +70,7 @@ const LineCallbackPage = () => {
       })
       .catch((err) => {
         setError(
-          err.response?.data?.message || "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ"
+          err.response?.data?.message || "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ",
         );
       })
       .finally(() => {
@@ -145,7 +148,9 @@ const LineCallbackPage = () => {
             </Box>
 
             <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-              <InputLabel id="line-user-select-label">เลือกผู้ใช้ที่ยังว่าง</InputLabel>
+              <InputLabel id="line-user-select-label">
+                เลือกผู้ใช้ที่ยังว่าง
+              </InputLabel>
               <Select
                 labelId="line-user-select-label"
                 value={selectedUserId}
@@ -169,7 +174,8 @@ const LineCallbackPage = () => {
               {binding ? "กำลังผูกบัญชี..." : "ผูกบัญชีและเข้าสู่ระบบ"}
             </Button>
 
-            {(!bindContext?.availableUsers || bindContext.availableUsers.length === 0) && (
+            {(!bindContext?.availableUsers ||
+              bindContext.availableUsers.length === 0) && (
               <Alert severity="warning" sx={{ mt: 2 }}>
                 ไม่พบผู้ใช้ที่ยังไม่ได้ผูก LINE กรุณาติดต่อผู้ดูแลระบบ
               </Alert>
