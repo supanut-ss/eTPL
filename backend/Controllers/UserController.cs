@@ -60,5 +60,19 @@ namespace eTPL.API.Controllers
             if (!success) return NotFound(ApiResponse<string>.Fail("ไม่พบผู้ใช้"));
             return Ok(ApiResponse<string>.Ok("ลบสำเร็จ", "ลบผู้ใช้สำเร็จ"));
         }
+
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            var userId = User.Identity?.Name;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(ApiResponse<string>.Fail("ไม่พบข้อมูลผู้ใช้"));
+
+            var success = await _userService.ChangePasswordAsync(userId, request);
+            if (!success)
+                return BadRequest(ApiResponse<string>.Fail("รหัสผ่านปัจจุบันไม่ถูกต้อง"));
+
+            return Ok(ApiResponse<string>.Ok("เปลี่ยนรหัสผ่านสำเร็จ"));
+        }
     }
 }

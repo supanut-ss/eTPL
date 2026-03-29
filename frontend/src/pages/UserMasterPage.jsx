@@ -60,7 +60,7 @@ const UserMasterPage = () => {
       const res = await getUsers();
       setRows(res.data.data || []);
     } catch {
-      showSnackbar("โหลดข้อมูลไม่สำเร็จ", "error");
+      showSnackbar("Failed to load data", "error");
     } finally {
       setLoading(false);
     }
@@ -72,8 +72,9 @@ const UserMasterPage = () => {
 
   const validate = () => {
     const e = {};
-    if (!editTarget && !form.userId.trim()) e.userId = "กรุณากรอก User ID";
-    if (!editTarget && !form.password.trim()) e.password = "กรุณากรอกรหัสผ่าน";
+    if (!editTarget && !form.userId.trim()) e.userId = "Please enter User ID";
+    if (!editTarget && !form.password.trim())
+      e.password = "Please enter password";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -105,15 +106,15 @@ const UserMasterPage = () => {
     try {
       if (editTarget) {
         await updateUser(editTarget.userId, form);
-        showSnackbar("แก้ไขผู้ใช้สำเร็จ");
+        showSnackbar("User updated successfully");
       } else {
         await createUser(form);
-        showSnackbar("เพิ่มผู้ใช้สำเร็จ");
+        showSnackbar("User added successfully");
       }
       setDialogOpen(false);
       fetchUsers();
     } catch (err) {
-      showSnackbar(err.response?.data?.message || "เกิดข้อผิดพลาด", "error");
+      showSnackbar(err.response?.data?.message || "An error occurred", "error");
     } finally {
       setSaving(false);
     }
@@ -123,11 +124,11 @@ const UserMasterPage = () => {
     setSaving(true);
     try {
       await deleteUser(deleteTarget.userId);
-      showSnackbar("ลบผู้ใช้สำเร็จ");
+      showSnackbar("User deleted successfully");
       setDeleteDialogOpen(false);
       fetchUsers();
     } catch {
-      showSnackbar("ลบไม่สำเร็จ", "error");
+      showSnackbar("Delete failed", "error");
     } finally {
       setSaving(false);
     }
@@ -171,14 +172,14 @@ const UserMasterPage = () => {
     { field: "lineId", headerName: "LINE ID", flex: 1 },
     {
       field: "actions",
-      headerName: "จัดการ",
+      headerName: "Actions",
       width: 100,
       sortable: false,
       align: "center",
       headerAlign: "center",
       renderCell: (params) => (
         <Box display="flex" gap={0.5}>
-          <Tooltip title="แก้ไข">
+          <Tooltip title="Edit">
             <IconButton
               size="small"
               color="primary"
@@ -190,8 +191,8 @@ const UserMasterPage = () => {
           <Tooltip
             title={
               params.row.userId === currentUser?.userId
-                ? "ไม่สามารถลบตัวเองได้"
-                : "ลบ"
+                ? "Cannot delete yourself"
+                : "Delete"
             }
           >
             <span>
@@ -225,12 +226,12 @@ const UserMasterPage = () => {
         <Box display="flex" alignItems="center" gap={1}>
           <Person color="primary" />
           <Typography variant="h5" fontWeight="bold">
-            จัดการผู้ใช้
+            Manage Users
           </Typography>
-          <Chip label={`${rows.length} คน`} size="small" sx={{ ml: 1 }} />
+          <Chip label={`${rows.length} users`} size="small" sx={{ ml: 1 }} />
         </Box>
         <Box display="flex" gap={1}>
-          <Tooltip title="รีเฟรช">
+          <Tooltip title="Refresh">
             <IconButton onClick={fetchUsers} disabled={loading}>
               <Refresh />
             </IconButton>
@@ -240,7 +241,7 @@ const UserMasterPage = () => {
             startIcon={<Add />}
             onClick={handleOpenAdd}
           >
-            เพิ่มผู้ใช้
+            Add User
           </Button>
         </Box>
       </Box>
@@ -275,7 +276,7 @@ const UserMasterPage = () => {
         fullWidth
       >
         <DialogTitle sx={{ pb: 1 }}>
-          {editTarget ? "✏️ แก้ไขผู้ใช้" : "➕ เพิ่มผู้ใช้ใหม่"}
+          {editTarget ? "✏️ Edit User" : "➕ Add New User"}
         </DialogTitle>
         <Divider />
         <DialogContent>
@@ -289,11 +290,13 @@ const UserMasterPage = () => {
               disabled={!!editTarget}
               error={!!errors.userId}
               helperText={errors.userId}
-              placeholder="เช่น john.doe"
+              placeholder="e.g. john.doe"
             />
             <TextField
               label={
-                editTarget ? "รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)" : "รหัสผ่าน"
+                editTarget
+                  ? "New Password (leave blank to keep unchanged)"
+                  : "Password"
               }
               type="password"
               value={form.password}
@@ -318,7 +321,7 @@ const UserMasterPage = () => {
             </TextField>
             <Divider textAlign="left">
               <Typography variant="caption" color="text.secondary">
-                ข้อมูล LINE (ไม่บังคับ)
+                LINE Information (optional)
               </Typography>
             </Divider>
             <TextField
@@ -344,7 +347,7 @@ const UserMasterPage = () => {
         <Divider />
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setDialogOpen(false)} disabled={saving}>
-            ยกเลิก
+            Cancel
           </Button>
           <Button
             variant="contained"
@@ -354,7 +357,7 @@ const UserMasterPage = () => {
               saving ? <CircularProgress size={16} color="inherit" /> : null
             }
           >
-            {saving ? "กำลังบันทึก..." : "บันทึก"}
+            {saving ? "Saving..." : "Save"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -366,18 +369,21 @@ const UserMasterPage = () => {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle sx={{ color: "error.main" }}>🗑️ ยืนยันการลบ</DialogTitle>
+        <DialogTitle sx={{ color: "error.main" }}>
+          🗑️ Confirm Delete
+        </DialogTitle>
         <DialogContent>
           <Typography>
-            ต้องการลบผู้ใช้ <strong>{deleteTarget?.userId}</strong> ใช่หรือไม่?
+            Are you sure you want to delete user{" "}
+            <strong>{deleteTarget?.userId}</strong>?
           </Typography>
           <Typography variant="body2" color="text.secondary" mt={1}>
-            การลบจะไม่สามารถกู้คืนได้
+            This action cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setDeleteDialogOpen(false)} disabled={saving}>
-            ยกเลิก
+            Cancel
           </Button>
           <Button
             variant="contained"
@@ -388,7 +394,7 @@ const UserMasterPage = () => {
               saving ? <CircularProgress size={16} color="inherit" /> : null
             }
           >
-            {saving ? "กำลังลบ..." : "ลบ"}
+            {saving ? "Deleting..." : "Delete"}
           </Button>
         </DialogActions>
       </Dialog>

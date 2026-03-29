@@ -28,4 +28,12 @@ public partial class TbmFixtureAll
     public string? Platform { get; set; }
 
     public int? Leg { get; set; }
+
+    public int? HomeYellow { get; set; }
+
+    public int? HomeRed { get; set; }
+
+    public int? AwayYellow { get; set; }
+
+    public int? AwayRed { get; set; }
 }

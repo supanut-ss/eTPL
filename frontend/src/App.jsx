@@ -11,6 +11,7 @@ import UserMasterPage from "./pages/UserMasterPage";
 import PermissionPage from "./pages/PermissionPage";
 import FixturePage from "./pages/FixturePage";
 import StandingPage from "./pages/StandingPage";
+import PublicMatchesPage from "./pages/PublicMatchesPage";
 
 function App() {
   return (
@@ -23,16 +24,24 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<Navigate to="/main" replace />} />
 
-            {/* Protected — AppLayout เป็น parent, Outlet render child pages */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            >
+            {/* AppLayout wraps all app pages */}
+            <Route path="/" element={<AppLayout />}>
+              {/* Public — no login required */}
               <Route path="main" element={<MainPage />} />
+              <Route path="standings" element={<StandingPage />} />
+              <Route path="matches" element={<PublicMatchesPage />} />
+
+              {/* Login required */}
+              <Route
+                path="fixtures"
+                element={
+                  <ProtectedRoute>
+                    <FixturePage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Admin-only pages */}
               <Route
                 path="users"
                 element={
@@ -49,8 +58,6 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route path="fixtures" element={<FixturePage />} />
-              <Route path="standings" element={<StandingPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/main" replace />} />

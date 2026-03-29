@@ -17,28 +17,37 @@ import {
   MenuItem,
   Divider,
   Tooltip,
+  Button,
 } from "@mui/material";
 import {
   Menu as MenuIcon,
   Dashboard,
   People,
   Logout,
-  AccountCircle,
   Security,
   SportsSoccer,
   Leaderboard,
+  CalendarMonth,
+  LockReset,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
+import ChangePasswordDialog from "../ChangePasswordDialog";
 
 const DRAWER_WIDTH = 240;
 
 const navItems = [
   { label: "Dashboard", path: "/main", icon: <Dashboard /> },
-  { label: "ตารางแข่งขัน", path: "/fixtures", icon: <SportsSoccer /> },
-  { label: "ตารางคะแนน", path: "/standings", icon: <Leaderboard /> },
-  { label: "จัดการผู้ใช้", path: "/users", icon: <People />, adminOnly: true },
+  { label: "Standings", path: "/standings", icon: <Leaderboard /> },
+  { label: "Matches", path: "/matches", icon: <CalendarMonth /> },
   {
-    label: "จัดการสิทธิ์",
+    label: "Fixtures",
+    path: "/fixtures",
+    icon: <SportsSoccer />,
+    loginRequired: true,
+  },
+  { label: "Manage Users", path: "/users", icon: <People />, adminOnly: true },
+  {
+    label: "Permissions",
     path: "/permissions",
     icon: <Security />,
     adminOnly: true,
@@ -51,15 +60,23 @@ const AppLayout = () => {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
-  const filteredNav = navItems.filter(
-    (item) => !item.adminOnly || user?.userLevel === "admin",
-  );
+  const handleChangePassword = () => {
+    setAnchorEl(null);
+    setChangePasswordOpen(true);
+  };
+
+  const filteredNav = navItems.filter((item) => {
+    if (item.adminOnly && user?.userLevel !== "admin") return false;
+    if (item.loginRequired && !user) return false;
+    return true;
+  });
 
   const drawer = (
     <Box>
@@ -108,38 +125,91 @@ const AppLayout = () => {
             eTPL
           </Typography>
 
-          <Tooltip title={user?.username}>
-            <IconButton
-              onClick={(e) => setAnchorEl(e.currentTarget)}
-              color="inherit"
-            >
-              <Avatar
-                sx={{
-                  width: 32,
-                  height: 32,
-                  bgcolor: "secondary.main",
-                  fontSize: 14,
-                }}
+          {user ? (
+            <>
+              <Tooltip title={user?.userId}>
+                <IconButton
+                  onClick={(e) => setAnchorEl(e.currentTarget)}
+                  color="inherit"
+                >
+                  <Avatar
+                    src={user?.linePic || ""}
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      bgcolor: "secondary.main",
+                      fontSize: 14,
+                    }}
+                  >
+                    {!user?.linePic && user?.userId?.[0]?.toUpperCase()}
+                  </Avatar>
+                </IconButton>
+              </Tooltip>
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={() => setAnchorEl(null)}
               >
-                {user?.username?.[0]?.toUpperCase()}
-              </Avatar>
-            </IconButton>
-          </Tooltip>
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={() => setAnchorEl(null)}
-          >
-            <MenuItem disabled>
-              <AccountCircle sx={{ mr: 1 }} />
-              {user?.username} ({user?.role})
-            </MenuItem>
-            <Divider />
-            <MenuItem onClick={handleLogout}>
-              <Logout sx={{ mr: 1 }} fontSize="small" />
-              ออกจากระบบ
-            </MenuItem>
-          </Menu>
+                <MenuItem disabled>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                    <Avatar
+                      src={user?.linePic || ""}
+                      sx={{
+                        width: 36,
+                        height: 36,
+                        bgcolor: "secondary.main",
+                        fontSize: 14,
+                      }}
+                    >
+                      {!user?.linePic && user?.userId?.[0]?.toUpperCase()}
+                    </Avatar>
+                    <Box>
+                      <Typography
+                        variant="body2"
+                        fontWeight={600}
+                        lineHeight={1.2}
+                      >
+                        {user?.userId}
+                      </Typography>
+                      {user?.lineName && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          lineHeight={1.2}
+                        >
+                          {user.lineName}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                </MenuItem>
+                <Divider />
+                <MenuItem onClick={handleChangePassword}>
+                  <LockReset sx={{ mr: 1 }} fontSize="small" />
+                  Change Password
+                </MenuItem>
+                <MenuItem onClick={handleLogout}>
+                  <Logout sx={{ mr: 1 }} fontSize="small" />
+                  Logout
+                </MenuItem>
+              </Menu>
+              <ChangePasswordDialog
+                open={changePasswordOpen}
+                onClose={() => setChangePasswordOpen(false)}
+                user={user}
+              />
+            </>
+          ) : (
+            <Button
+              color="inherit"
+              variant="outlined"
+              size="small"
+              sx={{ borderColor: "rgba(255,255,255,0.5)", color: "white" }}
+              onClick={() => navigate("/login")}
+            >
+              Sign In
+            </Button>
+          )}
         </Toolbar>
       </AppBar>
 
@@ -180,6 +250,8 @@ const AppLayout = () => {
           p: 3,
           mt: 8,
           minHeight: "100vh",
+          maxHeight: "100vh",
+          overflowY: "auto",
           backgroundColor: "background.default",
         }}
       >

@@ -9,5 +9,6 @@ namespace eTPL.API.Services.Interfaces
         Task<UserDto> CreateAsync(CreateUserRequest request);
         Task<UserDto?> UpdateByUserIdAsync(string userId, UpdateUserRequest request);
         Task<bool> DeleteByUserIdAsync(string userId);
+        Task<bool> ChangePasswordAsync(string userId, ChangePasswordRequest request);
     }
 }

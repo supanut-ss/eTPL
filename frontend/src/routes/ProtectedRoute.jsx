@@ -18,6 +18,7 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     );
   }
 
+  // Admin-only pages: must be logged in AND have the right role
   if (!token || !user) {
     return <Navigate to="/login" replace />;
   }

@@ -27,10 +27,17 @@ import { useAuth } from "../store/AuthContext";
 import { getStandings } from "../api/standingApi";
 import { getFixtures } from "../api/fixtureApi";
 
-// แปลง ~/_image/... → https://thaipes.com/_image/...
-const resolveImage = (path) => {
-  if (!path) return "";
-  return path.replace(/^~\//, "https://thaipes.com/");
+// Build logo URL from teamName → /_image/CLUB_LOGO/{teamName}.png
+const getLogoUrl = (teamName) => {
+  if (!teamName) return "";
+  return `/_image/CLUB_LOGO/${encodeURIComponent(teamName)}.png`;
+};
+
+// Extract player name from parentheses, e.g. "AZ ALKMAAR (RREEF)" → "RREEF"
+const extractPlayer = (team) => {
+  if (!team) return "";
+  const match = team.match(/\(([^)]+)\)/);
+  return match ? match[1] : team;
 };
 
 const StatCard = ({ title, value, icon, color, borderColor }) => (
@@ -65,7 +72,7 @@ const MainPage = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // โหลด standings และ fixtures พร้อมกัน
+    // load standings and fixtures simultaneously
     Promise.all([getStandings(), getFixtures({})])
       .then(([sRes, fRes]) => {
         const sData = sRes.data.data || [];
@@ -75,10 +82,10 @@ const MainPage = () => {
         const fData = fRes.data.data || [];
         setFixtures(fData);
       })
-      .catch(() => setError("โหลดข้อมูลไม่สำเร็จ"));
+      .catch(() => setError("Failed to load data"));
   }, []);
 
-  // สถิติจาก fixtures
+  // stats from fixtures
   const totalMatches = fixtures.length;
   const playedMatches = fixtures.filter(
     (f) => f.homeScore != null && f.awayScore != null,
@@ -86,13 +93,13 @@ const MainPage = () => {
   const pendingMatches = totalMatches - playedMatches;
   const totalTeams = standings.length;
 
-  // Recent results: active=YES + มีผลการแข่ง, 5 ล่าสุด
+  // Recent results: active=YES + has result, latest 5
   const recentResults = fixtures
     .filter((f) => f.active === "YES" && f.homeScore != null)
     .slice(-5)
     .reverse();
 
-  // Upcoming: active=NO, 5 อันดับแรก
+  // Upcoming: active=NO, first 5
   const upcoming = fixtures.filter((f) => f.active === "NO").slice(0, 5);
 
   // Top 5 standings
@@ -107,7 +114,8 @@ const MainPage = () => {
           p: 3,
           mb: 3,
           borderRadius: 3,
-          background: "linear-gradient(135deg, #1565C0 0%, #1976D2 60%, #42A5F5 100%)",
+          background:
+            "linear-gradient(135deg, #1565C0 0%, #1976D2 60%, #42A5F5 100%)",
           color: "white",
           display: "flex",
           alignItems: "center",
@@ -126,16 +134,20 @@ const MainPage = () => {
         </Box>
         <Box textAlign="right">
           <Typography variant="body2" sx={{ opacity: 0.75 }}>
-            ยินดีต้อนรับ
+            Welcome
           </Typography>
           <Typography variant="h6" fontWeight={700}>
-            {user?.userId || user?.lineName || "ผู้ใช้"}
+            {user?.userId || user?.lineName || "User"}
           </Typography>
           {user?.userLevel && (
             <Chip
               label={user.userLevel === "admin" ? "Admin" : "Player"}
               size="small"
-              sx={{ bgcolor: "rgba(255,255,255,0.25)", color: "white", mt: 0.5 }}
+              sx={{
+                bgcolor: "rgba(255,255,255,0.25)",
+                color: "white",
+                mt: 0.5,
+              }}
             />
           )}
         </Box>
@@ -151,7 +163,7 @@ const MainPage = () => {
       <Grid container spacing={2} mb={3}>
         <Grid item xs={6} sm={3}>
           <StatCard
-            title="Matches ทั้งหมด"
+            title="Total Matches"
             value={totalMatches || "—"}
             icon={<SportsSoccer sx={{ fontSize: 40 }} />}
             color="primary.main"
@@ -177,7 +189,7 @@ const MainPage = () => {
         </Grid>
         <Grid item xs={6} sm={3}>
           <StatCard
-            title="ทีมทั้งหมด"
+            title="Total Teams"
             value={totalTeams || "—"}
             icon={<Groups sx={{ fontSize: 40 }} />}
             color="secondary.main"
@@ -201,7 +213,7 @@ const MainPage = () => {
             >
               <Leaderboard fontSize="small" />
               <Typography fontWeight={700} fontSize={15}>
-                ตารางคะแนน Top 5
+                Standings Top 5
               </Typography>
             </Box>
             <List dense disablePadding>
@@ -234,18 +246,20 @@ const MainPage = () => {
                       {idx + 1}
                     </Box>
                     <ListItemAvatar sx={{ minWidth: 40 }}>
-                      <Avatar
-                        src={resolveImage(team.image)}
-                        imgProps={{ referrerPolicy: "no-referrer" }}
-                        sx={{ width: 28, height: 28, bgcolor: "grey.200" }}
-                      >
-                        {!team.image && (team.teamName?.[0] || team.team?.[0])}
-                      </Avatar>
+                      <Box
+                        component="img"
+                        src={getLogoUrl(team.teamName)}
+                        alt={team.teamName}
+                        onError={(e) => {
+                          e.target.style.display = "none";
+                        }}
+                        sx={{ width: 28, height: 28, objectFit: "contain" }}
+                      />
                     </ListItemAvatar>
                     <ListItemText
                       primary={
                         <Typography fontSize={13} fontWeight={500} noWrap>
-                          {team.teamName || team.team}
+                          {extractPlayer(team.team)}
                         </Typography>
                       }
                     />
@@ -262,7 +276,7 @@ const MainPage = () => {
               {top5.length === 0 && (
                 <ListItem>
                   <Typography variant="body2" color="text.secondary">
-                    ยังไม่มีข้อมูล
+                    No data yet
                   </Typography>
                 </ListItem>
               )}
@@ -273,7 +287,10 @@ const MainPage = () => {
         {/* Recent Results + Upcoming */}
         <Grid item xs={12} md={7}>
           {/* Recent Results */}
-          <Paper elevation={2} sx={{ borderRadius: 2, overflow: "hidden", mb: 2 }}>
+          <Paper
+            elevation={2}
+            sx={{ borderRadius: 2, overflow: "hidden", mb: 2 }}
+          >
             <Box
               px={2}
               py={1.5}
@@ -285,7 +302,7 @@ const MainPage = () => {
             >
               <CheckCircle fontSize="small" />
               <Typography fontWeight={700} fontSize={15}>
-                ผลการแข่งขันล่าสุด
+                Recent Results
               </Typography>
             </Box>
             <List dense disablePadding>
@@ -300,13 +317,15 @@ const MainPage = () => {
                           gap={1}
                           flexWrap="wrap"
                         >
-                          <Avatar
-                            src={resolveImage(f.homeImage)}
-                            imgProps={{ referrerPolicy: "no-referrer" }}
-                            sx={{ width: 22, height: 22, bgcolor: "grey.200" }}
-                          >
-                            {!f.homeImage && f.home?.[0]}
-                          </Avatar>
+                          <Box
+                            component="img"
+                            src={getLogoUrl(f.homeTeamName)}
+                            alt={f.homeTeamName}
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                            }}
+                            sx={{ width: 22, height: 22, objectFit: "contain" }}
+                          />
                           <Typography fontSize={12} noWrap sx={{ flex: 1 }}>
                             {f.home}
                           </Typography>
@@ -316,16 +335,22 @@ const MainPage = () => {
                             color="default"
                             sx={{ fontWeight: 700, fontSize: 12, px: 0.5 }}
                           />
-                          <Typography fontSize={12} noWrap sx={{ flex: 1, textAlign: "right" }}>
+                          <Typography
+                            fontSize={12}
+                            noWrap
+                            sx={{ flex: 1, textAlign: "right" }}
+                          >
                             {f.away}
                           </Typography>
-                          <Avatar
-                            src={resolveImage(f.awayImage)}
-                            imgProps={{ referrerPolicy: "no-referrer" }}
-                            sx={{ width: 22, height: 22, bgcolor: "grey.200" }}
-                          >
-                            {!f.awayImage && f.away?.[0]}
-                          </Avatar>
+                          <Box
+                            component="img"
+                            src={getLogoUrl(f.awayTeamName)}
+                            alt={f.awayTeamName}
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                            }}
+                            sx={{ width: 22, height: 22, objectFit: "contain" }}
+                          />
                         </Box>
                       }
                     />
@@ -336,7 +361,7 @@ const MainPage = () => {
               {recentResults.length === 0 && (
                 <ListItem>
                   <Typography variant="body2" color="text.secondary">
-                    ยังไม่มีผลการแข่งขัน
+                    No results yet
                   </Typography>
                 </ListItem>
               )}
@@ -356,7 +381,7 @@ const MainPage = () => {
             >
               <HourglassBottom fontSize="small" />
               <Typography fontWeight={700} fontSize={15}>
-                การแข่งขันที่รอดำเนินการ
+                Upcoming Fixtures
               </Typography>
             </Box>
             <List dense disablePadding>
@@ -371,13 +396,15 @@ const MainPage = () => {
                           gap={1}
                           flexWrap="wrap"
                         >
-                          <Avatar
-                            src={resolveImage(f.homeImage)}
-                            imgProps={{ referrerPolicy: "no-referrer" }}
-                            sx={{ width: 22, height: 22, bgcolor: "grey.200" }}
-                          >
-                            {!f.homeImage && f.home?.[0]}
-                          </Avatar>
+                          <Box
+                            component="img"
+                            src={getLogoUrl(f.homeTeamName)}
+                            alt={f.homeTeamName}
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                            }}
+                            sx={{ width: 22, height: 22, objectFit: "contain" }}
+                          />
                           <Typography fontSize={12} noWrap sx={{ flex: 1 }}>
                             {f.home}
                           </Typography>
@@ -388,16 +415,22 @@ const MainPage = () => {
                           >
                             vs
                           </Typography>
-                          <Typography fontSize={12} noWrap sx={{ flex: 1, textAlign: "right" }}>
+                          <Typography
+                            fontSize={12}
+                            noWrap
+                            sx={{ flex: 1, textAlign: "right" }}
+                          >
                             {f.away}
                           </Typography>
-                          <Avatar
-                            src={resolveImage(f.awayImage)}
-                            imgProps={{ referrerPolicy: "no-referrer" }}
-                            sx={{ width: 22, height: 22, bgcolor: "grey.200" }}
-                          >
-                            {!f.awayImage && f.away?.[0]}
-                          </Avatar>
+                          <Box
+                            component="img"
+                            src={getLogoUrl(f.awayTeamName)}
+                            alt={f.awayTeamName}
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                            }}
+                            sx={{ width: 22, height: 22, objectFit: "contain" }}
+                          />
                         </Box>
                       }
                       secondary={
@@ -413,7 +446,7 @@ const MainPage = () => {
               {upcoming.length === 0 && (
                 <ListItem>
                   <Typography variant="body2" color="text.secondary">
-                    ไม่มีการแข่งขันที่รอดำเนินการ
+                    No upcoming fixtures
                   </Typography>
                 </ListItem>
               )}

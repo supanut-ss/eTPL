@@ -39,9 +39,7 @@ const LoginPage = () => {
       login(res.data.data.token, res.data.data.user);
       navigate("/main");
     } catch (err) {
-      setError(
-        err.response?.data?.message || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
-      );
+      setError(err.response?.data?.message || "Invalid username or password");
     } finally {
       setLoading(false);
     }
@@ -63,7 +61,7 @@ const LoginPage = () => {
               eTPL
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              เข้าสู่ระบบ
+              Sign In
             </Typography>
           </Box>
 
@@ -90,7 +88,7 @@ const LoginPage = () => {
               autoFocus
             />
             <TextField
-              label="รหัสผ่าน"
+              label="Password"
               name="password"
               type={showPassword ? "text" : "password"}
               value={form.password}
@@ -121,7 +119,7 @@ const LoginPage = () => {
               {loading ? (
                 <CircularProgress size={24} color="inherit" />
               ) : (
-                "เข้าสู่ระบบ"
+                "Sign In"
               )}
             </Button>
           </Box>

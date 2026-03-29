@@ -214,6 +214,10 @@ public partial class ScaffoldedDbContext : DbContext
                 .HasMaxLength(10)
                 .HasColumnName("PLATFORM");
             entity.Property(e => e.Season).HasColumnName("SEASON");
+            entity.Property(e => e.HomeYellow).HasColumnName("home_yellow");
+            entity.Property(e => e.HomeRed).HasColumnName("home_red");
+            entity.Property(e => e.AwayYellow).HasColumnName("away_yellow");
+            entity.Property(e => e.AwayRed).HasColumnName("away_red");
         });
 
         modelBuilder.Entity<TblLeave>(entity =>
@@ -341,6 +345,10 @@ public partial class ScaffoldedDbContext : DbContext
                 .HasMaxLength(10)
                 .HasColumnName("PLATFORM");
             entity.Property(e => e.Season).HasColumnName("SEASON");
+            entity.Property(e => e.HomeYellow).HasColumnName("home_yellow");
+            entity.Property(e => e.HomeRed).HasColumnName("home_red");
+            entity.Property(e => e.AwayYellow).HasColumnName("away_yellow");
+            entity.Property(e => e.AwayRed).HasColumnName("away_red");
         });
 
         modelBuilder.Entity<TbmHof>(entity =>
@@ -497,6 +505,8 @@ public partial class ScaffoldedDbContext : DbContext
             entity.Property(e => e.Team)
                 .HasMaxLength(50)
                 .HasColumnName("TEAM");
+            entity.Property(e => e.Yellow).HasColumnName("yellow");
+            entity.Property(e => e.Red).HasColumnName("red");
         });
 
         modelBuilder.Entity<VCurrentTeam>(entity =>

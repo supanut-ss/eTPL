@@ -34,4 +34,8 @@ public partial class TbtResult
     public string? FixtureId { get; set; }
 
     public string? Platform { get; set; }
+
+    public int? Yellow { get; set; }
+
+    public int? Red { get; set; }
 }

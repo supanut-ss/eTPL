@@ -1,24 +1,54 @@
 import { useState, useEffect } from "react";
-import {
-  Box,
-  Paper,
-  Typography,
-  Avatar,
-  Chip,
-  Alert,
-  CircularProgress,
-} from "@mui/material";
+import { Box, Paper, Typography, Alert, CircularProgress } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
-import { Leaderboard } from "@mui/icons-material";
+import { Leaderboard, SquareRounded } from "@mui/icons-material";
 import { getStandings } from "../api/standingApi";
 
-// แปลง ~/_image/... → https://thaipes.com/_image/...
-const resolveImage = (path) => {
-  if (!path) return "";
-  return path.replace(/^~\//, "https://thaipes.com/");
+// Build logo URL from teamName → /_image/CLUB_LOGO/{teamName}.png
+const getLogoUrl = (teamName) => {
+  if (!teamName) return "";
+  return `/_image/CLUB_LOGO/${encodeURIComponent(teamName)}.png`;
 };
 
-// เหรียญ Rank 1/2/3
+// Extract player name from parentheses, e.g. "AZ ALKMAAR (RREEF)" → "RREEF"
+const extractPlayer = (team) => {
+  if (!team) return "";
+  const match = team.match(/\(([^)]+)\)/);
+  return match ? match[1] : team;
+};
+
+// Form dot badges from "W W D L W"
+const FormBadges = ({ last }) => {
+  if (!last) return null;
+  const results = last.trim().split(/\s+/);
+  const colorMap = { W: "#4caf50", D: "#ff9800", L: "#f44336" };
+  return (
+    <Box display="flex" alignItems="center" gap={0.5}>
+      {results.map((r, i) => (
+        <Box
+          key={i}
+          title={r === "W" ? "Win" : r === "D" ? "Draw" : "Loss"}
+          sx={{
+            width: 22,
+            height: 22,
+            borderRadius: "50%",
+            bgcolor: colorMap[r] || "grey.400",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white",
+            fontWeight: 700,
+            fontSize: 10,
+            flexShrink: 0,
+          }}
+        >
+          {r}
+        </Box>
+      ))}
+    </Box>
+  );
+};
+
 const RankBadge = ({ rank }) => {
   const colors = {
     1: "#FFD700",
@@ -57,7 +87,7 @@ const columns = [
   {
     field: "rank",
     headerName: "#",
-    width: 60,
+    width: 52,
     sortable: false,
     align: "center",
     headerAlign: "center",
@@ -65,45 +95,49 @@ const columns = [
   },
   {
     field: "teamName",
-    headerName: "ทีม",
+    headerName: "Team",
     flex: 1,
-    minWidth: 180,
+    minWidth: 130,
     sortable: false,
     renderCell: ({ row }) => (
-      <Box display="flex" alignItems="center" gap={1} sx={{ minWidth: 0 }}>
-        <Avatar
-          src={resolveImage(row.image)}
-          imgProps={{ referrerPolicy: "no-referrer" }}
-          sx={{ width: 30, height: 30, bgcolor: "grey.200", flexShrink: 0 }}
-        >
-          {!row.image && (row.teamName?.[0] || row.team?.[0])}
-        </Avatar>
-        <Typography fontSize={13} fontWeight={500} noWrap>
-          {row.teamName || row.team}
-        </Typography>
+      <Box display="flex" alignItems="center" gap={1.5} sx={{ minWidth: 0 }}>
+        <Box
+          component="img"
+          src={getLogoUrl(row.teamName)}
+          alt={row.teamName}
+          onError={(e) => {
+            e.target.style.display = "none";
+          }}
+          sx={{ width: 34, height: 34, objectFit: "contain", flexShrink: 0 }}
+        />
+        <Box sx={{ minWidth: 0 }}>
+          <Typography fontSize={16} fontWeight={600} noWrap>
+            {extractPlayer(row.team)}
+          </Typography>
+        </Box>
       </Box>
     ),
   },
   {
     field: "pl",
     headerName: "P",
-    width: 55,
+    width: 64,
     align: "center",
     headerAlign: "center",
     sortable: false,
     renderCell: ({ value }) => (
-      <Typography fontSize={13}>{value ?? 0}</Typography>
+      <Typography fontSize={16}>{value ?? 0}</Typography>
     ),
   },
   {
     field: "w",
     headerName: "W",
-    width: 55,
+    width: 64,
     align: "center",
     headerAlign: "center",
     sortable: false,
     renderCell: ({ value }) => (
-      <Typography fontSize={13} color="success.main" fontWeight={600}>
+      <Typography fontSize={16} color="success.main" fontWeight={600}>
         {value ?? 0}
       </Typography>
     ),
@@ -111,12 +145,12 @@ const columns = [
   {
     field: "d",
     headerName: "D",
-    width: 55,
+    width: 64,
     align: "center",
     headerAlign: "center",
     sortable: false,
     renderCell: ({ value }) => (
-      <Typography fontSize={13} color="text.secondary">
+      <Typography fontSize={16} color="text.secondary">
         {value ?? 0}
       </Typography>
     ),
@@ -124,12 +158,12 @@ const columns = [
   {
     field: "l",
     headerName: "L",
-    width: 55,
+    width: 64,
     align: "center",
     headerAlign: "center",
     sortable: false,
     renderCell: ({ value }) => (
-      <Typography fontSize={13} color="error.main" fontWeight={600}>
+      <Typography fontSize={16} color="error.main" fontWeight={600}>
         {value ?? 0}
       </Typography>
     ),
@@ -137,29 +171,29 @@ const columns = [
   {
     field: "gf",
     headerName: "GF",
-    width: 60,
+    width: 68,
     align: "center",
     headerAlign: "center",
     sortable: false,
     renderCell: ({ value }) => (
-      <Typography fontSize={13}>{value ?? 0}</Typography>
+      <Typography fontSize={16}>{value ?? 0}</Typography>
     ),
   },
   {
     field: "ga",
     headerName: "GA",
-    width: 60,
+    width: 68,
     align: "center",
     headerAlign: "center",
     sortable: false,
     renderCell: ({ value }) => (
-      <Typography fontSize={13}>{value ?? 0}</Typography>
+      <Typography fontSize={16}>{value ?? 0}</Typography>
     ),
   },
   {
     field: "gd",
     headerName: "GD",
-    width: 65,
+    width: 72,
     align: "center",
     headerAlign: "center",
     sortable: false,
@@ -167,11 +201,13 @@ const columns = [
       const num = value ?? 0;
       return (
         <Typography
-          fontSize={13}
+          fontSize={16}
           fontWeight={600}
-          color={num > 0 ? "success.main" : num < 0 ? "error.main" : "text.secondary"}
+          color={
+            num > 0 ? "success.main" : num < 0 ? "error.main" : "text.secondary"
+          }
         >
-          {num > 0 ? `+${num}` : num}
+          {num}
         </Typography>
       );
     },
@@ -179,17 +215,55 @@ const columns = [
   {
     field: "pts",
     headerName: "Pts",
-    width: 70,
+    width: 72,
     align: "center",
     headerAlign: "center",
     sortable: false,
     renderCell: ({ value }) => (
-      <Chip
-        label={value ?? 0}
-        size="small"
-        color="primary"
-        sx={{ fontWeight: 700, minWidth: 36 }}
-      />
+      <Typography fontSize={16} fontWeight={700} color="secondary.main">
+        {value ?? 0}
+      </Typography>
+    ),
+  },
+  {
+    field: "last",
+    headerName: "Form",
+    width: 150,
+    sortable: false,
+    align: "center",
+    headerAlign: "center",
+    renderCell: ({ value }) => <FormBadges last={value} />,
+  },
+  {
+    field: "totalYellow",
+    headerName: "YC",
+    width: 60,
+    sortable: false,
+    align: "center",
+    headerAlign: "center",
+    renderCell: ({ value }) => (
+      <Box display="flex" alignItems="center" gap={0.5}>
+        <SquareRounded sx={{ color: "#f59e0b", fontSize: 14 }} />
+        <Typography fontSize={15} fontWeight={600}>
+          {value ?? 0}
+        </Typography>
+      </Box>
+    ),
+  },
+  {
+    field: "totalRed",
+    headerName: "RC",
+    width: 60,
+    sortable: false,
+    align: "center",
+    headerAlign: "center",
+    renderCell: ({ value }) => (
+      <Box display="flex" alignItems="center" gap={0.5}>
+        <SquareRounded sx={{ color: "#ef4444", fontSize: 14 }} />
+        <Typography fontSize={15} fontWeight={600}>
+          {value ?? 0}
+        </Typography>
+      </Box>
     ),
   },
 ];
@@ -206,12 +280,15 @@ const StandingPage = () => {
     getStandings()
       .then((res) => {
         const data = res.data.data || [];
-        // เพิ่ม rank
-        const ranked = data.map((item, index) => ({ ...item, rank: index + 1 }));
+        // add rank
+        const ranked = data.map((item, index) => ({
+          ...item,
+          rank: index + 1,
+        }));
         setRows(ranked);
         if (ranked.length > 0) setSeason(ranked[0].season || "");
       })
-      .catch(() => setError("โหลดข้อมูลตารางคะแนนไม่สำเร็จ"))
+      .catch(() => setError("Failed to load standings"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -222,7 +299,7 @@ const StandingPage = () => {
         <Leaderboard color="primary" sx={{ fontSize: 32 }} />
         <Box>
           <Typography variant="h5" fontWeight="bold">
-            ตารางคะแนน
+            Standings
           </Typography>
           <Typography variant="body2" color="text.secondary">
             PC · D1{season ? ` · Season ${season}` : ""}
@@ -238,7 +315,12 @@ const StandingPage = () => {
 
       <Paper elevation={2} sx={{ borderRadius: 2, overflow: "hidden" }}>
         {loading ? (
-          <Box display="flex" justifyContent="center" alignItems="center" py={6}>
+          <Box
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            py={6}
+          >
             <CircularProgress />
           </Box>
         ) : (
@@ -249,23 +331,15 @@ const StandingPage = () => {
             hideFooter
             disableRowSelectionOnClick
             disableColumnMenu
-            rowHeight={52}
+            rowHeight={56}
             sx={{
               border: "none",
-              "& .MuiDataGrid-columnHeaders": {
-                bgcolor: "primary.main",
-                color: "primary.contrastText",
-                fontWeight: 700,
-              },
-              "& .MuiDataGrid-columnHeader": {
-                bgcolor: "primary.main",
+              "& .MuiDataGrid-cell": {
+                display: "flex",
+                alignItems: "center",
               },
               "& .MuiDataGrid-row:nth-of-type(even)": {
-                bgcolor: "action.hover",
-              },
-              "& .MuiDataGrid-cell": {
-                borderBottom: "1px solid",
-                borderColor: "divider",
+                bgcolor: "#fafafa",
               },
             }}
           />
@@ -273,7 +347,13 @@ const StandingPage = () => {
       </Paper>
 
       {/* Footer */}
-      <Typography variant="caption" color="text.secondary" mt={2} display="block" textAlign="right">
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        mt={2}
+        display="block"
+        textAlign="right"
+      >
         PC · D1{season ? ` · Season ${season}` : ""}
       </Typography>
     </Box>

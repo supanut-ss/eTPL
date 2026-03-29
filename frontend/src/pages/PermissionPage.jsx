@@ -21,14 +21,22 @@ import {
 import { Security, Save, Info } from "@mui/icons-material";
 import { getPermissions, updatePermissions } from "../api/permissionApi";
 
-// รายการ menus ที่ตรงกับ backend PermissionService.AllMenus
+// List of menus matching backend PermissionService.AllMenus
 const ALL_MENUS = [
-  { key: "dashboard", label: "Dashboard", description: "หน้าหลัก/ภาพรวมระบบ" },
-  { key: "users", label: "จัดการผู้ใช้", description: "เพิ่ม แก้ไข ลบ user" },
+  {
+    key: "dashboard",
+    label: "Dashboard",
+    description: "Home / System overview",
+  },
+  {
+    key: "users",
+    label: "Manage Users",
+    description: "Add, edit, delete users",
+  },
   {
     key: "permissions",
-    label: "จัดการสิทธิ์",
-    description: "กำหนดสิทธิ์การเข้าถึงเมนู",
+    label: "Permissions",
+    description: "Define menu access permissions",
   },
 ];
 
@@ -39,7 +47,7 @@ const LEVEL_COLORS = {
   user: "default",
 };
 
-// admin กับ dashboard lock ไว้ ห้ามแก้
+// admin and dashboard are locked, cannot be edited
 const isLocked = (menuKey, userLevel) =>
   menuKey === "dashboard" ||
   (menuKey === "permissions" && userLevel === "admin") ||
@@ -69,7 +77,7 @@ const PermissionPage = () => {
       perms.forEach((p) => {
         map[buildKey(p.menuKey, p.userLevel)] = p.canAccess;
       });
-      // ถ้ายังไม่มีข้อมูล seed default
+      // if no data yet, seed defaults
       ALL_MENUS.forEach(({ key }) => {
         ALL_LEVELS.forEach((level) => {
           const k = buildKey(key, level);
@@ -80,7 +88,7 @@ const PermissionPage = () => {
       });
       setMatrix(map);
     } catch {
-      showSnackbar("โหลดข้อมูลสิทธิ์ไม่สำเร็จ", "error");
+      showSnackbar("Failed to load permissions", "error");
     } finally {
       setLoading(false);
     }
@@ -110,9 +118,9 @@ const PermissionPage = () => {
         });
       });
       await updatePermissions(permissions);
-      showSnackbar("บันทึกสิทธิ์สำเร็จ ✅");
+      showSnackbar("Permissions saved ✅");
     } catch {
-      showSnackbar("บันทึกไม่สำเร็จ", "error");
+      showSnackbar("Save failed", "error");
     } finally {
       setSaving(false);
     }
@@ -130,7 +138,7 @@ const PermissionPage = () => {
         <Box display="flex" alignItems="center" gap={1}>
           <Security color="primary" />
           <Typography variant="h5" fontWeight="bold">
-            จัดการสิทธิ์การเข้าถึง
+            Access Permissions
           </Typography>
         </Box>
         <Button
@@ -141,14 +149,13 @@ const PermissionPage = () => {
           onClick={handleSave}
           disabled={saving || loading}
         >
-          {saving ? "กำลังบันทึก..." : "บันทึกสิทธิ์"}
+          {saving ? "Saving..." : "Save Permissions"}
         </Button>
       </Box>
 
       <Alert severity="info" sx={{ mb: 3 }} icon={<Info />}>
-        <strong>หมายเหตุ:</strong> Dashboard เข้าได้ทุก Level • Admin
-        เข้าได้ทุกเมนูที่ล็อกไว้ • การเปลี่ยนแปลงจะมีผลเมื่อ user login
-        ครั้งถัดไป
+        <strong>Note:</strong> Dashboard is accessible by all levels • Admin can
+        access all locked menus • Changes take effect on the user's next login
       </Alert>
 
       {/* Permission Matrix Table */}
@@ -168,7 +175,7 @@ const PermissionPage = () => {
               <TableHead>
                 <TableRow sx={{ bgcolor: "grey.50" }}>
                   <TableCell sx={{ fontWeight: 700, width: 260 }}>
-                    เมนู
+                    Menu
                   </TableCell>
                   {ALL_LEVELS.map((level) => (
                     <TableCell
@@ -211,10 +218,10 @@ const PermissionPage = () => {
                           <Tooltip
                             title={
                               locked
-                                ? "ค่าตายตัว ไม่สามารถเปลี่ยนได้"
+                                ? "Fixed value, cannot be changed"
                                 : checked
-                                  ? "คลิกเพื่อปิดสิทธิ์"
-                                  : "คลิกเพื่อเปิดสิทธิ์"
+                                  ? "Click to disable"
+                                  : "Click to enable"
                             }
                           >
                             <span>
@@ -249,16 +256,16 @@ const PermissionPage = () => {
         >
           <Box display="flex" alignItems="center" gap={0.5}>
             <Checkbox checked disabled size="small" />
-            <Typography variant="caption">เข้าถึงได้</Typography>
+            <Typography variant="caption">Accessible</Typography>
           </Box>
           <Box display="flex" alignItems="center" gap={0.5}>
             <Checkbox checked={false} disabled size="small" />
-            <Typography variant="caption">ไม่มีสิทธิ์</Typography>
+            <Typography variant="caption">No access</Typography>
           </Box>
           <Box display="flex" alignItems="center" gap={0.5}>
             <Checkbox checked disabled size="small" sx={{ opacity: 0.5 }} />
             <Typography variant="caption" color="text.secondary">
-              ล็อก (ไม่สามารถเปลี่ยนได้)
+              Locked (cannot be changed)
             </Typography>
           </Box>
         </Box>

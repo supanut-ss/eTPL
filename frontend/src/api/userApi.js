@@ -8,3 +8,5 @@ export const updateUser = (userId, data) =>
   axiosInstance.put(`/api/users/${userId}`, data);
 export const deleteUser = (userId) =>
   axiosInstance.delete(`/api/users/${userId}`);
+export const changePassword = (data) =>
+  axiosInstance.post("/api/users/change-password", data);
