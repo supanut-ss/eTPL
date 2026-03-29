@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using eTPL.API.Data;
@@ -13,11 +14,13 @@ namespace eTPL.API.Services
     {
         private readonly MsSqlDbContext _db;
         private readonly IConfiguration _config;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public AuthService(MsSqlDbContext db, IConfiguration config)
+        public AuthService(MsSqlDbContext db, IConfiguration config, IHttpClientFactory httpClientFactory)
         {
             _db = db;
             _config = config;
+            _httpClientFactory = httpClientFactory;
         }
 
         public async Task<LoginResponse?> LoginAsync(LoginRequest request)
@@ -33,6 +36,78 @@ namespace eTPL.API.Services
             return new LoginResponse
             {
                 Token = token,
+                User = new UserDto
+                {
+                    UserId = user.UserId,
+                    UserLevel = user.UserLevel,
+                    LineId = user.LineId,
+                    LinePic = user.LinePic,
+                    LineName = user.LineName,
+                }
+            };
+        }
+
+        public async Task<LoginResponse?> LineLoginAsync(LineLoginRequest request)
+        {
+            var channelId = _config["Line:ChannelId"] ?? throw new InvalidOperationException("LINE Channel ID not configured");
+            var channelSecret = _config["Line:ChannelSecret"] ?? throw new InvalidOperationException("LINE Channel Secret not configured");
+
+            var httpClient = _httpClientFactory.CreateClient();
+
+            // Exchange authorization code for access token
+            var tokenResponse = await httpClient.PostAsync(
+                "https://api.line.me/oauth2/v2.1/token",
+                new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["grant_type"] = "authorization_code",
+                    ["code"] = request.Code,
+                    ["redirect_uri"] = request.RedirectUri,
+                    ["client_id"] = channelId,
+                    ["client_secret"] = channelSecret,
+                })
+            );
+
+            if (!tokenResponse.IsSuccessStatusCode)
+                return null;
+
+            var tokenJson = await tokenResponse.Content.ReadAsStringAsync();
+            var tokenData = JsonSerializer.Deserialize<JsonElement>(tokenJson);
+            if (!tokenData.TryGetProperty("access_token", out var accessTokenElement))
+                return null;
+
+            var accessToken = accessTokenElement.GetString();
+            if (string.IsNullOrEmpty(accessToken))
+                return null;
+
+            // Get LINE user profile
+            httpClient.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+            var profileResponse = await httpClient.GetAsync("https://api.line.me/v2/profile");
+            if (!profileResponse.IsSuccessStatusCode)
+                return null;
+
+            var profileJson = await profileResponse.Content.ReadAsStringAsync();
+            var profile = JsonSerializer.Deserialize<JsonElement>(profileJson);
+            if (!profile.TryGetProperty("userId", out var lineUserIdElement))
+                return null;
+
+            var lineUserId = lineUserIdElement.GetString();
+            if (string.IsNullOrEmpty(lineUserId))
+                return null;
+
+            // Look up user by line_id
+            var user = await _db.Users
+                .FirstOrDefaultAsync(u => u.LineId == lineUserId);
+
+            if (user == null)
+                return null;
+
+            var jwtToken = GenerateJwtToken(user);
+
+            return new LoginResponse
+            {
+                Token = jwtToken,
                 User = new UserDto
                 {
                     UserId = user.UserId,
