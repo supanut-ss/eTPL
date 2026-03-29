@@ -29,6 +29,7 @@ import {
   CalendarMonth,
   LockReset,
   Login,
+  Campaign,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -50,6 +51,12 @@ const navItems = [
     label: "Permissions",
     path: "/permissions",
     icon: <Security />,
+    adminOnly: true,
+  },
+  {
+    label: "Announcements",
+    path: "/announcements",
+    icon: <Campaign />,
     adminOnly: true,
   },
 ];

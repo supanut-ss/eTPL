@@ -9,6 +9,7 @@ import LoginPage from "./pages/LoginPage";
 import MainPage from "./pages/MainPage";
 import UserMasterPage from "./pages/UserMasterPage";
 import PermissionPage from "./pages/PermissionPage";
+import AnnouncementPage from "./pages/AnnouncementPage";
 import FixturePage from "./pages/FixturePage";
 import StandingPage from "./pages/StandingPage";
 import PublicMatchesPage from "./pages/PublicMatchesPage";
@@ -55,6 +56,14 @@ function App() {
                 element={
                   <ProtectedRoute requiredRole="admin">
                     <PermissionPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="announcements"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AnnouncementPage />
                   </ProtectedRoute>
                 }
               />

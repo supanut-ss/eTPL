@@ -21,10 +21,13 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
+    const requestUrl = error.config?.url || "";
+    const isLoginRequest = requestUrl.includes("/api/auth/login");
+
     if (error.response?.status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      if (window.location.pathname !== "/main") {
+      if (!isLoginRequest && window.location.pathname !== "/main") {
         window.location.href = "/main";
       }
     }

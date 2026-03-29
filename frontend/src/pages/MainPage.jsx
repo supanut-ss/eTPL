@@ -29,6 +29,7 @@ import {
   getPublicFixtures,
   getPublicLastFixtures,
 } from "../api/fixtureApi";
+import { getPublicAnnouncements } from "../api/announcementApi";
 import { getUsers } from "../api/userApi";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -189,16 +190,13 @@ const panelSx = {
 
 const DASHBOARD_ROW_HEIGHT = 56;
 
-// ─── announcements (add items here to show on dashboard) ─────────────────────
-const ANNOUNCEMENTS = [
-  // { id: 1, title: "Season 10 starts!", body: "Season 10 kicks off this week!", date: "2026-03-29", tag: "news" },
-];
-
 const MainPage = () => {
   const { user } = useAuth();
   const [standings, setStandings] = useState([]);
   const [fixtures, setFixtures] = useState([]);
   const [lastFixtures, setLastFixtures] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementIndex, setAnnouncementIndex] = useState(0);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -206,14 +204,21 @@ const MainPage = () => {
   useEffect(() => {
     setLoading(true);
     const fixtureRequest = user ? getFixtures({}) : getPublicFixtures();
-    const requests = [getStandings(), fixtureRequest, getPublicLastFixtures()];
-    if (user) requests.push(getUsers());
+    const userRequest = user ? getUsers() : Promise.resolve(null);
+    const requests = [
+      getStandings(),
+      fixtureRequest,
+      getPublicLastFixtures(),
+      getPublicAnnouncements(),
+      userRequest,
+    ];
 
     Promise.all(requests)
-      .then(([sRes, fRes, lastRes, uRes]) => {
+      .then(([sRes, fRes, lastRes, aRes, uRes]) => {
         setStandings(sRes.data.data || []);
         setFixtures(fRes.data.data || []);
         setLastFixtures(lastRes.data.data || []);
+        setAnnouncements(aRes.data.data || []);
         if (uRes) {
           setMembers(uRes.data.data || []);
         }
@@ -221,6 +226,20 @@ const MainPage = () => {
       .catch(() => setError("Failed to load dashboard data"))
       .finally(() => setLoading(false));
   }, [user]);
+
+  useEffect(() => {
+    setAnnouncementIndex(0);
+  }, [announcements]);
+
+  useEffect(() => {
+    if (announcements.length <= 1) return undefined;
+
+    const timerId = setInterval(() => {
+      setAnnouncementIndex((prev) => (prev + 1) % announcements.length);
+    }, 4500);
+
+    return () => clearInterval(timerId);
+  }, [announcements]);
 
   const season = standings[0]?.season || "";
 
@@ -237,6 +256,7 @@ const MainPage = () => {
   }));
 
   const recentMatches = (lastFixtures || []).slice(0, 10);
+  const activeAnnouncement = announcements[announcementIndex] || null;
 
   const sortedMembers = members
     .filter((member) => member.userLevel !== "admin")
@@ -441,7 +461,7 @@ const MainPage = () => {
         />
 
         <Box p={{ xs: 2, sm: 2.5 }}>
-          {ANNOUNCEMENTS.length === 0 ? (
+          {announcements.length === 0 ? (
             <Box
               display="flex"
               alignItems="center"
@@ -460,7 +480,7 @@ const MainPage = () => {
               </Box>
               {user?.userLevel === "admin" && (
                 <Typography variant="caption" color="text.disabled">
-                  Add announcements in `ANNOUNCEMENTS` inside MainPage.
+                  Add announcements from the Announcements admin page.
                 </Typography>
               )}
             </Box>
@@ -468,16 +488,12 @@ const MainPage = () => {
             <Box
               sx={{
                 display: "grid",
-                gridTemplateColumns: {
-                  xs: "1fr",
-                  md: "repeat(2, minmax(0, 1fr))",
-                },
                 gap: 2,
               }}
             >
-              {ANNOUNCEMENTS.map((notice) => (
+              {activeAnnouncement && (
                 <Box
-                  key={notice.id}
+                  key={activeAnnouncement.id}
                   sx={{
                     p: 2,
                     borderRadius: 3,
@@ -486,22 +502,55 @@ const MainPage = () => {
                     bgcolor: "rgba(248,250,252,0.9)",
                   }}
                 >
-                  <Typography fontSize={13} fontWeight={700}>
-                    {notice.title}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" mt={0.5}>
-                    {notice.body}
+                  <Typography
+                    variant="body2"
+                    color="text.primary"
+                    sx={{ whiteSpace: "pre-wrap" }}
+                  >
+                    {activeAnnouncement.announcement}
                   </Typography>
                   <Typography
                     variant="caption"
-                    color="text.disabled"
-                    mt={1}
+                    color="text.secondary"
+                    mt={1.25}
                     display="block"
                   >
-                    {notice.date}
+                    by {activeAnnouncement.announcer || "system"}
+                    {activeAnnouncement.createDate
+                      ? ` • ${formatMatchDate(activeAnnouncement.createDate)}`
+                      : ""}
                   </Typography>
                 </Box>
-              ))}
+              )}
+
+              {announcements.length > 1 && (
+                <Box
+                  display="flex"
+                  alignItems="center"
+                  gap={0.75}
+                  flexWrap="wrap"
+                >
+                  <Typography variant="caption" color="text.secondary" mr={0.5}>
+                    Rotating messages:
+                  </Typography>
+                  {announcements.map((item, index) => (
+                    <Box
+                      key={item.id}
+                      onClick={() => setAnnouncementIndex(index)}
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        cursor: "pointer",
+                        bgcolor:
+                          index === announcementIndex
+                            ? "primary.main"
+                            : "grey.400",
+                      }}
+                    />
+                  ))}
+                </Box>
+              )}
             </Box>
           )}
         </Box>
