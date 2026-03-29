@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import {
-  Grid,
   Card,
   CardContent,
   Typography,
@@ -20,11 +19,16 @@ import {
   HourglassBottom,
   Groups,
   Campaign,
-  Shield,
+  Login,
+  TrendingUp,
 } from "@mui/icons-material";
 import { useAuth } from "../store/AuthContext";
 import { getStandings } from "../api/standingApi";
-import { getFixtures } from "../api/fixtureApi";
+import {
+  getFixtures,
+  getPublicFixtures,
+  getPublicLastFixtures,
+} from "../api/fixtureApi";
 import { getUsers } from "../api/userApi";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -37,6 +41,17 @@ const extractPlayer = (team) => {
   if (!team) return "";
   const match = team.match(/\(([^)]+)\)/);
   return match ? match[1] : team;
+};
+
+const formatMatchDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "2-digit",
+  });
 };
 
 // ─── form badges ─────────────────────────────────────────────────────────────
@@ -162,6 +177,18 @@ const SectionHeader = ({ icon, title, color = "#0f172a" }) => (
   </Box>
 );
 
+const panelSx = {
+  borderRadius: 4,
+  overflow: "hidden",
+  border: "1px solid",
+  borderColor: "divider",
+  bgcolor: "rgba(255,255,255,0.88)",
+  backdropFilter: "blur(10px)",
+  boxShadow: "0 18px 45px -30px rgba(15, 23, 42, 0.35)",
+};
+
+const DASHBOARD_ROW_HEIGHT = 56;
+
 // ─── announcements (add items here to show on dashboard) ─────────────────────
 const ANNOUNCEMENTS = [
   // { id: 1, title: "Season 10 starts!", body: "Season 10 kicks off this week!", date: "2026-03-29", tag: "news" },
@@ -171,19 +198,22 @@ const MainPage = () => {
   const { user } = useAuth();
   const [standings, setStandings] = useState([]);
   const [fixtures, setFixtures] = useState([]);
+  const [lastFixtures, setLastFixtures] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     setLoading(true);
-    const requests = [getStandings(), getFixtures({})];
+    const fixtureRequest = user ? getFixtures({}) : getPublicFixtures();
+    const requests = [getStandings(), fixtureRequest, getPublicLastFixtures()];
     if (user) requests.push(getUsers());
 
     Promise.all(requests)
-      .then(([sRes, fRes, uRes]) => {
+      .then(([sRes, fRes, lastRes, uRes]) => {
         setStandings(sRes.data.data || []);
         setFixtures(fRes.data.data || []);
+        setLastFixtures(lastRes.data.data || []);
         if (uRes) {
           setMembers(uRes.data.data || []);
         }
@@ -206,31 +236,29 @@ const MainPage = () => {
     rank: index + 1,
   }));
 
-  const recentMatches = fixtures
-    .filter((f) => f.homeScore != null && f.awayScore != null)
-    .slice(-10)
-    .reverse();
+  const recentMatches = (lastFixtures || []).slice(0, 10);
 
-  const sortedMembers = [...members].sort((a, b) => {
-    if (a.userLevel === "admin" && b.userLevel !== "admin") return -1;
-    if (a.userLevel !== "admin" && b.userLevel === "admin") return 1;
-    return (a.userId || "").localeCompare(b.userId || "");
-  });
+  const sortedMembers = members
+    .filter((member) => member.userLevel !== "admin")
+    .sort((a, b) => {
+      return (a.userId || "").localeCompare(b.userId || "");
+    });
 
   return (
-    <Box>
+    <Box sx={{ width: "100%" }}>
       <Paper
         elevation={0}
         sx={{
-          p: { xs: 2.5, sm: 3 },
+          p: { xs: 2.5, sm: 3, md: 4 },
           mb: 3,
-          borderRadius: 3,
+          borderRadius: 5,
           background:
             "linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%)",
           color: "white",
           position: "relative",
           overflow: "hidden",
           border: "1px solid rgba(255,255,255,0.06)",
+          minHeight: { xs: "auto", md: 250 },
         }}
       >
         <Box
@@ -258,53 +286,100 @@ const MainPage = () => {
           }}
         />
 
-        <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              md: "minmax(0, 1.5fr) minmax(320px, 0.9fr)",
+            },
+            gap: { xs: 2, md: 3 },
+            alignItems: "stretch",
+          }}
+        >
+          <Box>
+            <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
+              <Box
+                sx={{
+                  width: 68,
+                  height: 68,
+                  borderRadius: 3,
+                  background: "linear-gradient(135deg,#6366f1,#818cf8)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  boxShadow: "0 18px 40px -18px rgba(129, 140, 248, 0.8)",
+                }}
+              >
+                <EmojiEvents sx={{ fontSize: 38 }} />
+              </Box>
+              <Box flex={1}>
+                <Typography variant="h4" fontWeight={900} lineHeight={1.1}>
+                  eTPL Dashboard
+                </Typography>
+                <Typography variant="body1" sx={{ opacity: 0.76, mt: 0.75 }}>
+                  Track standings, match results, and league activity in one
+                  place.
+                </Typography>
+                <Box display="flex" gap={1} flexWrap="wrap" mt={2}>
+                  <Chip
+                    icon={<SportsSoccer sx={{ color: "white !important" }} />}
+                    label={`PC · Division 1${season ? ` · Season ${season}` : ""}`}
+                    sx={{ bgcolor: "rgba(255,255,255,0.14)", color: "white" }}
+                  />
+                  <Chip
+                    icon={<TrendingUp sx={{ color: "white !important" }} />}
+                    label={`${playedMatches}/${totalMatches || 0} matches played`}
+                    sx={{ bgcolor: "rgba(255,255,255,0.10)", color: "white" }}
+                  />
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+
           <Box
             sx={{
-              width: 64,
-              height: 64,
-              borderRadius: 3,
-              background: "linear-gradient(135deg,#6366f1,#818cf8)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 1.25,
+              alignSelf: "stretch",
             }}
           >
-            <EmojiEvents sx={{ fontSize: 36 }} />
-          </Box>
-          <Box flex={1}>
-            <Typography variant="h5" fontWeight={800} lineHeight={1.2}>
-              eTPL — Thai PES League Dashboard
-            </Typography>
-            <Typography variant="body2" sx={{ opacity: 0.72, mt: 0.5 }}>
-              PC · Division 1{season ? ` · Season ${season}` : ""}
-            </Typography>
-          </Box>
-          <Box textAlign="right">
-            <Typography variant="caption" sx={{ opacity: 0.65 }}>
-              Welcome back
-            </Typography>
-            <Typography variant="h6" fontWeight={700} lineHeight={1.3}>
-              {user?.userId || "Guest"}
-            </Typography>
-            <Chip
-              label={
-                user?.userLevel === "admin"
-                  ? "Admin"
-                  : user
-                    ? "Player"
-                    : "Guest"
-              }
-              size="small"
-              sx={{
-                mt: 0.5,
-                bgcolor: "rgba(99,102,241,0.35)",
-                color: "white",
-                fontWeight: 700,
-                fontSize: 11,
-              }}
-            />
+            {[
+              { label: "Welcome", value: user?.userId || "Guest" },
+              {
+                label: "Access",
+                value:
+                  user?.userLevel === "admin"
+                    ? "Admin"
+                    : user
+                      ? "Player"
+                      : "Public",
+              },
+              { label: "Teams", value: totalTeams || 0 },
+              { label: "Matches", value: totalMatches || 0 },
+            ].map((item) => (
+              <Box
+                key={item.label}
+                sx={{
+                  p: 2,
+                  borderRadius: 3,
+                  bgcolor: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                }}
+              >
+                <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                  {item.label}
+                </Typography>
+                <Typography variant="h6" fontWeight={800} mt={0.4} noWrap>
+                  {item.value}
+                </Typography>
+              </Box>
+            ))}
           </Box>
         </Box>
       </Paper>
@@ -315,7 +390,17 @@ const MainPage = () => {
         </Alert>
       )}
 
-      <Grid container spacing={2} mb={3}>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "repeat(2, minmax(0, 1fr))",
+            md: "repeat(4, minmax(0, 1fr))",
+          },
+          gap: 2.25,
+          mb: 3,
+        }}
+      >
         {[
           {
             title: "Total Matches",
@@ -342,430 +427,500 @@ const MainPage = () => {
             gradient: "linear-gradient(135deg,#3b82f6,#60a5fa)",
           },
         ].map((item) => (
-          <Grid item xs={6} sm={3} key={item.title}>
+          <Box key={item.title}>
             <StatCard {...item} loading={loading} />
-          </Grid>
+          </Box>
         ))}
-      </Grid>
+      </Box>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} lg={5}>
-          <Paper
-            elevation={0}
-            sx={{
-              borderRadius: 3,
-              overflow: "hidden",
-              border: "1px solid",
-              borderColor: "divider",
-              mb: 3,
-            }}
-          >
-            <SectionHeader
-              icon={<Leaderboard fontSize="small" />}
-              title="Standings — Top 10"
-              color="#6366f1"
-            />
+      <Paper elevation={0} sx={{ ...panelSx, mb: 3 }}>
+        <SectionHeader
+          icon={<Campaign fontSize="small" />}
+          title="Announcements"
+          color="#f59e0b"
+        />
 
-            {loading ? (
-              <Box p={2}>
-                {[...Array(8)].map((_, idx) => (
-                  <Skeleton
-                    key={idx}
-                    height={38}
-                    sx={{ mb: 0.6, borderRadius: 1 }}
-                  />
-                ))}
+        <Box p={{ xs: 2, sm: 2.5 }}>
+          {ANNOUNCEMENTS.length === 0 ? (
+            <Box
+              display="flex"
+              alignItems="center"
+              justifyContent="space-between"
+              flexWrap="wrap"
+              gap={2}
+            >
+              <Box display="flex" alignItems="center" gap={1.5}>
+                <Campaign sx={{ color: "grey.400", fontSize: 30 }} />
+                <Box>
+                  <Typography fontWeight={700}>No announcements yet</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    League updates and important announcements will appear here.
+                  </Typography>
+                </Box>
               </Box>
-            ) : (
-              <Box>
-                {top10.map((team, idx) => (
+              {user?.userLevel === "admin" && (
+                <Typography variant="caption" color="text.disabled">
+                  Add announcements in `ANNOUNCEMENTS` inside MainPage.
+                </Typography>
+              )}
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: {
+                  xs: "1fr",
+                  md: "repeat(2, minmax(0, 1fr))",
+                },
+                gap: 2,
+              }}
+            >
+              {ANNOUNCEMENTS.map((notice) => (
+                <Box
+                  key={notice.id}
+                  sx={{
+                    p: 2,
+                    borderRadius: 3,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    bgcolor: "rgba(248,250,252,0.9)",
+                  }}
+                >
+                  <Typography fontSize={13} fontWeight={700}>
+                    {notice.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" mt={0.5}>
+                    {notice.body}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.disabled"
+                    mt={1}
+                    display="block"
+                  >
+                    {notice.date}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Box>
+      </Paper>
+
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "1fr",
+            md: "repeat(2, minmax(0, 1fr))",
+          },
+          gap: 3,
+          alignItems: "stretch",
+          mb: 3,
+        }}
+      >
+        <Paper elevation={0} sx={{ ...panelSx, height: "100%" }}>
+          <SectionHeader
+            icon={<Leaderboard fontSize="small" />}
+            title="Standings — Top 10"
+            color="#6366f1"
+          />
+
+          {loading ? (
+            <Box p={2}>
+              {[...Array(10)].map((_, idx) => (
+                <Skeleton
+                  key={idx}
+                  height={38}
+                  sx={{ mb: 0.6, borderRadius: 1 }}
+                />
+              ))}
+            </Box>
+          ) : (
+            <Box>
+              {top10.map((team, idx) => (
+                <Box
+                  key={team.id ?? idx}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    px: 2,
+                    py: 0.75,
+                    borderBottom: idx < top10.length - 1 ? "1px solid" : "none",
+                    borderColor: "divider",
+                    bgcolor: idx % 2 === 0 ? "transparent" : "grey.50",
+                    minHeight: DASHBOARD_ROW_HEIGHT,
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <Box width={30} display="flex" justifyContent="center">
+                    <RankMedal rank={team.rank} />
+                  </Box>
                   <Box
-                    key={team.id ?? idx}
+                    component="img"
+                    src={getLogoUrl(team.teamName)}
+                    alt={team.teamName}
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                    }}
                     sx={{
+                      width: 24,
+                      height: 24,
+                      objectFit: "contain",
+                      mx: 1,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Box flex={1} minWidth={0}>
+                    <Typography fontSize={12.5} fontWeight={700} noWrap>
+                      {extractPlayer(team.team)}
+                    </Typography>
+                    <Typography fontSize={11} color="text.secondary" noWrap>
+                      W {team.w ?? 0} · D {team.d ?? 0} · L {team.l ?? 0}
+                    </Typography>
+                  </Box>
+                  <Box width={44} textAlign="center" mr={1.5}>
+                    <Typography
+                      fontSize={14}
+                      fontWeight={800}
+                      color="secondary.main"
+                    >
+                      {team.pts ?? 0}
+                    </Typography>
+                  </Box>
+                  <Box width={56} display="flex" justifyContent="center">
+                    <FormDots last={team.last} />
+                  </Box>
+                </Box>
+              ))}
+
+              {top10.length === 0 && (
+                <Box px={2} py={3} textAlign="center">
+                  <Typography variant="body2" color="text.secondary">
+                    No standings data
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+        </Paper>
+
+        <Paper elevation={0} sx={{ ...panelSx, height: "100%" }}>
+          <SectionHeader
+            icon={<SportsSoccer fontSize="small" />}
+            title="Latest 10 Matches"
+            color="#22c55e"
+          />
+
+          {loading ? (
+            <Box p={2}>
+              {[...Array(6)].map((_, idx) => (
+                <Skeleton
+                  key={idx}
+                  height={46}
+                  sx={{ mb: 0.6, borderRadius: 1 }}
+                />
+              ))}
+            </Box>
+          ) : (
+            <Box>
+              {recentMatches.map((fixture, idx) => {
+                const homeScore = fixture.homeScore ?? 0;
+                const awayScore = fixture.awayScore ?? 0;
+                const homePlayer =
+                  extractPlayer(fixture.home) ||
+                  fixture.home ||
+                  fixture.homeTeamName ||
+                  "-";
+                const awayPlayer =
+                  extractPlayer(fixture.away) ||
+                  fixture.away ||
+                  fixture.awayTeamName ||
+                  "-";
+                const homeLogoName = fixture.homeTeamName || fixture.home || "";
+                const awayLogoName = fixture.awayTeamName || fixture.away || "";
+                const isDraw = homeScore === awayScore;
+                const resultColor = isDraw
+                  ? "#fef3c7"
+                  : homeScore > awayScore
+                    ? "#dcfce7"
+                    : "#fee2e2";
+
+                return (
+                  <Box
+                    key={fixture.fixtureId ?? idx}
+                    sx={{
+                      px: 2,
+                      py: 0.75,
+                      borderBottom:
+                        idx < recentMatches.length - 1 ? "1px solid" : "none",
+                      borderColor: "divider",
                       display: "flex",
                       alignItems: "center",
-                      px: 2,
-                      py: 1,
-                      borderBottom:
-                        idx < top10.length - 1 ? "1px solid" : "none",
-                      borderColor: "divider",
+                      gap: 1,
                       bgcolor: idx % 2 === 0 ? "transparent" : "grey.50",
+                      minHeight: DASHBOARD_ROW_HEIGHT,
+                      boxSizing: "border-box",
                     }}
                   >
-                    <Box width={30} display="flex" justifyContent="center">
-                      <RankMedal rank={team.rank} />
-                    </Box>
-                    <Box
-                      component="img"
-                      src={getLogoUrl(team.teamName)}
-                      alt={team.teamName}
-                      onError={(e) => {
-                        e.target.style.display = "none";
-                      }}
+                    <Chip
+                      label={formatMatchDate(fixture.matchDate)}
+                      size="small"
                       sx={{
-                        width: 24,
-                        height: 24,
-                        objectFit: "contain",
-                        mx: 1,
+                        height: 20,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        bgcolor: "#e2e8f0",
+                        color: "text.secondary",
                         flexShrink: 0,
                       }}
                     />
-                    <Box flex={1} minWidth={0}>
-                      <Typography fontSize={12.5} fontWeight={700} noWrap>
-                        {extractPlayer(team.team)}
-                      </Typography>
-                      <Typography fontSize={11} color="text.secondary" noWrap>
-                        W {team.w ?? 0} · D {team.d ?? 0} · L {team.l ?? 0}
-                      </Typography>
-                    </Box>
-                    <Box width={44} textAlign="center">
-                      <Typography
-                        fontSize={14}
-                        fontWeight={800}
-                        color="secondary.main"
-                      >
-                        {team.pts ?? 0}
-                      </Typography>
-                    </Box>
-                    <Box width={56} display="flex" justifyContent="center">
-                      <FormDots last={team.last} />
-                    </Box>
-                  </Box>
-                ))}
-
-                {top10.length === 0 && (
-                  <Box px={2} py={3} textAlign="center">
-                    <Typography variant="body2" color="text.secondary">
-                      No standings data
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
-            )}
-          </Paper>
-
-          <Paper
-            elevation={0}
-            sx={{
-              borderRadius: 3,
-              overflow: "hidden",
-              border: "1px solid",
-              borderColor: "divider",
-            }}
-          >
-            <SectionHeader
-              icon={<Campaign fontSize="small" />}
-              title="ข่าวประกาศ"
-              color="#f59e0b"
-            />
-
-            <Box p={2}>
-              {ANNOUNCEMENTS.length === 0 ? (
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  flexDirection="column"
-                  gap={1}
-                  py={2.5}
-                >
-                  <Campaign sx={{ color: "grey.400", fontSize: 36 }} />
-                  <Typography variant="body2" color="text.secondary">
-                    ยังไม่มีประกาศในขณะนี้
-                  </Typography>
-                  {user?.userLevel === "admin" && (
-                    <Typography variant="caption" color="text.disabled">
-                      เพิ่มประกาศได้ใน `ANNOUNCEMENTS` ของ MainPage
-                    </Typography>
-                  )}
-                </Box>
-              ) : (
-                ANNOUNCEMENTS.map((notice, idx) => (
-                  <Box key={notice.id}>
-                    <Typography fontSize={13} fontWeight={700}>
-                      {notice.title}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" mt={0.5}>
-                      {notice.body}
-                    </Typography>
-                    <Typography variant="caption" color="text.disabled">
-                      {notice.date}
-                    </Typography>
-                    {idx < ANNOUNCEMENTS.length - 1 && (
-                      <Divider sx={{ mt: 1.5 }} />
-                    )}
-                  </Box>
-                ))
-              )}
-            </Box>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} lg={7}>
-          <Paper
-            elevation={0}
-            sx={{
-              borderRadius: 3,
-              overflow: "hidden",
-              border: "1px solid",
-              borderColor: "divider",
-              mb: 3,
-            }}
-          >
-            <SectionHeader
-              icon={<SportsSoccer fontSize="small" />}
-              title="แมทช์ล่าสุด 10 นัด"
-              color="#22c55e"
-            />
-
-            {loading ? (
-              <Box p={2}>
-                {[...Array(6)].map((_, idx) => (
-                  <Skeleton
-                    key={idx}
-                    height={46}
-                    sx={{ mb: 0.6, borderRadius: 1 }}
-                  />
-                ))}
-              </Box>
-            ) : (
-              <Box>
-                {recentMatches.map((fixture, idx) => {
-                  const homeScore = fixture.homeScore ?? 0;
-                  const awayScore = fixture.awayScore ?? 0;
-                  const isDraw = homeScore === awayScore;
-                  const resultColor = isDraw
-                    ? "#fef3c7"
-                    : homeScore > awayScore
-                      ? "#dcfce7"
-                      : "#fee2e2";
-
-                  return (
                     <Box
-                      key={fixture.fixtureId ?? idx}
-                      sx={{
-                        px: 2,
-                        py: 1.1,
-                        borderBottom:
-                          idx < recentMatches.length - 1 ? "1px solid" : "none",
-                        borderColor: "divider",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                        bgcolor: idx % 2 === 0 ? "transparent" : "grey.50",
-                      }}
+                      display="flex"
+                      alignItems="center"
+                      gap={0.75}
+                      flex={1}
+                      minWidth={0}
+                      justifyContent="flex-end"
                     >
-                      <Chip
-                        label={`MW${fixture.match}`}
-                        size="small"
+                      <Typography
+                        fontSize={12}
+                        noWrap
+                        fontWeight={homeScore > awayScore ? 700 : 500}
+                      >
+                        {homePlayer}
+                      </Typography>
+                      <Box
+                        component="img"
+                        src={getLogoUrl(homeLogoName)}
+                        alt={homeLogoName}
+                        onError={(e) => {
+                          e.target.style.display = "none";
+                        }}
                         sx={{
-                          height: 20,
-                          fontSize: 10,
-                          fontWeight: 700,
-                          bgcolor: "#e2e8f0",
-                          color: "text.secondary",
+                          width: 23,
+                          height: 23,
+                          objectFit: "contain",
                           flexShrink: 0,
                         }}
                       />
-                      <Box
-                        display="flex"
-                        alignItems="center"
-                        gap={0.75}
-                        flex={1}
-                        minWidth={0}
-                        justifyContent="flex-end"
-                      >
-                        <Typography
-                          fontSize={12}
-                          noWrap
-                          fontWeight={homeScore > awayScore ? 700 : 500}
-                        >
-                          {extractPlayer(fixture.home) || fixture.homeTeamName}
-                        </Typography>
-                        <Box
-                          component="img"
-                          src={getLogoUrl(fixture.homeTeamName)}
-                          alt={fixture.homeTeamName}
-                          onError={(e) => {
-                            e.target.style.display = "none";
-                          }}
-                          sx={{
-                            width: 23,
-                            height: 23,
-                            objectFit: "contain",
-                            flexShrink: 0,
-                          }}
-                        />
-                      </Box>
+                    </Box>
 
+                    <Box
+                      sx={{
+                        px: 1.25,
+                        py: 0.25,
+                        borderRadius: 1.5,
+                        bgcolor: resultColor,
+                        minWidth: 52,
+                        textAlign: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Typography fontSize={13.5} fontWeight={800}>
+                        {homeScore} - {awayScore}
+                      </Typography>
+                    </Box>
+
+                    <Box
+                      display="flex"
+                      alignItems="center"
+                      gap={0.75}
+                      flex={1}
+                      minWidth={0}
+                    >
                       <Box
+                        component="img"
+                        src={getLogoUrl(awayLogoName)}
+                        alt={awayLogoName}
+                        onError={(e) => {
+                          e.target.style.display = "none";
+                        }}
                         sx={{
-                          px: 1.25,
-                          py: 0.25,
-                          borderRadius: 1.5,
-                          bgcolor: resultColor,
-                          minWidth: 52,
-                          textAlign: "center",
+                          width: 23,
+                          height: 23,
+                          objectFit: "contain",
                           flexShrink: 0,
                         }}
+                      />
+                      <Typography
+                        fontSize={12}
+                        noWrap
+                        fontWeight={awayScore > homeScore ? 700 : 500}
                       >
-                        <Typography fontSize={13.5} fontWeight={800}>
-                          {homeScore} - {awayScore}
-                        </Typography>
-                      </Box>
-
-                      <Box
-                        display="flex"
-                        alignItems="center"
-                        gap={0.75}
-                        flex={1}
-                        minWidth={0}
-                      >
-                        <Box
-                          component="img"
-                          src={getLogoUrl(fixture.awayTeamName)}
-                          alt={fixture.awayTeamName}
-                          onError={(e) => {
-                            e.target.style.display = "none";
-                          }}
-                          sx={{
-                            width: 23,
-                            height: 23,
-                            objectFit: "contain",
-                            flexShrink: 0,
-                          }}
-                        />
-                        <Typography
-                          fontSize={12}
-                          noWrap
-                          fontWeight={awayScore > homeScore ? 700 : 500}
-                        >
-                          {extractPlayer(fixture.away) || fixture.awayTeamName}
-                        </Typography>
-                      </Box>
+                        {awayPlayer}
+                      </Typography>
                     </Box>
-                  );
-                })}
+                  </Box>
+                );
+              })}
 
-                {recentMatches.length === 0 && (
-                  <Box px={2} py={3} textAlign="center">
-                    <Typography variant="body2" color="text.secondary">
-                      No results yet
+              {recentMatches.length === 0 && (
+                <Box px={2} py={3} textAlign="center">
+                  <Typography variant="body2" color="text.secondary">
+                    No results yet
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+        </Paper>
+      </Box>
+
+      {user ? (
+        <Paper elevation={0} sx={{ ...panelSx }}>
+          <SectionHeader
+            icon={<Groups fontSize="small" />}
+            title={`Member List (${sortedMembers.length})`}
+            color="#3b82f6"
+          />
+
+          {loading ? (
+            <Box p={2}>
+              {[...Array(4)].map((_, idx) => (
+                <Box
+                  key={idx}
+                  display="flex"
+                  alignItems="center"
+                  gap={1.5}
+                  mb={1.4}
+                >
+                  <Skeleton variant="circular" width={36} height={36} />
+                  <Box flex={1}>
+                    <Skeleton width="45%" height={15} />
+                    <Skeleton width="28%" height={13} />
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: {
+                  xs: "1fr",
+                  sm: "1fr 1fr",
+                  md: "repeat(3, 1fr)",
+                  lg: "repeat(5, 1fr)",
+                },
+                gap: 0,
+              }}
+            >
+              {sortedMembers.map((member, idx) => (
+                <Box
+                  key={member.userId ?? idx}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.25,
+                    px: 2,
+                    py: 1.2,
+                    borderBottom: "1px solid",
+                    borderRight: {
+                      sm: idx % 2 === 0 ? "1px solid" : "none",
+                      md: idx % 3 !== 2 ? "1px solid" : "none",
+                      lg: idx % 5 !== 4 ? "1px solid" : "none",
+                    },
+                    borderColor: "divider",
+                    minHeight: 58,
+                  }}
+                >
+                  <Avatar
+                    src={member.linePic || ""}
+                    sx={{
+                      width: 34,
+                      height: 34,
+                      bgcolor:
+                        member.userLevel === "admin"
+                          ? "secondary.main"
+                          : "primary.light",
+                      fontSize: 14,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {!member.linePic &&
+                      (member.userId?.[0]?.toUpperCase() || "?")}
+                  </Avatar>
+                  <Box flex={1} minWidth={0}>
+                    <Typography fontSize={13} fontWeight={700} noWrap>
+                      {member.userId}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" noWrap>
+                      {member.lineName || "-"}
                     </Typography>
                   </Box>
-                )}
-              </Box>
-            )}
-          </Paper>
+                </Box>
+              ))}
 
-          {user && (
-            <Paper
-              elevation={0}
+              {sortedMembers.length === 0 && (
+                <Box px={2} py={3} textAlign="center" gridColumn="1 / -1">
+                  <Typography variant="body2" color="text.secondary">
+                    No members found
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+        </Paper>
+      ) : (
+        <Paper elevation={0} sx={{ ...panelSx }}>
+          <SectionHeader
+            icon={<Login fontSize="small" />}
+            title="Sign in for more"
+            color="#3b82f6"
+          />
+          <Box
+            sx={{
+              p: { xs: 2.5, sm: 3 },
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "1.2fr 0.8fr" },
+              gap: 2,
+              alignItems: "center",
+            }}
+          >
+            <Box>
+              <Typography variant="h6" fontWeight={800} mb={1}>
+                Sign in to unlock full features
+              </Typography>
+              <Typography variant="body2" color="text.secondary" mb={2}>
+                After signing in, you can access management menus, change your
+                password, open fixtures, and view the full member directory from
+                the profile menu in the top-right corner.
+              </Typography>
+              <Box display="flex" gap={1} flexWrap="wrap">
+                {[
+                  "Fixtures Management",
+                  "User Permissions",
+                  "Change Password",
+                  "Member Directory",
+                ].map((item) => (
+                  <Chip key={item} label={item} variant="outlined" />
+                ))}
+              </Box>
+            </Box>
+            <Box
               sx={{
-                borderRadius: 3,
-                overflow: "hidden",
+                borderRadius: 4,
+                p: 2.5,
+                background: "linear-gradient(135deg, #eff6ff 0%, #eef2ff 100%)",
                 border: "1px solid",
                 borderColor: "divider",
               }}
             >
-              <SectionHeader
-                icon={<Groups fontSize="small" />}
-                title={`รายชื่อสมาชิก (${sortedMembers.length})`}
-                color="#3b82f6"
-              />
-
-              {loading ? (
-                <Box p={2}>
-                  {[...Array(4)].map((_, idx) => (
-                    <Box
-                      key={idx}
-                      display="flex"
-                      alignItems="center"
-                      gap={1.5}
-                      mb={1.4}
-                    >
-                      <Skeleton variant="circular" width={36} height={36} />
-                      <Box flex={1}>
-                        <Skeleton width="45%" height={15} />
-                        <Skeleton width="28%" height={13} />
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-              ) : (
-                <Box
-                  sx={{
-                    display: "grid",
-                    gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                  }}
-                >
-                  {sortedMembers.map((member, idx) => (
-                    <Box
-                      key={member.userId ?? idx}
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1.25,
-                        px: 2,
-                        py: 1.2,
-                        borderBottom: "1px solid",
-                        borderRight: {
-                          sm: idx % 2 === 0 ? "1px solid" : "none",
-                        },
-                        borderColor: "divider",
-                        minHeight: 58,
-                      }}
-                    >
-                      <Avatar
-                        src={member.linePic || ""}
-                        sx={{
-                          width: 34,
-                          height: 34,
-                          bgcolor:
-                            member.userLevel === "admin"
-                              ? "secondary.main"
-                              : "primary.light",
-                          fontSize: 14,
-                          fontWeight: 700,
-                        }}
-                      >
-                        {!member.linePic &&
-                          (member.userId?.[0]?.toUpperCase() || "?")}
-                      </Avatar>
-                      <Box flex={1} minWidth={0}>
-                        <Box display="flex" alignItems="center" gap={0.5}>
-                          <Typography fontSize={13} fontWeight={700} noWrap>
-                            {member.userId}
-                          </Typography>
-                          {member.userLevel === "admin" && (
-                            <Shield
-                              sx={{ fontSize: 13, color: "secondary.main" }}
-                            />
-                          )}
-                        </Box>
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          noWrap
-                        >
-                          {member.lineName || "-"}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ))}
-
-                  {sortedMembers.length === 0 && (
-                    <Box px={2} py={3} textAlign="center" gridColumn="1 / -1">
-                      <Typography variant="body2" color="text.secondary">
-                        No members found
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-              )}
-            </Paper>
-          )}
-        </Grid>
-      </Grid>
+              <Typography variant="caption" color="text.secondary">
+                Quick Tip
+              </Typography>
+              <Typography fontSize={15} fontWeight={800} mt={0.5} mb={1}>
+                Use the profile button in the top-right to sign in.
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                The `main` page is publicly available without login.
+                Permission-based features unlock after sign-in.
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+      )}
     </Box>
   );
 };

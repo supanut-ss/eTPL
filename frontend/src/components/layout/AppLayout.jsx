@@ -252,15 +252,20 @@ const AppLayout = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          px: { xs: 1.5, sm: 2.5, lg: 3.5 },
+          py: { xs: 2, sm: 2.5, lg: 3 },
           mt: 8,
           minHeight: "100vh",
           maxHeight: "100vh",
           overflowY: "auto",
-          backgroundColor: "background.default",
+          overflowX: "hidden",
+          background:
+            "radial-gradient(circle at top right, rgba(99,102,241,0.08), transparent 24%), linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)",
         }}
       >
-        <Outlet />
+        <Box sx={{ width: "100%", maxWidth: 1680, mx: "auto" }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   );

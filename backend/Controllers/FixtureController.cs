@@ -138,6 +138,47 @@ namespace eTPL.API.Controllers
             return Ok(ApiResponse<object>.Ok(result));
         }
 
+        // GET api/fixtures/last10 — no login required, latest 10 by match date (from v_fixture_all_log)
+        [HttpGet("last10")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetLast10()
+        {
+            var currentSeason = await _db.TbmCurrentSeasons
+                .Where(s => s.Platform == "PC")
+                .Select(s => s.Season)
+                .FirstOrDefaultAsync();
+
+            var query = _db.VFixtureAllLogs
+                .Where(f =>
+                    f.Platform == "PC" &&
+                    f.Division == "D1" &&
+                    f.MatchDate != null);
+
+            if (currentSeason.HasValue)
+                query = query.Where(f => f.Season == currentSeason.Value);
+
+            var data = await query
+                .OrderByDescending(f => f.MatchDate)
+                .Take(10)
+                .Select(f => new
+                {
+                    f.FixtureId,
+                    f.Match,
+                    f.Home,
+                    f.HomeTeamName,
+                    f.HomeImage,
+                    f.HomeScore,
+                    f.AwayScore,
+                    f.Away,
+                    f.AwayTeamName,
+                    f.AwayImage,
+                    f.MatchDate,
+                })
+                .ToListAsync();
+
+            return Ok(ApiResponse<object>.Ok(data));
+        }
+
         // GET api/fixtures/{fixtureId}/detail
         [HttpGet("{fixtureId}/detail")]
         [AllowAnonymous]
