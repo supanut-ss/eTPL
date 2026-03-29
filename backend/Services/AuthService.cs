@@ -161,6 +161,12 @@ namespace eTPL.API.Services
             foreach (var key in keys)
             {
                 var value = _config[key];
+                if (string.IsNullOrWhiteSpace(value))
+                    continue;
+
+                if (value == "YOUR_LINE_CHANNEL_ID" || value == "YOUR_LINE_CHANNEL_SECRET")
+                    continue;
+
                 if (!string.IsNullOrWhiteSpace(value))
                     return value;
             }
