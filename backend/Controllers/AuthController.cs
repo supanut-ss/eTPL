@@ -40,11 +40,14 @@ namespace eTPL.API.Controllers
             if (string.IsNullOrWhiteSpace(request.NewPassword))
                 return BadRequest(ApiResponse<string>.Fail("กรุณากรอกรหัสผ่านใหม่"));
 
+            if (request.NewPassword.Length < 8)
+                return BadRequest(ApiResponse<string>.Fail("รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร"));
+
             var success = await _userService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword);
             if (!success)
                 return BadRequest(ApiResponse<string>.Fail("รหัสผ่านปัจจุบันไม่ถูกต้อง"));
 
-            return Ok(ApiResponse<string>.Ok("เปลี่ยนรหัสผ่านสำเร็จ", "เปลี่ยนรหัสผ่านสำเร็จ"));
+            return Ok(ApiResponse<string>.Ok("เปลี่ยนรหัสผ่านสำเร็จ"));
         }
     }
 }

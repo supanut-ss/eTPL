@@ -46,8 +46,8 @@ const ChangePasswordDialog = ({ open, onClose }) => {
       setError("รหัสผ่านใหม่ไม่ตรงกัน");
       return;
     }
-    if (form.newPassword.length < 4) {
-      setError("รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร");
+    if (form.newPassword.length < 8) {
+      setError("รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร");
       return;
     }
     setLoading(true);
