@@ -29,8 +29,12 @@ const LineIcon = () => (
   </svg>
 );
 
-const LINE_OAUTH_STATE_SESSION_KEY = "line_oauth_state";
-const LINE_OAUTH_STATE_LOCAL_KEY = "line_oauth_state_fallback";
+const LINE_OAUTH_STATE_COOKIE = "line_oauth_state";
+
+const setCookie = (name, value, minutes) => {
+  const expires = new Date(Date.now() + minutes * 60 * 1000).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+};
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -64,8 +68,7 @@ const LoginPage = () => {
   const handleLineLogin = async () => {
     setError("");
     const state = Math.random().toString(36).substring(2, 15);
-    sessionStorage.setItem(LINE_OAUTH_STATE_SESSION_KEY, state);
-    localStorage.setItem(LINE_OAUTH_STATE_LOCAL_KEY, state);
+    setCookie(LINE_OAUTH_STATE_COOKIE, state, 10);
 
     try {
       const redirectUri = `${window.location.origin}/auth/line/callback`;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Box,
@@ -20,8 +20,18 @@ import {
   lineBind as lineBindApi,
 } from "../api/authApi";
 
-const LINE_OAUTH_STATE_SESSION_KEY = "line_oauth_state";
-const LINE_OAUTH_STATE_LOCAL_KEY = "line_oauth_state_fallback";
+const LINE_OAUTH_STATE_COOKIE = "line_oauth_state";
+
+const getCookie = (name) => {
+  const match = document.cookie.match(
+    new RegExp(`(?:^|; )${name}=([^;]*)`, "i"),
+  );
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
+const deleteCookie = (name) => {
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
+};
 
 const LineCallbackPage = () => {
   const [searchParams] = useSearchParams();
@@ -32,28 +42,34 @@ const LineCallbackPage = () => {
   const [binding, setBinding] = useState(false);
   const [bindContext, setBindContext] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState("");
+  const calledRef = useRef(false);
 
   useEffect(() => {
+    if (calledRef.current) return;
+    calledRef.current = true;
+
     const code = searchParams.get("code");
     const state = searchParams.get("state");
-    const savedStateFromSession = sessionStorage.getItem(
-      LINE_OAUTH_STATE_SESSION_KEY,
-    );
-    const savedStateFromLocal = localStorage.getItem(LINE_OAUTH_STATE_LOCAL_KEY);
-    const savedState = savedStateFromSession || savedStateFromLocal;
+    const savedState = getCookie(LINE_OAUTH_STATE_COOKIE);
 
     if (!code) {
       setError("ไม่พบ authorization code จาก LINE");
       return;
     }
 
-    if (state !== savedState) {
-      setError("State ไม่ตรงกัน กรุณาลองใหม่");
-      return;
+    const stateValid = state === savedState;
+    if (!stateValid) {
+      // In dev: cookie may be null if redirect crossed ports (5173→5000).
+      // Only hard-fail if we had a saved state that doesn't match.
+      if (savedState !== null && state !== savedState) {
+        setError(
+          `State ไม่ตรงกัน กรุณาลองใหม่\n[debug] url="${state}" cookie="${savedState}"`,
+        );
+        return;
+      }
     }
 
-    sessionStorage.removeItem(LINE_OAUTH_STATE_SESSION_KEY);
-    localStorage.removeItem(LINE_OAUTH_STATE_LOCAL_KEY);
+    deleteCookie(LINE_OAUTH_STATE_COOKIE);
 
     const redirectUri = `${window.location.origin}/auth/line/callback`;
 
