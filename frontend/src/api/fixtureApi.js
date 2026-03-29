@@ -18,3 +18,6 @@ const publicAxios = axios.create({
 });
 
 export const getPublicFixtures = () => publicAxios.get("/api/fixtures/public");
+
+export const getPublicLastFixtures = () =>
+  publicAxios.get("/api/fixtures/last10");

@@ -17,7 +17,6 @@ import {
   MenuItem,
   Divider,
   Tooltip,
-  Button,
 } from "@mui/material";
 import {
   Menu as MenuIcon,
@@ -29,6 +28,8 @@ import {
   Leaderboard,
   CalendarMonth,
   LockReset,
+  Login,
+  Campaign,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -52,6 +53,12 @@ const navItems = [
     icon: <Security />,
     adminOnly: true,
   },
+  {
+    label: "Announcements",
+    path: "/announcements",
+    icon: <Campaign />,
+    adminOnly: true,
+  },
 ];
 
 const AppLayout = () => {
@@ -70,6 +77,11 @@ const AppLayout = () => {
   const handleChangePassword = () => {
     setAnchorEl(null);
     setChangePasswordOpen(true);
+  };
+
+  const handleLogin = () => {
+    setAnchorEl(null);
+    navigate("/login");
   };
 
   const filteredNav = navItems.filter((item) => {
@@ -125,91 +137,91 @@ const AppLayout = () => {
             eTPL
           </Typography>
 
-          {user ? (
-            <>
-              <Tooltip title={user?.userId}>
-                <IconButton
-                  onClick={(e) => setAnchorEl(e.currentTarget)}
-                  color="inherit"
+          <>
+            <Tooltip title={user?.userId || "Profile"}>
+              <IconButton
+                onClick={(e) => setAnchorEl(e.currentTarget)}
+                color="inherit"
+              >
+                <Avatar
+                  src={user?.linePic || ""}
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    bgcolor: "secondary.main",
+                    fontSize: 14,
+                  }}
                 >
+                  {(user?.userId || "G")[0]?.toUpperCase()}
+                </Avatar>
+              </IconButton>
+            </Tooltip>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={() => setAnchorEl(null)}
+            >
+              <MenuItem disabled>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                   <Avatar
                     src={user?.linePic || ""}
                     sx={{
-                      width: 32,
-                      height: 32,
+                      width: 36,
+                      height: 36,
                       bgcolor: "secondary.main",
                       fontSize: 14,
                     }}
                   >
-                    {!user?.linePic && user?.userId?.[0]?.toUpperCase()}
+                    {(user?.userId || "G")[0]?.toUpperCase()}
                   </Avatar>
-                </IconButton>
-              </Tooltip>
-              <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={() => setAnchorEl(null)}
-              >
-                <MenuItem disabled>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Avatar
-                      src={user?.linePic || ""}
-                      sx={{
-                        width: 36,
-                        height: 36,
-                        bgcolor: "secondary.main",
-                        fontSize: 14,
-                      }}
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      fontWeight={600}
+                      lineHeight={1.2}
                     >
-                      {!user?.linePic && user?.userId?.[0]?.toUpperCase()}
-                    </Avatar>
-                    <Box>
-                      <Typography
-                        variant="body2"
-                        fontWeight={600}
-                        lineHeight={1.2}
-                      >
-                        {user?.userId}
-                      </Typography>
-                      {user?.lineName && (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          lineHeight={1.2}
-                        >
-                          {user.lineName}
-                        </Typography>
-                      )}
-                    </Box>
+                      {user?.userId || "Guest"}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      lineHeight={1.2}
+                    >
+                      {user?.lineName ||
+                        (user ? user?.userLevel : "Not signed in")}
+                    </Typography>
                   </Box>
+                </Box>
+              </MenuItem>
+              <Divider />
+
+              {user ? (
+                <>
+                  <MenuItem onClick={handleChangePassword}>
+                    <LockReset sx={{ mr: 1 }} fontSize="small" />
+                    Change Password
+                  </MenuItem>
+                  <MenuItem onClick={handleLogout}>
+                    <Logout sx={{ mr: 1 }} fontSize="small" />
+                    Logout
+                  </MenuItem>
+                </>
+              ) : (
+                <MenuItem onClick={handleLogin}>
+                  <Login sx={{ mr: 1 }} fontSize="small" />
+                  Sign In
                 </MenuItem>
-                <Divider />
-                <MenuItem onClick={handleChangePassword}>
-                  <LockReset sx={{ mr: 1 }} fontSize="small" />
-                  Change Password
-                </MenuItem>
-                <MenuItem onClick={handleLogout}>
-                  <Logout sx={{ mr: 1 }} fontSize="small" />
-                  Logout
-                </MenuItem>
-              </Menu>
+              )}
+            </Menu>
+
+            {user && (
               <ChangePasswordDialog
                 open={changePasswordOpen}
                 onClose={() => setChangePasswordOpen(false)}
                 user={user}
               />
-            </>
-          ) : (
-            <Button
-              color="inherit"
-              variant="outlined"
-              size="small"
-              sx={{ borderColor: "rgba(255,255,255,0.5)", color: "white" }}
-              onClick={() => navigate("/login")}
-            >
-              Sign In
-            </Button>
-          )}
+            )}
+          </>
         </Toolbar>
       </AppBar>
 
@@ -247,15 +259,20 @@ const AppLayout = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          px: { xs: 1.5, sm: 2.5, lg: 3.5 },
+          py: { xs: 2, sm: 2.5, lg: 3 },
           mt: 8,
           minHeight: "100vh",
           maxHeight: "100vh",
           overflowY: "auto",
-          backgroundColor: "background.default",
+          overflowX: "hidden",
+          background:
+            "radial-gradient(circle at top right, rgba(99,102,241,0.08), transparent 24%), linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)",
         }}
       >
-        <Outlet />
+        <Box sx={{ width: "100%", maxWidth: 1680, mx: "auto" }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   );
