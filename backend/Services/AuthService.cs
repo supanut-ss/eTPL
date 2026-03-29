@@ -49,8 +49,7 @@ namespace eTPL.API.Services
 
         public async Task<LoginResponse?> LineLoginAsync(LineLoginRequest request)
         {
-            var channelId = _config["Line:ChannelId"] ?? throw new InvalidOperationException("LINE Channel ID not configured");
-            var channelSecret = _config["Line:ChannelSecret"] ?? throw new InvalidOperationException("LINE Channel Secret not configured");
+            var (channelId, channelSecret) = GetLineCredentials();
 
             var httpClient = _httpClientFactory.CreateClient();
 
@@ -121,9 +120,7 @@ namespace eTPL.API.Services
 
         public string GetLineAuthorizeUrl(string redirectUri, string state)
         {
-            var channelId = _config["Line:ChannelId"];
-            if (string.IsNullOrWhiteSpace(channelId) || channelId == "YOUR_LINE_CHANNEL_ID")
-                throw new InvalidOperationException("LINE Channel ID not configured");
+            var (channelId, _) = GetLineCredentials();
 
             if (string.IsNullOrWhiteSpace(redirectUri))
                 throw new ArgumentException("Redirect URI is required", nameof(redirectUri));
@@ -135,6 +132,40 @@ namespace eTPL.API.Services
             var encodedState = Uri.EscapeDataString(state);
 
             return $"https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id={channelId}&redirect_uri={encodedRedirectUri}&state={encodedState}&scope=profile";
+        }
+
+        private (string ChannelId, string ChannelSecret) GetLineCredentials()
+        {
+            var channelId = FirstConfiguredValue(
+                "Line:ChannelId",
+                "LINE__CHANNELID",
+                "LINE_CHANNEL_ID",
+                "VITE_LINE_CHANNEL_ID");
+
+            var channelSecret = FirstConfiguredValue(
+                "Line:ChannelSecret",
+                "LINE__CHANNELSECRET",
+                "LINE_CHANNEL_SECRET");
+
+            if (string.IsNullOrWhiteSpace(channelId) || channelId == "YOUR_LINE_CHANNEL_ID")
+                throw new InvalidOperationException("LINE Channel ID not configured");
+
+            if (string.IsNullOrWhiteSpace(channelSecret) || channelSecret == "YOUR_LINE_CHANNEL_SECRET")
+                throw new InvalidOperationException("LINE Channel Secret not configured");
+
+            return (channelId, channelSecret);
+        }
+
+        private string? FirstConfiguredValue(params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                var value = _config[key];
+                if (!string.IsNullOrWhiteSpace(value))
+                    return value;
+            }
+
+            return null;
         }
 
         private string GenerateJwtToken(eTPL.API.Models.User user)
