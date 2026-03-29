@@ -46,6 +46,41 @@ namespace eTPL.API.Models.DTOs
         public string RedirectUri { get; set; } = string.Empty;
     }
 
+    public class LineBindRequest
+    {
+        public string BindToken { get; set; } = string.Empty;
+        public string UserId { get; set; } = string.Empty;
+    }
+
+    public class LineAvailableUserDto
+    {
+        public string UserId { get; set; } = string.Empty;
+        public string UserLevel { get; set; } = string.Empty;
+    }
+
+    public class LineProfileDto
+    {
+        public string LineId { get; set; } = string.Empty;
+        public string? DisplayName { get; set; }
+        public string? PictureUrl { get; set; }
+    }
+
+    public class LineAuthResponse
+    {
+        public bool IsLinked { get; set; }
+        public LoginResponse? Login { get; set; }
+        public string? BindToken { get; set; }
+        public LineProfileDto? LineProfile { get; set; }
+        public List<LineAvailableUserDto> AvailableUsers { get; set; } = new();
+    }
+
+    public class LineBindContext
+    {
+        public string LineId { get; set; } = string.Empty;
+        public string? DisplayName { get; set; }
+        public string? PictureUrl { get; set; }
+    }
+
     public class ChangePasswordRequest
     {
         public string CurrentPassword { get; set; } = string.Empty;
