@@ -9,14 +9,21 @@ import {
   Skeleton,
   Alert,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  Divider,
+  CircularProgress,
 } from "@mui/material";
 import {
   ChevronLeft,
   ChevronRight,
   CalendarMonth,
   SquareRounded,
+  QueryStats,
+  Close,
 } from "@mui/icons-material";
-import { getPublicFixtures } from "../api/fixtureApi";
+import { getPublicFixtures, getPublicH2H } from "../api/fixtureApi";
 
 const getLogoUrl = (teamName) => {
   if (!teamName) return "";
@@ -171,50 +178,306 @@ const TeamBlock = ({
   );
 };
 
+// ---- H2H Dialog ----
+const H2HDialog = ({ open, onClose, home, away, homeTeamName, awayTeamName }) => {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open || !home || !away) return;
+    setLoading(true);
+    setError("");
+    getPublicH2H(home, away)
+      .then((res) => setRecords(res.data.data || []))
+      .catch(() => setError("Failed to load H2H history"))
+      .finally(() => setLoading(false));
+  }, [open, home, away]);
+
+  const homeWins = records.filter(
+    (r) =>
+      (r.home === home && r.homeScore > r.awayScore) ||
+      (r.home === away && r.awayScore > r.homeScore),
+  ).length;
+  const awayWins = records.filter(
+    (r) =>
+      (r.home === away && r.homeScore > r.awayScore) ||
+      (r.home === home && r.awayScore > r.homeScore),
+  ).length;
+  const draws = records.filter((r) => r.homeScore === r.awayScore).length;
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          pb: 1,
+        }}
+      >
+        <Box>
+          <Typography fontWeight={700} fontSize={16}>
+            Head-to-Head
+          </Typography>
+          <Typography variant="body2" color="text.secondary" fontSize={12}>
+            {homeTeamName || home} vs {awayTeamName || away}
+          </Typography>
+        </Box>
+        <IconButton size="small" onClick={onClose}>
+          <Close fontSize="small" />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent sx={{ pt: 0 }}>
+        {loading && (
+          <Box display="flex" justifyContent="center" py={4}>
+            <CircularProgress size={32} />
+          </Box>
+        )}
+        {error && <Alert severity="error">{error}</Alert>}
+        {!loading && !error && records.length === 0 && (
+          <Alert severity="info">No H2H matches found.</Alert>
+        )}
+
+        {!loading && !error && records.length > 0 && (
+          <>
+            {/* Summary bar */}
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              sx={{
+                bgcolor: "action.hover",
+                borderRadius: 2,
+                px: 2,
+                py: 1.5,
+                mb: 2,
+              }}
+            >
+              <Box textAlign="center">
+                <Typography fontSize={22} fontWeight={800} color="success.main">
+                  {homeWins}
+                </Typography>
+                <Typography fontSize={11} color="text.secondary" noWrap>
+                  {homeTeamName || home}
+                </Typography>
+              </Box>
+              <Box textAlign="center">
+                <Typography fontSize={22} fontWeight={800} color="text.secondary">
+                  {draws}
+                </Typography>
+                <Typography fontSize={11} color="text.secondary">
+                  Draws
+                </Typography>
+              </Box>
+              <Box textAlign="center">
+                <Typography fontSize={22} fontWeight={800} color="success.main">
+                  {awayWins}
+                </Typography>
+                <Typography fontSize={11} color="text.secondary" noWrap>
+                  {awayTeamName || away}
+                </Typography>
+              </Box>
+            </Stack>
+
+            <Divider sx={{ mb: 1.5 }} />
+
+            {/* Match list */}
+            <Stack spacing={1}>
+              {records.map((r) => {
+                const isHomeFirst = r.home === home;
+                const p1Score = isHomeFirst ? r.homeScore : r.awayScore;
+                const p2Score = isHomeFirst ? r.awayScore : r.homeScore;
+                const p1Win = p1Score > p2Score;
+                const p2Win = p2Score > p1Score;
+                return (
+                  <Box
+                    key={r.fixtureId}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      px: 1,
+                      py: 0.75,
+                      borderRadius: 1.5,
+                      bgcolor: "background.default",
+                      border: "1px solid",
+                      borderColor: "divider",
+                    }}
+                  >
+                    {/* Season / match info */}
+                    <Box sx={{ minWidth: 60 }}>
+                      <Typography fontSize={11} color="text.secondary">
+                        S{r.season}
+                      </Typography>
+                      <Typography fontSize={10} color="text.disabled">
+                        MW{r.match}
+                      </Typography>
+                    </Box>
+
+                    {/* Home player */}
+                    <Typography
+                      fontSize={13}
+                      fontWeight={p1Win ? 700 : 400}
+                      color={p1Win ? "success.main" : "text.primary"}
+                      flex={1}
+                      noWrap
+                    >
+                      {isHomeFirst
+                        ? r.homeTeamName || r.home
+                        : r.awayTeamName || r.away}
+                    </Typography>
+
+                    {/* Score */}
+                    <Box
+                      sx={{
+                        px: 1.5,
+                        py: 0.25,
+                        borderRadius: 1,
+                        bgcolor: "action.selected",
+                        textAlign: "center",
+                        minWidth: 52,
+                      }}
+                    >
+                      <Typography fontSize={14} fontWeight={700} letterSpacing={1}>
+                        <Box
+                          component="span"
+                          color={
+                            p1Win
+                              ? "success.main"
+                              : p2Win
+                                ? "error.main"
+                                : "text.primary"
+                          }
+                        >
+                          {p1Score}
+                        </Box>
+                        <Box component="span" color="text.disabled" mx={0.5}>
+                          -
+                        </Box>
+                        <Box
+                          component="span"
+                          color={
+                            p2Win
+                              ? "success.main"
+                              : p1Win
+                                ? "error.main"
+                                : "text.primary"
+                          }
+                        >
+                          {p2Score}
+                        </Box>
+                      </Typography>
+                    </Box>
+
+                    {/* Away player */}
+                    <Typography
+                      fontSize={13}
+                      fontWeight={p2Win ? 700 : 400}
+                      color={p2Win ? "success.main" : "text.primary"}
+                      flex={1}
+                      textAlign="right"
+                      noWrap
+                    >
+                      {isHomeFirst
+                        ? r.awayTeamName || r.away
+                        : r.homeTeamName || r.home}
+                    </Typography>
+
+                    {/* Date */}
+                    <Box sx={{ minWidth: 52, textAlign: "right" }}>
+                      <Typography fontSize={10} color="text.disabled">
+                        {r.matchDateDisplay || ""}
+                      </Typography>
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Stack>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // ---- Single Match Card ----
 const MatchCard = ({ fixture }) => {
   const played = fixture.homeScore != null && fixture.awayScore != null;
   const homeWin = played && fixture.homeScore > fixture.awayScore;
   const awayWin = played && fixture.awayScore > fixture.homeScore;
+  const [h2hOpen, setH2hOpen] = useState(false);
 
   return (
-    <Paper
-      variant="outlined"
-      sx={{
-        px: { xs: 1.5, sm: 2.5 },
-        py: 1.5,
-        display: "flex",
-        alignItems: "center",
-        gap: { xs: 0.5, sm: 1 },
-        borderRadius: 2,
-        transition: "box-shadow 0.2s",
-        "&:hover": { boxShadow: 3 },
-        bgcolor: "background.paper",
-      }}
-    >
-      {/* Home team */}
-      <TeamBlock
-        player={fixture.home}
-        teamName={fixture.homeTeamName}
-        isWinner={homeWin}
-        align="left"
-        yellow={fixture.homeYellow}
-        red={fixture.homeRed}
-      />
+    <>
+      <Paper
+        variant="outlined"
+        sx={{
+          px: { xs: 1.5, sm: 2.5 },
+          py: 1.5,
+          display: "flex",
+          alignItems: "center",
+          gap: { xs: 0.5, sm: 1 },
+          borderRadius: 2,
+          transition: "box-shadow 0.2s",
+          "&:hover": { boxShadow: 3 },
+          bgcolor: "background.paper",
+          position: "relative",
+        }}
+      >
+        {/* Home team */}
+        <TeamBlock
+          player={fixture.home}
+          teamName={fixture.homeTeamName}
+          isWinner={homeWin}
+          align="left"
+          yellow={fixture.homeYellow}
+          red={fixture.homeRed}
+        />
 
-      {/* Score — center */}
-      <ScoreBadge homeScore={fixture.homeScore} awayScore={fixture.awayScore} />
+        {/* Center column: Score + H2H icon */}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 0.5,
+            flexShrink: 0,
+          }}
+        >
+          <ScoreBadge homeScore={fixture.homeScore} awayScore={fixture.awayScore} />
+          <Tooltip title="Head-to-Head history">
+            <IconButton
+              size="small"
+              onClick={() => setH2hOpen(true)}
+              sx={{ p: 0.25 }}
+            >
+              <QueryStats sx={{ fontSize: 16, color: "text.secondary" }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
 
-      {/* Away team */}
-      <TeamBlock
-        player={fixture.away}
-        teamName={fixture.awayTeamName}
-        isWinner={awayWin}
-        align="right"
-        yellow={fixture.awayYellow}
-        red={fixture.awayRed}
+        {/* Away team */}
+        <TeamBlock
+          player={fixture.away}
+          teamName={fixture.awayTeamName}
+          isWinner={awayWin}
+          align="right"
+          yellow={fixture.awayYellow}
+          red={fixture.awayRed}
+        />
+      </Paper>
+
+      <H2HDialog
+        open={h2hOpen}
+        onClose={() => setH2hOpen(false)}
+        home={fixture.home}
+        away={fixture.away}
+        homeTeamName={fixture.homeTeamName}
+        awayTeamName={fixture.awayTeamName}
       />
-    </Paper>
+    </>
   );
 };
 

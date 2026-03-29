@@ -21,3 +21,6 @@ export const getPublicFixtures = () => publicAxios.get("/api/fixtures/public");
 
 export const getPublicLastFixtures = () =>
   publicAxios.get("/api/fixtures/last10");
+
+export const getPublicH2H = (home, away) =>
+  publicAxios.get("/api/fixtures/h2h", { params: { home, away } });

@@ -199,6 +199,59 @@ namespace eTPL.API.Controllers
             }));
         }
 
+        // GET api/fixtures/h2h?home=X&away=Y — no login required, returns all-time H2H history between two players
+        [HttpGet("h2h")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetH2H([FromQuery] string home, [FromQuery] string away)
+        {
+            if (string.IsNullOrWhiteSpace(home) || string.IsNullOrWhiteSpace(away))
+                return BadRequest(ApiResponse<object>.Fail("Both home and away parameters are required and cannot be empty"));
+
+            var data = await _db.VFixtureAllLogs
+                .Where(f =>
+                    f.Platform == "PC" &&
+                    f.Division == "D1" &&
+                    f.HomeScore != null &&
+                    f.AwayScore != null &&
+                    ((f.Home == home && f.Away == away) ||
+                     (f.Home == away && f.Away == home)))
+                .OrderByDescending(f => f.MatchDate)
+                .ToListAsync();
+
+            var fixtureIds = data.Select(f => f.FixtureId).ToList();
+            var cardData = await _db.TbmFixtureAlls
+                .Where(f => fixtureIds.Contains(f.FixtureId))
+                .Select(f => new { f.FixtureId, f.HomeYellow, f.HomeRed, f.AwayYellow, f.AwayRed })
+                .ToDictionaryAsync(f => f.FixtureId);
+
+            var result = data.Select(f =>
+            {
+                cardData.TryGetValue(f.FixtureId, out var cardStats);
+                return new
+                {
+                    f.FixtureId,
+                    f.Season,
+                    f.Match,
+                    f.Home,
+                    f.HomeTeamName,
+                    f.HomeScore,
+                    f.AwayScore,
+                    f.Away,
+                    f.AwayTeamName,
+                    f.HomeImage,
+                    f.AwayImage,
+                    f.MatchDate,
+                    f.MatchDateDisplay,
+                    HomeYellow = cardStats?.HomeYellow,
+                    HomeRed = cardStats?.HomeRed,
+                    AwayYellow = cardStats?.AwayYellow,
+                    AwayRed = cardStats?.AwayRed,
+                };
+            }).ToList();
+
+            return Ok(ApiResponse<object>.Ok(result));
+        }
+
         // POST api/fixtures/{fixtureId}/report
         [HttpPost("{fixtureId}/report")]
         public async Task<IActionResult> ReportResult(string fixtureId, [FromBody] ReportResultDto dto)
