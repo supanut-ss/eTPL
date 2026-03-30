@@ -15,15 +15,23 @@ builder.Services.AddControllers();
 // ── CORS
 builder.Services.AddCors(options =>
 {
-    var allowedOrigins = builder.Environment.IsDevelopment()
-        ? new[] { "http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:3000" }
-        : new[] { 
-            "https://thaipesleague.com",
-            "https://www.thaipesleague.com",
-            "https://coreapi.thaipesleague.com",
-            "http://thaipesleague.com",
-            "http://www.thaipesleague.com"
-        };
+    // Origins can be configured in appsettings.json under "Cors:AllowedOrigins".
+    // Fall back to sensible per-environment defaults when not configured.
+    var configuredOrigins = builder.Configuration
+        .GetSection("Cors:AllowedOrigins")
+        .Get<string[]>();
+
+    var allowedOrigins = configuredOrigins
+        ?? (builder.Environment.IsDevelopment()
+            ? new[] { "http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:3000" }
+            : new[]
+            {
+                "https://thaipesleague.com",
+                "https://www.thaipesleague.com",
+                "https://coreapi.thaipesleague.com",
+                "http://thaipesleague.com",
+                "http://www.thaipesleague.com",
+            });
 
     options.AddPolicy("AllowFrontend", policy =>
         policy.WithOrigins(allowedOrigins)

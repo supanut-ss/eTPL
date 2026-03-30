@@ -1,11 +1,28 @@
 import axios from "axios";
 
+// Resolve the API base URL at runtime.
+// Priority: explicit env var → host-based detection → same-origin fallback.
+const resolveApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
+
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    // When the frontend is served from the main web domain, point to the API subdomain.
+    if (hostname === "thaipesleague.com" || hostname === "www.thaipesleague.com") {
+      return `${protocol}//coreapi.thaipesleague.com`;
+    }
+  }
+
+  // Default: same-origin (frontend is served directly by the backend).
+  return "";
+};
+
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "",
+  baseURL: resolveApiBaseUrl(),
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true,  // Enable credentials for CORS requests
+  withCredentials: true,
 });
 
 axiosInstance.interceptors.request.use(

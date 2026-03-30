@@ -33,7 +33,8 @@ const LINE_OAUTH_STATE_COOKIE = "line_oauth_state";
 
 const setCookie = (name, value, minutes) => {
   const expires = new Date(Date.now() + minutes * 60 * 1000).toUTCString();
-  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax${secure}`;
 };
 
 const LoginPage = () => {

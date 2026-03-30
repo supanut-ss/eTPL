@@ -7,9 +7,23 @@ export const getFixtures = (params) =>
 export const getFixtureSeasons = () =>
   axiosInstance.get("/api/fixtures/seasons");
 
+// Resolve the API base URL (mirrors the logic in axiosInstance.js).
+const resolvePublicApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
+
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    if (hostname === "thaipesleague.com" || hostname === "www.thaipesleague.com") {
+      return `${protocol}//coreapi.thaipesleague.com`;
+    }
+  }
+
+  return "";
+};
+
 // Public endpoint — no auth required
 const publicAxios = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "",
+  baseURL: resolvePublicApiBaseUrl(),
   headers: {
     "Content-Type": "application/json",
     "Cache-Control": "no-cache",
