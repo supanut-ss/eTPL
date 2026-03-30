@@ -251,6 +251,8 @@ public partial class ScaffoldedDbContext : DbContext
 
         modelBuilder.Entity<TbmAnnouce>(entity =>
         {
+            entity.HasKey(e => e.Id);
+
             entity.ToTable("tbm_annouce", "dbo");
 
             entity.Property(e => e.Id)
@@ -479,6 +481,8 @@ public partial class ScaffoldedDbContext : DbContext
 
         modelBuilder.Entity<TbtResult>(entity =>
         {
+            entity.HasKey(e => e.Id);
+
             entity.ToTable("tbt_result", "dbo");
 
             entity.Property(e => e.Id)
@@ -498,6 +502,11 @@ public partial class ScaffoldedDbContext : DbContext
             entity.Property(e => e.Ga).HasColumnName("GA");
             entity.Property(e => e.Gd).HasColumnName("GD");
             entity.Property(e => e.Gf).HasColumnName("GF");
+            entity.Property(e => e.Pl).HasColumnName("PL");
+            entity.Property(e => e.W).HasColumnName("W");
+            entity.Property(e => e.D).HasColumnName("D");
+            entity.Property(e => e.L).HasColumnName("L");
+            entity.Property(e => e.Pts).HasColumnName("PTS");
             entity.Property(e => e.Platform)
                 .HasMaxLength(10)
                 .HasColumnName("PLATFORM");

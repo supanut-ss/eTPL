@@ -29,9 +29,19 @@ const ALL_MENUS = [
     description: "Home / System overview",
   },
   {
+    key: "fixtures",
+    label: "Fixtures",
+    description: "View and report match fixtures",
+  },
+  {
     key: "users",
     label: "Manage Users",
     description: "Add, edit, delete users",
+  },
+  {
+    key: "announcements",
+    label: "Announcements",
+    description: "Manage system announcements",
   },
   {
     key: "permissions",
@@ -47,11 +57,10 @@ const LEVEL_COLORS = {
   user: "default",
 };
 
-// admin and dashboard are locked, cannot be edited
+// dashboard is accessible by all; admin columns for users/permissions/announcements are locked
 const isLocked = (menuKey, userLevel) =>
   menuKey === "dashboard" ||
-  (menuKey === "permissions" && userLevel === "admin") ||
-  (menuKey === "users" && userLevel === "admin");
+  (userLevel === "admin" && ["permissions", "users", "announcements", "fixtures"].includes(menuKey));
 
 const PermissionPage = () => {
   const [matrix, setMatrix] = useState({}); // { "dashboard|admin": true, ... }

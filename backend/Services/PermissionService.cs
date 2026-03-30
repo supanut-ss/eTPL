@@ -13,9 +13,11 @@ namespace eTPL.API.Services
         // รายการ menus ทั้งหมดในระบบ (single source of truth)
         public static readonly List<(string Key, string Label)> AllMenus = new()
         {
-            ("dashboard", "Dashboard"),
-            ("users",     "จัดการผู้ใช้"),
-            ("permissions", "จัดการสิทธิ์"),
+            ("dashboard",    "Dashboard"),
+            ("fixtures",     "Fixture"),
+            ("users",        "จัดการผู้ใช้"),
+            ("announcements","จัดการประกาศ"),
+            ("permissions",  "จัดการสิทธิ์"),
         };
 
         public static readonly string[] AllLevels = { "admin", "user" };
@@ -71,28 +73,39 @@ namespace eTPL.API.Services
 
         private async Task EnsureSeedAsync()
         {
-            if (await _db.Permissions.AnyAsync()) return;
+            // Seed any menu/level combination that doesn't exist yet (handles new menus added to AllMenus)
+            var existing = await _db.Permissions
+                .Select(p => new { p.MenuKey, p.UserLevel })
+                .ToListAsync();
 
-            // Seed default: admin เข้าถึงได้ทุกอย่าง, user เข้าได้แค่ dashboard
+            var existingSet = existing
+                .Select(p => $"{p.MenuKey}|{p.UserLevel}")
+                .ToHashSet();
+
             var seeds = new List<Permission>();
             foreach (var (key, label) in AllMenus)
             {
                 foreach (var level in AllLevels)
                 {
+                    if (existingSet.Contains($"{key}|{level}")) continue;
+
+                    // Default: admin can access everything; user can access only dashboard
+                    var canAccess = level == "admin" || key == "dashboard";
                     seeds.Add(new Permission
                     {
                         MenuKey = key,
                         MenuLabel = label,
                         UserLevel = level,
-                        CanAccess = level == "admin", // admin = true, user = false (ยกเว้น dashboard)
+                        CanAccess = canAccess,
                     });
                 }
             }
-            // dashboard ทุก level เข้าได้
-            seeds.Where(s => s.MenuKey == "dashboard").ToList().ForEach(s => s.CanAccess = true);
 
-            _db.Permissions.AddRange(seeds);
-            await _db.SaveChangesAsync();
+            if (seeds.Count > 0)
+            {
+                _db.Permissions.AddRange(seeds);
+                await _db.SaveChangesAsync();
+            }
         }
 
         private static PermissionDto ToDto(Permission p) => new()
