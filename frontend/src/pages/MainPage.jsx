@@ -204,24 +204,32 @@ const MainPage = () => {
   useEffect(() => {
     setLoading(true);
     const fixtureRequest = user ? getFixtures({}) : getPublicFixtures();
-    const userRequest = user ? getUsers() : Promise.resolve(null);
-    const requests = [
+    const canLoadMembers = user?.userLevel === "admin";
+
+    Promise.all([
       getStandings(),
       fixtureRequest,
       getPublicLastFixtures(),
       getPublicAnnouncements(),
-      userRequest,
-    ];
-
-    Promise.all(requests)
-      .then(([sRes, fRes, lastRes, aRes, uRes]) => {
+    ])
+      .then(([sRes, fRes, lastRes, aRes]) => {
         setStandings(sRes.data.data || []);
         setFixtures(fRes.data.data || []);
         setLastFixtures(lastRes.data.data || []);
         setAnnouncements(aRes.data.data || []);
-        if (uRes) {
-          setMembers(uRes.data.data || []);
+
+        if (!canLoadMembers) {
+          setMembers([]);
+          return null;
         }
+
+        return getUsers()
+          .then((uRes) => {
+            setMembers(uRes.data.data || []);
+          })
+          .catch(() => {
+            setMembers([]);
+          });
       })
       .catch(() => setError("Failed to load dashboard data"))
       .finally(() => setLoading(false));
@@ -816,7 +824,7 @@ const MainPage = () => {
         </Paper>
       </Box>
 
-      {user ? (
+      {user?.userLevel === "admin" ? (
         <Paper elevation={0} sx={{ ...panelSx }}>
           <SectionHeader
             icon={<Groups fontSize="small" />}
