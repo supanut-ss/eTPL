@@ -17,8 +17,8 @@ export const getAnnouncements = () => axiosInstance.get("/api/announcements");
 export const createAnnouncement = (data) =>
   axiosInstance.post("/api/announcements", data);
 export const updateAnnouncement = (id, data) =>
-  axiosInstance.put(`/api/announcements/${id}`, data);
+  axiosInstance.post(`/api/announcements/${id}/update`, data);
 export const toggleAnnouncement = (id, isActive) =>
-  axiosInstance.patch(`/api/announcements/${id}/toggle`, { isActive });
+  axiosInstance.post(`/api/announcements/${id}/toggle`, { isActive });
 export const deleteAnnouncement = (id) =>
-  axiosInstance.delete(`/api/announcements/${id}`);
+  axiosInstance.post(`/api/announcements/${id}/delete`);

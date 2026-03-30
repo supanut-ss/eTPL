@@ -99,6 +99,7 @@ namespace eTPL.API.Controllers
         }
 
         [HttpPut("{id:guid}")]
+        [HttpPost("{id:guid}/update")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateAnnouncementRequest request)
         {
@@ -121,6 +122,7 @@ namespace eTPL.API.Controllers
         }
 
         [HttpPatch("{id:guid}/toggle")]
+        [HttpPost("{id:guid}/toggle")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Toggle(Guid id, [FromBody] ToggleAnnouncementRequest request)
         {
@@ -135,6 +137,7 @@ namespace eTPL.API.Controllers
         }
 
         [HttpDelete("{id:guid}")]
+        [HttpPost("{id:guid}/delete")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(Guid id)
         {

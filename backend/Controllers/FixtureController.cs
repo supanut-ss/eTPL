@@ -254,6 +254,7 @@ namespace eTPL.API.Controllers
 
         // POST api/fixtures/{fixtureId}/report
         [HttpPost("{fixtureId}/report")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> ReportResult(string fixtureId, [FromBody] ReportResultDto dto)
         {
             // 1. ดึงข้อมูล fixture จาก tbm_fixture_all
@@ -410,6 +411,7 @@ namespace eTPL.API.Controllers
 
         // PUT api/fixtures/{fixtureId}/report  (admin only — แก้ไขผลที่บันทึกแล้ว)
         [HttpPut("{fixtureId}/report")]
+        [HttpPost("{fixtureId}/report/edit")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> EditResult(string fixtureId, [FromBody] ReportResultDto dto)
         {

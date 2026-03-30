@@ -16,4 +16,5 @@ $pwsh = if (Get-Command powershell -ErrorAction SilentlyContinue) { "powershell"
   -Username $Username `
   -Password $Password `
   -LocalPath .\deploy\frontend `
-  -RemotePath httpdocs
+  -RemotePath httpdocs `
+  -ExcludePaths "_image/CLUB_LOGO"

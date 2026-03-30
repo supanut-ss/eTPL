@@ -9,7 +9,6 @@ import {
   InputAdornment,
   IconButton,
   Tooltip,
-  Avatar,
   Stack,
   Divider,
   Alert,
@@ -30,26 +29,21 @@ import { getFixtures } from "../api/fixtureApi";
 import { useAuth } from "../store/AuthContext";
 import ReportResultDialog from "../components/ReportResultDialog";
 
-// Build logo URL from teamName → /_image/CLUB_LOGO/{teamName}.png
 const getLogoUrl = (teamName) => {
   if (!teamName) return "";
   return `/_image/CLUB_LOGO/${encodeURIComponent(teamName)}.png`;
 };
 
-const activeColor = (active) => {
-  if (active === "YES") return "success";
-  if (active === "NO") return "default";
-  return "warning";
-};
-
-const ScoreDisplay = ({ homeScore, awayScore, active }) => {
+const ScoreDisplay = ({ homeScore, awayScore }) => {
   const played = homeScore != null && awayScore != null;
-  if (!played)
+  if (!played) {
     return (
       <Typography color="text.secondary" fontSize={13}>
         vs
       </Typography>
     );
+  }
+
   return (
     <Box display="flex" alignItems="center" gap={0.5}>
       <Typography
@@ -85,10 +79,9 @@ const ScoreDisplay = ({ homeScore, awayScore, active }) => {
   );
 };
 
-// align: "left" = Home column (name left, logo right touching score)
-// align: "right" = Away column (logo left touching score, name right)
 const TeamCell = ({ player, teamName, isWinner, align = "left" }) => {
   const isRight = align === "right";
+
   return (
     <Box
       display="flex"
@@ -97,7 +90,6 @@ const TeamCell = ({ player, teamName, isWinner, align = "left" }) => {
       gap={1}
       sx={{ minWidth: 0, width: "100%" }}
     >
-      {/* Name — flush to outer edge */}
       <Typography
         fontSize={14}
         fontWeight={isWinner ? 700 : 400}
@@ -107,13 +99,12 @@ const TeamCell = ({ player, teamName, isWinner, align = "left" }) => {
       >
         {player || "-"}
       </Typography>
-      {/* Logo — close to score center */}
       <Box
         component="img"
         src={getLogoUrl(teamName)}
         alt={teamName || player}
-        onError={(e) => {
-          e.target.style.display = "none";
+        onError={(event) => {
+          event.target.style.display = "none";
         }}
         sx={{ width: 28, height: 28, objectFit: "contain", flexShrink: 0 }}
       />
@@ -131,13 +122,15 @@ const FixturePage = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [reportFixture, setReportFixture] = useState(null);
 
-  const fetchFixtures = useCallback((searchVal = "") => {
+  const fetchFixtures = useCallback((searchValue = "") => {
     setLoading(true);
     setError("");
+
     const params = {};
-    if (searchVal) params.search = searchVal;
+    if (searchValue) params.search = searchValue;
+
     getFixtures(params)
-      .then((res) => setRows(res.data.data || []))
+      .then((response) => setRows(response.data.data || []))
       .catch(() => setError("Failed to load data"))
       .finally(() => setLoading(false));
   }, []);
@@ -146,8 +139,8 @@ const FixturePage = () => {
     fetchFixtures();
   }, [fetchFixtures]);
 
-  const handleSearch = (e) => {
-    if (e.key === "Enter") fetchFixtures(search);
+  const handleSearch = (event) => {
+    if (event.key === "Enter") fetchFixtures(search);
   };
 
   const handleClearSearch = () => {
@@ -155,25 +148,27 @@ const FixturePage = () => {
     fetchFixtures("");
   };
 
-  // stats
   const played = rows.filter(
-    (r) => r.homeScore != null && r.awayScore != null,
+    (row) => row.homeScore != null && row.awayScore != null,
   ).length;
   const unplayed = rows.length - played;
 
   const displayRows = useMemo(() => {
-    const isPlayed = (r) => r.homeScore != null && r.awayScore != null;
-    const filtered =
+    const isPlayed = (row) => row.homeScore != null && row.awayScore != null;
+
+    const filteredRows =
       statusFilter === "all"
         ? rows
-        : rows.filter((r) =>
-            statusFilter === "pending" ? !isPlayed(r) : isPlayed(r),
+        : rows.filter((row) =>
+            statusFilter === "pending" ? !isPlayed(row) : isPlayed(row),
           );
-    return [...filtered].sort((a, b) => {
-      const aPending = !isPlayed(a) ? 0 : 1;
-      const bPending = !isPlayed(b) ? 0 : 1;
-      if (aPending !== bPending) return aPending - bPending;
-      return (a.match ?? 0) - (b.match ?? 0);
+
+    return [...filteredRows].sort((left, right) => {
+      const leftPending = !isPlayed(left) ? 0 : 1;
+      const rightPending = !isPlayed(right) ? 0 : 1;
+
+      if (leftPending !== rightPending) return leftPending - rightPending;
+      return (left.match ?? 0) - (right.match ?? 0);
     });
   }, [rows, statusFilter]);
 
@@ -200,6 +195,7 @@ const FixturePage = () => {
           params.row.homeScore != null &&
           params.row.awayScore != null &&
           params.row.homeScore > params.row.awayScore;
+
         return (
           <TeamCell
             player={params.value}
@@ -221,7 +217,6 @@ const FixturePage = () => {
         <ScoreDisplay
           homeScore={params.row.homeScore}
           awayScore={params.row.awayScore}
-          active={params.row.active}
         />
       ),
     },
@@ -235,6 +230,7 @@ const FixturePage = () => {
           params.row.homeScore != null &&
           params.row.awayScore != null &&
           params.row.awayScore > params.row.homeScore;
+
         return (
           <TeamCell
             player={params.value}
@@ -261,13 +257,16 @@ const FixturePage = () => {
           awayYellow,
           awayRed,
         } = params.row;
-        const played = homeScore != null && awayScore != null;
-        if (!played)
+        const isPlayed = homeScore != null && awayScore != null;
+
+        if (!isPlayed) {
           return (
             <Typography color="text.secondary" fontSize={12}>
-              —
+              -
             </Typography>
           );
+        }
+
         return (
           <Box display="flex" alignItems="center" gap={0.5}>
             <SquareRounded sx={{ color: "#f59e0b", fontSize: 13 }} />
@@ -303,9 +302,8 @@ const FixturePage = () => {
       renderCell: (params) => {
         const isPlayed =
           params.row.homeScore != null && params.row.awayScore != null;
-        const isAdmin = !isUserLevel;
 
-        if (isAdmin) {
+        if (!isUserLevel) {
           return (
             <Button
               size="small"
@@ -321,17 +319,12 @@ const FixturePage = () => {
         }
 
         return (
-          <Button
+          <Chip
             size="small"
-            variant={isPlayed ? "outlined" : "contained"}
-            color={isPlayed ? "success" : "primary"}
-            disabled={isPlayed}
-            startIcon={<EditNote />}
-            onClick={() => setReportFixture(params.row)}
-            sx={{ fontSize: 12, px: 1.5, whiteSpace: "nowrap" }}
-          >
-            {isPlayed ? "Recorded" : "Report Result"}
-          </Button>
+            label={isPlayed ? "Recorded" : "Pending"}
+            color={isPlayed ? "success" : "default"}
+            variant={isPlayed ? "filled" : "outlined"}
+          />
         );
       },
     },
@@ -339,7 +332,6 @@ const FixturePage = () => {
 
   return (
     <Box>
-      {/* Header */}
       <Box
         display="flex"
         justifyContent="space-between"
@@ -369,7 +361,6 @@ const FixturePage = () => {
         </Tooltip>
       </Box>
 
-      {/* Stat Cards */}
       <Stack direction="row" spacing={2} mb={3} flexWrap="wrap">
         <Paper
           elevation={1}
@@ -420,14 +411,13 @@ const FixturePage = () => {
         </Paper>
       </Stack>
 
-      {/* Search + Filter */}
       <Paper elevation={1} sx={{ p: 2, mb: 2, borderRadius: 2 }}>
         <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
           <TextField
             label="Search Team"
             size="small"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(event) => setSearch(event.target.value)}
             onKeyDown={handleSearch}
             placeholder="Press Enter to search"
             sx={{ minWidth: 280 }}
@@ -449,8 +439,8 @@ const FixturePage = () => {
           <ToggleButtonGroup
             value={statusFilter}
             exclusive
-            onChange={(_, val) => {
-              if (val !== null) setStatusFilter(val);
+            onChange={(_, value) => {
+              if (value !== null) setStatusFilter(value);
             }}
             size="small"
           >
@@ -467,7 +457,6 @@ const FixturePage = () => {
         </Alert>
       )}
 
-      {/* DataGrid */}
       <Paper elevation={2} sx={{ borderRadius: 2, overflow: "hidden" }}>
         <DataGrid
           rows={displayRows}

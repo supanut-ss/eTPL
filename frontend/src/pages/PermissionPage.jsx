@@ -57,10 +57,23 @@ const LEVEL_COLORS = {
   user: "default",
 };
 
-// dashboard is accessible by all; admin columns for users/permissions/announcements are locked
+// dashboard is accessible by all; fixture access is admin-only; other admin menus stay locked for admin level
 const isLocked = (menuKey, userLevel) =>
   menuKey === "dashboard" ||
+  (menuKey === "fixtures" && userLevel === "user") ||
   (userLevel === "admin" && ["permissions", "users", "announcements", "fixtures"].includes(menuKey));
+
+const getFixedValue = (menuKey, userLevel) => {
+  if (menuKey === "dashboard") return true;
+  if (menuKey === "fixtures" && userLevel === "user") return true;
+  if (
+    userLevel === "admin" &&
+    ["permissions", "users", "announcements", "fixtures"].includes(menuKey)
+  ) {
+    return true;
+  }
+  return null;
+};
 
 const PermissionPage = () => {
   const [matrix, setMatrix] = useState({}); // { "dashboard|admin": true, ... }
@@ -90,6 +103,11 @@ const PermissionPage = () => {
       ALL_MENUS.forEach(({ key }) => {
         ALL_LEVELS.forEach((level) => {
           const k = buildKey(key, level);
+          const fixedValue = getFixedValue(key, level);
+          if (fixedValue !== null) {
+            map[k] = fixedValue;
+            return;
+          }
           if (!(k in map)) {
             map[k] = level === "admin" || key === "dashboard";
           }
@@ -119,10 +137,11 @@ const PermissionPage = () => {
       const permissions = [];
       ALL_MENUS.forEach(({ key }) => {
         ALL_LEVELS.forEach((level) => {
+          const fixedValue = getFixedValue(key, level);
           permissions.push({
             menuKey: key,
             userLevel: level,
-            canAccess: matrix[buildKey(key, level)] ?? false,
+            canAccess: fixedValue ?? matrix[buildKey(key, level)] ?? false,
           });
         });
       });
@@ -221,7 +240,8 @@ const PermissionPage = () => {
                     </TableCell>
                     {ALL_LEVELS.map((level) => {
                       const locked = isLocked(key, level);
-                      const checked = matrix[buildKey(key, level)] ?? false;
+                      const fixedValue = getFixedValue(key, level);
+                      const checked = fixedValue ?? matrix[buildKey(key, level)] ?? false;
                       return (
                         <TableCell key={level} align="center">
                           <Tooltip
