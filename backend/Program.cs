@@ -17,6 +17,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
         policy.WithOrigins(
+                  "https://thaipesleague.com",
+                  "https://www.thaipesleague.com",
+                  "http://thaipesleague.com",
+                  "http://www.thaipesleague.com",
                   "http://localhost:5173",
                   "http://localhost:5174",
                   "http://localhost:5175")
