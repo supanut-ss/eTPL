@@ -116,3 +116,11 @@ out/
 output/
 coverage/
 .nyc_output/
+
+# ========================
+# Deployment artifacts
+# ========================
+deploy/
+*.ftp-log
+*-upload-*.log
+*-upload-*.txt
