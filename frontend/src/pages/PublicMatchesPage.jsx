@@ -221,7 +221,7 @@ const H2HDialog = ({ open, onClose, home, away, homeTeamName, awayTeamName }) =>
             Head-to-Head
           </Typography>
           <Typography variant="body2" color="text.secondary" fontSize={12}>
-            {homeTeamName || home} vs {awayTeamName || away}
+            {home} vs {away}
           </Typography>
         </Box>
         <IconButton size="small" onClick={onClose}>
@@ -260,7 +260,7 @@ const H2HDialog = ({ open, onClose, home, away, homeTeamName, awayTeamName }) =>
                   {homeWins}
                 </Typography>
                 <Typography fontSize={11} color="text.secondary" noWrap>
-                  {homeTeamName || home}
+                  {home}
                 </Typography>
               </Box>
               <Box textAlign="center">
@@ -276,7 +276,7 @@ const H2HDialog = ({ open, onClose, home, away, homeTeamName, awayTeamName }) =>
                   {awayWins}
                 </Typography>
                 <Typography fontSize={11} color="text.secondary" noWrap>
-                  {awayTeamName || away}
+                  {away}
                 </Typography>
               </Box>
             </Stack>
@@ -286,11 +286,8 @@ const H2HDialog = ({ open, onClose, home, away, homeTeamName, awayTeamName }) =>
             {/* Match list */}
             <Stack spacing={1}>
               {records.map((r) => {
-                const isHomeFirst = r.home === home;
-                const p1Score = isHomeFirst ? r.homeScore : r.awayScore;
-                const p2Score = isHomeFirst ? r.awayScore : r.homeScore;
-                const p1Win = p1Score > p2Score;
-                const p2Win = p2Score > p1Score;
+                const homeWin = r.homeScore > r.awayScore;
+                const awayWin = r.awayScore > r.homeScore;
                 return (
                   <Box
                     key={r.fixtureId}
@@ -319,14 +316,12 @@ const H2HDialog = ({ open, onClose, home, away, homeTeamName, awayTeamName }) =>
                     {/* Home player */}
                     <Typography
                       fontSize={13}
-                      fontWeight={p1Win ? 700 : 400}
-                      color={p1Win ? "success.main" : "text.primary"}
+                      fontWeight={homeWin ? 700 : 400}
+                      color={homeWin ? "success.main" : "text.primary"}
                       flex={1}
                       noWrap
                     >
-                      {isHomeFirst
-                        ? r.homeTeamName || r.home
-                        : r.awayTeamName || r.away}
+                      {r.home}
                     </Typography>
 
                     {/* Score */}
@@ -344,14 +339,14 @@ const H2HDialog = ({ open, onClose, home, away, homeTeamName, awayTeamName }) =>
                         <Box
                           component="span"
                           color={
-                            p1Win
+                            homeWin
                               ? "success.main"
-                              : p2Win
+                              : awayWin
                                 ? "error.main"
                                 : "text.primary"
                           }
                         >
-                          {p1Score}
+                          {r.homeScore}
                         </Box>
                         <Box component="span" color="text.disabled" mx={0.5}>
                           -
@@ -359,14 +354,14 @@ const H2HDialog = ({ open, onClose, home, away, homeTeamName, awayTeamName }) =>
                         <Box
                           component="span"
                           color={
-                            p2Win
+                            awayWin
                               ? "success.main"
-                              : p1Win
+                              : homeWin
                                 ? "error.main"
                                 : "text.primary"
                           }
                         >
-                          {p2Score}
+                          {r.awayScore}
                         </Box>
                       </Typography>
                     </Box>
@@ -374,15 +369,13 @@ const H2HDialog = ({ open, onClose, home, away, homeTeamName, awayTeamName }) =>
                     {/* Away player */}
                     <Typography
                       fontSize={13}
-                      fontWeight={p2Win ? 700 : 400}
-                      color={p2Win ? "success.main" : "text.primary"}
+                      fontWeight={awayWin ? 700 : 400}
+                      color={awayWin ? "success.main" : "text.primary"}
                       flex={1}
                       textAlign="right"
                       noWrap
                     >
-                      {isHomeFirst
-                        ? r.awayTeamName || r.away
-                        : r.homeTeamName || r.home}
+                      {r.away}
                     </Typography>
 
                     {/* Date */}
