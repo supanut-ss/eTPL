@@ -17,3 +17,6 @@ export const getLineAvailableUsers = () =>
 
 export const getLineLoginUrl = (params) =>
   axiosInstance.get("/api/auth/line-login-url", { params });
+
+export const getLineConfigStatus = () =>
+  axiosInstance.get("/api/auth/line-config-status");

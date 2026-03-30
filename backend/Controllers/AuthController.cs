@@ -91,5 +91,19 @@ namespace eTPL.API.Controllers
                 return BadRequest(ApiResponse<string>.Fail(ex.Message));
             }
         }
+
+        [HttpGet("line-config-status")]
+        public IActionResult GetLineConfigStatus()
+        {
+            try
+            {
+                _authService.GetLineAuthorizeUrl("http://dummy", "dummy");
+                return Ok(ApiResponse<object>.Ok(new { isConfigured = true }, "LINE ตั้งค่าแล้ว"));
+            }
+            catch (InvalidOperationException)
+            {
+                return Ok(ApiResponse<object>.Ok(new { isConfigured = false }, "LINE ยังไม่ได้ตั้งค่า"));
+            }
+        }
     }
 }

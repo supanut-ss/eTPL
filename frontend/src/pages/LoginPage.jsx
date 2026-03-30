@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -15,7 +15,7 @@ import {
 } from "@mui/material";
 import { Visibility, VisibilityOff, Lock } from "@mui/icons-material";
 import { useAuth } from "../store/AuthContext";
-import { getLineLoginUrl, login as loginApi } from "../api/authApi";
+import { getLineLoginUrl, getLineConfigStatus, login as loginApi } from "../api/authApi";
 
 const LineIcon = () => (
   <svg
@@ -44,6 +44,26 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [lineConfigured, setLineConfigured] = useState(null);
+
+  useEffect(() => {
+    // Check if LINE is configured when component mounts
+    const checkLineConfig = async () => {
+      try {
+        const res = await getLineConfigStatus();
+        setLineConfigured(res?.data?.data?.isConfigured ?? false);
+      } catch (err) {
+        // If the check fails, assume LINE is not available
+        console.warn("LINE config check failed:", err.message);
+        setLineConfigured(false);
+      }
+    };
+
+    // Log API connectivity info for debugging
+    console.log("LoginPage mounted - API_BASE_URL:", import.meta.env.VITE_API_BASE_URL || "(using relative URL)");
+
+    checkLineConfig();
+  }, []);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -59,7 +79,14 @@ const LoginPage = () => {
       login(res.data.data.token, res.data.data.user);
       navigate("/main");
     } catch (err) {
-      setError(err.response?.data?.message || "Invalid username or password");
+      const errorMsg = err.response?.data?.message || err.message || "Invalid username or password";
+      console.error("Login error:", {
+        status: err.response?.status,
+        message: errorMsg,
+        data: err.response?.data,
+        url: err.config?.url,
+      });
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -174,20 +201,37 @@ const LoginPage = () => {
             </Typography>
           </Divider>
 
-          <Button
-            variant="contained"
-            size="large"
-            fullWidth
-            onClick={handleLineLogin}
-            startIcon={<LineIcon />}
-            sx={{
-              backgroundColor: "#06C755",
-              "&:hover": { backgroundColor: "#05a847" },
-              color: "white",
-            }}
-          >
-            เข้าสู่ระบบด้วย LINE
-          </Button>
+          {lineConfigured ? (
+            <Button
+              variant="contained"
+              size="large"
+              fullWidth
+              onClick={handleLineLogin}
+              startIcon={<LineIcon />}
+              sx={{
+                backgroundColor: "#06C755",
+                "&:hover": { backgroundColor: "#05a847" },
+                color: "white",
+              }}
+            >
+              เข้าสู่ระบบด้วย LINE
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              size="large"
+              fullWidth
+              disabled
+              startIcon={<LineIcon />}
+              sx={{
+                backgroundColor: "#ccc",
+                color: "#999",
+              }}
+              title="ไม่ได้เปิดใช้งาน LINE login"
+            >
+              เข้าสู่ระบบด้วย LINE (ไม่เปิดใช้งาน)
+            </Button>
+          )}
         </CardContent>
       </Card>
     </Box>

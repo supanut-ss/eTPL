@@ -231,7 +231,16 @@ const MainPage = () => {
             setMembers([]);
           });
       })
-      .catch(() => setError("Failed to load dashboard data"))
+      .catch((err) => {
+        const errorMsg = err.response?.data?.message || err.message || "Failed to load dashboard data";
+        console.error("Dashboard data load error:", {
+          status: err.response?.status,
+          message: errorMsg,
+          data: err.response?.data,
+          url: err.config?.url,
+        });
+        setError(errorMsg);
+      })
       .finally(() => setLoading(false));
   }, [user]);
 

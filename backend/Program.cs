@@ -15,17 +15,21 @@ builder.Services.AddControllers();
 // ── CORS
 builder.Services.AddCors(options =>
 {
+    var allowedOrigins = builder.Environment.IsDevelopment()
+        ? new[] { "http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:3000" }
+        : new[] { 
+            "https://thaipesleague.com",
+            "https://www.thaipesleague.com",
+            "https://coreapi.thaipesleague.com",
+            "http://thaipesleague.com",
+            "http://www.thaipesleague.com"
+        };
+
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins(
-                  "https://thaipesleague.com",
-                  "https://www.thaipesleague.com",
-                  "http://thaipesleague.com",
-                  "http://www.thaipesleague.com",
-                  "http://localhost:5173",
-                  "http://localhost:5174",
-                  "http://localhost:5175")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod());
+              .AllowAnyMethod()
+              .AllowCredentials());
 });
 
 // ── MS SQL DbContext (Users + Business Data)
