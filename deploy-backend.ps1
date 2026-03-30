@@ -12,15 +12,17 @@ Set-Location $repoRoot
 
 Copy-Item .\deploy\production-appsettings.json .\deploy\backend\appsettings.json -Force
 
+$pwsh = if (Get-Command powershell -ErrorAction SilentlyContinue) { "powershell" } else { "pwsh" }
+
 if ($CleanRemote) {
-    powershell -ExecutionPolicy Bypass -File .\deploy\delete-coreapi-dir.ps1 `
+    & $pwsh -ExecutionPolicy Bypass -File .\deploy\delete-coreapi-dir.ps1 `
       -FtpServer $Server `
       -Username $Username `
       -Password $Password `
       -Directory coreapi.thaipesleague.com
 }
 
-powershell -ExecutionPolicy Bypass -File .\deploy\upload-ftp.ps1 `
+& $pwsh -ExecutionPolicy Bypass -File .\deploy\upload-ftp.ps1 `
   -Server $Server `
   -Username $Username `
   -Password $Password `

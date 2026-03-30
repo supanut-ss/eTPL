@@ -9,7 +9,9 @@ $repoRoot = $PSScriptRoot
 
 Set-Location $repoRoot
 
-powershell -ExecutionPolicy Bypass -File .\deploy\upload-ftp.ps1 `
+$pwsh = if (Get-Command powershell -ErrorAction SilentlyContinue) { "powershell" } else { "pwsh" }
+
+& $pwsh -ExecutionPolicy Bypass -File .\deploy\upload-ftp.ps1 `
   -Server $Server `
   -Username $Username `
   -Password $Password `
