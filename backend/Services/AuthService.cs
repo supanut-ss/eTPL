@@ -155,13 +155,17 @@ namespace eTPL.API.Services
         {
             var channelId = FirstConfiguredValue(
                 "Line:ChannelId",
+                "LineLogin:ChannelId",
                 "LINE__CHANNELID",
+                "LINE_CHANNELID",
                 "LINE_CHANNEL_ID",
                 "VITE_LINE_CHANNEL_ID");
 
             var channelSecret = FirstConfiguredValue(
                 "Line:ChannelSecret",
+                "LineLogin:ChannelSecret",
                 "LINE__CHANNELSECRET",
+                "LINE_CHANNELSECRET",
                 "LINE_CHANNEL_SECRET");
 
             if (string.IsNullOrWhiteSpace(channelId) || channelId == "YOUR_LINE_CHANNEL_ID")

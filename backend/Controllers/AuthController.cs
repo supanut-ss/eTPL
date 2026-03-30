@@ -27,24 +27,38 @@ namespace eTPL.API.Controllers
         [HttpPost("line-login")]
         public async Task<IActionResult> LineLogin([FromBody] LineLoginRequest request)
         {
-            var result = await _authService.LineLoginAsync(request);
-            if (result == null)
-                return Unauthorized(ApiResponse<string>.Fail("ไม่พบบัญชีผู้ใช้ที่ผูกกับ LINE นี้"));
+            try
+            {
+                var result = await _authService.LineLoginAsync(request);
+                if (result == null)
+                    return Unauthorized(ApiResponse<string>.Fail("ไม่พบบัญชีผู้ใช้ที่ผูกกับ LINE นี้"));
 
-            return Ok(ApiResponse<LoginResponse>.Ok(result, "เข้าสู่ระบบด้วย LINE สำเร็จ"));
+                return Ok(ApiResponse<LoginResponse>.Ok(result, "เข้าสู่ระบบด้วย LINE สำเร็จ"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<string>.Fail(ex.Message));
+            }
         }
 
         [HttpPost("line-auth")]
         public async Task<IActionResult> LineAuth([FromBody] LineLoginRequest request)
         {
-            var result = await _authService.LineAuthAsync(request);
-            if (result == null)
-                return BadRequest(ApiResponse<string>.Fail("ไม่สามารถยืนยันตัวตนผ่าน LINE ได้"));
+            try
+            {
+                var result = await _authService.LineAuthAsync(request);
+                if (result == null)
+                    return BadRequest(ApiResponse<string>.Fail("ไม่สามารถยืนยันตัวตนผ่าน LINE ได้"));
 
-            if (result.IsLinked)
-                return Ok(ApiResponse<LineAuthResponse>.Ok(result, "เข้าสู่ระบบด้วย LINE สำเร็จ"));
+                if (result.IsLinked)
+                    return Ok(ApiResponse<LineAuthResponse>.Ok(result, "เข้าสู่ระบบด้วย LINE สำเร็จ"));
 
-            return Ok(ApiResponse<LineAuthResponse>.Ok(result, "LINE account ยังไม่ถูกผูกกับผู้ใช้"));
+                return Ok(ApiResponse<LineAuthResponse>.Ok(result, "LINE account ยังไม่ถูกผูกกับผู้ใช้"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<string>.Fail(ex.Message));
+            }
         }
 
         [HttpGet("line-available-users")]
