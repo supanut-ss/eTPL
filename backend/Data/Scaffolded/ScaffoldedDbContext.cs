@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using eTPL.API.Models.Scaffolded;
@@ -190,7 +190,7 @@ public partial class ScaffoldedDbContext : DbContext
 
             entity.Property(e => e.FixtureId)
                 .HasMaxLength(50)
-                .HasDefaultValueSql("(newid())", "DF_tbl_fixture_log_fixture_id")
+                .HasDefaultValueSql("(newid())")
                 .HasColumnName("fixture_id");
             entity.Property(e => e.Active)
                 .HasMaxLength(3)
@@ -227,7 +227,7 @@ public partial class ScaffoldedDbContext : DbContext
             entity.ToTable("tbl_leave", "dbo");
 
             entity.Property(e => e.LeaveId)
-                .HasDefaultValueSql("(newid())", "DF_tbl_leave_leave_id")
+                .HasDefaultValueSql("(newid())")
                 .HasColumnName("leave_id");
             entity.Property(e => e.DateFrom)
                 .HasMaxLength(10)
@@ -256,14 +256,14 @@ public partial class ScaffoldedDbContext : DbContext
             entity.ToTable("tbm_annouce", "dbo");
 
             entity.Property(e => e.Id)
-                .HasDefaultValueSql("(newid())", "DF_tbm_annouce_id")
+                .HasDefaultValueSql("(newid())")
                 .HasColumnName("id");
             entity.Property(e => e.Announcement).HasColumnName("announcement");
             entity.Property(e => e.Announcer)
                 .HasMaxLength(50)
                 .HasColumnName("announcer");
             entity.Property(e => e.CreateDate)
-                .HasDefaultValueSql("(getdate())", "DF_tbm_annouce_create_date")
+                .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime")
                 .HasColumnName("create_date");
             entity.Property(e => e.Platform)
@@ -276,7 +276,7 @@ public partial class ScaffoldedDbContext : DbContext
             entity.ToTable("tbm_current_season", "dbo");
 
             entity.Property(e => e.Id)
-                .HasDefaultValueSql("(newid())", "DF_tbm_current_season_id")
+                .HasDefaultValueSql("(newid())")
                 .HasColumnName("id");
             entity.Property(e => e.Platform)
                 .HasMaxLength(4)
@@ -290,7 +290,7 @@ public partial class ScaffoldedDbContext : DbContext
 
             entity.Property(e => e.Id)
                 .HasMaxLength(50)
-                .HasDefaultValueSql("(newid())", "DF_tbm_final_result_ID")
+                .HasDefaultValueSql("(newid())")
                 .HasColumnName("ID");
             entity.Property(e => e.Division)
                 .HasMaxLength(2)
@@ -322,7 +322,7 @@ public partial class ScaffoldedDbContext : DbContext
 
             entity.Property(e => e.FixtureId)
                 .HasMaxLength(50)
-                .HasDefaultValueSql("(newid())", "DF_tbm_Fixture_All_fixture_id")
+                .HasDefaultValueSql("(newid())")
                 .HasColumnName("fixture_id");
             entity.Property(e => e.Active)
                 .HasMaxLength(3)
@@ -361,7 +361,7 @@ public partial class ScaffoldedDbContext : DbContext
 
             entity.Property(e => e.HofId)
                 .HasMaxLength(50)
-                .HasDefaultValueSql("(newid())", "DF_tbm_hof_hof_id")
+                .HasDefaultValueSql("(newid())")
                 .HasColumnName("hof_id");
             entity.Property(e => e.D1).HasMaxLength(255);
             entity.Property(e => e.D2).HasMaxLength(255);
@@ -385,7 +385,7 @@ public partial class ScaffoldedDbContext : DbContext
             entity.ToTable("tbm_new_member", "dbo");
 
             entity.Property(e => e.Id)
-                .HasDefaultValueSql("(newid())", "DF_tbm_new_member_id")
+                .HasDefaultValueSql("(newid())")
                 .HasColumnName("id");
             entity.Property(e => e.Facebook)
                 .HasMaxLength(300)
@@ -427,7 +427,7 @@ public partial class ScaffoldedDbContext : DbContext
 
             entity.Property(e => e.Id)
                 .HasMaxLength(50)
-                .HasDefaultValueSql("(newid())", "DF_tbm_team_id")
+                .HasDefaultValueSql("(newid())")
                 .HasColumnName("id");
             entity.Property(e => e.Division)
                 .HasMaxLength(50)
@@ -487,10 +487,10 @@ public partial class ScaffoldedDbContext : DbContext
 
             entity.Property(e => e.Id)
                 .HasMaxLength(50)
-                .HasDefaultValueSql("(newid())", "DF_tbt_result_id")
+                .HasDefaultValueSql("(newid())")
                 .HasColumnName("id");
             entity.Property(e => e.CreateDate)
-                .HasDefaultValueSql("(getdate())", "DF_tbt_result_create_date")
+                .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime")
                 .HasColumnName("create_date");
             entity.Property(e => e.Division)
