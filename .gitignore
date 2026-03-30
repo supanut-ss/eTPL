@@ -124,3 +124,8 @@ deploy/
 *.ftp-log
 *-upload-*.log
 *-upload-*.txt
+
+# ========================
+# Club logos
+# ========================
+club_logo/
