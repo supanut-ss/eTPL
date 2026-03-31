@@ -1,7 +1,10 @@
 param(
     [string]$Server = "ftp.thaipesleague.com",
     [string]$Username = "thaipes",
-    [string]$Password = "Ws7#3es2"
+    [string]$Password = "Ws7#3es2",
+    [string]$RemotePath = "httpdocs",
+    [switch]$DryRun,
+    [switch]$BuildOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,12 +12,19 @@ $repoRoot = $PSScriptRoot
 
 Set-Location $repoRoot
 
-$pwsh = if (Get-Command powershell -ErrorAction SilentlyContinue) { "powershell" } else { "pwsh" }
+$args = @{
+  Server = $Server
+  Username = $Username
+  Password = $Password
+  RemotePath = $RemotePath
+}
 
-& $pwsh -ExecutionPolicy Bypass -File .\deploy\upload-ftp.ps1 `
-  -Server $Server `
-  -Username $Username `
-  -Password $Password `
-  -LocalPath .\deploy\frontend `
-  -RemotePath httpdocs `
-  -ExcludePaths "_image/CLUB_LOGO"
+if ($DryRun) {
+  $args.DryRun = $true
+}
+
+if ($BuildOnly) {
+  $args.BuildOnly = $true
+}
+
+& .\deploy\deploy-frontend.ps1 @args

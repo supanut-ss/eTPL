@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Moq;
 using Xunit;
@@ -38,6 +39,11 @@ namespace eTPL.API.Tests
                 .Build();
         }
 
+        private static IMemoryCache CreateMemoryCache()
+        {
+            return new MemoryCache(new MemoryCacheOptions());
+        }
+
         // ── LoginAsync ────────────────────────────────────────────────
 
         [Fact]
@@ -50,7 +56,8 @@ namespace eTPL.API.Tests
 
             var config = BuildConfig();
             var httpFactory = new Mock<IHttpClientFactory>();
-            var service = new AuthService(db, config, httpFactory.Object);
+            var memoryCache = CreateMemoryCache();
+            var service = new AuthService(db, config, httpFactory.Object, memoryCache);
 
             // Act
             var result = await service.LoginAsync(new LoginRequest { UserId = "admin", Password = "pass123" });
@@ -72,7 +79,8 @@ namespace eTPL.API.Tests
 
             var config = BuildConfig();
             var httpFactory = new Mock<IHttpClientFactory>();
-            var service = new AuthService(db, config, httpFactory.Object);
+            var memoryCache = CreateMemoryCache();
+            var service = new AuthService(db, config, httpFactory.Object, memoryCache);
 
             // Act
             var result = await service.LoginAsync(new LoginRequest { UserId = "admin", Password = "wrong" });
@@ -89,7 +97,8 @@ namespace eTPL.API.Tests
 
             var config = BuildConfig();
             var httpFactory = new Mock<IHttpClientFactory>();
-            var service = new AuthService(db, config, httpFactory.Object);
+            var memoryCache = CreateMemoryCache();
+            var service = new AuthService(db, config, httpFactory.Object, memoryCache);
 
             // Act
             var result = await service.LoginAsync(new LoginRequest { UserId = "nobody", Password = "pass" });
@@ -116,7 +125,8 @@ namespace eTPL.API.Tests
 
             var config = BuildConfig();
             var httpFactory = new Mock<IHttpClientFactory>();
-            var service = new AuthService(db, config, httpFactory.Object);
+            var memoryCache = CreateMemoryCache();
+            var service = new AuthService(db, config, httpFactory.Object, memoryCache);
 
             // Act
             var result = await service.LoginAsync(new LoginRequest { UserId = "user1", Password = "p" });
@@ -144,7 +154,8 @@ namespace eTPL.API.Tests
             var httpFactory = new Mock<IHttpClientFactory>();
             httpFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
-            var service = new AuthService(db, config, httpFactory.Object);
+            var memoryCache = CreateMemoryCache();
+            var service = new AuthService(db, config, httpFactory.Object, memoryCache);
 
             // Act
             var result = await service.LineLoginAsync(new LineLoginRequest
@@ -189,7 +200,8 @@ namespace eTPL.API.Tests
             var httpFactory = new Mock<IHttpClientFactory>();
             httpFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
-            var service = new AuthService(db, config, httpFactory.Object);
+            var memoryCache = CreateMemoryCache();
+            var service = new AuthService(db, config, httpFactory.Object, memoryCache);
 
             // Act
             var result = await service.LineLoginAsync(new LineLoginRequest
@@ -241,7 +253,8 @@ namespace eTPL.API.Tests
             var httpFactory = new Mock<IHttpClientFactory>();
             httpFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
 
-            var service = new AuthService(db, config, httpFactory.Object);
+            var memoryCache = CreateMemoryCache();
+            var service = new AuthService(db, config, httpFactory.Object, memoryCache);
 
             // Act
             var result = await service.LineLoginAsync(new LineLoginRequest
