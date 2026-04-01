@@ -641,7 +641,11 @@ namespace eTPL.API.Controllers
                     }
                 };
 
-                var json = System.Text.Json.JsonSerializer.Serialize(payload);
+                var options = new System.Text.Json.JsonSerializerOptions
+                {
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                };
+                var json = System.Text.Json.JsonSerializer.Serialize(payload, options);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 using (var client = new HttpClient())
