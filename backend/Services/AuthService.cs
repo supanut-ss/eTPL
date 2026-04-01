@@ -213,7 +213,27 @@ namespace eTPL.API.Services
             );
 
             if (!tokenResponse.IsSuccessStatusCode)
-                return null;
+            {
+                var errorBody = await tokenResponse.Content.ReadAsStringAsync();
+                try
+                {
+                    var errorJson = JsonSerializer.Deserialize<JsonElement>(errorBody);
+                    if (errorJson.TryGetProperty("error_description", out var descElement))
+                    {
+                        var desc = descElement.GetString();
+                        if (!string.IsNullOrWhiteSpace(desc))
+                            throw new InvalidOperationException(desc);
+                    }
+                    if (errorJson.TryGetProperty("error", out var errElement))
+                    {
+                        var err = errElement.GetString();
+                        if (!string.IsNullOrWhiteSpace(err))
+                            throw new InvalidOperationException(err);
+                    }
+                }
+                catch (JsonException) { }
+                throw new InvalidOperationException("ไม่สามารถยืนยันตัวตนผ่าน LINE ได้ กรุณาลองใหม่อีกครั้ง");
+            }
 
             var tokenJson = await tokenResponse.Content.ReadAsStringAsync();
             var tokenData = JsonSerializer.Deserialize<JsonElement>(tokenJson);
