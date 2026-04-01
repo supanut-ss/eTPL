@@ -318,6 +318,21 @@ const FixturePage = () => {
           );
         }
 
+        if (!isPlayed) {
+          return (
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              startIcon={<EditNote />}
+              onClick={() => setReportFixture(params.row)}
+              sx={{ fontSize: 12, px: 1.5, whiteSpace: "nowrap" }}
+            >
+              Report Result
+            </Button>
+          );
+        }
+
         return (
           <Chip
             size="small"

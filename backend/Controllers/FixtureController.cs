@@ -268,15 +268,29 @@ namespace eTPL.API.Controllers
 
         // POST api/fixtures/{fixtureId}/report
         [HttpPost("{fixtureId}/report")]
-        [Authorize(Roles = "admin")]
+        [Authorize]
         public async Task<IActionResult> ReportResult(string fixtureId, [FromBody] ReportResultDto dto)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userLevel = User.FindFirstValue(ClaimTypes.Role);
+
             // 1. ดึงข้อมูล fixture จาก tbm_fixture_all
             var fixture = await _db.TbmFixtureAlls
                 .FirstOrDefaultAsync(f => f.FixtureId == fixtureId);
 
             if (fixture == null)
                 return NotFound(ApiResponse<object>.Fail("ไม่พบ Fixture นี้"));
+
+            // User-level can report only own fixtures. Admin can report any fixture.
+            if (!string.Equals(userLevel, "admin", StringComparison.OrdinalIgnoreCase))
+            {
+                var canReportOwnMatch = !string.IsNullOrWhiteSpace(userId) &&
+                    (string.Equals(fixture.Home, userId, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(fixture.Away, userId, StringComparison.OrdinalIgnoreCase));
+
+                if (!canReportOwnMatch)
+                    return Forbid();
+            }
 
             // 2. เช็คว่าบันทึกผลไปแล้วหรือยัง (HomeScore/AwayScore ไม่เป็น null = บันทึกแล้ว)
             if (fixture.HomeScore != null && fixture.AwayScore != null)
