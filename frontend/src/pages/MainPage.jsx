@@ -4,7 +4,6 @@ import {
   CardContent,
   Typography,
   Box,
-  Avatar,
   Paper,
   Chip,
   Divider,
@@ -198,13 +197,14 @@ const MainPage = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [announcementIndex, setAnnouncementIndex] = useState(0);
   const [members, setMembers] = useState([]);
+  const [memberBannerIndex, setMemberBannerIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     setLoading(true);
     const fixtureRequest = user ? getFixtures({}) : getPublicFixtures();
-    const canLoadMembers = user?.userLevel === "admin";
+    const canLoadMembers = !!user;
 
     Promise.all([
       getStandings(),
@@ -280,6 +280,27 @@ const MainPage = () => {
     .sort((a, b) => {
       return (a.userId || "").localeCompare(b.userId || "");
     });
+  const memberBannerSize = 10;
+  const memberBannerCount = Math.ceil(sortedMembers.length / memberBannerSize);
+  const visibleMembers = sortedMembers.slice(
+    memberBannerIndex * memberBannerSize,
+    memberBannerIndex * memberBannerSize + memberBannerSize,
+  );
+  const memberPlaceholders = Math.max(0, memberBannerSize - visibleMembers.length);
+
+  useEffect(() => {
+    setMemberBannerIndex(0);
+  }, [sortedMembers.length]);
+
+  useEffect(() => {
+    if (memberBannerCount <= 1) return undefined;
+
+    const timerId = setInterval(() => {
+      setMemberBannerIndex((prev) => (prev + 1) % memberBannerCount);
+    }, 4500);
+
+    return () => clearInterval(timerId);
+  }, [memberBannerCount]);
 
   return (
     <Box sx={{ width: "100%" }}>
@@ -833,7 +854,7 @@ const MainPage = () => {
         </Paper>
       </Box>
 
-      {user?.userLevel === "admin" ? (
+      {user ? (
         <Paper elevation={0} sx={{ ...panelSx }}>
           <SectionHeader
             icon={<Groups fontSize="small" />}
@@ -842,90 +863,197 @@ const MainPage = () => {
           />
 
           {loading ? (
-            <Box p={2}>
-              {[...Array(4)].map((_, idx) => (
-                <Box
+            <Box
+              sx={{
+                p: 2,
+                display: "flex",
+                gap: "8px",
+                overflow: "hidden",
+              }}
+            >
+              {[...Array(8)].map((_, idx) => (
+                <Skeleton
                   key={idx}
-                  display="flex"
-                  alignItems="center"
-                  gap={1.5}
-                  mb={1.4}
-                >
-                  <Skeleton variant="circular" width={36} height={36} />
-                  <Box flex={1}>
-                    <Skeleton width="45%" height={15} />
-                    <Skeleton width="28%" height={13} />
-                  </Box>
-                </Box>
+                  variant="rounded"
+                  sx={{
+                    borderRadius: 2,
+                    width: { xs: 104, sm: 116, md: 128 },
+                    flex: "0 0 auto",
+                    aspectRatio: "1 / 1",
+                  }}
+                />
               ))}
             </Box>
           ) : (
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: {
-                  xs: "1fr",
-                  sm: "1fr 1fr",
-                  md: "repeat(3, 1fr)",
-                  lg: "repeat(5, 1fr)",
-                },
-                gap: 0,
-              }}
-            >
-              {sortedMembers.map((member, idx) => (
-                <Box
-                  key={member.userId ?? idx}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1.25,
-                    px: 2,
-                    py: 1.2,
-                    borderBottom: "1px solid",
-                    borderRight: {
-                      sm: idx % 2 === 0 ? "1px solid" : "none",
-                      md: idx % 3 !== 2 ? "1px solid" : "none",
-                      lg: idx % 5 !== 4 ? "1px solid" : "none",
-                    },
-                    borderColor: "divider",
-                    minHeight: 58,
-                  }}
-                >
-                  <Avatar
-                    src={member.linePic || ""}
-                    sx={{
-                      width: 34,
-                      height: 34,
-                      bgcolor:
-                        member.userLevel === "admin"
-                          ? "secondary.main"
-                          : "primary.light",
-                      fontSize: 14,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {!member.linePic &&
-                      (member.userId?.[0]?.toUpperCase() || "?")}
-                  </Avatar>
-                  <Box flex={1} minWidth={0}>
-                    <Typography fontSize={13} fontWeight={700} noWrap>
-                      {member.userId}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" noWrap>
-                      {member.lineName || "-"}
-                    </Typography>
-                  </Box>
-                </Box>
-              ))}
-
-              {sortedMembers.length === 0 && (
-                <Box px={2} py={3} textAlign="center" gridColumn="1 / -1">
+            <>
+              {sortedMembers.length === 0 ? (
+                <Box px={2} py={3} textAlign="center">
                   <Typography variant="body2" color="text.secondary">
                     No members found
                   </Typography>
                 </Box>
+              ) : (
+                <Box sx={{ p: 2, overflow: "hidden" }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      gap: "8px",
+                    }}
+                  >
+                    {visibleMembers.map((member, idx) => (
+                      <Box
+                        key={`${member.userId ?? "member"}-${memberBannerIndex}-${idx}`}
+                        sx={{
+                          position: "relative",
+                          borderRadius: 2,
+                          overflow: "hidden",
+                          width: "calc((100% - 72px) / 10)",
+                          minWidth: 0,
+                          aspectRatio: "1 / 1",
+                          background: "linear-gradient(165deg, #ffffff 0%, #f8fafc 58%, #f1f5f9 100%)",
+                          border: "1px solid rgba(148,163,184,0.45)",
+                          boxShadow: "0 10px 18px -14px rgba(15,23,42,0.16), inset 0 0 0 1px rgba(255,255,255,0.75)",
+                        }}
+                      >
+                        {member.linePic ? (
+                          <Box
+                            component="img"
+                            src={member.linePic}
+                            alt={member.userId}
+                            sx={{
+                              position: "absolute",
+                              inset: 0,
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              filter: "saturate(115%) contrast(1.06) brightness(1.03)",
+                              display: "block",
+                            }}
+                          />
+                        ) : (
+                          <Box
+                            sx={{
+                              position: "absolute",
+                              inset: 0,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: "#334155",
+                              fontSize: 34,
+                              fontWeight: 900,
+                              background:
+                                "radial-gradient(circle at 20% 20%, rgba(255,255,255,0.68) 0%, transparent 42%), radial-gradient(circle at 74% 62%, rgba(226,232,240,0.65) 0%, transparent 46%), linear-gradient(145deg, #ffffff 0%, #f1f5f9 100%)",
+                            }}
+                          >
+                            {member.userId?.[0]?.toUpperCase() || "?"}
+                          </Box>
+                        )}
+
+                        <Box
+                          sx={{
+                            position: "absolute",
+                            inset: 0,
+                            background:
+                              "linear-gradient(180deg, rgba(248,250,252,0.18) 0%, rgba(241,245,249,0.24) 48%, rgba(226,232,240,0.52) 100%)",
+                            zIndex: 1,
+                          }}
+                        />
+
+                        <Box
+                          sx={{
+                            position: "absolute",
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            px: 0.9,
+                            py: 0.75,
+                            background:
+                              "linear-gradient(180deg, rgba(255,255,255,0.62) 0%, rgba(248,250,252,0.64) 54%, rgba(241,245,249,0.68) 100%)",
+                            borderTop: "1px solid rgba(148,163,184,0.35)",
+                            zIndex: 2,
+                          }}
+                        >
+                          <Typography
+                            sx={{
+                              color: "#0f172a",
+                              fontWeight: 900,
+                              fontSize: { xs: 11, sm: 12 },
+                              letterSpacing: 0.2,
+                              lineHeight: 1,
+                              textTransform: "none",
+                              textAlign: "center",
+                              textShadow: "none",
+                            }}
+                            noWrap
+                          >
+                            {member.userId}
+                          </Typography>
+                          <Typography
+                            sx={{
+                              color: "#475569",
+                              fontWeight: 800,
+                              fontSize: { xs: 8.8, sm: 9.5 },
+                              letterSpacing: 0.22,
+                              lineHeight: 1,
+                              textTransform: "none",
+                              textAlign: "center",
+                              mt: 0.2,
+                            }}
+                            noWrap
+                          >
+                            {member.lineName || member.userId}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    ))}
+
+                    {[...Array(memberPlaceholders)].map((_, idx) => (
+                      <Box
+                        key={`member-placeholder-${idx}`}
+                        sx={{
+                          width: "calc((100% - 72px) / 10)",
+                          minWidth: 0,
+                          aspectRatio: "1 / 1",
+                          borderRadius: 2,
+                          border: "1px dashed rgba(148,163,184,0.25)",
+                          bgcolor: "rgba(241,245,249,0.45)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "rgba(100,116,139,0.35)",
+                          fontWeight: 800,
+                          fontSize: { xs: 13, sm: 14 },
+                          letterSpacing: 0.8,
+                          userSelect: "none",
+                        }}
+                      >
+                        eTPL
+                      </Box>
+                    ))}
+                  </Box>
+
+                  {memberBannerCount > 1 && (
+                    <Box mt={1.1} display="flex" justifyContent="center" gap={0.7}>
+                      {[...Array(memberBannerCount)].map((_, idx) => (
+                        <Box
+                          key={`member-banner-dot-${idx}`}
+                          sx={{
+                            width: idx === memberBannerIndex ? 14 : 6,
+                            height: 6,
+                            borderRadius: 99,
+                            bgcolor:
+                              idx === memberBannerIndex
+                                ? "rgba(59,130,246,0.78)"
+                                : "rgba(148,163,184,0.42)",
+                            transition: "all 0.2s ease",
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  )}
+                </Box>
               )}
-            </Box>
+            </>
           )}
         </Paper>
       ) : (
