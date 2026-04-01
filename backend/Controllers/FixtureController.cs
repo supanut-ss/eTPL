@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -434,6 +435,24 @@ namespace eTPL.API.Controllers
 
             await _db.SaveChangesAsync();
 
+            // SEND DISCORD NOTIFICATION
+            try
+            {
+                var vFixture = await _db.VFixtureAlls.FirstOrDefaultAsync(v => v.FixtureId == fixtureId);
+                var reportUser = await _db.TbmUsers.FirstOrDefaultAsync(u => u.UserId == userId);
+                var reportUserName = reportUser?.LineName ?? userId;
+                
+                string homeName = vFixture?.HomeTeamName ?? fixture.Home;
+                string awayName = vFixture?.AwayTeamName ?? fixture.Away;
+
+                string resultMsg = "แจ้งผลการแข่งขัน " + fixture.Division + " : " + homeName + " " + dto.HomeScore.ToString() + " - " + dto.AwayScore.ToString() + " " + awayName + " \n\nREPORT BY " + reportUserName;
+                _ = SendDiscordEmbed(resultMsg);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+            }
+
             return Ok(ApiResponse<object>.Ok(new { message = "บันทึกผลสำเร็จ" }));
         }
 
@@ -579,7 +598,66 @@ namespace eTPL.API.Controllers
 
             await _db.SaveChangesAsync();
 
+            // SEND DISCORD NOTIFICATION
+            try
+            {
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var vFixture = await _db.VFixtureAlls.FirstOrDefaultAsync(v => v.FixtureId == fixtureId);
+                var reportUser = await _db.TbmUsers.FirstOrDefaultAsync(u => u.UserId == userId);
+                var reportUserName = reportUser?.LineName ?? userId ?? "Admin";
+                
+                string homeName = vFixture?.HomeTeamName ?? fixture.Home;
+                string awayName = vFixture?.AwayTeamName ?? fixture.Away;
+
+                string resultMsg = "แก้ไขผลการแข่งขัน " + fixture.Division + " : " + homeName + " " + dto.HomeScore.ToString() + " - " + dto.AwayScore.ToString() + " " + awayName + " \n\nEDIT BY " + reportUserName;
+                _ = SendDiscordEmbed(resultMsg);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+            }
+
             return Ok(ApiResponse<object>.Ok(new { message = "แก้ไขผลสำเร็จ" }));
+        }
+
+        private async Task SendDiscordEmbed(string message)
+        {
+            try
+            {
+                string webhookUrl = "https://discord.com/api/webhooks/1376384353894142002/ProgNBZkOnWteq66wJKuSKmz---IjXYxGMTbah7JjxirdYaZdlLuvwUG8XJcttR5JKat";
+
+                var payload = new
+                {
+                    embeds = new[]
+                    {
+                        new
+                        {
+                            title = "MATCH RESULT",
+                            description = message,
+                            color = 0x2ECC71,
+                            footer = new { text = "TPL FA" },
+                            timestamp = DateTime.UtcNow.ToString("o")
+                        }
+                    }
+                };
+
+                var json = System.Text.Json.JsonSerializer.Serialize(payload);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                using (var client = new HttpClient())
+                {
+                    var response = await client.PostAsync(webhookUrl, content);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        System.Diagnostics.Debug.WriteLine("ส่งไม่สำเร็จ: " + response.StatusCode);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("ข้อผิดพลาด: " + ex.Message);
+            }
         }
     }
 }
