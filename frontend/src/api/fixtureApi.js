@@ -14,7 +14,7 @@ const resolvePublicApiBaseUrl = () => {
   if (typeof window !== "undefined") {
     const { protocol, hostname } = window.location;
     if (hostname === "thaipesleague.com" || hostname === "www.thaipesleague.com") {
-      return `${protocol}//coreapi.thaipesleague.com`;
+      return `${protocol}//apicore.thaipesleague.com`;
     }
   }
 

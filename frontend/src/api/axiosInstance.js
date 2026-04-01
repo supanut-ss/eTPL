@@ -9,7 +9,7 @@ const resolveApiBaseUrl = () => {
     const { protocol, hostname } = window.location;
     // When the frontend is served from the main web domain, point to the API subdomain.
     if (hostname === "thaipesleague.com" || hostname === "www.thaipesleague.com") {
-      return `${protocol}//coreapi.thaipesleague.com`;
+      return `${protocol}//apicore.thaipesleague.com`;
     }
   }
 

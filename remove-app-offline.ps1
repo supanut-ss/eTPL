@@ -27,7 +27,7 @@ function Delete-FtpFile {
 }
 
 Write-Host "Removing app_offline.htm..."
-if (Delete-FtpFile "ftp://$Server/coreapi.thaipesleague.com/app_offline.htm") {
+if (Delete-FtpFile "ftp://$Server/apicore.thaipesleague.com/app_offline.htm") {
     Write-Host "app_offline.htm removed successfully"
 } else {
     Write-Host "app_offline.htm not found or already removed"

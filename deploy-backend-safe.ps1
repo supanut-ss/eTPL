@@ -52,7 +52,7 @@ $appOfflineContent = @"
 $tempAppOfflinePath = "$repoRoot\deploy\app_offline.htm"
 Set-Content -Path $tempAppOfflinePath -Value $appOfflineContent -Force
 
-Upload-File "ftp://$Server/coreapi.thaipesleague.com/app_offline.htm" $tempAppOfflinePath
+Upload-File "ftp://$Server/apicore.thaipesleague.com/app_offline.htm" $tempAppOfflinePath
 Remove-Item $tempAppOfflinePath -Force
 
 Write-Host "App offline. Waiting 10 seconds for requests to complete..."
@@ -69,14 +69,14 @@ $pwsh = if (Get-Command powershell -ErrorAction SilentlyContinue) { "powershell"
   -Username $Username `
   -Password $Password `
   -LocalPath .\deploy\backend `
-  -RemotePath coreapi.thaipesleague.com
+        -RemotePath "apicore.thaipesleague.com"
 
 # 4. Remove app_offline.htm to bring app back online
 Write-Host "Removing app_offline.htm to bring app back online..."
 $tempAppOfflinePath = "$repoRoot\deploy\app_offline.htm"
 Set-Content -Path $tempAppOfflinePath -Value "offline" -Force
 
-$delReq = [System.Net.FtpWebRequest]::Create("ftp://$Server/coreapi.thaipesleague.com/app_offline.htm")
+$delReq = [System.Net.FtpWebRequest]::Create("ftp://$Server/apicore.thaipesleague.com/app_offline.htm")
 $delReq.Method = [System.Net.WebRequestMethods+Ftp]::DeleteFile
 $delReq.Credentials = New-Object System.Net.NetworkCredential($Username, $Password)
 $delReq.UsePassive = $false

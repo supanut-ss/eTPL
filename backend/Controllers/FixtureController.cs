@@ -53,9 +53,16 @@ namespace eTPL.API.Controllers
                 .ToListAsync();
 
             // Join with TbmFixtureAlls to include yellow/red card data
-            var fixtureIds = data.Select(f => f.FixtureId).ToList();
-            var cardData = await _db.TbmFixtureAlls
-                .Where(f => fixtureIds.Contains(f.FixtureId))
+            var cardQuery = _db.TbmFixtureAlls
+                .Where(f => f.Platform == "PC" && f.Division == "D1" && f.Active == "YES");
+
+            if (currentSeason.HasValue)
+                cardQuery = cardQuery.Where(f => f.Season == currentSeason.Value);
+
+            if (userLevel != "admin" && !string.IsNullOrEmpty(userId))
+                cardQuery = cardQuery.Where(f => f.Home == userId || f.Away == userId);
+
+            var cardData = await cardQuery
                 .Select(f => new { f.FixtureId, f.HomeYellow, f.HomeRed, f.AwayYellow, f.AwayRed })
                 .ToDictionaryAsync(f => f.FixtureId);
 
@@ -106,9 +113,13 @@ namespace eTPL.API.Controllers
 
             var data = await query.OrderBy(f => f.Match).ToListAsync();
 
-            var fixtureIds = data.Select(f => f.FixtureId).ToList();
-            var cardData = await _db.TbmFixtureAlls
-                .Where(f => fixtureIds.Contains(f.FixtureId))
+            var cardQuery = _db.TbmFixtureAlls
+                .Where(f => f.Platform == "PC" && f.Division == "D1" && f.Active == "YES");
+
+            if (currentSeason.HasValue)
+                cardQuery = cardQuery.Where(f => f.Season == currentSeason.Value);
+
+            var cardData = await cardQuery
                 .Select(f => new { f.FixtureId, f.HomeYellow, f.HomeRed, f.AwayYellow, f.AwayRed })
                 .ToDictionaryAsync(f => f.FixtureId);
 
@@ -218,9 +229,12 @@ namespace eTPL.API.Controllers
                 .OrderByDescending(f => f.MatchDate)
                 .ToListAsync();
 
-            var fixtureIds = data.Select(f => f.FixtureId).ToList();
             var cardData = await _db.TbmFixtureAlls
-                .Where(f => fixtureIds.Contains(f.FixtureId))
+                .Where(f =>
+                    f.Platform == "PC" &&
+                    f.Division == "D1" &&
+                    ((f.Home == home && f.Away == away) ||
+                     (f.Home == away && f.Away == home)))
                 .Select(f => new { f.FixtureId, f.HomeYellow, f.HomeRed, f.AwayYellow, f.AwayRed })
                 .ToDictionaryAsync(f => f.FixtureId);
 
