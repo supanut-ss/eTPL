@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using eTPL.API.Models;
+using eTPL.API.Models.Auction;
 
 namespace eTPL.API.Data
 {
@@ -11,12 +12,24 @@ namespace eTPL.API.Data
         public DbSet<User> Users { get; set; }
         public DbSet<Permission> Permissions { get; set; }
 
+        public DbSet<PesPlayerTeam> PesPlayerTeams { get; set; }
+        public DbSet<AuctionSetting> AuctionSettings { get; set; }
+        public DbSet<AuctionGradeQuota> AuctionGradeQuotas { get; set; }
+        public DbSet<AuctionUserWallet> AuctionUserWallets { get; set; }
+        public DbSet<AuctionSquad> AuctionSquads { get; set; }
+        public DbSet<AuctionBoard> AuctionBoards { get; set; }
+        public DbSet<AuctionBidLog> AuctionBidLogs { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.HasDefaultSchema("dbo");
+
             modelBuilder.Entity<User>(entity =>
             {
-                entity.ToTable("tbm_user");
-                entity.HasKey(e => e.UserId);
+                entity.ToTable("tbm_user", "dbo", t => t.ExcludeFromMigrations());
+                entity.HasKey(e => e.UserId); 
+                entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedOnAdd();
+                entity.HasAlternateKey(e => e.Id);
                 entity.Property(e => e.UserId).HasColumnName("user_id").HasMaxLength(100).IsRequired();
                 entity.Property(e => e.Password).HasColumnName("password").IsRequired();
                 entity.Property(e => e.UserLevel).HasColumnName("user_level").HasMaxLength(20).HasDefaultValue("user");
@@ -25,11 +38,134 @@ namespace eTPL.API.Data
                 entity.Property(e => e.LineName).HasColumnName("line_name").HasMaxLength(200);
             });
 
-            // TODO: กำหนด mapping สำหรับ business tables อื่นæ
+            modelBuilder.Entity<PesPlayerTeam>(entity =>
+            {
+                entity.ToTable("pes_player_team", "dbo", t => t.ExcludeFromMigrations());
+                entity.HasKey(e => e.IdPlayer);
+                entity.Property(e => e.IdPlayer).HasColumnName("id_player");
+                entity.Property(e => e.PlayerName).HasColumnName("player_name");
+                entity.Property(e => e.PlayerOvr).HasColumnName("player_ovr");
+            });
+
+            modelBuilder.Entity<AuctionSetting>(entity =>
+            {
+                entity.ToTable("tbs_auction_settings", "dbo");
+                entity.HasKey(e => e.SettingId);
+                entity.Property(e => e.SettingId).HasColumnName("setting_id");
+                
+                // Seed Date default range settings
+                var defaultSetting = new AuctionSetting 
+                { 
+                    SettingId = 1,
+                    StartingBudget = 2000,
+                    MaxSquadSize = 23,
+                    MinBidPrice = 60,
+                    AuctionStartDate = null,
+                    AuctionEndDate = null,
+                    DailyBidStartTime = new TimeSpan(8, 0, 0),
+                    DailyBidEndTime = new TimeSpan(23, 59, 59)
+                };
+                entity.HasData(defaultSetting);
+            });
+
+            modelBuilder.Entity<AuctionGradeQuota>(entity =>
+            {
+                entity.ToTable("tbs_auction_grade_quota", "dbo");
+                entity.HasKey(e => e.GradeId);
+                entity.Property(e => e.GradeId).HasColumnName("grade_id");
+                
+                entity.HasData(
+                    new AuctionGradeQuota { GradeId = 1, GradeName = "S", MinOVR = 82, MaxOVR = 99, MaxAllowedPerUser = 1 },
+                    new AuctionGradeQuota { GradeId = 2, GradeName = "A", MinOVR = 81, MaxOVR = 81, MaxAllowedPerUser = 1 },
+                    new AuctionGradeQuota { GradeId = 3, GradeName = "B", MinOVR = 79, MaxOVR = 80, MaxAllowedPerUser = 4 },
+                    new AuctionGradeQuota { GradeId = 4, GradeName = "C", MinOVR = 77, MaxOVR = 78, MaxAllowedPerUser = 8 },
+                    new AuctionGradeQuota { GradeId = 5, GradeName = "D", MinOVR = 75, MaxOVR = 76, MaxAllowedPerUser = 8 },
+                    new AuctionGradeQuota { GradeId = 6, GradeName = "E", MinOVR = 65, MaxOVR = 74, MaxAllowedPerUser = 99 }
+                );
+            });
+
+            modelBuilder.Entity<AuctionUserWallet>(entity =>
+            {
+                entity.ToTable("tbs_auction_user_wallet", "dbo");
+                entity.HasKey(e => e.WalletId);
+                entity.Property(e => e.WalletId).HasColumnName("wallet_id");
+                entity.HasIndex(e => e.UserId).IsUnique(); // 1:1 using Id
+                
+                entity.HasOne(e => e.User)
+                      .WithOne()
+                      .HasForeignKey<AuctionUserWallet>(e => e.UserId)
+                      .HasPrincipalKey<User>(e => e.Id)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<AuctionSquad>(entity =>
+            {
+                entity.ToTable("tbs_auction_squad", "dbo");
+                entity.HasKey(e => e.SquadId);
+                entity.Property(e => e.SquadId).HasColumnName("squad_id");
+                entity.HasIndex(e => new { e.UserId, e.PlayerId }).IsUnique(); // Cannot own the same player twice
+                
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .HasPrincipalKey(e => e.Id)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Player)
+                      .WithMany()
+                      .HasForeignKey(e => e.PlayerId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<AuctionBoard>(entity =>
+            {
+                entity.ToTable("tbs_auction_board", "dbo");
+                entity.HasKey(e => e.AuctionId);
+                entity.Property(e => e.AuctionId).HasColumnName("auction_id");
+                entity.Property(e => e.RowVersion).IsRowVersion();
+                entity.Property(e => e.DbStatus).HasMaxLength(20);
+
+                entity.HasOne(e => e.Player)
+                      .WithMany()
+                      .HasForeignKey(e => e.PlayerId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Initiator)
+                      .WithMany()
+                      .HasForeignKey(e => e.InitiatorUserId)
+                      .HasPrincipalKey(e => e.Id)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.HighestBidder)
+                      .WithMany()
+                      .HasForeignKey(e => e.HighestBidderId)
+                      .HasPrincipalKey(e => e.Id)
+                      .IsRequired(false)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<AuctionBidLog>(entity =>
+            {
+                entity.ToTable("tbs_auction_bid_log", "dbo");
+                entity.HasKey(e => e.LogId);
+                entity.Property(e => e.LogId).HasColumnName("log_id");
+                entity.Property(e => e.Phase).HasMaxLength(20);
+
+                entity.HasOne(e => e.Auction)
+                      .WithMany()
+                      .HasForeignKey(e => e.AuctionId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .HasPrincipalKey(e => e.Id)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
 
             modelBuilder.Entity<Permission>(entity =>
             {
-                entity.ToTable("tbm_permission");
+                entity.ToTable("tbm_permission", "dbo", t => t.ExcludeFromMigrations());
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedOnAdd();
                 entity.Property(e => e.MenuKey).HasColumnName("menu_key").HasMaxLength(50).IsRequired();

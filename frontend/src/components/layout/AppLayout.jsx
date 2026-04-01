@@ -30,6 +30,7 @@ import {
   LockReset,
   Login,
   Campaign,
+  AttachMoney,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -46,11 +47,23 @@ const navItems = [
     icon: <SportsSoccer />,
     loginRequired: true,
   },
+  {
+    label: "Auction",
+    path: "/auction",
+    icon: <AttachMoney />,
+    loginRequired: true,
+  },
   { label: "Manage Users", path: "/users", icon: <People />, adminOnly: true },
   {
     label: "Permissions",
     path: "/permissions",
     icon: <Security />,
+    adminOnly: true,
+  },
+  {
+    label: "Auction Settings",
+    path: "/admin/auction",
+    icon: <AttachMoney />,
     adminOnly: true,
   },
   {

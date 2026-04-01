@@ -7,10 +7,13 @@ using eTPL.API.Data.Scaffolded;
 using eTPL.API.Middleware;
 using eTPL.API.Services;
 using eTPL.API.Services.Interfaces;
+using eTPL.API.Hubs;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Controllers
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 
 // ── CORS
 builder.Services.AddCors(options =>
@@ -83,6 +86,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IAuctionService, AuctionService>();
 
 var app = builder.Build();
 
@@ -99,6 +103,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<AuctionHub>("/hubs/auction");
 
 // SPA fallback — ทุก route ที่ไม่ใช่ /api/ ให้ return index.html
 app.MapFallbackToFile("index.html");

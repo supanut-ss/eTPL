@@ -1,0 +1,18 @@
+using System.Threading.Tasks;
+using eTPL.API.Models.Auction;
+
+namespace eTPL.API.Services.Interfaces
+{
+    public interface IAuctionService
+    {
+        Task<PagedResultDto<PesPlayerTeam>> SearchPlayersAsync(string searchTerm, int page, int pageSize);
+        Task<AuctionBoardDto> StartAuctionAsync(int playerId, int initiatorUserId);
+        Task<System.Collections.Generic.List<AuctionBoardDto>> GetActiveAuctionsAsync();
+        Task<AuctionBoardDto> PlaceNormalBidAsync(int auctionId, int userId, int bidAmount);
+        Task<AuctionBoardDto> PlaceFinalBidAsync(int auctionId, int userId, int bidAmount);
+        Task<AuctionBoardDto> ConfirmAuctionAsync(int auctionId, int userId);
+        Task<AuctionWalletDto> GetWalletAsync(int userId);
+        Task<UserAuctionSummaryDto> GetUserSummaryAsync(int userId);
+        Task RunLazySweepAsync();
+    }
+}

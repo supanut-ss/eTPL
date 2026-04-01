@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
 import { CssBaseline } from "@mui/material";
+import { SnackbarProvider } from "notistack";
 import theme from "./theme/theme";
 import { AuthProvider } from "./store/AuthContext";
 import ProtectedRoute from "./routes/ProtectedRoute";
@@ -13,6 +14,8 @@ import AnnouncementPage from "./pages/AnnouncementPage";
 import FixturePage from "./pages/FixturePage";
 import StandingPage from "./pages/StandingPage";
 import PublicMatchesPage from "./pages/PublicMatchesPage";
+import AuctionPage from "./pages/AuctionPage";
+import AdminAuctionPage from "./pages/AdminAuctionPage";
 
 import LineCallbackPage from "./pages/LineCallbackPage";
 
@@ -20,10 +23,11 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public */}
+      <SnackbarProvider maxSnack={3} autoHideDuration={3000}>
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Public */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/auth/line/callback" element={<LineCallbackPage />} />
             <Route path="/" element={<Navigate to="/main" replace />} />
@@ -41,6 +45,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <FixturePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="auction"
+                element={
+                  <ProtectedRoute>
+                    <AuctionPage />
                   </ProtectedRoute>
                 }
               />
@@ -70,12 +82,21 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="admin/auction"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminAuctionPage />
+                  </ProtectedRoute>
+                }
+              />
             </Route>
 
-            <Route path="*" element={<Navigate to="/main" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
+              <Route path="*" element={<Navigate to="/main" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </SnackbarProvider>
     </ThemeProvider>
   );
 }
