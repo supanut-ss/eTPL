@@ -115,14 +115,12 @@ const AuctionPage = () => {
   };
 
   const handleBid = async (auctionId, type, currentPrice) => {
-    const amount = prompt(`ระบุราคาที่ต้องการประมูล (${type === "normal" ? "เพิ่มทีละ 1" : "มากกว่าราคาปัจจุบัน"}):`, currentPrice + 1);
-    if (!amount) return;
-
+    const amount = currentPrice + 1;
     try {
       if (type === "normal") {
-        await auctionService.placeNormalBid(auctionId, parseInt(amount));
+        await auctionService.placeNormalBid(auctionId, amount);
       } else {
-        await auctionService.placeFinalBid(auctionId, parseInt(amount));
+        await auctionService.placeFinalBid(auctionId, amount);
       }
       enqueueSnackbar("เสนอราคาสำเร็จ", { variant: "success" });
       fetchData();
@@ -224,24 +222,24 @@ const AuctionPage = () => {
         <Typography variant="h6" fontWeight="bold">🔥 กำลังประมูล (Live)</Typography>
       </Box>
 
-      <Grid container spacing={3}>
-        {auctions.filter(a => a.dbStatus === "Active").map((auction) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={auction.auctionId}>
+      <Grid container spacing={1.5}>
+        {auctions.filter(a => a.dbStatus === "Active" && a.bidderUserIds?.includes(user?.id)).map((auction) => (
+          <Grid item xs={6} sm={4} md={3} lg={2} key={auction.auctionId}>
             <Card sx={{ 
-              borderRadius: 3, 
-              boxShadow: '0 8px 20px rgba(0,0,0,0.2)', 
+              borderRadius: 2, 
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)', 
               overflow: 'hidden',
               bgcolor: '#1a1a1c',
               color: 'white',
               border: '1px solid #2d2d30',
               transition: 'all 0.3s ease',
               '&:hover': { 
-                boxShadow: '0 12px 28px rgba(0, 0, 0, 0.4)', 
-                transform: 'translateY(-6px)',
+                boxShadow: '0 8px 20px rgba(0, 0, 0, 0.5)', 
+                transform: 'translateY(-4px)',
                 borderColor: '#4caf50'
               }
             }}>
-              <Box sx={{ position: 'relative' }}>
+              <Box sx={{ position: 'relative', lineHeight: 0 }}>
                 <CardMedia
                   component="img"
                   image={auction.imageUrl}
@@ -250,52 +248,53 @@ const AuctionPage = () => {
                     aspectRatio: "240/339", 
                     objectFit: "cover", 
                     width: "100%",
-                    display: 'block'
+                    display: 'block',
+                    verticalAlign: 'bottom'
                   }}
                 />
                 <Box sx={{
                   position: 'absolute',
                   bottom: 0, left: 0, right: 0,
-                  height: '35%',
+                  height: '45%',
                   background: 'linear-gradient(to top, #1a1a1c 0%, rgba(26,26,28,0) 100%)',
                   pointerEvents: 'none'
                 }} />
               </Box>
-              <CardContent sx={{ p: 1.5, pb: '16px !important', position: 'relative', zIndex: 1 }}>
+              <CardContent sx={{ p: 1, pb: '8px !important', position: 'relative', zIndex: 1 }}>
                 
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                  <Typography variant="h5" color="#4caf50" fontWeight="900" sx={{ textShadow: '0 0 10px rgba(76,175,80,0.3)', lineHeight: 1 }}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                  <Typography variant="body1" color="#4caf50" fontWeight="900" sx={{ textShadow: '0 0 8px rgba(76,175,80,0.3)', lineHeight: 1 }}>
                     {auction.currentPrice} <Typography component="span" variant="caption" fontWeight="bold">G</Typography>
                   </Typography>
                   <Box display="flex" alignItems="center" gap={0.5}>
-                    <Box component="span" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: auction.displayStatus.includes('Final') ? '#ff9800' : '#4caf50', display: 'inline-block' }} /> 
-                    <Typography variant="caption" sx={{ color: 'grey.300', fontWeight: 'bold' }}>
+                    <Box component="span" sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: auction.displayStatus.includes('Final') ? '#ff9800' : '#4caf50', display: 'inline-block' }} /> 
+                    <Typography variant="caption" sx={{ color: 'grey.300', fontWeight: 'bold', fontSize: '0.6rem' }}>
                       {auction.displayStatus === "Normal Bid" ? "Normal" : auction.displayStatus}
                     </Typography>
                   </Box>
                 </Box>
                 
-                <Box mb={1.5}>
-                   <Typography variant="caption" display="block" color="grey.400" sx={{ lineHeight: 1.3 }}>
-                      นำ: <strong style={{ color: '#fff' }}>{auction.highestBidderName || "ไม่มี (รอยืนยัน)"}</strong><br/>
+                <Box mb={1}>
+                   <Typography variant="caption" display="block" color="grey.400" sx={{ lineHeight: 1.2, fontSize: '0.6rem' }}>
+                      นำ: <strong style={{ color: '#fff' }}>{auction.highestBidderName || "-"}</strong><br/>
                       จบ: {new Date(auction.normalEndTime).toLocaleTimeString("th-TH", { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                    </Typography>
                 </Box>
                 
-                <Box mt={2} display="flex" gap={1}>
+                <Box display="flex" gap={0.5}>
                   {auction.displayStatus === "Normal Bid" && (
-                    <Button variant="contained" size="small" fullWidth sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#43a047' }, fontWeight: 'bold', borderRadius: 2 }} onClick={() => handleBid(auction.auctionId, "normal", auction.currentPrice)}>
+                    <Button variant="contained" size="small" fullWidth sx={{ bgcolor: '#4caf50', '&:hover': { bgcolor: '#43a047' }, fontWeight: 'bold', borderRadius: 1.5, fontSize: '0.65rem', py: 0.3 }} onClick={() => handleBid(auction.auctionId, "normal", auction.currentPrice)}>
                       บิด (+1)
                     </Button>
                   )}
                   {auction.displayStatus === "Final Bid" && (
-                    <Button variant="contained" size="small" fullWidth sx={{ bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' }, fontWeight: 'bold', borderRadius: 2 }} onClick={() => handleBid(auction.auctionId, "final", auction.currentPrice)}>
+                    <Button variant="contained" size="small" fullWidth sx={{ bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' }, fontWeight: 'bold', borderRadius: 1.5, fontSize: '0.65rem', py: 0.3 }} onClick={() => handleBid(auction.auctionId, "final", auction.currentPrice)}>
                       บิดปิดผนึก
                     </Button>
                   )}
                   {auction.displayStatus === "Waiting Confirm" && user?.id === auction.highestBidderId && (
-                    <Button variant="contained" size="small" fullWidth sx={{ bgcolor: '#2196f3', '&:hover': { bgcolor: '#1e88e5' }, fontWeight: 'bold', borderRadius: 2 }} onClick={() => handleConfirm(auction.auctionId)}>
-                      ยินยันรับตัว
+                    <Button variant="contained" size="small" fullWidth sx={{ bgcolor: '#2196f3', '&:hover': { bgcolor: '#1e88e5' }, fontWeight: 'bold', borderRadius: 1.5, fontSize: '0.65rem', py: 0.3 }} onClick={() => handleConfirm(auction.auctionId)}>
+                      ยืนยันรับตัว
                     </Button>
                   )}
                 </Box>
@@ -305,10 +304,10 @@ const AuctionPage = () => {
         ))}
       </Grid>
       
-      {auctions.filter(a => a.dbStatus === "Active").length === 0 && (
+      {auctions.filter(a => a.dbStatus === "Active" && a.bidderUserIds?.includes(user?.id)).length === 0 && (
         <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'grey.50', borderRadius: 2 }}>
           <Typography variant="body1" color="text.secondary">
-            ขณะนี้ไม่มีนักเตะกำลังประมูล... เริ่มเปิดประมูลคนแรกได้เลย!
+            ขณะนี้คุณยังไม่มีรายการที่กำลัง bid อยู่
           </Typography>
         </Paper>
       )}

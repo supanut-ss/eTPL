@@ -286,7 +286,23 @@ namespace eTPL.API.Services
                 .Where(b => b.DbStatus == "Active")
                 .ToListAsync();
 
-            return boards.Select(MapToDto).ToList();
+            var auctionIds = boards.Select(b => b.AuctionId).ToList();
+            var bidderMap = await _context.AuctionBidLogs
+                .Where(l => auctionIds.Contains(l.AuctionId))
+                .GroupBy(l => l.AuctionId)
+                .ToDictionaryAsync(
+                    g => g.Key,
+                    g => g.Select(l => l.UserId).Distinct().ToList()
+                );
+
+            var dtos = boards.Select(b =>
+            {
+                var dto = MapToDto(b);
+                dto.BidderUserIds = bidderMap.ContainsKey(b.AuctionId) ? bidderMap[b.AuctionId] : new List<int>();
+                return dto;
+            }).ToList();
+
+            return dtos;
         }
 
         public async Task<AuctionBoardDto> PlaceNormalBidAsync(int auctionId, int userId, int bidAmount)
