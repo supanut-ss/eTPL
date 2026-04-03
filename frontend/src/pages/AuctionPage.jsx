@@ -19,6 +19,12 @@ import {
   Tooltip,
   Avatar,
   Divider,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  FormControlLabel,
+  Checkbox,
 } from "@mui/material";
 import { Gavel, Refresh, Search, SportsSoccer, AccountBalanceWallet, Groups } from "@mui/icons-material";
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
@@ -36,6 +42,8 @@ const AuctionPage = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchGrade, setSearchGrade] = useState("All");
+  const [freeAgentOnly, setFreeAgentOnly] = useState(false);
   
   // Real-time connection
   useEffect(() => {
@@ -94,10 +102,21 @@ const AuctionPage = () => {
     }
   }, [user]);
 
-  const handleSearch = async () => {
+  const handleSearch = async (term = searchTerm, grade = searchGrade, free = freeAgentOnly) => {
     try {
-      const res = await auctionService.searchPlayers(searchTerm, 1, 10);
+      const res = await auctionService.searchPlayers(term, 1, 20, free, grade);
       setSearchResults(res.data.items);
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
+    }
+  };
+
+  const handleBidFromSearch = async (auctionId, currentPrice) => {
+    try {
+      await auctionService.placeNormalBid(auctionId, currentPrice + 1);
+      enqueueSnackbar("Bid placed successfully", { variant: "success" });
+      handleSearch(); // refresh search results
+      fetchData();
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
     }
@@ -106,7 +125,7 @@ const AuctionPage = () => {
   const handleStartAuction = async (playerId) => {
     try {
       await auctionService.startAuction(playerId);
-      enqueueSnackbar("เปิดประมูลสำเร็จ", { variant: "success" });
+      enqueueSnackbar("Auction started successfully", { variant: "success" });
       setSearchOpen(false);
       fetchData();
     } catch (err) {
@@ -122,7 +141,7 @@ const AuctionPage = () => {
       } else {
         await auctionService.placeFinalBid(auctionId, amount);
       }
-      enqueueSnackbar("เสนอราคาสำเร็จ", { variant: "success" });
+      enqueueSnackbar("Bid placed successfully", { variant: "success" });
       fetchData();
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
@@ -130,10 +149,10 @@ const AuctionPage = () => {
   };
 
   const handleConfirm = async (auctionId) => {
-    if (!window.confirm("กดยืนยันการรับนักเตะ?")) return;
+    if (!window.confirm("Confirm receiving player?")) return;
     try {
       await auctionService.confirmAuction(auctionId);
-      enqueueSnackbar("ยืนยันสำเร็จ รับนักเตะเข้าทีม", { variant: "success" });
+      enqueueSnackbar("Confirmed, player added to squad", { variant: "success" });
       fetchData();
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
@@ -159,9 +178,15 @@ const AuctionPage = () => {
           <Button 
             variant="contained" 
             startIcon={<Search />} 
-            onClick={() => setSearchOpen(true)}
+            onClick={() => {
+              setSearchOpen(true);
+              setSearchResults([]);
+              setSearchTerm("");
+              setSearchGrade("All");
+              setFreeAgentOnly(false);
+            }}
           >
-            เริ่มเปิดประมูลนักเตะ
+            Start Auction
           </Button>
         </Box>
       </Box>
@@ -173,17 +198,17 @@ const AuctionPage = () => {
             <Paper elevation={2} sx={{ borderRadius: 2, p: 3, height: '100%' }}>
               <Box display="flex" alignItems="center" gap={1} mb={2}>
                 <AccountBalanceWallet color="primary" fontSize="small" />
-                <Typography variant="subtitle1" fontWeight="600">งบประมาณ (Budget)</Typography>
+                <Typography variant="subtitle1" fontWeight="600">Budget</Typography>
               </Box>
               <Typography variant="h4" fontWeight="bold" color="secondary">
                 {summary.wallet?.availableBalance} <Typography component="span" variant="h6">TP</Typography>
               </Typography>
               <Box mt={1}>
                 <Typography variant="body2" color="text.secondary">
-                  ติดจอง: <strong>{summary.wallet?.reservedBalance} TP</strong>
+                  Reserved: <strong>{summary.wallet?.reservedBalance} TP</strong>
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  บังคับสำรอง: <strong>{summary.requiredReserve} TP</strong>
+                  Required Reserve: <strong>{summary.requiredReserve} TP</strong>
                 </Typography>
               </Box>
             </Paper>
@@ -192,7 +217,7 @@ const AuctionPage = () => {
             <Paper elevation={2} sx={{ borderRadius: 2, p: 3, height: '100%' }}>
               <Box display="flex" alignItems="center" gap={1} mb={2}>
                 <Groups color="primary" fontSize="small" />
-                <Typography variant="subtitle1" fontWeight="600">โควตานักเตะ (Quotas)</Typography>
+                <Typography variant="subtitle1" fontWeight="600">Player Quotas</Typography>
                 <Chip
                     label={`${summary.currentSquadCount} / ${summary.maxSquadSize}`}
                     color={summary.currentSquadCount >= summary.maxSquadSize ? "error" : "primary"}
@@ -219,7 +244,7 @@ const AuctionPage = () => {
       {/* Active Auctions Section */}
       <Box mb={2} display="flex" alignItems="center" gap={1}>
         <Gavel color="warning" fontSize="small" />
-        <Typography variant="h6" fontWeight="bold">🔥 กำลังประมูล (Live)</Typography>
+        <Typography variant="h6" fontWeight="bold">🔥 Live Auctions</Typography>
       </Box>
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -313,7 +338,7 @@ const AuctionPage = () => {
                     )}
                     {auction.displayStatus === "Waiting Confirm" && user?.id === auction.highestBidderId && (
                       <Button variant="contained" size="small" sx={{ minWidth: '40px', p: '2px 6px', bgcolor: '#2196f3', '&:hover': { bgcolor: '#1e88e5' }, fontWeight: 'bold', borderRadius: 0.75, fontSize: '0.65rem', height: '22px', lineHeight: 1 }} onClick={() => handleConfirm(auction.auctionId)}>
-                        ยืนยัน
+                        Confirm
                       </Button>
                     )}
                   </Box>
@@ -327,39 +352,84 @@ const AuctionPage = () => {
       {auctions.filter(a => a.dbStatus === "Active" && a.bidderUserIds?.includes(user?.id)).length === 0 && (
         <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'grey.50', borderRadius: 2 }}>
           <Typography variant="body1" color="text.secondary">
-            ขณะนี้คุณยังไม่มีรายการที่กำลัง bid อยู่
+            You do not have any active bids at the moment.
           </Typography>
         </Paper>
       )}
 
       {/* Start Auction Modal */}
-      <Dialog open={searchOpen} onClose={() => setSearchOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ pb: 1 }}>🔍 ค้นหานักเตะเพื่อเปิดประมูล</DialogTitle>
+      <Dialog open={searchOpen} onClose={() => setSearchOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ pb: 1 }}>🔍 Search Players to Start Auction</DialogTitle>
         <Divider />
         <DialogContent>
-          <Box display="flex" gap={1} mt={1} mb={2}>
+          <Box display="flex" flexWrap="wrap" alignItems="center" gap={2} mb={3} p={2} sx={{ bgcolor: 'grey.50', borderRadius: 2, border: '1px solid', borderColor: 'grey.200' }}>
             <TextField
               size="small"
-              fullWidth
-              label="ชื่อนักเตะ"
+              sx={{ flexGrow: 1, minWidth: 200 }}
+              label="Player Name"
               variant="outlined"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             />
-            <Button variant="contained" onClick={handleSearch} startIcon={<Search />}>ค้นหา</Button>
+            <FormControl size="small" sx={{ minWidth: 100 }}>
+              <InputLabel>Class</InputLabel>
+              <Select
+                value={searchGrade}
+                label="Class"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSearchGrade(val);
+                  handleSearch(searchTerm, val, freeAgentOnly);
+                }}
+              >
+                <MenuItem value="All">All</MenuItem>
+                <MenuItem value="S">S</MenuItem>
+                <MenuItem value="A">A</MenuItem>
+                <MenuItem value="B">B</MenuItem>
+                <MenuItem value="C">C</MenuItem>
+                <MenuItem value="D">D</MenuItem>
+                <MenuItem value="E">E</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControlLabel
+              control={
+                <Checkbox 
+                  checked={freeAgentOnly} 
+                  onChange={(e) => {
+                    const val = e.target.checked;
+                    setFreeAgentOnly(val);
+                    handleSearch(searchTerm, searchGrade, val);
+                  }} 
+                  size="small" 
+                  color="primary"
+                />
+              }
+              label={<Typography variant="body2" fontWeight="600">Free Agent</Typography>}
+              sx={{ m: 0 }}
+            />
+            <Button variant="contained" onClick={() => handleSearch()} startIcon={<Search />} sx={{ height: 40, whiteSpace: 'nowrap', px: 3, boxShadow: 2 }}>
+              Search
+            </Button>
           </Box>
           <Box display="flex" flexDirection="column" gap={1.5} sx={{ maxHeight: 400, overflowY: 'auto' }}>
-            {searchResults.map((p) => (
+            {searchResults.map((p) => {
+              const isAvailable = p.status === "Available";
+              const isNormalBid = p.status === "In Normal Bid";
+              const isFinalBid = p.status === "In Final Bid";
+              const isWon = p.status === "Won";
+
+              return (
               <Box key={p.idPlayer} sx={{ 
                 p: 1.5, 
                 border: '1px solid', 
-                borderColor: 'divider', 
+                borderColor: isWon ? 'warning.light' : isNormalBid ? 'primary.light' : isFinalBid ? 'warning.main' : 'divider', 
                 borderRadius: 2,
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                '&:hover': { bgcolor: 'grey.50' }
+                bgcolor: isWon ? 'rgba(255,193,7,0.05)' : isNormalBid ? 'rgba(25,118,210,0.04)' : 'transparent',
+                '&:hover': { bgcolor: isWon ? 'rgba(255,193,7,0.08)' : 'grey.50' }
               }}>
                 <Box display="flex" alignItems="center" gap={2}>
                   <Box 
@@ -370,18 +440,51 @@ const AuctionPage = () => {
                   <Box>
                     <Typography variant="subtitle2" fontWeight="bold">{p.playerName}</Typography>
                     <Typography variant="caption" color="text.secondary">OVR: {p.playerOvr}</Typography>
+                    {/* Status Badge */}
+                    <Box mt={0.5}>
+                      {isAvailable && (
+                        <Chip label="Available" size="small" color="success" variant="outlined" sx={{ fontSize: '0.65rem', height: 18 }} />
+                      )}
+                      {isNormalBid && (
+                        <Chip label={`Normal Bid — ${p.currentPrice} TP`} size="small" color="primary" sx={{ fontSize: '0.65rem', height: 18 }} />
+                      )}
+                      {isFinalBid && (
+                        <Chip label={`Final Bid — ${p.currentPrice} TP`} size="small" color="warning" sx={{ fontSize: '0.65rem', height: 18 }} />
+                      )}
+                      {isWon && (
+                        <Chip label={`🏆 Won — ${p.winnerName ?? 'Unknown'}`} size="small" color="warning" variant="outlined" sx={{ fontSize: '0.65rem', height: 18 }} />
+                      )}
+                    </Box>
                   </Box>
                 </Box>
-                <Button variant="outlined" color="primary" size="small" onClick={() => handleStartAuction(p.idPlayer)}>
-                  เปิด {p.playerOvr} TP
-                </Button>
+                <Box sx={{ flexShrink: 0, ml: 1 }}>
+                  {isAvailable && (
+                    <Button variant="outlined" color="primary" size="small" onClick={() => handleStartAuction(p.idPlayer)}>
+                      Start {p.playerOvr} TP
+                    </Button>
+                  )}
+                  {isNormalBid && (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      onClick={() => handleBidFromSearch(p.activeAuctionId, p.currentPrice)}
+                    >
+                      Bid {(p.currentPrice ?? 0) + 1} TP
+                    </Button>
+                  )}
+                  {isFinalBid && (
+                    <Chip label="Final Bid" size="small" color="warning" />
+                  )}
+                </Box>
               </Box>
-            ))}
+            );
+            })}
           </Box>
         </DialogContent>
         <Divider />
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setSearchOpen(false)}>ปิด</Button>
+          <Button onClick={() => setSearchOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
       

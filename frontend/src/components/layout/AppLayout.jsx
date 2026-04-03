@@ -31,6 +31,7 @@ import {
   Login,
   Campaign,
   AttachMoney,
+  EmojiEvents,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -51,6 +52,12 @@ const navItems = [
     label: "Auction",
     path: "/auction",
     icon: <AttachMoney />,
+    loginRequired: true,
+  },
+  {
+    label: "My Squad",
+    path: "/my-squad",
+    icon: <EmojiEvents />,
     loginRequired: true,
   },
   { label: "Manage Users", path: "/users", icon: <People />, adminOnly: true },

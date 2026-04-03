@@ -104,7 +104,7 @@ const LoginPage = () => {
       const url = res?.data?.data?.url;
 
       if (!url) {
-        setError("ไม่สามารถเริ่ม LINE login ได้");
+        setError("Unable to start LINE login");
         return;
       }
 
@@ -112,7 +112,7 @@ const LoginPage = () => {
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "LINE Channel ID ยังไม่ได้ตั้งค่า กรุณาติดต่อผู้ดูแลระบบ",
+          "LINE Channel ID is not configured. Please contact administrator.",
       );
     }
   };
@@ -198,7 +198,7 @@ const LoginPage = () => {
 
           <Divider sx={{ my: 2 }}>
             <Typography variant="body2" color="text.secondary">
-              หรือ
+              OR
             </Typography>
           </Divider>
 
@@ -215,7 +215,7 @@ const LoginPage = () => {
                 color: "white",
               }}
             >
-              เข้าสู่ระบบด้วย LINE
+              Sign in with LINE
             </Button>
           ) : (
             <Button
@@ -228,9 +228,9 @@ const LoginPage = () => {
                 backgroundColor: "#ccc",
                 color: "#999",
               }}
-              title="ไม่ได้เปิดใช้งาน LINE login"
+              title="LINE login is not enabled"
             >
-              เข้าสู่ระบบด้วย LINE (ไม่เปิดใช้งาน)
+              Sign in with LINE (Disabled)
             </Button>
           )}
         </CardContent>

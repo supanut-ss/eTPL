@@ -16,6 +16,7 @@ import StandingPage from "./pages/StandingPage";
 import PublicMatchesPage from "./pages/PublicMatchesPage";
 import AuctionPage from "./pages/AuctionPage";
 import AdminAuctionPage from "./pages/AdminAuctionPage";
+import MySquadPage from "./pages/MySquadPage";
 
 import LineCallbackPage from "./pages/LineCallbackPage";
 
@@ -53,6 +54,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <AuctionPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="my-squad"
+                element={
+                  <ProtectedRoute>
+                    <MySquadPage />
                   </ProtectedRoute>
                 }
               />

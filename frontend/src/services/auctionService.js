@@ -1,9 +1,9 @@
 import api from "../api/axiosInstance";
 
 const auctionService = {
-  searchPlayers: async (searchTerm = "", page = 1, pageSize = 20) => {
+  searchPlayers: async (searchTerm = "", page = 1, pageSize = 20, freeAgentOnly = false, grade = "") => {
     const res = await api.get("/api/auction/players", {
-      params: { searchTerm, page, pageSize },
+      params: { searchTerm, page, pageSize, freeAgentOnly, grade },
     });
     return res.data;
   },
@@ -45,6 +45,11 @@ const auctionService = {
 
   updateSettings: async (settings) => {
     const res = await api.put("/api/auction/settings", settings);
+    return res.data;
+  },
+
+  getMySquad: async () => {
+    const res = await api.get("/api/auction/my-squad");
     return res.data;
   },
 };

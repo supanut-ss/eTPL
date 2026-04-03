@@ -179,7 +179,7 @@ namespace eTPL.API.Services
             }
         }
 
-        public async Task<PagedResultDto<PesPlayerTeam>> SearchPlayersAsync(string searchTerm, int page, int pageSize)
+        public async Task<PagedResultDto<PlayerSearchResultDto>> SearchPlayersAsync(string searchTerm, int page, int pageSize, bool freeAgentOnly = false, string? grade = null)
         {
             var query = _context.PesPlayerTeams.Where(p => p.PlayerOvr >= 60);
 
@@ -188,17 +188,100 @@ namespace eTPL.API.Services
                 query = query.Where(p => p.PlayerName.Contains(searchTerm));
             }
 
-            // Exclude players already sold (in a squad) or currently active (Database-side subqueries)
-            query = query.Where(p => !_context.AuctionSquads.Any(s => s.PlayerId == p.IdPlayer));
-            query = query.Where(p => !_context.AuctionBoards.Any(b => b.DbStatus == "Active" && b.PlayerId == p.IdPlayer));
+            if (!string.IsNullOrEmpty(grade) && grade != "All")
+            {
+                int minOvr = 0, maxOvr = 99;
+                switch (grade.ToUpper())
+                {
+                    case "S": minOvr = 82; maxOvr = 99; break;
+                    case "A": minOvr = 81; maxOvr = 81; break;
+                    case "B": minOvr = 79; maxOvr = 80; break;
+                    case "C": minOvr = 77; maxOvr = 78; break;
+                    case "D": minOvr = 75; maxOvr = 76; break;
+                    case "E": minOvr = 65; maxOvr = 74; break;
+                }
+                if (minOvr > 0)
+                {
+                    query = query.Where(p => p.PlayerOvr >= minOvr && p.PlayerOvr <= maxOvr);
+                }
+            }
+
+            if (freeAgentOnly)
+            {
+                var currentTime = DateTime.UtcNow;
+                query = query.Where(p => 
+                    !_context.AuctionSquads.Any(s => s.PlayerId == p.IdPlayer) &&
+                    !_context.AuctionBoards.Any(b => b.PlayerId == p.IdPlayer && b.DbStatus == "Active" && currentTime >= b.NormalEndTime)
+                );
+            }
 
             var total = await query.CountAsync();
-            var items = await query.OrderByDescending(p => p.PlayerOvr)
-                                   .Skip((page - 1) * pageSize)
-                                   .Take(pageSize)
-                                   .ToListAsync();
+            var players = await query.OrderByDescending(p => p.PlayerOvr)
+                                     .Skip((page - 1) * pageSize)
+                                     .Take(pageSize)
+                                     .ToListAsync();
 
-            return new PagedResultDto<PesPlayerTeam>
+            var playerIds = players.Select(p => p.IdPlayer).ToList();
+
+            // Get active auctions for these players
+            var activeAuctions = await _context.AuctionBoards
+                .Include(b => b.HighestBidder)
+                .Where(b => b.DbStatus == "Active" && playerIds.Contains(b.PlayerId))
+                .ToListAsync();
+
+            // Get squads for these players
+            var squadEntries = await _context.AuctionSquads
+                .Include(s => s.User)
+                .Where(s => playerIds.Contains(s.PlayerId))
+                .ToListAsync();
+
+            // Get sold auctions (to find winner name for squad entries)
+            var soldAuctions = await _context.AuctionBoards
+                .Include(b => b.HighestBidder)
+                .Where(b => b.DbStatus == "Sold" && playerIds.Contains(b.PlayerId))
+                .ToListAsync();
+
+            var now = DateTime.UtcNow;
+
+            var items = players.Select(p =>
+            {
+                var result = new PlayerSearchResultDto
+                {
+                    IdPlayer = p.IdPlayer,
+                    PlayerName = p.PlayerName,
+                    PlayerOvr = p.PlayerOvr,
+                    Status = "Available"
+                };
+
+                // Check if in squad (Won)
+                var squadEntry = squadEntries.FirstOrDefault(s => s.PlayerId == p.IdPlayer);
+                if (squadEntry != null)
+                {
+                    result.Status = "Won";
+                    var soldBoard = soldAuctions.FirstOrDefault(b => b.PlayerId == p.IdPlayer);
+                    result.WinnerName = soldBoard?.HighestBidder?.UserId ?? squadEntry.User?.UserId ?? "Unknown";
+                    return result;
+                }
+
+                // Check active auction
+                var activeBoard = activeAuctions.FirstOrDefault(a => a.PlayerId == p.IdPlayer);
+                if (activeBoard != null)
+                {
+                    result.ActiveAuctionId = activeBoard.AuctionId;
+                    result.CurrentPrice = activeBoard.CurrentPrice;
+
+                    if (now < activeBoard.NormalEndTime)
+                        result.Status = "In Normal Bid";
+                    else if (now >= activeBoard.NormalEndTime && now < activeBoard.FinalEndTime)
+                        result.Status = "In Final Bid";
+                    else
+                        result.Status = "In Normal Bid"; // fallback
+                }
+
+                return result;
+            }).ToList();
+
+            return new PagedResultDto<PlayerSearchResultDto>
             {
                 Items = items,
                 TotalCount = total,
@@ -604,6 +687,33 @@ namespace eTPL.API.Services
             }
 
             return summary;
+        }
+
+        public async Task<List<AuctionSquadDto>> GetMySquadAsync(int userId)
+        {
+            var squad = await _context.AuctionSquads
+                .Include(s => s.Player)
+                .Where(s => s.UserId == userId)
+                .ToListAsync();
+
+            var playerIds = squad.Select(s => s.PlayerId).ToList();
+
+            // Find sold auctions to get actual price paid
+            var soldAuctions = await _context.AuctionBoards
+                .Where(b => b.DbStatus == "Sold" && playerIds.Contains(b.PlayerId) && b.HighestBidderId == userId)
+                .ToListAsync();
+
+            var priceMap = soldAuctions
+                .GroupBy(b => b.PlayerId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(b => b.AuctionId).First().CurrentPrice);
+
+            return squad.Select(s => new AuctionSquadDto
+            {
+                PlayerId = s.PlayerId,
+                PlayerName = s.Player?.PlayerName ?? "Unknown",
+                PlayerOvr = s.Player?.PlayerOvr ?? 0,
+                PricePaid = priceMap.ContainsKey(s.PlayerId) ? priceMap[s.PlayerId] : null
+            }).OrderByDescending(s => s.PlayerOvr).ToList();
         }
     }
 }

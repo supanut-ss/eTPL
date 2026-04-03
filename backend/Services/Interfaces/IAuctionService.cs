@@ -5,7 +5,7 @@ namespace eTPL.API.Services.Interfaces
 {
     public interface IAuctionService
     {
-        Task<PagedResultDto<PesPlayerTeam>> SearchPlayersAsync(string searchTerm, int page, int pageSize);
+        Task<PagedResultDto<PlayerSearchResultDto>> SearchPlayersAsync(string searchTerm, int page, int pageSize, bool freeAgentOnly = false, string? grade = null);
         Task<AuctionBoardDto> StartAuctionAsync(int playerId, int initiatorUserId);
         Task<System.Collections.Generic.List<AuctionBoardDto>> GetActiveAuctionsAsync();
         Task<AuctionBoardDto> PlaceNormalBidAsync(int auctionId, int userId, int bidAmount);
@@ -13,6 +13,7 @@ namespace eTPL.API.Services.Interfaces
         Task<AuctionBoardDto> ConfirmAuctionAsync(int auctionId, int userId);
         Task<AuctionWalletDto> GetWalletAsync(int userId);
         Task<UserAuctionSummaryDto> GetUserSummaryAsync(int userId);
+        Task<System.Collections.Generic.List<AuctionSquadDto>> GetMySquadAsync(int userId);
         Task RunLazySweepAsync();
     }
 }

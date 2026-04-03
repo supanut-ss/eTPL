@@ -57,6 +57,20 @@ namespace eTPL.API.Models.Auction
         public string PlayerName { get; set; } = string.Empty;
         public int PlayerOvr { get; set; }
         public string ImageUrl => $"https://pesdb.net/assets/img/card/b{PlayerId}.png";
+        public int? PricePaid { get; set; }
+    }
+
+    /// <summary>Status values: "Available", "In Normal Bid", "In Final Bid", "Won"</summary>
+    public class PlayerSearchResultDto
+    {
+        public int IdPlayer { get; set; }
+        public string PlayerName { get; set; } = string.Empty;
+        public int PlayerOvr { get; set; }
+        public string ImageUrl => $"https://pesdb.net/assets/img/card/b{IdPlayer}.png";
+        public string Status { get; set; } = "Available"; // "Available", "In Normal Bid", "In Final Bid", "Won"
+        public int? ActiveAuctionId { get; set; }
+        public int? CurrentPrice { get; set; }  // current bid price (for Normal Bid)
+        public string? WinnerName { get; set; } // display name of winner (for Won)
     }
 
     public class GradeQuotaUsageDto

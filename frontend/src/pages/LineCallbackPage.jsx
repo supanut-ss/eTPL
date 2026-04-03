@@ -54,7 +54,7 @@ const LineCallbackPage = () => {
     const savedState = getCookie(LINE_OAUTH_STATE_COOKIE);
 
     if (!code) {
-      setError("ไม่พบ authorization code จาก LINE");
+      setError("Missing authorization code from LINE");
       return;
     }
 
@@ -64,7 +64,7 @@ const LineCallbackPage = () => {
       // Only hard-fail if we had a saved state that doesn't match.
       if (savedState !== null && state !== savedState) {
         setError(
-          `State ไม่ตรงกัน กรุณาลองใหม่\n[debug] url="${state}" cookie="${savedState}"`,
+          `State mismatch, please try again\n[debug] url="${state}" cookie="${savedState}"`,
         );
         return;
       }
@@ -91,11 +91,11 @@ const LineCallbackPage = () => {
           return;
         }
 
-        setError("ไม่สามารถยืนยันตัวตนด้วย LINE ได้");
+        setError("Unable to authenticate with LINE");
       })
       .catch((err) => {
         setError(
-          err.response?.data?.message || "เข้าสู่ระบบด้วย LINE ไม่สำเร็จ",
+          err.response?.data?.message || "LINE login failed",
         );
       })
       .finally(() => {
@@ -105,7 +105,7 @@ const LineCallbackPage = () => {
 
   const handleBindAndLogin = async () => {
     if (!bindContext?.bindToken || !selectedUserId) {
-      setError("กรุณาเลือกผู้ใช้ที่ต้องการผูกบัญชี");
+      setError("Please select a user to bind");
       return;
     }
 
@@ -121,7 +121,7 @@ const LineCallbackPage = () => {
       login(res.data.data.token, res.data.data.user);
       navigate("/main");
     } catch (err) {
-      setError(err.response?.data?.message || "ผูกบัญชี LINE ไม่สำเร็จ");
+      setError(err.response?.data?.message || "Failed to bind LINE account");
     } finally {
       setBinding(false);
     }
@@ -139,7 +139,7 @@ const LineCallbackPage = () => {
       >
         <Alert severity="error">{error}</Alert>
         <Button variant="text" onClick={() => navigate("/login")}>
-          กลับไปหน้าเข้าสู่ระบบ
+          Back to Login
         </Button>
       </Box>
     );
@@ -157,7 +157,7 @@ const LineCallbackPage = () => {
         <Card sx={{ width: 420, maxWidth: "100%" }}>
           <CardContent>
             <Typography variant="h6" fontWeight={700} gutterBottom>
-              ผูกบัญชี LINE กับผู้ใช้
+              Bind LINE to User
             </Typography>
 
             <Box display="flex" alignItems="center" gap={1.5} mb={2}>
@@ -174,12 +174,12 @@ const LineCallbackPage = () => {
 
             <FormControl fullWidth size="small" sx={{ mb: 2 }}>
               <InputLabel id="line-user-select-label">
-                เลือกผู้ใช้ที่ยังว่าง
+                Select available user
               </InputLabel>
               <Select
                 labelId="line-user-select-label"
                 value={selectedUserId}
-                label="เลือกผู้ใช้ที่ยังว่าง"
+                label="Select available user"
                 onChange={(e) => setSelectedUserId(e.target.value)}
               >
                 {(bindContext?.availableUsers || []).map((user) => (
@@ -196,13 +196,13 @@ const LineCallbackPage = () => {
               onClick={handleBindAndLogin}
               disabled={binding || !selectedUserId}
             >
-              {binding ? "กำลังผูกบัญชี..." : "ผูกบัญชีและเข้าสู่ระบบ"}
+              {binding ? "Binding..." : "Bind and Sign In"}
             </Button>
 
             {(!bindContext?.availableUsers ||
               bindContext.availableUsers.length === 0) && (
               <Alert severity="warning" sx={{ mt: 2 }}>
-                ไม่พบผู้ใช้ที่ยังไม่ได้ผูก LINE กรุณาติดต่อผู้ดูแลระบบ
+                No unbound users found. Please contact administrator.
               </Alert>
             )}
           </CardContent>
@@ -222,7 +222,7 @@ const LineCallbackPage = () => {
     >
       <CircularProgress />
       <Typography variant="body2" color="text.secondary">
-        กำลังตรวจสอบบัญชี LINE...
+        Checking LINE account...
       </Typography>
     </Box>
   );

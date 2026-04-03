@@ -41,11 +41,11 @@ namespace eTPL.API.Controllers
         }
 
         [HttpGet("players")]
-        public async Task<IActionResult> SearchPlayers([FromQuery] string searchTerm = "", [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> SearchPlayers([FromQuery] string searchTerm = "", [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool freeAgentOnly = false, [FromQuery] string? grade = null)
         {
             try
             {
-                var result = await _auctionService.SearchPlayersAsync(searchTerm, page, pageSize);
+                var result = await _auctionService.SearchPlayersAsync(searchTerm, page, pageSize, freeAgentOnly, grade);
                 return Ok(ApiResponse<object>.Ok(result));
             }
             catch (Exception ex)
@@ -151,6 +151,21 @@ namespace eTPL.API.Controllers
             {
                 var userId = await GetCurrentUserIdAsync();
                 var result = await _auctionService.GetUserSummaryAsync(userId);
+                return Ok(ApiResponse<object>.Ok(result));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpGet("my-squad")]
+        public async Task<IActionResult> GetMySquad()
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                var result = await _auctionService.GetMySquadAsync(userId);
                 return Ok(ApiResponse<object>.Ok(result));
             }
             catch (Exception ex)

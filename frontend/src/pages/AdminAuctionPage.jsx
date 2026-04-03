@@ -44,7 +44,7 @@ const AdminAuctionPage = () => {
   const handleSave = async () => {
     try {
       await auctionService.updateSettings(settings);
-      enqueueSnackbar("บันทึกการตั้งค่าประมูลสำเร็จ", { variant: "success" });
+      enqueueSnackbar("Auction settings saved successfully", { variant: "success" });
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
     }
@@ -64,7 +64,7 @@ const AdminAuctionPage = () => {
         <Box display="flex" alignItems="center" gap={1}>
           <Settings color="primary" />
           <Typography variant="h5" fontWeight="bold">
-            จัดการระบบประมูล (Admin)
+            Auction Management (Admin)
           </Typography>
         </Box>
         <Box display="flex" gap={1}>
@@ -79,14 +79,14 @@ const AdminAuctionPage = () => {
       {/* Main Settings Form */}
       <Paper elevation={2} sx={{ borderRadius: 2, p: 4 }}>
         <Typography variant="subtitle1" fontWeight="600" mb={3}>
-          ตั้งค่าการประมูลพื้นฐาน
+          Basic Auction Settings
         </Typography>
         
         <Grid container spacing={3}>
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
-              label="งบเริ่มต้น (Starting Budget)"
+              label="Starting Budget"
               name="startingBudget"
               type="number"
               value={settings?.startingBudget || ""}
@@ -97,7 +97,7 @@ const AdminAuctionPage = () => {
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
-              label="ราคาประมูลขั้นต่ำ (Min Bid Price)"
+              label="Min Bid Price"
               name="minBidPrice"
               type="number"
               value={settings?.minBidPrice || ""}
@@ -108,7 +108,7 @@ const AdminAuctionPage = () => {
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
-              label="ผู้เล่นสะสมสูงสุดในทีม (Max Squad Size)"
+              label="Max Squad Size"
               name="maxSquadSize"
               type="number"
               value={settings?.maxSquadSize || ""}
@@ -124,7 +124,7 @@ const AdminAuctionPage = () => {
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
-              label="เวลาเริ่มประมูลรายวัน (Daily Start Time)"
+              label="Daily Start Time"
               name="dailyBidStartTime"
               type="time"
               value={settings?.dailyBidStartTime || "08:00"}
@@ -135,7 +135,7 @@ const AdminAuctionPage = () => {
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
-              label="เวลาปิดประมูลรายวัน (Daily End Time)"
+              label="Daily End Time"
               name="dailyBidEndTime"
               type="time"
               value={settings?.dailyBidEndTime || "23:59"}
@@ -154,7 +154,7 @@ const AdminAuctionPage = () => {
             size="large"
             sx={{ minWidth: 200 }}
           >
-            บันทึกการตั้งค่า
+            Save Settings
           </Button>
         </Box>
       </Paper>
