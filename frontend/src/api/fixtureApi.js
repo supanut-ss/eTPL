@@ -9,12 +9,17 @@ export const getFixtureSeasons = () =>
 
 // Resolve the API base URL (mirrors the logic in axiosInstance.js).
 const resolvePublicApiBaseUrl = () => {
-  if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
+  if (import.meta.env.VITE_API_BASE_URL)
+    return import.meta.env.VITE_API_BASE_URL;
 
   if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location;
-    if (hostname === "thaipesleague.com" || hostname === "www.thaipesleague.com") {
-      return `${protocol}//apicore.thaipesleague.com`;
+    const { hostname } = window.location;
+    if (
+      hostname === "thaipesleague.com" ||
+      hostname === "www.thaipesleague.com"
+    ) {
+      // Always use HTTPS for API subdomain
+      return "https://apicore.thaipesleague.com";
     }
   }
 

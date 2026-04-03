@@ -3,13 +3,18 @@ import axios from "axios";
 // Resolve the API base URL at runtime.
 // Priority: explicit env var → host-based detection → same-origin fallback.
 const resolveApiBaseUrl = () => {
-  if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
+  if (import.meta.env.VITE_API_BASE_URL)
+    return import.meta.env.VITE_API_BASE_URL;
 
   if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location;
+    const { hostname } = window.location;
     // When the frontend is served from the main web domain, point to the API subdomain.
-    if (hostname === "thaipesleague.com" || hostname === "www.thaipesleague.com") {
-      return `${protocol}//apicore.thaipesleague.com`;
+    // Always use HTTPS for API subdomain
+    if (
+      hostname === "thaipesleague.com" ||
+      hostname === "www.thaipesleague.com"
+    ) {
+      return "https://apicore.thaipesleague.com";
     }
   }
 
