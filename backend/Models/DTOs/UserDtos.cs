@@ -14,6 +14,7 @@ namespace eTPL.API.Models.DTOs
 
     public class UserDto
     {
+        public int Id { get; set; }
         public string UserId { get; set; } = string.Empty;
         public string UserLevel { get; set; } = string.Empty;
         public string? LineId { get; set; }

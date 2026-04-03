@@ -101,8 +101,8 @@ namespace eTPL.API.Services
                 CurrentPrice = board.CurrentPrice,
                 HighestBidderId = board.HighestBidderId,
                 HighestBidderName = board.HighestBidder?.UserId, // The string username from User table
-                NormalEndTime = board.NormalEndTime,
-                FinalEndTime = board.FinalEndTime,
+                NormalEndTime = DateTime.SpecifyKind(board.NormalEndTime, DateTimeKind.Utc),
+                FinalEndTime = DateTime.SpecifyKind(board.FinalEndTime, DateTimeKind.Utc),
                 DbStatus = board.DbStatus
             };
 
@@ -287,12 +287,18 @@ namespace eTPL.API.Services
                 .ToListAsync();
 
             var auctionIds = boards.Select(b => b.AuctionId).ToList();
-            var bidderMap = await _context.AuctionBidLogs
+
+            var distinctBids = await _context.AuctionBidLogs
                 .Where(l => auctionIds.Contains(l.AuctionId))
+                .Select(l => new { l.AuctionId, l.UserId })
+                .Distinct()
+                .ToListAsync();
+
+            var bidderMap = distinctBids
                 .GroupBy(l => l.AuctionId)
-                .ToDictionaryAsync(
+                .ToDictionary(
                     g => g.Key,
-                    g => g.Select(l => l.UserId).Distinct().ToList()
+                    g => g.Select(l => l.UserId).ToList()
                 );
 
             var dtos = boards.Select(b =>

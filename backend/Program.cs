@@ -12,7 +12,12 @@ using eTPL.API.Hubs;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Controllers
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Force all DateTime to serialize with "Z" (UTC) so frontend parses correctly
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 builder.Services.AddSignalR();
 
 // ── CORS
@@ -49,11 +54,11 @@ builder.Services.AddCors(options =>
 
 // ── MS SQL DbContext (Users + Business Data)
 builder.Services.AddDbContext<MsSqlDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("MsSql")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("MsSql"), o => o.UseCompatibilityLevel(120)));
 
 // ── Scaffolded DbContext (ใช้ connection string เดียวกัน)
 builder.Services.AddDbContext<ScaffoldedDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("MsSql")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("MsSql"), o => o.UseCompatibilityLevel(120)));
 
 // ── MySQL DbContext (สำรองไว้ถ้ามีใช้ในอนาคต)
 // var mySqlConn = builder.Configuration.GetConnectionString("MySql");

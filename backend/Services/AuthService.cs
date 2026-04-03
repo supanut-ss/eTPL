@@ -41,6 +41,7 @@ namespace eTPL.API.Services
                 Token = token,
                 User = new UserDto
                 {
+                    Id = user.Id,
                     UserId = user.UserId,
                     UserLevel = user.UserLevel,
                     LineId = user.LineId,
@@ -285,6 +286,7 @@ namespace eTPL.API.Services
                 Token = jwtToken,
                 User = new UserDto
                 {
+                    Id = user.Id,
                     UserId = user.UserId,
                     UserLevel = user.UserLevel,
                     LineId = user.LineId,
