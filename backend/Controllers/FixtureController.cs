@@ -67,31 +67,33 @@ namespace eTPL.API.Controllers
                 .Select(f => new { f.FixtureId, f.HomeYellow, f.HomeRed, f.AwayYellow, f.AwayRed })
                 .ToDictionaryAsync(f => f.FixtureId);
 
-            var result = data.Select(f =>
-            {
-                cardData.TryGetValue(f.FixtureId, out var card);
-                return new
+            var result = data
+                .Where(f => !string.IsNullOrEmpty(f.FixtureId))
+                .Select(f =>
                 {
-                    f.FixtureId,
-                    f.Division,
-                    f.Match,
-                    f.Home,
-                    f.HomeScore,
-                    f.AwayScore,
-                    f.Away,
-                    f.Active,
-                    f.HomeImage,
-                    f.AwayImage,
-                    f.Season,
-                    f.HomeTeamName,
-                    f.AwayTeamName,
-                    f.Platform,
-                    HomeYellow = card?.HomeYellow,
-                    HomeRed = card?.HomeRed,
-                    AwayYellow = card?.AwayYellow,
-                    AwayRed = card?.AwayRed,
-                };
-            }).ToList();
+                    cardData.TryGetValue(f.FixtureId, out var card);
+                    return new
+                    {
+                        f.FixtureId,
+                        f.Division,
+                        f.Match,
+                        f.Home,
+                        f.HomeScore,
+                        f.AwayScore,
+                        f.Away,
+                        f.Active,
+                        f.HomeImage,
+                        f.AwayImage,
+                        f.Season,
+                        f.HomeTeamName,
+                        f.AwayTeamName,
+                        f.Platform,
+                        HomeYellow = card?.HomeYellow,
+                        HomeRed = card?.HomeRed,
+                        AwayYellow = card?.AwayYellow,
+                        AwayRed = card?.AwayRed,
+                    };
+                }).ToList();
 
             return Ok(ApiResponse<object>.Ok(result));
         }
@@ -122,30 +124,32 @@ namespace eTPL.API.Controllers
 
             var cardData = await cardQuery
                 .Select(f => new { f.FixtureId, f.HomeYellow, f.HomeRed, f.AwayYellow, f.AwayRed })
-                .ToDictionaryAsync(f => f.FixtureId);
+                .ToDictionaryAsync(f => f.FixtureId ?? "");
 
-            var result = data.Select(f =>
-            {
-                cardData.TryGetValue(f.FixtureId, out var card);
-                return new
+            var result = data
+                .Where(f => !string.IsNullOrEmpty(f.FixtureId))
+                .Select(f =>
                 {
-                    f.FixtureId,
-                    f.Match,
-                    f.Home,
-                    f.HomeScore,
-                    f.AwayScore,
-                    f.Away,
-                    f.Active,
-                    f.HomeImage,
-                    f.AwayImage,
-                    f.HomeTeamName,
-                    f.AwayTeamName,
-                    HomeYellow = card?.HomeYellow,
-                    HomeRed = card?.HomeRed,
-                    AwayYellow = card?.AwayYellow,
-                    AwayRed = card?.AwayRed,
-                };
-            }).ToList();
+                    cardData.TryGetValue(f.FixtureId, out var card);
+                    return new
+                    {
+                        f.FixtureId,
+                        f.Match,
+                        f.Home,
+                        f.HomeScore,
+                        f.AwayScore,
+                        f.Away,
+                        f.Active,
+                        f.HomeImage,
+                        f.AwayImage,
+                        f.HomeTeamName,
+                        f.AwayTeamName,
+                        HomeYellow = card?.HomeYellow,
+                        HomeRed = card?.HomeRed,
+                        AwayYellow = card?.AwayYellow,
+                        AwayRed = card?.AwayRed,
+                    };
+                }).ToList();
 
             return Ok(ApiResponse<object>.Ok(result));
         }
@@ -441,7 +445,7 @@ namespace eTPL.API.Controllers
                 var vFixture = await _db.VFixtureAlls.FirstOrDefaultAsync(v => v.FixtureId == fixtureId);
                 var reportUser = await _db.TbmUsers.FirstOrDefaultAsync(u => u.UserId == userId);
                 var reportUserName = reportUser?.LineName ?? userId;
-                
+
                 string homeName = vFixture?.HomeTeamName ?? fixture.Home;
                 string awayName = vFixture?.AwayTeamName ?? fixture.Away;
 
@@ -601,13 +605,13 @@ namespace eTPL.API.Controllers
             // SEND DISCORD NOTIFICATION
             try
             {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Unknown";
                 var vFixture = await _db.VFixtureAlls.FirstOrDefaultAsync(v => v.FixtureId == fixtureId);
                 var reportUser = await _db.TbmUsers.FirstOrDefaultAsync(u => u.UserId == userId);
                 var reportUserName = reportUser?.LineName ?? userId ?? "Admin";
-                
-                string homeName = vFixture?.HomeTeamName ?? fixture.Home;
-                string awayName = vFixture?.AwayTeamName ?? fixture.Away;
+
+                string homeName = vFixture?.HomeTeamName ?? fixture.Home ?? "Home";
+                string awayName = vFixture?.AwayTeamName ?? fixture.Away ?? "Away";
 
                 string resultMsg = "แก้ไขผลการแข่งขัน " + fixture.Division + " : " + homeName + " " + dto.HomeScore.ToString() + " - " + dto.AwayScore.ToString() + " " + awayName + " \n\nEDIT BY " + reportUserName;
                 _ = SendDiscordEmbed(resultMsg);
