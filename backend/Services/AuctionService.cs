@@ -37,7 +37,7 @@ namespace eTPL.API.Services
                 throw new Exception($"อนุญาตให้ประมูลได้ตั้งแต่ {settings.DailyBidStartTime:hh\\:mm} ถึง {settings.DailyBidEndTime:hh\\:mm} (เวลาไทย) เท่านั้น");
         }
 
-        private async Task ValidateBidEligibility(int userId, int bidAmount, int playerOvr)
+        private async Task ValidateBidEligibility(int userId, int bidAmount, int playerOvr, int? excludeAuctionId = null)
         {
             await CheckTimeEligibilityAsync();
 
@@ -47,7 +47,7 @@ namespace eTPL.API.Services
             // Get winning count + squad count
             var currentSquadCount = await _context.AuctionSquads.CountAsync(s => s.UserId == userId);
             var winningCount = await _context.AuctionBoards
-                .Where(b => b.DbStatus == "Active" && b.HighestBidderId == userId && b.FinalEndTime > DateTime.UtcNow)
+                .Where(b => b.DbStatus == "Active" && b.HighestBidderId == userId && b.FinalEndTime > DateTime.UtcNow && b.AuctionId != excludeAuctionId)
                 .CountAsync();
 
             var totalOwnedAndWinning = currentSquadCount + winningCount;
@@ -78,7 +78,7 @@ namespace eTPL.API.Services
                     .ToListAsync();
                     
                 var winningOVRs = await _context.AuctionBoards
-                    .Where(b => b.DbStatus == "Active" && b.HighestBidderId == userId && b.FinalEndTime > DateTime.UtcNow)
+                    .Where(b => b.DbStatus == "Active" && b.HighestBidderId == userId && b.FinalEndTime > DateTime.UtcNow && b.AuctionId != excludeAuctionId)
                     .Select(b => b.Player!.PlayerOvr)
                     .ToListAsync();
 
@@ -90,7 +90,7 @@ namespace eTPL.API.Services
             }
         }
 
-        private AuctionBoardDto MapToDto(AuctionBoard board)
+        private AuctionBoardDto MapToDto(AuctionBoard board, int bidderCount = 2)
         {
             var dto = new AuctionBoardDto
             {
@@ -112,7 +112,12 @@ namespace eTPL.API.Services
             else if (now < board.NormalEndTime)
                 dto.DisplayStatus = "Normal Bid";
             else if (now >= board.NormalEndTime && now < board.FinalEndTime)
-                dto.DisplayStatus = "Final Bid";
+            {
+                if (bidderCount <= 1)
+                    dto.DisplayStatus = "Waiting Confirm";
+                else
+                    dto.DisplayStatus = "Final Bid";
+            }
             else if (now >= board.FinalEndTime && now < board.FinalEndTime.AddHours(24))
                 dto.DisplayStatus = "Waiting Confirm";
             else
@@ -190,19 +195,10 @@ namespace eTPL.API.Services
 
             if (!string.IsNullOrEmpty(grade) && grade != "All")
             {
-                int minOvr = 0, maxOvr = 99;
-                switch (grade.ToUpper())
+                var targetQuota = await _context.AuctionGradeQuotas.FirstOrDefaultAsync(q => q.GradeName == grade);
+                if (targetQuota != null)
                 {
-                    case "S": minOvr = 82; maxOvr = 99; break;
-                    case "A": minOvr = 81; maxOvr = 81; break;
-                    case "B": minOvr = 79; maxOvr = 80; break;
-                    case "C": minOvr = 77; maxOvr = 78; break;
-                    case "D": minOvr = 75; maxOvr = 76; break;
-                    case "E": minOvr = 65; maxOvr = 74; break;
-                }
-                if (minOvr > 0)
-                {
-                    query = query.Where(p => p.PlayerOvr >= minOvr && p.PlayerOvr <= maxOvr);
+                    query = query.Where(p => p.PlayerOvr >= targetQuota.MinOVR && p.PlayerOvr <= targetQuota.MaxOVR);
                 }
             }
 
@@ -314,8 +310,8 @@ namespace eTPL.API.Services
                 PlayerId = playerId,
                 InitiatorUserId = initiatorUserId,
                 CurrentPrice = startPrice - 1,
-                NormalEndTime = DateTime.UtcNow.AddHours(20),
-                FinalEndTime = DateTime.UtcNow.AddHours(24),
+                NormalEndTime = DateTime.UtcNow.AddMinutes(settings?.NormalBidDurationMinutes ?? 1200),
+                FinalEndTime = DateTime.UtcNow.AddMinutes(settings?.FinalBidDurationMinutes ?? 1440),
                 DbStatus = "Active"
             };
 
@@ -360,7 +356,7 @@ namespace eTPL.API.Services
             return MapToDto(auction!);
         }
 
-        public async Task<List<AuctionBoardDto>> GetActiveAuctionsAsync()
+        public async Task<List<AuctionBoardDto>> GetActiveAuctionsAsync(int? currentUserId = null)
         {
             await RunLazySweepAsync();
             var boards = await _context.AuctionBoards
@@ -384,10 +380,20 @@ namespace eTPL.API.Services
                     g => g.Select(l => l.UserId).ToList()
                 );
 
+            Dictionary<int, int> currentUserFinalBids = new();
+            if (currentUserId.HasValue)
+            {
+                currentUserFinalBids = await _context.AuctionBidLogs
+                    .Where(l => auctionIds.Contains(l.AuctionId) && l.UserId == currentUserId.Value && l.Phase == "Final")
+                    .ToDictionaryAsync(l => l.AuctionId, l => l.BidAmount);
+            }
+
             var dtos = boards.Select(b =>
             {
-                var dto = MapToDto(b);
-                dto.BidderUserIds = bidderMap.ContainsKey(b.AuctionId) ? bidderMap[b.AuctionId] : new List<int>();
+                var bidders = bidderMap.ContainsKey(b.AuctionId) ? bidderMap[b.AuctionId] : new List<int>();
+                var dto = MapToDto(b, bidders.Count);
+                dto.BidderUserIds = bidders;
+                dto.CurrentUserFinalBid = currentUserFinalBids.ContainsKey(b.AuctionId) ? currentUserFinalBids[b.AuctionId] : null;
                 return dto;
             }).ToList();
 
@@ -414,7 +420,7 @@ namespace eTPL.API.Services
                 if (bidAmount <= auction.CurrentPrice) throw new Exception("ราคาที่บิดต้องมากกว่าราคาปัจจุบัน");
                 if (bidAmount != auction.CurrentPrice + 1) throw new Exception("บิดช่วง Normal เพิ่มได้ทีละ 1 เท่านั้น");
 
-                await ValidateBidEligibility(userId, bidAmount, auction.Player!.PlayerOvr);
+                await ValidateBidEligibility(userId, bidAmount, auction.Player!.PlayerOvr, auctionId);
 
                 var newBidderWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == userId);
                 if (newBidderWallet == null) throw new Exception("Wallet not found.");
@@ -473,7 +479,13 @@ namespace eTPL.API.Services
 
                 if (auction == null) throw new Exception("Auction not found.");
 
-                var dto = MapToDto(auction);
+                var bidderCount = await _context.AuctionBidLogs
+                    .Where(l => l.AuctionId == auctionId && l.Phase == "Normal")
+                    .Select(l => l.UserId)
+                    .Distinct()
+                    .CountAsync();
+
+                var dto = MapToDto(auction, bidderCount);
                 if (dto.DisplayStatus != "Final Bid") throw new Exception("ไม่อยู่ในช่วง Final Bid.");
 
                 var hasNormalBid = await _context.AuctionBidLogs.AnyAsync(l => l.AuctionId == auctionId && l.UserId == userId && l.Phase == "Normal");
@@ -484,7 +496,7 @@ namespace eTPL.API.Services
 
                 if (bidAmount <= auction.CurrentPrice) throw new Exception("ราคาปิดผนึกต้องสูงกว่าราคาปัจจุบัน");
 
-                await ValidateBidEligibility(userId, bidAmount, auction.Player!.PlayerOvr);
+                await ValidateBidEligibility(userId, bidAmount, auction.Player!.PlayerOvr, auctionId);
 
                 var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == userId);
                 if (wallet == null) throw new Exception("Wallet not found.");
@@ -534,14 +546,26 @@ namespace eTPL.API.Services
 
                 if (auction == null) throw new Exception("Auction not found.");
 
-                var dto = MapToDto(auction);
+                var bidderCount = await _context.AuctionBidLogs
+                    .Where(l => l.AuctionId == auctionId && l.Phase == "Normal")
+                    .Select(l => l.UserId)
+                    .Distinct()
+                    .CountAsync();
+
+                var dto = MapToDto(auction, bidderCount);
                 if (dto.DisplayStatus != "Waiting Confirm") throw new Exception("ไม่อยู่ในช่วงที่ต้องกดยืนยัน");
 
-                var finalBids = await _context.AuctionBidLogs
+                var normalWinnerId = auction.HighestBidderId;
+                
+                var finalBidsList = await _context.AuctionBidLogs
                     .Where(l => l.AuctionId == auctionId && l.Phase == "Final")
-                    .OrderByDescending(l => l.BidAmount)
-                    .ThenBy(l => l.CreatedAt)
                     .ToListAsync();
+
+                var finalBids = finalBidsList
+                    .OrderByDescending(l => l.BidAmount)
+                    .ThenByDescending(l => l.UserId == normalWinnerId)
+                    .ThenBy(l => l.CreatedAt)
+                    .ToList();
                 
                 int? winnerId = null;
                 int winningPrice = auction.CurrentPrice;

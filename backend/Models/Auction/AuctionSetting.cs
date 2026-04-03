@@ -12,5 +12,7 @@ namespace eTPL.API.Models.Auction
         public DateTime? AuctionEndDate { get; set; }
         public TimeSpan DailyBidStartTime { get; set; } = new TimeSpan(8, 0, 0); // 08:00
         public TimeSpan DailyBidEndTime { get; set; } = new TimeSpan(23, 59, 59); // 23:59:59
+        public int NormalBidDurationMinutes { get; set; } = 1200; // 20 hours
+        public int FinalBidDurationMinutes { get; set; } = 1440; // 24 hours
     }
 }

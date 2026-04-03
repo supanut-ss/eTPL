@@ -52,6 +52,14 @@ const auctionService = {
     const res = await api.get("/api/auction/my-squad");
     return res.data;
   },
+  getQuotas: async () => {
+    const res = await api.get("/api/auction/quotas");
+    return res.data;
+  },
+  updateQuotas: async (quotas) => {
+    const res = await api.put("/api/auction/quotas", quotas);
+    return res.data;
+  },
 };
 
 export default auctionService;

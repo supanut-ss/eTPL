@@ -43,6 +43,7 @@ const AuctionPage = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchGrade, setSearchGrade] = useState("All");
+  const [grades, setGrades] = useState([]);
   const [freeAgentOnly, setFreeAgentOnly] = useState(false);
   
   // Real-time connection
@@ -65,7 +66,10 @@ const AuctionPage = () => {
             const index = prev.findIndex((a) => a.auctionId === updatedAuction.auctionId);
             if (index !== -1) {
               const newArr = [...prev];
-              newArr[index] = updatedAuction;
+              newArr[index] = {
+                ...updatedAuction,
+                currentUserFinalBid: updatedAuction.currentUserFinalBid ?? prev[index].currentUserFinalBid 
+              };
               return newArr;
             }
             return [...prev, updatedAuction];
@@ -82,12 +86,14 @@ const AuctionPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [sumRes, boardRes] = await Promise.all([
+      const [sumRes, boardRes, quotaRes] = await Promise.all([
         auctionService.getSummary(),
         auctionService.getBoard(),
+        auctionService.getQuotas()
       ]);
       setSummary(sumRes.data);
       setAuctions(boardRes.data || []);
+      setGrades(quotaRes.data || []);
     } catch (err) {
       console.error(err);
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
@@ -134,7 +140,20 @@ const AuctionPage = () => {
   };
 
   const handleBid = async (auctionId, type, currentPrice) => {
-    const amount = currentPrice + 1;
+    let amount;
+    
+    if (type === "normal") {
+      amount = currentPrice + 1;
+    } else {
+      const userVal = window.prompt(`Enter your sealed Final Bid amount (must be > ${currentPrice} TP):`, currentPrice + 1);
+      if (!userVal) return;
+      amount = parseInt(userVal, 10);
+      if (isNaN(amount) || amount <= currentPrice) {
+        enqueueSnackbar("Bid amount must be a number greater than the current price", { variant: "error" });
+        return;
+      }
+    }
+
     try {
       if (type === "normal") {
         await auctionService.placeNormalBid(auctionId, amount);
@@ -298,8 +317,8 @@ const AuctionPage = () => {
                       {auction.displayStatus === "Normal Bid" ? "Normal" : auction.displayStatus === "Final Bid" ? "Final" : "Wait"}
                     </Typography>
                   </Box>
-                  <Typography fontWeight="900" sx={{ color: '#4caf50', textShadow: '0 0 6px rgba(76,175,80,0.6)', lineHeight: 1, fontSize: '1.1rem' }}>
-                    {auction.currentPrice}<Typography component="span" sx={{ fontSize: '0.5rem', fontWeight: 'bold' }}> TP</Typography>
+                  <Typography fontWeight="900" sx={{ color: auction.currentUserFinalBid != null ? '#ff9800' : '#4caf50', textShadow: `0 0 6px ${auction.currentUserFinalBid != null ? 'rgba(255,152,0,0.6)' : 'rgba(76,175,80,0.6)'}`, lineHeight: 1, fontSize: '1.1rem' }}>
+                    {auction.currentUserFinalBid ?? auction.currentPrice}<Typography component="span" sx={{ fontSize: '0.5rem', fontWeight: 'bold' }}> TP</Typography>
                   </Typography>
                 </Box>
 
@@ -332,8 +351,19 @@ const AuctionPage = () => {
                       </Button>
                     )}
                     {auction.displayStatus === "Final Bid" && (
-                      <Button variant="contained" size="small" sx={{ minWidth: '40px', p: '2px 6px', bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' }, fontWeight: 'bold', borderRadius: 0.75, fontSize: '0.7rem', height: '22px', lineHeight: 1 }} onClick={() => handleBid(auction.auctionId, "final", auction.currentPrice)}>
-                        Final
+                      <Button 
+                        variant="contained" 
+                        size="small" 
+                        disabled={auction.currentUserFinalBid != null}
+                        sx={{ 
+                          minWidth: '40px', p: '2px 6px', 
+                          bgcolor: auction.currentUserFinalBid != null ? '#555 !important' : '#ff9800', 
+                          '&:hover': { bgcolor: '#f57c00' }, 
+                          '&.Mui-disabled': { color: '#ccc !important' },
+                          fontWeight: 'bold', borderRadius: 0.75, fontSize: '0.65rem', height: '22px', lineHeight: 1 
+                        }} 
+                        onClick={() => handleBid(auction.auctionId, "final", auction.currentPrice)}>
+                        {auction.currentUserFinalBid != null ? "Done" : "Final"}
                       </Button>
                     )}
                     {auction.displayStatus === "Waiting Confirm" && user?.id === auction.highestBidderId && (
@@ -384,12 +414,9 @@ const AuctionPage = () => {
                 }}
               >
                 <MenuItem value="All">All</MenuItem>
-                <MenuItem value="S">S</MenuItem>
-                <MenuItem value="A">A</MenuItem>
-                <MenuItem value="B">B</MenuItem>
-                <MenuItem value="C">C</MenuItem>
-                <MenuItem value="D">D</MenuItem>
-                <MenuItem value="E">E</MenuItem>
+                {grades.map((g) => (
+                  <MenuItem key={g.gradeId} value={g.gradeName}>{g.gradeName}</MenuItem>
+                ))}
               </Select>
             </FormControl>
             <FormControlLabel

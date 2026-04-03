@@ -60,7 +60,18 @@ namespace eTPL.API.Controllers
         {
             try
             {
-                var result = await _auctionService.GetActiveAuctionsAsync();
+                int? userId = null;
+                if (User.Identity?.IsAuthenticated == true)
+                {
+                    var userStrId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                    if (!string.IsNullOrEmpty(userStrId))
+                    {
+                        var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userStrId);
+                        if (user != null) userId = user.Id;
+                    }
+                }
+                
+                var result = await _auctionService.GetActiveAuctionsAsync(userId);
                 return Ok(ApiResponse<object>.Ok(result));
             }
             catch (Exception ex)
@@ -179,6 +190,12 @@ namespace eTPL.API.Controllers
         {
             try
             {
+                // Ensure columns exist (Manual migration check)
+                try {
+                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tbs_auction_settings') AND name = 'NormalBidDurationMinutes') ALTER TABLE tbs_auction_settings ADD NormalBidDurationMinutes INT NOT NULL DEFAULT 1200;");
+                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tbs_auction_settings') AND name = 'FinalBidDurationMinutes') ALTER TABLE tbs_auction_settings ADD FinalBidDurationMinutes INT NOT NULL DEFAULT 1440;");
+                } catch { /* Silent */ }
+
                 var settings = await _db.AuctionSettings.FirstOrDefaultAsync();
                 return Ok(ApiResponse<object>.Ok(settings));
             }
@@ -197,6 +214,12 @@ namespace eTPL.API.Controllers
                 var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userStrId);
                 if (user == null || user.UserLevel != "admin") throw new UnauthorizedAccessException("สำหรับ Admin เท่านั้น");
 
+                // Ensure columns exist (Manual migration check) - MUST BE BEFORE ANY EF QUERY TO THIS TABLE
+                try {
+                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tbs_auction_settings') AND name = 'NormalBidDurationMinutes') ALTER TABLE tbs_auction_settings ADD NormalBidDurationMinutes INT NOT NULL DEFAULT 1200;");
+                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tbs_auction_settings') AND name = 'FinalBidDurationMinutes') ALTER TABLE tbs_auction_settings ADD FinalBidDurationMinutes INT NOT NULL DEFAULT 1440;");
+                } catch { /* Silent */ }
+
                 var settings = await _db.AuctionSettings.FirstOrDefaultAsync();
                 if (settings == null) throw new Exception("Not found");
 
@@ -209,8 +232,54 @@ namespace eTPL.API.Controllers
                 settings.DailyBidStartTime = updatedSettings.DailyBidStartTime;
                 settings.DailyBidEndTime = updatedSettings.DailyBidEndTime;
 
+                settings.NormalBidDurationMinutes = updatedSettings.NormalBidDurationMinutes;
+                settings.FinalBidDurationMinutes = updatedSettings.FinalBidDurationMinutes;
+
                 await _db.SaveChangesAsync();
                 return Ok(ApiResponse<object>.Ok(new { message = "อัปเดตการตั้งค่าสำเร็จ", data = settings }));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+        [HttpGet("quotas")]
+        [AllowAnonymous] // Anyone can see the rules
+        public async Task<IActionResult> GetQuotas()
+        {
+            try
+            {
+                var quotas = await _db.AuctionGradeQuotas.OrderBy(q => q.MinOVR).ToListAsync();
+                return Ok(ApiResponse<object>.Ok(quotas));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPut("quotas")]
+        public async Task<IActionResult> UpdateQuotas([FromBody] List<AuctionGradeQuota> updatedQuotas)
+        {
+            try
+            {
+                var userStrId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userStrId);
+                if (user == null || user.UserLevel != "admin") throw new UnauthorizedAccessException("สำหรับ Admin เท่านั้น");
+
+                foreach (var q in updatedQuotas)
+                {
+                    var quota = await _db.AuctionGradeQuotas.FindAsync(q.GradeId);
+                    if (quota != null)
+                    {
+                        quota.MinOVR = q.MinOVR;
+                        quota.MaxOVR = q.MaxOVR;
+                        quota.MaxAllowedPerUser = q.MaxAllowedPerUser;
+                    }
+                }
+
+                await _db.SaveChangesAsync();
+                return Ok(ApiResponse<object>.Ok(new { message = "อัปเดตโควตาสำเร็จ" }));
             }
             catch (Exception ex)
             {
