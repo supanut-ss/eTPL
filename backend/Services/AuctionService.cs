@@ -60,14 +60,17 @@ namespace eTPL.API.Services
             var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == userId);
             if (wallet == null) throw new Exception("Wallet not found.");
 
+            var quotas = await _context.AuctionGradeQuotas.ToListAsync();
+            var gradeE = quotas.FirstOrDefault(q => q.GradeName == "E");
+            int lowestPrice = gradeE?.MinOVR ?? settings.MinBidPrice;
+
             int remainingSlotsToFill = settings.MaxSquadSize - totalOwnedAndWinning - 1; 
-            int requiredReserve = remainingSlotsToFill > 0 ? remainingSlotsToFill * settings.MinBidPrice : 0;
+            int requiredReserve = remainingSlotsToFill > 0 ? remainingSlotsToFill * lowestPrice : 0;
 
             if (wallet.AvailableBalance - bidAmount < requiredReserve)
-                throw new Exception($"Budget Lock: ต้องเหลือเงินอย่างน้อย {requiredReserve} สำหรับซื้ออีก {remainingSlotsToFill} ตำแหน่งด้วยราคาขั้นต่ำ");
+                throw new Exception($"Budget Lock: ต้องเหลือเงินอย่างน้อย {requiredReserve} สำหรับซื้ออีก {remainingSlotsToFill} ตำแหน่งด้วยราคาเกรด {gradeE?.GradeName ?? "E"} ({lowestPrice} TP)");
 
             // 3. Grade Quota Check
-            var quotas = await _context.AuctionGradeQuotas.ToListAsync();
             var targetGrade = quotas.FirstOrDefault(q => playerOvr >= q.MinOVR && playerOvr <= q.MaxOVR);
             
             if (targetGrade != null && targetGrade.MaxAllowedPerUser < 99)

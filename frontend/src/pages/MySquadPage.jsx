@@ -92,7 +92,7 @@ const MySquadPage = () => {
       </Box>
 
       {/* Summary Cards */}
-      <Grid container spacing={3} mb={5}>
+      <Grid container spacing={1.5} mb={5}>
         <Grid item xs={12} sm={4}>
           <Card elevation={0} sx={{ borderRadius: 4, background: "linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)", border: "1px solid #a5d6a7", position: 'relative', overflow: 'hidden' }}>
             <Groups sx={{ position: 'absolute', right: -10, bottom: -10, fontSize: 100, color: '#4caf50', opacity: 0.1, transform: 'rotate(-15deg)' }} />
@@ -164,7 +164,7 @@ const MySquadPage = () => {
           </Typography>
         </Paper>
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={1.5}>
           {squad.map((player) => {
             const grade = getDynamicGrade(player.playerOvr);
             return (
