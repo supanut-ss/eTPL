@@ -1,8 +1,26 @@
 import axios from "axios";
 import axiosInstance from "./axiosInstance";
 
+// Resolve the API base URL (mirrors the logic in axiosInstance.js).
+const resolvePublicApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL)
+    return import.meta.env.VITE_API_BASE_URL;
+
+  if (typeof window !== "undefined") {
+    const { hostname } = window.location;
+    if (
+      hostname === "thaipesleague.com" ||
+      hostname === "www.thaipesleague.com"
+    ) {
+      return "https://apicore.thaipesleague.com";
+    }
+  }
+
+  return "";
+};
+
 const publicAxios = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "",
+  baseURL: resolvePublicApiBaseUrl(),
   headers: {
     "Content-Type": "application/json",
     "Cache-Control": "no-cache",
