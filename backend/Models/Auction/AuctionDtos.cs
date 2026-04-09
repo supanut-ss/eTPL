@@ -22,6 +22,7 @@ namespace eTPL.API.Models.Auction
         public string DbStatus { get; set; } = string.Empty;
         public List<int> BidderUserIds { get; set; } = new();
         public int? CurrentUserFinalBid { get; set; }
+        public int? WinnerId { get; set; }
     }
 
     public class PlaceBidRequest

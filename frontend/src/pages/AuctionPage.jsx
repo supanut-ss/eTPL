@@ -702,7 +702,7 @@ const AuctionPage = () => {
                         {auction.currentUserFinalBid != null ? "Done" : "Final"}
                       </Button>
                     )}
-                    {auction.displayStatus === "Waiting Confirm" && user?.id === auction.highestBidderId && (
+                    {auction.displayStatus === "Waiting Confirm" && user?.id === auction.winnerId && (
                       <Button variant="contained" size="small" sx={{ minWidth: '40px', p: '2px 6px', bgcolor: '#2196f3', '&:hover': { bgcolor: '#1e88e5' }, fontWeight: 'bold', borderRadius: 0.75, fontSize: '0.65rem', height: '22px', lineHeight: 1 }} onClick={() => handleConfirm(auction.auctionId)}>
                         Confirm
                       </Button>

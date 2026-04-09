@@ -62,6 +62,54 @@ namespace eTPL.API.Services
                 throw new Exception($"อนุญาตให้ประมูลได้ตั้งแต่ {settings.DailyBidStartTime:hh\\:mm} ถึง {settings.DailyBidEndTime:hh\\:mm} (เวลาไทย) เท่านั้น");
         }
 
+        private async Task<List<AuctionBoard>> GetUserWinningAuctionsInternalAsync(int userId)
+        {
+            var now = DateTime.UtcNow;
+            
+            // Get all active auctions where user is highest bidder OR has a final bid
+            var involvedAuctions = await _context.AuctionBoards
+                .Include(b => b.Player)
+                .Where(b => b.DbStatus == "Active" && 
+                       (b.HighestBidderId == userId || _context.AuctionBidLogs.Any(l => l.AuctionId == b.AuctionId && l.UserId == userId && l.Phase == "Final")))
+                .ToListAsync();
+
+            if (!involvedAuctions.Any()) return new List<AuctionBoard>();
+
+            var auctionIds = involvedAuctions.Select(a => a.AuctionId).ToList();
+            var allFinalBids = await _context.AuctionBidLogs
+                .Where(l => auctionIds.Contains(l.AuctionId) && l.Phase == "Final")
+                .ToListAsync();
+
+            var winnersList = new List<AuctionBoard>();
+            foreach (var board in involvedAuctions)
+            {
+                int? winnerId = board.HighestBidderId;
+                
+                // If it's time for Final Bid or later, and there are multiple potential winners
+                // (Note: in our logic, we only care about real winners once Normal phase is over)
+                if (now >= board.NormalEndTime)
+                {
+                    var bidsForThis = allFinalBids.Where(l => l.AuctionId == board.AuctionId)
+                        .OrderByDescending(l => l.BidAmount)
+                        .ThenByDescending(l => l.UserId == board.HighestBidderId)
+                        .ThenBy(l => l.CreatedAt)
+                        .ToList();
+
+                    if (bidsForThis.Any())
+                    {
+                        winnerId = bidsForThis.First().UserId;
+                    }
+                }
+
+                if (winnerId == userId)
+                {
+                    winnersList.Add(board);
+                }
+            }
+
+            return winnersList;
+        }
+
         private async Task ValidateBidEligibility(int userId, int bidAmount, int playerOvr, int? excludeAuctionId = null)
         {
             await CheckTimeEligibilityAsync();
@@ -71,9 +119,8 @@ namespace eTPL.API.Services
 
             // Get winning count + squad count
             var currentSquadCount = await _context.AuctionSquads.CountAsync(s => s.UserId == userId);
-            var winningCount = await _context.AuctionBoards
-                .Where(b => b.DbStatus == "Active" && b.HighestBidderId == userId && b.FinalEndTime > DateTime.UtcNow && b.AuctionId != excludeAuctionId)
-                .CountAsync();
+            var winningAuctions = await GetUserWinningAuctionsInternalAsync(userId);
+            var winningCount = winningAuctions.Count(a => a.AuctionId != (excludeAuctionId ?? 0));
 
             var totalOwnedAndWinning = currentSquadCount + winningCount;
 
@@ -105,10 +152,10 @@ namespace eTPL.API.Services
                     .Select(s => s.Player!.PlayerOvr)
                     .ToListAsync();
                     
-                var winningOVRs = await _context.AuctionBoards
-                    .Where(b => b.DbStatus == "Active" && b.HighestBidderId == userId && b.FinalEndTime > DateTime.UtcNow && b.AuctionId != excludeAuctionId)
-                    .Select(b => b.Player!.PlayerOvr)
-                    .ToListAsync();
+                var winningOVRs = winningAuctions
+                    .Where(a => a.AuctionId != excludeAuctionId && a.Player != null)
+                    .Select(a => a.Player!.PlayerOvr)
+                    .ToList();
 
                 var allOVRs = squadOVRs.Concat(winningOVRs);
                 var currentGradeCount = allOVRs.Count(ovr => ovr >= targetGrade.MinOVR && ovr <= targetGrade.MaxOVR);
@@ -118,7 +165,7 @@ namespace eTPL.API.Services
             }
         }
 
-        private AuctionBoardDto MapToDto(AuctionBoard board, int bidderCount = 2)
+        private AuctionBoardDto MapToDto(AuctionBoard board, int bidderCount = 1, int? winnerId = null)
         {
             var dto = new AuctionBoardDto
             {
@@ -131,7 +178,8 @@ namespace eTPL.API.Services
                 HighestBidderName = board.HighestBidder?.UserId, // The string username from User table
                 NormalEndTime = DateTime.SpecifyKind(board.NormalEndTime, DateTimeKind.Utc),
                 FinalEndTime = DateTime.SpecifyKind(board.FinalEndTime, DateTimeKind.Utc),
-                DbStatus = board.DbStatus
+                DbStatus = board.DbStatus,
+                WinnerId = winnerId ?? board.HighestBidderId
             };
 
             var now = DateTime.UtcNow;
@@ -326,6 +374,13 @@ namespace eTPL.API.Services
                 .Where(b => b.DbStatus == "Active" && playerIds.Contains(b.PlayerId))
                 .ToListAsync();
 
+            var auctionIds = activeAuctions.Select(a => a.AuctionId).ToList();
+            var bidderCounts = await _context.AuctionBidLogs
+                .Where(l => auctionIds.Contains(l.AuctionId))
+                .GroupBy(l => l.AuctionId)
+                .Select(g => new { AuctionId = g.Key, Count = g.Select(l => l.UserId).Distinct().Count() })
+                .ToDictionaryAsync(x => x.AuctionId, x => x.Count);
+
             // Get squads for these players
             var squadEntries = await _context.AuctionSquads
                 .Include(s => s.User)
@@ -468,7 +523,7 @@ namespace eTPL.API.Services
                 .Include(a => a.HighestBidder)
                 .FirstOrDefaultAsync(a => a.AuctionId == auction.AuctionId);
 
-            return MapToDto(auction!);
+            return MapToDto(auction!, 1);
         }
 
         public async Task<List<AuctionBoardDto>> GetActiveAuctionsAsync(int? currentUserId = null)
@@ -495,18 +550,41 @@ namespace eTPL.API.Services
                     g => g.Select(l => l.UserId).ToList()
                 );
 
+            // Fetch Final Bids to determine true winners for ended auctions
+            var finalBidsData = await _context.AuctionBidLogs
+                .Where(l => auctionIds.Contains(l.AuctionId) && l.Phase == "Final")
+                .ToListAsync();
+
             Dictionary<int, int> currentUserFinalBids = new();
             if (currentUserId.HasValue)
             {
-                currentUserFinalBids = await _context.AuctionBidLogs
-                    .Where(l => auctionIds.Contains(l.AuctionId) && l.UserId == currentUserId.Value && l.Phase == "Final")
-                    .ToDictionaryAsync(l => l.AuctionId, l => l.BidAmount);
+                currentUserFinalBids = finalBidsData
+                    .Where(l => l.UserId == currentUserId.Value)
+                    .ToDictionary(l => l.AuctionId, l => l.BidAmount);
             }
 
+            var now = DateTime.UtcNow;
             var dtos = boards.Select(b =>
             {
                 var bidders = bidderMap.ContainsKey(b.AuctionId) ? bidderMap[b.AuctionId] : new List<int>();
-                var dto = MapToDto(b, bidders.Count);
+                
+                // Determine winnerId
+                int? winnerId = b.HighestBidderId;
+                if (now >= b.NormalEndTime && bidders.Count > 1)
+                {
+                    var bidsForThis = finalBidsData.Where(l => l.AuctionId == b.AuctionId)
+                        .OrderByDescending(l => l.BidAmount)
+                        .ThenByDescending(l => l.UserId == b.HighestBidderId)
+                        .ThenBy(l => l.CreatedAt)
+                        .ToList();
+                    
+                    if (bidsForThis.Any())
+                    {
+                        winnerId = bidsForThis.First().UserId;
+                    }
+                }
+                
+                var dto = MapToDto(b, bidders.Count, winnerId);
                 dto.BidderUserIds = bidders;
                 dto.CurrentUserFinalBid = currentUserFinalBids.ContainsKey(b.AuctionId) ? currentUserFinalBids[b.AuctionId] : null;
                 return dto;
@@ -582,7 +660,13 @@ namespace eTPL.API.Services
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                return MapToDto(auction);
+                var currentBiddersCount = await _context.AuctionBidLogs
+                    .Where(l => l.AuctionId == auctionId)
+                    .Select(l => l.UserId)
+                    .Distinct()
+                    .CountAsync();
+
+                return MapToDto(auction, currentBiddersCount);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -654,7 +738,13 @@ namespace eTPL.API.Services
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                return MapToDto(auction);
+                var currentBiddersCount = await _context.AuctionBidLogs
+                    .Where(l => l.AuctionId == auctionId)
+                    .Select(l => l.UserId)
+                    .Distinct()
+                    .CountAsync();
+
+                return MapToDto(auction, currentBiddersCount);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -813,10 +903,7 @@ namespace eTPL.API.Services
                 .Where(s => s.UserId == userId)
                 .ToListAsync();
             
-            var winning = await _context.AuctionBoards
-                .Include(b => b.Player)
-                .Where(b => b.DbStatus == "Active" && b.HighestBidderId == userId && b.FinalEndTime > DateTime.UtcNow)
-                .ToListAsync();
+            var winning = await GetUserWinningAuctionsInternalAsync(userId);
 
             // Price Recovery: Fetch sold boards to find prices for legacy squad members
             var soldBoardsRaw = await _context.AuctionBoards
