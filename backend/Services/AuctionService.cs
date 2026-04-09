@@ -13,6 +13,31 @@ namespace eTPL.API.Services
     {
         private readonly MsSqlDbContext _context;
 
+        public async Task<PlayerFilterOptionsDto> GetPlayerFilterOptionsAsync(string? league = null)
+        {
+            var targetQuota = await _context.AuctionGradeQuotas.FirstOrDefaultAsync(q => q.GradeName == "E");
+            int minOvr = targetQuota?.MinOVR ?? 65;
+
+            var baseQuery = _context.PesPlayerTeams.Where(x => x.PlayerOvr >= minOvr);
+
+            var teamQuery = baseQuery;
+            if (!string.IsNullOrEmpty(league))
+            {
+                teamQuery = teamQuery.Where(x => x.League == league);
+            }
+
+            var result = new PlayerFilterOptionsDto
+            {
+                Leagues = await baseQuery.Where(x => x.League != null && x.League != "").Select(x => x.League!).Distinct().OrderBy(x => x).ToListAsync(),
+                Teams = await teamQuery.Where(x => x.TeamName != null && x.TeamName != "").Select(x => x.TeamName!).Distinct().OrderBy(x => x).ToListAsync(),
+                Positions = await baseQuery.Where(x => x.Position != null && x.Position != "").Select(x => x.Position!).Distinct().OrderBy(x => x).ToListAsync(),
+                PlayingStyles = await baseQuery.Where(x => x.PlayingStyle != null && x.PlayingStyle != "").Select(x => x.PlayingStyle!).Distinct().OrderBy(x => x).ToListAsync(),
+                Feet = await baseQuery.Where(x => x.Foot != null && x.Foot != "").Select(x => x.Foot!).Distinct().OrderBy(x => x).ToListAsync(),
+                Nationalities = await baseQuery.Where(x => x.Nationality != null && x.Nationality != "").Select(x => x.Nationality!).Distinct().OrderBy(x => x).ToListAsync()
+            };
+            return result;
+        }
+
         public AuctionService(MsSqlDbContext context)
         {
             _context = context;
@@ -187,13 +212,86 @@ namespace eTPL.API.Services
             }
         }
 
-        public async Task<PagedResultDto<PlayerSearchResultDto>> SearchPlayersAsync(string searchTerm, int page, int pageSize, bool freeAgentOnly = false, string? grade = null)
+        public async Task<PagedResultDto<PlayerSearchResultDto>> SearchPlayersAsync(
+            string searchTerm, 
+            int page, 
+            int pageSize, 
+            bool freeAgentOnly = false, 
+            string? grade = null,
+            string? league = null,
+            string? teamName = null,
+            string? position = null,
+            string? playingStyle = null,
+            string? foot = null,
+            string? nationality = null,
+            int? minHeight = null,
+            int? maxHeight = null,
+            int? minWeight = null,
+            int? maxWeight = null,
+            int? minAge = null,
+            int? maxAge = null)
         {
             var query = _context.PesPlayerTeams.Where(p => p.PlayerOvr >= 60);
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
                 query = query.Where(p => p.PlayerName.Contains(searchTerm));
+            }
+
+            if (!string.IsNullOrEmpty(league))
+            {
+                query = query.Where(p => p.League == league);
+            }
+            if (!string.IsNullOrEmpty(teamName))
+            {
+                query = query.Where(p => p.TeamName == teamName);
+            }
+
+            if (!string.IsNullOrEmpty(position))
+            {
+                query = query.Where(p => p.Position == position);
+            }
+
+            if (!string.IsNullOrEmpty(playingStyle))
+            {
+                query = query.Where(p => p.PlayingStyle == playingStyle);
+            }
+
+            if (!string.IsNullOrEmpty(foot))
+            {
+                query = query.Where(p => p.Foot == foot);
+            }
+
+            if (!string.IsNullOrEmpty(nationality))
+            {
+                query = query.Where(p => p.Nationality == nationality);
+            }
+
+            if (minHeight.HasValue)
+            {
+                query = query.Where(p => p.Height >= minHeight.Value);
+            }
+            if (maxHeight.HasValue)
+            {
+                query = query.Where(p => p.Height <= maxHeight.Value);
+            }
+
+            if (minWeight.HasValue)
+            {
+                query = query.Where(p => p.Weight >= minWeight.Value);
+            }
+            if (maxWeight.HasValue)
+            {
+                query = query.Where(p => p.Weight <= maxWeight.Value);
+            }
+
+            if (minAge.HasValue)
+            {
+                query = query.Where(p => p.Age >= minAge.Value);
+            }
+            if (maxAge.HasValue)
+            {
+                query = query.Where(p => p.Age <= maxAge.Value);
             }
 
             if (!string.IsNullOrEmpty(grade) && grade != "All")
@@ -249,7 +347,16 @@ namespace eTPL.API.Services
                     IdPlayer = p.IdPlayer,
                     PlayerName = p.PlayerName,
                     PlayerOvr = p.PlayerOvr,
-                    Status = "Available"
+                    Status = "Available",
+                    League = p.League,
+                    TeamName = p.TeamName,
+                    Position = p.Position,
+                    PlayingStyle = p.PlayingStyle,
+                    Foot = p.Foot,
+                    Nationality = p.Nationality,
+                    Height = p.Height,
+                    Weight = p.Weight,
+                    Age = p.Age
                 };
 
                 // Check if in squad (Won)
@@ -342,6 +449,11 @@ namespace eTPL.API.Services
                     CreatedAt = DateTime.UtcNow
                 });
 
+                await RecordTransactionAsync(
+                    initiatorUserId, startPrice, "DEBIT", "AUCTION_BID",
+                    $"เริ่มประมูล {player.PlayerName} ราคา {startPrice} TP",
+                    wallet.AvailableBalance, auction.AuctionId, player.IdPlayer);
+
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
             }
@@ -429,6 +541,8 @@ namespace eTPL.API.Services
                 if (newBidderWallet == null) throw new Exception("Wallet not found.");
 
                 // Refund old winner
+                var prevBidderId = auction.HighestBidderId;
+                var prevPrice = auction.CurrentPrice;
                 if (auction.HighestBidderId.HasValue)
                 {
                     var prevWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == auction.HighestBidderId.Value);
@@ -436,6 +550,11 @@ namespace eTPL.API.Services
                     {
                         prevWallet.AvailableBalance += auction.CurrentPrice;
                         prevWallet.ReservedBalance -= auction.CurrentPrice;
+
+                        await RecordTransactionAsync(
+                            auction.HighestBidderId.Value, auction.CurrentPrice, "CREDIT", "AUCTION_REFUND",
+                            $"คืนเงินถูกแซงประมูล {auction.Player?.PlayerName ?? ""}",
+                            prevWallet.AvailableBalance, auctionId, auction.PlayerId);
                     }
                 }
 
@@ -454,6 +573,11 @@ namespace eTPL.API.Services
                     Phase = "Normal",
                     CreatedAt = DateTime.UtcNow
                 });
+
+                await RecordTransactionAsync(
+                    userId, bidAmount, "DEBIT", "AUCTION_BID",
+                    $"บิด {auction.Player?.PlayerName ?? ""} ราคา {bidAmount} TP",
+                    newBidderWallet.AvailableBalance, auctionId, auction.PlayerId);
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -522,6 +646,11 @@ namespace eTPL.API.Services
                     CreatedAt = DateTime.UtcNow
                 });
 
+                await RecordTransactionAsync(
+                    userId, actualDeduction, "DEBIT", "AUCTION_BID",
+                    $"บิดปิดผนึก {auction.Player?.PlayerName ?? ""} {bidAmount} TP",
+                    wallet.AvailableBalance, auctionId, auction.PlayerId);
+
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -588,6 +717,7 @@ namespace eTPL.API.Services
                 if (winnerId.Value != userId) throw new Exception("คุณไม่ใช่ผู้ชนะประมูลนี้");
 
                 // Refund losers
+                var playerName2 = auction.Player?.PlayerName ?? "";
                 if (auction.HighestBidderId.HasValue && auction.HighestBidderId.Value != winnerId.Value)
                 {
                     var oldWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == auction.HighestBidderId.Value);
@@ -595,6 +725,8 @@ namespace eTPL.API.Services
                     {
                         oldWallet.AvailableBalance += auction.CurrentPrice;
                         oldWallet.ReservedBalance -= auction.CurrentPrice;
+                        await RecordTransactionAsync(auction.HighestBidderId.Value, auction.CurrentPrice, "CREDIT", "AUCTION_REFUND",
+                            $"คืนเงินประมูลไม่ชนะ {playerName2}", oldWallet.AvailableBalance, auctionId, auction.PlayerId);
                     }
                 }
 
@@ -612,6 +744,8 @@ namespace eTPL.API.Services
                             }
                             loserWallet.AvailableBalance += refundAmount;
                             loserWallet.ReservedBalance -= refundAmount;
+                            await RecordTransactionAsync(bid.UserId, refundAmount, "CREDIT", "AUCTION_REFUND",
+                                $"คืนเงินประมูลไม่ชนะ {playerName2}", loserWallet.AvailableBalance, auctionId, auction.PlayerId);
                         }
                     }
                 }
@@ -623,17 +757,19 @@ namespace eTPL.API.Services
                 var winnerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == winnerId.Value);
                 if (winnerWallet != null)
                 {
-                    // Deduct permanently the winning amount
-                    // Wait! If winner was Normal leader, they already paid CurrentPrice, and (winningPrice - CurrentPrice).
-                    // Either way, the TOTAL reserved amount for them was winningPrice!
-                    // So we just deduct winningPrice unconditionally from ReservedBalance.
                     winnerWallet.ReservedBalance -= winningPrice;
+                    await RecordTransactionAsync(winnerId.Value, winningPrice, "DEBIT", "AUCTION_WIN",
+                        $"ชนะประมูลได้ {playerName2} ราคา {winningPrice} TP",
+                        winnerWallet.AvailableBalance, auctionId, auction.PlayerId);
                 }
 
                 _context.AuctionSquads.Add(new AuctionSquad
                 {
                     UserId = winnerId.Value,
-                    PlayerId = auction.PlayerId
+                    PlayerId = auction.PlayerId,
+                    PricePaid = winningPrice,
+                    AcquiredAt = DateTime.UtcNow,
+                    Status = "Active"
                 });
 
                 await _context.SaveChangesAsync();
@@ -682,6 +818,17 @@ namespace eTPL.API.Services
                 .Where(b => b.DbStatus == "Active" && b.HighestBidderId == userId && b.FinalEndTime > DateTime.UtcNow)
                 .ToListAsync();
 
+            // Price Recovery: Fetch sold boards to find prices for legacy squad members
+            var soldBoardsRaw = await _context.AuctionBoards
+                .Where(b => b.HighestBidderId == userId && b.DbStatus == "Sold")
+                .OrderByDescending(b => b.FinalEndTime)
+                .ToListAsync();
+            
+            // Group in memory to avoid EF translation issues
+            var soldBoards = soldBoardsRaw
+                .GroupBy(b => b.PlayerId)
+                .ToDictionary(g => g.Key, g => g.First().CurrentPrice);
+
             var currentSquadCount = squad.Count + winning.Count;
             int remainingSlots = settings.MaxSquadSize - currentSquadCount - 1;
             int required = remainingSlots > 0 ? remainingSlots * settings.MinBidPrice : 0;
@@ -694,20 +841,34 @@ namespace eTPL.API.Services
                 RequiredReserve = required,
                 Squad = squad.Select(s => new AuctionSquadDto
                 {
+                    SquadId = s.SquadId,
                     PlayerId = s.PlayerId,
-                    PlayerName = s.Player!.PlayerName,
-                    PlayerOvr = s.Player.PlayerOvr
+                    PlayerName = s.Player?.PlayerName ?? "Unknown Player",
+                    PlayerOvr = s.Player?.PlayerOvr ?? 0,
+                    // Fallback to sold board price if PricePaid is missing (0)
+                    PricePaid = (s.PricePaid == 0) && soldBoards.ContainsKey(s.PlayerId) 
+                                ? soldBoards[s.PlayerId] 
+                                : s.PricePaid,
+                    AcquiredAt = s.AcquiredAt,
+                    ContractUntil = s.ContractUntil,
+                    IsLoan = s.IsLoan,
+                    LoanExpiry = s.LoanExpiry,
+                    Status = s.Status
                 }).ToList()
             };
 
             var quotas = await _context.AuctionGradeQuotas.ToListAsync();
-            var allOVRs = squad.Select(s => s.Player!.PlayerOvr).Concat(winning.Select(b => b.Player!.PlayerOvr)).ToList();
+            var allOVRs = squad.Where(s => s.Player != null).Select(s => s.Player!.PlayerOvr)
+                          .Concat(winning.Where(w => w.Player != null).Select(b => b.Player!.PlayerOvr)).ToList();
 
             foreach (var q in quotas)
             {
                 summary.Quotas.Add(new GradeQuotaUsageDto
                 {
+                    GradeId = q.GradeId,
                     GradeName = q.GradeName,
+                    MinOVR = q.MinOVR,
+                    MaxOVR = q.MaxOVR,
                     MaxAllowed = q.MaxAllowedPerUser,
                     CurrentCount = allOVRs.Count(o => o >= q.MinOVR && o <= q.MaxOVR)
                 });
@@ -736,11 +897,281 @@ namespace eTPL.API.Services
 
             return squad.Select(s => new AuctionSquadDto
             {
+                SquadId = s.SquadId,
                 PlayerId = s.PlayerId,
                 PlayerName = s.Player?.PlayerName ?? "Unknown",
                 PlayerOvr = s.Player?.PlayerOvr ?? 0,
-                PricePaid = priceMap.ContainsKey(s.PlayerId) ? priceMap[s.PlayerId] : null
+                PricePaid = s.PricePaid > 0 ? s.PricePaid : priceMap.ContainsKey(s.PlayerId) ? priceMap[s.PlayerId] : null,
+                AcquiredAt = DateTime.SpecifyKind(s.AcquiredAt, DateTimeKind.Utc),
+                ContractUntil = s.ContractUntil.HasValue ? DateTime.SpecifyKind(s.ContractUntil.Value, DateTimeKind.Utc) : null,
+                IsLoan = s.IsLoan,
+                LoanExpiry = s.LoanExpiry.HasValue ? DateTime.SpecifyKind(s.LoanExpiry.Value, DateTimeKind.Utc) : null,
+                Status = s.Status
             }).OrderByDescending(s => s.PlayerOvr).ToList();
+        }
+
+        // ─── Transaction helper ──────────────────────────────────────────────────
+
+        private async Task RecordTransactionAsync(int userId, int amount, string direction, string type, string description, int balanceAfter, int? relatedAuctionId = null, int? relatedPlayerId = null)
+        {
+            _context.AuctionTransactions.Add(new AuctionTransaction
+            {
+                UserId = userId,
+                Amount = amount,
+                Direction = direction,
+                Type = type,
+                Description = description,
+                BalanceAfter = balanceAfter,
+                RelatedAuctionId = relatedAuctionId,
+                RelatedPlayerId = relatedPlayerId,
+                CreatedAt = DateTime.UtcNow
+            });
+            // Caller must save changes
+        }
+
+        // ─── Get Transactions ────────────────────────────────────────────────────
+
+        public async Task<PagedResultDto<AuctionTransactionDto>> GetTransactionsAsync(int userId, int page = 1, int pageSize = 20)
+        {
+            var query = _context.AuctionTransactions.Where(t => t.UserId == userId);
+            
+            var totalCount = await query.CountAsync();
+            var txs = await query
+                .OrderByDescending(t => t.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            // Gather related player names
+            var playerIds = txs.Where(t => t.RelatedPlayerId.HasValue).Select(t => t.RelatedPlayerId!.Value).Distinct().ToList();
+            var players = await _context.PesPlayerTeams.Where(p => playerIds.Contains(p.IdPlayer)).ToListAsync();
+            var playerMap = players.ToDictionary(p => p.IdPlayer, p => p.PlayerName);
+
+            var items = txs.Select(t => new AuctionTransactionDto
+            {
+                TransactionId = t.TransactionId,
+                Amount = t.Amount,
+                Direction = t.Direction,
+                Type = t.Type,
+                Description = t.Description,
+                BalanceAfter = t.BalanceAfter,
+                RelatedPlayerId = t.RelatedPlayerId,
+                PlayerName = t.RelatedPlayerId.HasValue && playerMap.ContainsKey(t.RelatedPlayerId.Value) ? playerMap[t.RelatedPlayerId.Value] : null,
+                CreatedAt = DateTime.SpecifyKind(t.CreatedAt, DateTimeKind.Utc)
+            }).ToList();
+
+            return new PagedResultDto<AuctionTransactionDto>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+
+        // ─── Squad Lifecycle Methods ─────────────────────────────────────────────
+
+        public async Task GiveBonusAsync(int adminUserId, GiveBonusRequest request)
+        {
+            // Verify admin (checked in controller, but double-safety here)
+            var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == request.TargetUserId)
+                ?? throw new Exception("Target user wallet not found.");
+
+            wallet.AvailableBalance += request.Amount;
+
+            await RecordTransactionAsync(
+                request.TargetUserId, request.Amount, "CREDIT", "BONUS",
+                $"Bonus: {request.Reason}", wallet.AvailableBalance);
+
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task ReleasePlayerAsync(int userId, ReleasePlayerRequest request)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var squad = await _context.AuctionSquads
+                    .Include(s => s.Player)
+                    .FirstOrDefaultAsync(s => s.SquadId == request.SquadId && s.UserId == userId)
+                    ?? throw new Exception("ไม่พบนักเตะในทีมของคุณ");
+
+                var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == userId)
+                    ?? throw new Exception("Wallet not found.");
+
+                if (request.RefundAmount > 0)
+                {
+                    wallet.AvailableBalance += request.RefundAmount;
+                }
+
+                var playerName = squad.Player?.PlayerName ?? "Unknown";
+                _context.AuctionSquads.Remove(squad);
+
+                await RecordTransactionAsync(
+                    userId, request.RefundAmount, "CREDIT", "FREE_RELEASE",
+                    $"ปล่อย {playerName} (คืน {request.RefundAmount} TP)",
+                    wallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task RenewContractAsync(int userId, RenewContractRequest request)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var squad = await _context.AuctionSquads
+                    .Include(s => s.Player)
+                    .FirstOrDefaultAsync(s => s.SquadId == request.SquadId && s.UserId == userId)
+                    ?? throw new Exception("ไม่พบนักเตะในทีมของคุณ");
+
+                var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == userId)
+                    ?? throw new Exception("Wallet not found.");
+
+                if (wallet.AvailableBalance < request.Cost)
+                    throw new Exception($"TP ไม่เพียงพอสำหรับการต่อสัญญา (ต้องการ {request.Cost} TP)");
+
+                wallet.AvailableBalance -= request.Cost;
+                squad.ContractUntil = request.ContractUntil;
+
+                await RecordTransactionAsync(
+                    userId, request.Cost, "DEBIT", "CONTRACT_RENEWAL",
+                    $"ต่อสัญญา {squad.Player?.PlayerName ?? ""} ถึง {request.ContractUntil:dd/MM/yyyy}",
+                    wallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task LoanPlayerAsync(int ownerUserId, LoanPlayerRequest request)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var squad = await _context.AuctionSquads
+                    .Include(s => s.Player)
+                    .FirstOrDefaultAsync(s => s.SquadId == request.SquadId && s.UserId == ownerUserId)
+                    ?? throw new Exception("ไม่พบนักเตะในทีมของคุณ");
+
+                if (squad.Status != "Active")
+                    throw new Exception("นักเตะคนนี้ไม่พร้อมให้ยืม");
+
+                var buyerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == request.TargetUserId)
+                    ?? throw new Exception("Wallet ของทีมที่รับยืมไม่พบ");
+
+                var ownerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == ownerUserId)
+                    ?? throw new Exception("Wallet not found.");
+
+                if (buyerWallet.AvailableBalance < request.LoanFee)
+                    throw new Exception($"TP ไม่เพียงพอสำหรับค่ายืมตัว (ต้องการ {request.LoanFee} TP)");
+
+                // Deduct from borrower, credit to lender
+                buyerWallet.AvailableBalance -= request.LoanFee;
+                ownerWallet.AvailableBalance += request.LoanFee;
+
+                // Mark original squad as "Loaned"
+                squad.Status = "Loaned";
+
+                // Create new squad entry for borrower
+                var playerName = squad.Player?.PlayerName ?? "Unknown";
+                _context.AuctionSquads.Add(new AuctionSquad
+                {
+                    UserId = request.TargetUserId,
+                    PlayerId = squad.PlayerId,
+                    PricePaid = 0,
+                    IsLoan = true,
+                    LoanedFromUserId = ownerUserId,
+                    LoanExpiry = request.LoanExpiry,
+                    Status = "Active",
+                    AcquiredAt = DateTime.UtcNow
+                });
+
+                await RecordTransactionAsync(
+                    request.TargetUserId, request.LoanFee, "DEBIT", "LOAN_FEE",
+                    $"ค่ายืมตัว {playerName}", buyerWallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
+
+                await RecordTransactionAsync(
+                    ownerUserId, request.LoanFee, "CREDIT", "LOAN_INCOME",
+                    $"รายได้ยืมตัว {playerName}", ownerWallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task TransferPlayerAsync(int sellerUserId, TransferOfferRequest request)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var squad = await _context.AuctionSquads
+                    .Include(s => s.Player)
+                    .FirstOrDefaultAsync(s => s.SquadId == request.SquadId && s.UserId == sellerUserId)
+                    ?? throw new Exception("ไม่พบนักเตะในทีมของคุณ");
+
+                if (squad.IsLoan)
+                    throw new Exception("ไม่สามารถขายนักเตะที่ยืมตัวมาได้");
+
+                var buyerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == request.BuyerUserId)
+                    ?? throw new Exception("Wallet ของผู้ซื้อไม่พบ");
+
+                var sellerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == sellerUserId)
+                    ?? throw new Exception("Wallet not found.");
+
+                if (buyerWallet.AvailableBalance < request.TransferFee)
+                    throw new Exception($"TP ผู้ซื้อไม่เพียงพอ (ต้องการ {request.TransferFee} TP)");
+
+                // Deduct from buyer, credit to seller
+                buyerWallet.AvailableBalance -= request.TransferFee;
+                sellerWallet.AvailableBalance += request.TransferFee;
+
+                var playerName = squad.Player?.PlayerName ?? "Unknown";
+
+                // Transfer ownership: update squad entry
+                squad.UserId = request.BuyerUserId;
+                squad.PricePaid = request.TransferFee;
+                squad.AcquiredAt = DateTime.UtcNow;
+                squad.IsLoan = false;
+                squad.LoanedFromUserId = null;
+                squad.LoanExpiry = null;
+                squad.Status = "Active";
+
+                await RecordTransactionAsync(
+                    request.BuyerUserId, request.TransferFee, "DEBIT", "TRANSFER_BUY",
+                    $"ซื้อ {playerName} ราคา {request.TransferFee} TP",
+                    buyerWallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
+
+                await RecordTransactionAsync(
+                    sellerUserId, request.TransferFee, "CREDIT", "TRANSFER_SELL",
+                    $"ขาย {playerName} ราคา {request.TransferFee} TP",
+                    sellerWallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
     }
 }

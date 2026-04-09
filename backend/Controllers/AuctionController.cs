@@ -41,16 +41,50 @@ namespace eTPL.API.Controllers
         }
 
         [HttpGet("players")]
-        public async Task<IActionResult> SearchPlayers([FromQuery] string searchTerm = "", [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool freeAgentOnly = false, [FromQuery] string? grade = null)
+        public async Task<IActionResult> SearchPlayers(
+            [FromQuery] string searchTerm = "", 
+            [FromQuery] int page = 1, 
+            [FromQuery] int pageSize = 20, 
+            [FromQuery] bool freeAgentOnly = false, 
+            [FromQuery] string? grade = null,
+            [FromQuery] string? league = null,
+            [FromQuery] string? teamName = null,
+            [FromQuery] string? position = null,
+            [FromQuery] string? playingStyle = null,
+            [FromQuery] string? foot = null,
+            [FromQuery] string? nationality = null,
+            [FromQuery] int? minHeight = null,
+            [FromQuery] int? maxHeight = null,
+            [FromQuery] int? minWeight = null,
+            [FromQuery] int? maxWeight = null,
+            [FromQuery] int? minAge = null,
+            [FromQuery] int? maxAge = null)
         {
             try
             {
-                var result = await _auctionService.SearchPlayersAsync(searchTerm, page, pageSize, freeAgentOnly, grade);
+                var result = await _auctionService.SearchPlayersAsync(
+                    searchTerm, page, pageSize, freeAgentOnly, grade, 
+                    league, teamName, position, playingStyle, foot, nationality, 
+                    minHeight, maxHeight, minWeight, maxWeight, minAge, maxAge);
                 return Ok(ApiResponse<object>.Ok(result));
             }
             catch (Exception ex)
             {
                 return BadRequest(ApiResponse<object>.Fail(ex.ToString()));
+            }
+        }
+
+        [HttpGet("filter-options")]
+        public async Task<IActionResult> GetFilterOptions([FromQuery] string? league = null)
+        {
+            try
+            {
+                var result = await _auctionService.GetPlayerFilterOptionsAsync(league);
+                return Ok(ApiResponse<object>.Ok(result));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
             }
         }
 
@@ -185,6 +219,21 @@ namespace eTPL.API.Controllers
             }
         }
 
+        [HttpGet("wallet")]
+        public async Task<IActionResult> GetWallet()
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                var result = await _auctionService.GetWalletAsync(userId);
+                return Ok(ApiResponse<object>.Ok(result));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
         [HttpGet("settings")]
         public async Task<IActionResult> GetSettings()
         {
@@ -280,6 +329,104 @@ namespace eTPL.API.Controllers
 
                 await _db.SaveChangesAsync();
                 return Ok(ApiResponse<object>.Ok(new { message = "อัปเดตโควตาสำเร็จ" }));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        // ─── Transaction History ──────────────────────────────────────────────────
+
+        [HttpGet("transactions")]
+        public async Task<IActionResult> GetTransactions(int page = 1, int pageSize = 20)
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                var result = await _auctionService.GetTransactionsAsync(userId, page, pageSize);
+                return Ok(ApiResponse<object>.Ok(result));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        // ─── Squad Lifecycle ──────────────────────────────────────────────────────
+
+        [HttpPost("bonus")]
+        public async Task<IActionResult> GiveBonus([FromBody] GiveBonusRequest request)
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                var userStrId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userStrId);
+                if (user == null || user.UserLevel != "admin") throw new UnauthorizedAccessException("สำหรับ Admin เท่านั้น");
+
+                await _auctionService.GiveBonusAsync(userId, request);
+                return Ok(ApiResponse<object>.Ok(new { message = "มอบโบนัสสำเร็จ" }));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPost("squad/release")]
+        public async Task<IActionResult> ReleasePlayer([FromBody] ReleasePlayerRequest request)
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                await _auctionService.ReleasePlayerAsync(userId, request);
+                return Ok(ApiResponse<object>.Ok(new { message = "ปล่อยนักเตะสำเร็จ" }));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPost("squad/renew")]
+        public async Task<IActionResult> RenewContract([FromBody] RenewContractRequest request)
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                await _auctionService.RenewContractAsync(userId, request);
+                return Ok(ApiResponse<object>.Ok(new { message = "ต่อสัญญาสำเร็จ" }));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPost("squad/loan")]
+        public async Task<IActionResult> LoanPlayer([FromBody] LoanPlayerRequest request)
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                await _auctionService.LoanPlayerAsync(userId, request);
+                return Ok(ApiResponse<object>.Ok(new { message = "ยืมตัวนักเตะสำเร็จ" }));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPost("squad/transfer")]
+        public async Task<IActionResult> TransferPlayer([FromBody] TransferOfferRequest request)
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                await _auctionService.TransferPlayerAsync(userId, request);
+                return Ok(ApiResponse<object>.Ok(new { message = "โอนย้ายนักเตะสำเร็จ" }));
             }
             catch (Exception ex)
             {

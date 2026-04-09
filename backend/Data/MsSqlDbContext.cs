@@ -19,6 +19,7 @@ namespace eTPL.API.Data
         public DbSet<AuctionSquad> AuctionSquads { get; set; }
         public DbSet<AuctionBoard> AuctionBoards { get; set; }
         public DbSet<AuctionBidLog> AuctionBidLogs { get; set; }
+        public DbSet<AuctionTransaction> AuctionTransactions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -44,7 +45,17 @@ namespace eTPL.API.Data
                 entity.HasKey(e => e.IdPlayer);
                 entity.Property(e => e.IdPlayer).HasColumnName("id_player");
                 entity.Property(e => e.PlayerName).HasColumnName("player_name");
+                entity.Property(e => e.IdTeam).HasColumnName("id_team");
+                entity.Property(e => e.TeamName).HasColumnName("team_name");
                 entity.Property(e => e.PlayerOvr).HasColumnName("player_ovr");
+                entity.Property(e => e.League).HasColumnName("league");
+                entity.Property(e => e.Position).HasColumnName("position");
+                entity.Property(e => e.PlayingStyle).HasColumnName("playing_style");
+                entity.Property(e => e.Foot).HasColumnName("foot");
+                entity.Property(e => e.Nationality).HasColumnName("nationality");
+                entity.Property(e => e.Height).HasColumnName("height");
+                entity.Property(e => e.Weight).HasColumnName("weight");
+                entity.Property(e => e.Age).HasColumnName("age");
             });
 
             modelBuilder.Entity<AuctionSetting>(entity =>
@@ -103,8 +114,13 @@ namespace eTPL.API.Data
                 entity.ToTable("tbs_auction_squad", "dbo");
                 entity.HasKey(e => e.SquadId);
                 entity.Property(e => e.SquadId).HasColumnName("squad_id");
-                entity.HasIndex(e => new { e.UserId, e.PlayerId }).IsUnique(); // Cannot own the same player twice
-                
+                entity.HasIndex(e => new { e.UserId, e.PlayerId }).IsUnique();
+
+                entity.Property(e => e.PricePaid).HasDefaultValue(0);
+                entity.Property(e => e.AcquiredAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.Property(e => e.IsLoan).HasDefaultValue(false);
+                entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("Active");
+
                 entity.HasOne(e => e.User)
                       .WithMany()
                       .HasForeignKey(e => e.UserId)
@@ -114,6 +130,23 @@ namespace eTPL.API.Data
                 entity.HasOne(e => e.Player)
                       .WithMany()
                       .HasForeignKey(e => e.PlayerId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<AuctionTransaction>(entity =>
+            {
+                entity.ToTable("tbs_auction_transactions", "dbo");
+                entity.HasKey(e => e.TransactionId);
+                entity.Property(e => e.TransactionId).HasColumnName("transaction_id");
+                entity.Property(e => e.Direction).HasMaxLength(10).HasDefaultValue("DEBIT");
+                entity.Property(e => e.Type).HasMaxLength(40);
+                entity.Property(e => e.Description).HasMaxLength(500);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .HasPrincipalKey(e => e.Id)
                       .OnDelete(DeleteBehavior.Restrict);
             });
 

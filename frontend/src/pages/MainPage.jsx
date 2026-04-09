@@ -383,7 +383,7 @@ const MainPage = () => {
                 <Box display="flex" gap={1} flexWrap="wrap" mt={2}>
                   <Chip
                     icon={<SportsSoccer sx={{ color: "white !important" }} />}
-                    label={`PC · Division 1${season ? ` · Season ${season}` : ""}`}
+                    label={`eFootball · Division 1${season ? ` · Season ${season}` : ""}`}
                     sx={{ bgcolor: "rgba(255,255,255,0.14)", color: "white" }}
                   />
                   <Chip
@@ -614,7 +614,7 @@ const MainPage = () => {
           />
 
           {loading ? (
-            <Box p={2}>
+            <Box p={2} >
               {[...Array(10)].map((_, idx) => (
                 <Skeleton
                   key={idx}
@@ -675,14 +675,14 @@ const MainPage = () => {
                       {team.pts ?? 0}
                     </Typography>
                   </Box>
-                  <Box width={56} display="flex" justifyContent="center">
+                  <Box width={56} display="flex" justifyContent="center" marginRight={3}>
                     <FormDots last={team.last} />
                   </Box>
                 </Box>
               ))}
 
               {top10.length === 0 && (
-                <Box px={2} py={3} textAlign="center">
+                <Box px={2} py={3} textAlign="center" >
                   <Typography variant="body2" color="text.secondary">
                     No standings data
                   </Typography>
@@ -692,7 +692,7 @@ const MainPage = () => {
           )}
         </Paper>
 
-        <Paper elevation={0} sx={{ ...panelSx, height: "100%" }}>
+        <Paper elevation={0} sx={{ ...panelSx, height: "100%"}}>
           <SectionHeader
             icon={<SportsSoccer fontSize="small" />}
             title="Latest 10 Matches"

@@ -45,6 +45,26 @@ const AuctionPage = () => {
   const [searchGrade, setSearchGrade] = useState("All");
   const [grades, setGrades] = useState([]);
   const [freeAgentOnly, setFreeAgentOnly] = useState(false);
+
+  // Additional Filters
+  const [filterLeague, setFilterLeague] = useState("");
+  const [filterTeam, setFilterTeam] = useState("");
+  const [filterPosition, setFilterPosition] = useState("");
+  const [filterPlayingStyle, setFilterPlayingStyle] = useState("");
+  const [filterFoot, setFilterFoot] = useState("");
+  const [filterNationality, setFilterNationality] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Dynamic Filter Options
+  const [filterOptions, setFilterOptions] = useState({
+    leagues: [],
+    teams: [],
+    positions: [],
+    playingStyles: [],
+    feet: [],
+    nationalities: []
+  });
+
   
   // Real-time connection
   useEffect(() => {
@@ -94,6 +114,7 @@ const AuctionPage = () => {
       setSummary(sumRes.data);
       setAuctions(boardRes.data || []);
       setGrades(quotaRes.data || []);
+      await fetchOptions(); // Initial load
     } catch (err) {
       console.error(err);
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
@@ -101,6 +122,23 @@ const AuctionPage = () => {
       setLoading(false);
     }
   };
+
+  const fetchOptions = async (league = filterLeague) => {
+    try {
+      const optionsRes = await auctionService.getFilterOptions(league);
+      setFilterOptions(optionsRes.data || { leagues: [], teams: [], positions: [], playingStyles: [], feet: [], nationalities: [] });
+    } catch (err) {
+      console.error("Fetch options error:", err);
+    }
+  };
+
+  // Cascading Filter: Re-fetch teams when league changes
+  useEffect(() => {
+    if (user) {
+      fetchOptions(filterLeague);
+      setFilterTeam(""); // Reset team selection when league changes
+    }
+  }, [filterLeague]);
 
   useEffect(() => {
     if (user) {
@@ -110,7 +148,18 @@ const AuctionPage = () => {
 
   const handleSearch = async (term = searchTerm, grade = searchGrade, free = freeAgentOnly) => {
     try {
-      const res = await auctionService.searchPlayers(term, 1, 20, free, grade);
+      const filters = {
+        searchTerm: term,
+        grade,
+        freeAgentOnly: free,
+        league: filterLeague,
+        teamName: filterTeam,
+        position: filterPosition,
+        playingStyle: filterPlayingStyle,
+        foot: filterFoot,
+        nationality: filterNationality,
+      };
+      const res = await auctionService.searchPlayers(filters);
       setSearchResults(res.data.items);
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
@@ -203,6 +252,12 @@ const AuctionPage = () => {
               setSearchTerm("");
               setSearchGrade("All");
               setFreeAgentOnly(false);
+              setFilterLeague("");
+              setFilterPosition("");
+              setFilterPlayingStyle("");
+              setFilterFoot("");
+              setFilterNationality("");
+              setShowFilters(false);
             }}
           >
             Start Auction
@@ -435,73 +490,248 @@ const AuctionPage = () => {
               label={<Typography variant="body2" fontWeight="600">Free Agent</Typography>}
               sx={{ m: 0 }}
             />
+            <Button 
+                variant="outlined" 
+                onClick={() => setShowFilters(!showFilters)} 
+                sx={{ height: 40, whiteSpace: 'nowrap' }}
+              >
+                {showFilters ? "Hide Filters" : "More Filters"}
+            </Button>
             <Button variant="contained" onClick={() => handleSearch()} startIcon={<Search />} sx={{ height: 40, whiteSpace: 'nowrap', px: 3, boxShadow: 2 }}>
               Search
             </Button>
           </Box>
-          <Box display="flex" flexDirection="column" gap={1.5} sx={{ maxHeight: 400, overflowY: 'auto' }}>
+          {showFilters && (
+          <Box p={3} sx={{ bgcolor: '#fbfbfd', borderRadius: '16px', border: '1px solid', borderColor: 'rgba(0,0,0,0.06)', mb: 3 }}>
+              <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 800, mb: 2, display: 'block', letterSpacing: '1px' }}>
+                SEARCH REFINEMENT
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                  {/* Row 1: League & Team */}
+                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                    <Box sx={{ flex: '1 1 40%', minWidth: 250 }}>
+                      <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
+                        <InputLabel>League</InputLabel>
+                        <Select value={filterLeague} label="League" onChange={(e) => setFilterLeague(e.target.value)}>
+                          <MenuItem value="">Any</MenuItem>
+                          {filterOptions.leagues?.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                    </Box>
+                    <Box sx={{ flex: '1 1 40%', minWidth: 250 }}>
+                      <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
+                        <InputLabel>Team Name</InputLabel>
+                        <Select value={filterTeam} label="Team Name" onChange={(e) => setFilterTeam(e.target.value)}>
+                          <MenuItem value="">Any</MenuItem>
+                          {filterOptions.teams?.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                    </Box>
+                  </Box>
+
+                  {/* Row 2: Nationality, Style, Position, Foot */}
+                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                    <Box sx={{ flex: '2 1 200px', minWidth: 180 }}>
+                      <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
+                        <InputLabel>Nationality</InputLabel>
+                        <Select value={filterNationality} label="Nationality" onChange={(e) => setFilterNationality(e.target.value)}>
+                          <MenuItem value="">Any</MenuItem>
+                          {filterOptions.nationalities?.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                    </Box>
+                    <Box sx={{ flex: '2 1 200px', minWidth: 180 }}>
+                      <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
+                        <InputLabel>Playing Style</InputLabel>
+                        <Select value={filterPlayingStyle} label="Playing Style" onChange={(e) => setFilterPlayingStyle(e.target.value)}>
+                          <MenuItem value="">Any</MenuItem>
+                          {filterOptions.playingStyles?.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                    </Box>
+                    <Box sx={{ flex: '1 1 120px', minWidth: 100 }}>
+                      <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
+                        <InputLabel>Pos</InputLabel>
+                        <Select value={filterPosition} label="Pos" onChange={(e) => setFilterPosition(e.target.value)}>
+                          <MenuItem value="">Any</MenuItem>
+                          {filterOptions.positions?.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                    </Box>
+                    <Box sx={{ flex: '1 1 120px', minWidth: 100 }}>
+                      <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
+                        <InputLabel>Foot</InputLabel>
+                        <Select value={filterFoot} label="Foot" onChange={(e) => setFilterFoot(e.target.value)}>
+                          <MenuItem value="">Any</MenuItem>
+                          {filterOptions.feet?.map(opt => <MenuItem key={opt} value={opt}>{opt.replace(' foot', '')}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                    </Box>
+                  </Box>
+              </Box>
+          </Box>
+          )}
+          <Box display="flex" flexDirection="column" gap={1.5} sx={{ maxHeight: 500, overflowY: 'auto', pr: 0.5 }}>
             {searchResults.map((p) => {
               const isAvailable = p.status === "Available";
               const isNormalBid = p.status === "In Normal Bid";
               const isFinalBid = p.status === "In Final Bid";
               const isWon = p.status === "Won";
+              const getPosColor = (pos) => {
+                const p = pos?.toUpperCase() || '';
+                if (['CF', 'SS', 'LWF', 'RWF'].includes(p)) return '#FF3B30'; // Apple Red
+                if (['AMF', 'CMF', 'DMF', 'LMF', 'RMF'].includes(p)) return '#28CD41'; // Apple Green
+                if (['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p)) return '#007AFF'; // Apple Blue
+                if (p === 'GK') return '#FFCC00'; // Apple Yellow/Gold
+                return '#8E8E93'; // Apple Grey
+              };
 
               return (
               <Box key={p.idPlayer} sx={{ 
                 p: 1.5, 
-                border: '1px solid', 
-                borderColor: isWon ? 'warning.light' : isNormalBid ? 'primary.light' : isFinalBid ? 'warning.main' : 'divider', 
-                borderRadius: 2,
+                mb: 0.5,
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                bgcolor: isWon ? 'rgba(255,193,7,0.05)' : isNormalBid ? 'rgba(25,118,210,0.04)' : 'transparent',
-                '&:hover': { bgcolor: isWon ? 'rgba(255,193,7,0.08)' : 'grey.50' }
+                borderRadius: '16px',
+                bgcolor: 'white',
+                border: '1px solid',
+                borderColor: 'rgba(0,0,0,0.06)',
+                boxShadow: isWon ? '0 8px 24px rgba(255,193,7,0.12)' : '0 4px 12px rgba(0,0,0,0.05)', 
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                position: 'relative',
+                '&:hover': { 
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 12px 30px rgba(0,0,0,0.12)',
+                  borderColor: 'rgba(0,0,0,0.12)',
+                  bgcolor: 'rgba(255,255,255,1)'
+                },
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  left: 0, top: 0, bottom: 0,
+                  width: '4px',
+                  bgcolor: getPosColor(p.position),
+                  borderRadius: '4px 0 0 4px'
+                }
               }}>
-                <Box display="flex" alignItems="center" gap={2}>
-                  <Box 
-                    component="img"
-                    src={`https://pesdb.net/assets/img/card/b${p.idPlayer}.png`} 
-                    sx={{ width: 72, height: 102, objectFit: 'contain', borderRadius: 1 }} 
-                  />
+                <Box display="flex" alignItems="center" gap={3}>
+                  {/* Premium Pos/OVR Section */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    width: 50,
+                    flexShrink: 0
+                  }}>
+                    <Typography variant="h4" fontWeight="900" sx={{ 
+                      color: '#1d1d1f', 
+                      lineHeight: 1,
+                      letterSpacing: '-1px'
+                    }}>
+                      {p.playerOvr}
+                    </Typography>
+                    <Box sx={{ 
+                      mt: 0.5,
+                      px: 0.8,
+                      py: 0.2,
+                      borderRadius: '4px',
+                      bgcolor: getPosColor(p.position),
+                      color: 'white'
+                    }}>
+                      <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.65rem' }}>
+                        {p.position || '??'}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* Player Image - SIZE KEPT AT 72x102 */}
+                  <Box sx={{ position: 'relative', flexShrink: 0 }}>
+                    <Box 
+                      component="img"
+                      src={`https://pesdb.net/assets/img/card/b${p.idPlayer}.png`} 
+                      sx={{ 
+                        width: 72, 
+                        height: 102, 
+                        display: 'block',
+                        objectFit: 'contain', 
+                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.15))'
+                      }} 
+                    />
+                  </Box>
+
+                  {/* Player Info */}
                   <Box>
-                    <Typography variant="subtitle2" fontWeight="bold">{p.playerName}</Typography>
-                    <Typography variant="caption" color="text.secondary">OVR: {p.playerOvr}</Typography>
-                    {/* Status Badge */}
-                    <Box mt={0.5}>
+                    <Typography variant="h6" fontWeight="800" sx={{ color: '#1d1d1f', mb: 0.2, lineHeight: 1.2 }}>
+                      {p.playerName}
+                    </Typography>
+                    <Box display="flex" flexWrap="wrap" gap={2} mb={1}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <span style={{ fontWeight: 600, color: '#424245' }}>LEAGUE</span> {p.league || '-'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <span style={{ fontWeight: 600, color: '#424245' }}>TEAM</span> {p.teamName || '-'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <span style={{ fontWeight: 600, color: '#424245' }}>STYLE</span> {p.playingStyle || '-'}
+                      </Typography>
+                    </Box>
+
+                    <Box display="flex" alignItems="center" gap={1}>
                       {isAvailable && (
-                        <Chip label="Available" size="small" color="success" variant="outlined" sx={{ fontSize: '0.65rem', height: 18 }} />
+                        <Chip label="AVAILABLE" size="small" sx={{ height: 20, bgcolor: '#E8F5E9', color: '#2E7D32', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #C8E6C9' }} />
                       )}
                       {isNormalBid && (
-                        <Chip label={`Normal Bid — ${p.currentPrice} TP`} size="small" color="primary" sx={{ fontSize: '0.65rem', height: 18 }} />
+                        <Chip label={`ACTIVE BIDS • ${p.currentPrice} TP`} size="small" sx={{ height: 20, bgcolor: '#E3F2FD', color: '#1565C0', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #BBDEFB' }} />
                       )}
                       {isFinalBid && (
-                        <Chip label={`Final Bid — ${p.currentPrice} TP`} size="small" color="warning" sx={{ fontSize: '0.65rem', height: 18 }} />
+                        <Chip label={`FINAL PHASE • ${p.currentPrice} TP`} size="small" sx={{ height: 20, bgcolor: '#FFF3E0', color: '#EF6C00', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #FFE0B2' }} />
                       )}
                       {isWon && (
-                        <Chip label={`🏆 Won — ${p.winnerName ?? 'Unknown'}`} size="small" color="warning" variant="outlined" sx={{ fontSize: '0.65rem', height: 18 }} />
+                        <Chip label={`🏆 WON BY ${p.winnerName?.toUpperCase() ?? 'ADMIN'}`} size="small" sx={{ height: 20, bgcolor: '#FFFDE7', color: '#FBC02D', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #FFF9C4' }} />
                       )}
                     </Box>
                   </Box>
                 </Box>
-                <Box sx={{ flexShrink: 0, ml: 1 }}>
+
+                {/* Actions */}
+                <Box sx={{ flexShrink: 0, ml: 2 }}>
                   {isAvailable && (
-                    <Button variant="outlined" color="primary" size="small" onClick={() => handleStartAuction(p.idPlayer)}>
+                    <Button 
+                      variant="contained" 
+                      onClick={() => handleStartAuction(p.idPlayer)}
+                      sx={{ 
+                        bgcolor: '#1d1d1f', 
+                        color: 'white',
+                        borderRadius: '8px',
+                        textTransform: 'none',
+                        fontWeight: 'bold',
+                        px: 3,
+                        '&:hover': { bgcolor: '#000' }
+                      }}
+                    >
                       Start {p.playerOvr} TP
                     </Button>
                   )}
                   {isNormalBid && (
                     <Button
                       variant="contained"
-                      color="primary"
-                      size="small"
                       onClick={() => handleBidFromSearch(p.activeAuctionId, p.currentPrice)}
+                      sx={{ 
+                        bgcolor: '#007AFF', 
+                        color: 'white',
+                        borderRadius: '8px',
+                        textTransform: 'none',
+                        fontWeight: 'bold',
+                        px: 3,
+                        boxShadow: '0 4px 12px rgba(0,122,255,0.3)'
+                      }}
                     >
                       Bid {(p.currentPrice ?? 0) + 1} TP
                     </Button>
                   )}
                   {isFinalBid && (
-                    <Chip label="Final Bid" size="small" color="warning" />
+                    <Typography variant="button" sx={{ color: '#EF6C00', fontWeight: 900, fontSize: '0.75rem' }}>FINAL BID</Typography>
                   )}
                 </Box>
               </Box>
