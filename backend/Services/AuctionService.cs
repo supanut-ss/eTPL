@@ -830,7 +830,7 @@ namespace eTPL.API.Services
                 .ToDictionary(g => g.Key, g => g.First().CurrentPrice);
 
             var currentSquadCount = squad.Count + winning.Count;
-            int remainingSlots = settings.MaxSquadSize - currentSquadCount - 1;
+            int remainingSlots = settings.MaxSquadSize - currentSquadCount;
             int required = remainingSlots > 0 ? remainingSlots * settings.MinBidPrice : 0;
 
             var summary = new UserAuctionSummaryDto
@@ -839,6 +839,10 @@ namespace eTPL.API.Services
                 CurrentSquadCount = currentSquadCount,
                 MaxSquadSize = settings.MaxSquadSize,
                 RequiredReserve = required,
+                MarketStartTime = settings.DailyBidStartTime.ToString(@"hh\:mm"),
+                MarketEndTime = settings.DailyBidEndTime.ToString(@"hh\:mm"),
+                MarketStartDate = settings.AuctionStartDate?.ToString("dd/MM") ?? "N/A",
+                MarketEndDate = settings.AuctionEndDate?.ToString("dd/MM") ?? "N/A",
                 Squad = squad.Select(s => new AuctionSquadDto
                 {
                     SquadId = s.SquadId,

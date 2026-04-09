@@ -155,21 +155,26 @@ const AnnouncementPage = () => {
 
   return (
     <Box>
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        alignItems={{ xs: "stretch", sm: "center" }}
-        justifyContent="space-between"
-        gap={1.5}
-        mb={2.5}
-      >
-        <Stack direction="row" alignItems="center" gap={1}>
-          <Campaign color="primary" />
-          <Typography variant="h5" fontWeight={800}>
-            Manage Announcements
-          </Typography>
-        </Stack>
+      {/* Header */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3
+      }}>
+        <Box display="flex" alignItems="center" gap={1.5}>
+          <Campaign color="primary" sx={{ fontSize: 32 }} />
+          <Box>
+            <Typography variant="h5" fontWeight="bold">
+              Manage Announcements
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              NEWS & UPDATES
+            </Typography>
+          </Box>
+        </Box>
 
-        <Stack direction="row" gap={1}>
+        <Box display="flex" gap={1}>
           <Button
             variant="outlined"
             startIcon={<Refresh />}
@@ -185,8 +190,8 @@ const AnnouncementPage = () => {
           >
             Add Announcement
           </Button>
-        </Stack>
-      </Stack>
+        </Box>
+      </Box>
 
       <Alert severity="info" sx={{ mb: 2.5 }}>
         Active announcements are shown on the dashboard and rotate automatically

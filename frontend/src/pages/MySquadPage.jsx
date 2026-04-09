@@ -27,7 +27,7 @@ import {
 import { 
   SportsSoccer, Groups, AccountBalanceWallet, EmojiEvents, Stars,
   History, Close, Autorenew, Gavel, CompareArrows, Security, Payments,
-  CardGiftcard, Handshake, Cancel, Wallet
+  CardGiftcard, Handshake, Cancel, Wallet,Diversity3
 } from "@mui/icons-material";
 import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
@@ -160,10 +160,10 @@ const MySquadPage = () => {
     const style = GRADE_STYLE_MAP[q.gradeName] || GRADE_STYLE_MAP["DEFAULT"];
     return {
       label: q.gradeName,
-      count: squad.filter((p) => p.playerOvr >= q.minOVR && p.playerOvr <= q.maxOVR).length,
+      count: squad.filter((p) => p.playerOvr >= (q.minOVR ?? q.MinOVR) && p.playerOvr <= (q.maxOVR ?? q.MaxOVR)).length,
       ...style
     };
-  }).filter((g) => g.count > 0);
+  });
 
   const formatDateTime = (iso) => {
     if (!iso) return "-";
@@ -192,85 +192,154 @@ const MySquadPage = () => {
   return (
     <Box sx={{ pb: 6 }}>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box display="flex" alignItems="center" gap={1}>
-          <EmojiEvents color="primary" />
-          <Typography variant="h5" fontWeight="bold">My Squad</Typography>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3
+      }}>
+        <Box display="flex" alignItems="center" gap={1.5}>
+          <Diversity3 color="primary" sx={{ fontSize: 32 }} />
+          <Box>
+            <Typography variant="h5" fontWeight="bold">My Squad</Typography>
+            <Typography variant="body2" color="text.secondary">
+              MANAGE YOUR CLUB ROSTER
+            </Typography>
+          </Box>
         </Box>
-        <Box display="flex" gap={1}>
+
+        <Box display="flex" alignItems="center" gap={1.5}>
           <Button 
-            variant="contained" 
+            variant="outlined" 
             disableElevation
             startIcon={<History />} 
             onClick={() => setTxOpen(true)}
             sx={{ 
-                borderRadius: 2.5, 
-                bgcolor: 'white', 
+                borderRadius: 2, 
+                borderColor: 'divider',
                 color: 'text.primary', 
-                border: '1px solid rgba(0,0,0,0.08)',
-                fontWeight: 'bold',
+                fontWeight: 900,
                 textTransform: 'none',
-                px: 2,
+                height: 42,
+                px: 2.5,
                 '&:hover': { bgcolor: 'grey.50', borderColor: 'primary.main' }
             }}
           >
-            Transactions
+            TP Statement
           </Button>
-          <Chip label={`${squad.length} Players`} color="primary" sx={{ height: 36, px: 1, borderRadius: 2, fontWeight: "bold" }} />
+          <Box sx={{ 
+            height: 42, 
+            px: 2, 
+            borderRadius: 2, 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            background: 'linear-gradient(135deg, #1e1e1e 0%, #000 100%)',
+            color: 'white',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+          }}>
+            <Groups sx={{ fontSize: '1rem' }} />
+            <Typography variant="body2" fontWeight="900">{squad.length} / 23</Typography>
+          </Box>
         </Box>
       </Box>
 
-      {/* Summary Cards */}
-      <Grid container spacing={1.5} mb={5}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={0} sx={{ borderRadius: 4, background: "linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)", border: "1px solid #ce93d8", position: 'relative', overflow: 'hidden' }}>
-            <Wallet sx={{ position: 'absolute', right: -10, bottom: -10, fontSize: 80, color: '#9c27b0', opacity: 0.1, transform: 'rotate(-15deg)' }} />
-            <CardContent sx={{ p: 2.5, position: 'relative', zIndex: 1 }}>
-              <Typography variant="body2" color="#7b1fa2" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: 1, mb: 0.5 }}>Current Balance</Typography>
-              <Typography variant="h4" fontWeight="900" color="#7b1fa2" sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-                {wallet?.availableBalance?.toLocaleString() || 0} <Typography component="span" variant="subtitle1" fontWeight="bold">TP</Typography>
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={0} sx={{ borderRadius: 4, background: "linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)", border: "1px solid #90caf9", position: 'relative', overflow: 'hidden' }}>
-            <AccountBalanceWallet sx={{ position: 'absolute', right: -10, bottom: -10, fontSize: 80, color: '#2196f3', opacity: 0.1, transform: 'rotate(-15deg)' }} />
-            <CardContent sx={{ p: 2.5, position: 'relative', zIndex: 1 }}>
-              <Typography variant="body2" color="primary.dark" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: 1, mb: 0.5 }}>Total Investment</Typography>
-              <Typography variant="h4" fontWeight="900" color="primary.dark" sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-                {totalSpent.toLocaleString()} <Typography component="span" variant="subtitle1" fontWeight="bold">TP</Typography>
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={0} sx={{ borderRadius: 4, background: "linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)", border: "1px solid #a5d6a7", position: 'relative', overflow: 'hidden' }}>
-            <Groups sx={{ position: 'absolute', right: -10, bottom: -10, fontSize: 80, color: '#4caf50', opacity: 0.1, transform: 'rotate(-15deg)' }} />
-            <CardContent sx={{ p: 2.5, position: 'relative', zIndex: 1 }}>
-              <Typography variant="body2" color="success.dark" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: 1, mb: 0.5 }}>Squad Size</Typography>
-              <Typography variant="h4" fontWeight="900" color="success.dark">{squad.length}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card elevation={0} sx={{ borderRadius: 4, background: "linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)", border: "1px solid #ffcc80", height: '100%' }}>
-            <CardContent sx={{ p: 2.5, height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="body2" color="warning.dark" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: 1, mb: 0.5 }}>Grade Mix</Typography>
-              <Box display="flex" flexWrap="wrap" gap={0.5} mt="auto">
+      {/* Unified Dashboard (Glassmorphism Style) */}
+      <Paper elevation={0} sx={{ 
+        p: { xs: 2.5, md: 3 }, 
+        mb: 5, 
+        borderRadius: 1, 
+        background: 'linear-gradient(135deg, rgba(8, 24, 48, 0.8) 100%, rgba(38, 57, 102, 0.9) 0%)',
+        backdropFilter: 'blur(12px)',
+        color: 'white',
+        border: '1px solid rgba(255,255,255,0.08)',
+        position: 'relative',
+        overflow: 'hidden',
+        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
+      }}>
+        <Box sx={{ position: 'absolute', top: -50, right: -50, width: 200, height: 200, background: 'radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%)', zIndex: 0 }} />
+        
+        <Grid container spacing={3} alignItems="stretch" sx={{ position: 'relative', zIndex: 1 }}>
+          {/* Balance Section */}
+          <Grid item xs={12} sm={6} md={3.2}>
+            <Box display="flex" alignItems="flex-start" gap={2}>
+              <Box sx={{ mt: 0.5, p: 1.5, borderRadius: 2, bgcolor: 'rgba(33, 150, 243, 0.15)', color: '#2196f3' }}>
+                <Wallet />
+              </Box>
+              <Box>
+                <Typography variant="caption" sx={{ opacity: 0.6, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.2, display: 'block', mb: 0.5 }}>Available Balance</Typography>
+                <Typography variant="h5" fontWeight="900" sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+                  {wallet?.availableBalance?.toLocaleString() || 0} <Typography component="span" variant="caption" fontWeight="bold" sx={{ opacity: 0.5 }}>TP</Typography>
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+
+          <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', md: 'block' }, mx: 0.5, borderColor: 'rgba(255,255,255,0.08)', height: 50, my: 'auto' }} />
+
+          {/* Investment Section */}
+          <Grid item xs={12} sm={6} md={3.2}>
+            <Box display="flex" alignItems="flex-start" gap={2}>
+              <Box sx={{ mt: 0.5, p: 1.5, borderRadius: 2, bgcolor: 'rgba(0, 200, 83, 0.15)', color: '#00c853' }}>
+                <AccountBalanceWallet />
+              </Box>
+              <Box>
+                <Typography variant="caption" sx={{ opacity: 0.6, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.2, display: 'block', mb: 0.5 }}>Investment</Typography>
+                <Typography variant="h5" fontWeight="900" sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+                  {totalSpent.toLocaleString()} <Typography component="span" variant="caption" fontWeight="bold" sx={{ opacity: 0.5 }}>TP</Typography>
+                </Typography>
+              </Box>
+            </Box>
+          </Grid>
+
+          <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', md: 'block' }, mx: 0.5, borderColor: 'rgba(255,255,255,0.08)', height: 50, my: 'auto' }} />
+
+          {/* Grade Mix Section */}
+          <Grid item xs={12} sm={12} md={5}>
+            <Box sx={{ pl: { md: 1 } }}>
+              <Typography variant="caption" sx={{ opacity: 0.6, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.2, mb: 0.5, display: 'block' }}>Roster Distribution</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
                 {gradeSummary.length > 0 ? (
                   gradeSummary.map((g) => (
-                    <Chip key={g.label} label={`${g.label}:${g.count}`} size="small"
-                      sx={{ background: g.gradient, color: g.label === "E" ? "#333" : "white", fontWeight: "800", height: 20, fontSize: '0.65rem', border: 'none' }} />
+                    <Box key={g.label} sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      borderRadius: 1.5, 
+                      overflow: 'hidden',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      bgcolor: 'rgba(0,0,0,0.3)',
+                      height: 32
+                    }}>
+                      <Box sx={{ 
+                        px: 1.5, 
+                        height: '100%', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        background: g.gradient,
+                        color: g.label === 'E' ? '#333' : 'white',
+                        fontWeight: 900,
+                        fontSize: '0.8rem'
+                      }}>
+                        {g.label}
+                      </Box>
+                      <Box sx={{ 
+                        px: 1.5, 
+                        fontWeight: 900, 
+                        fontSize: '0.9rem',
+                        color: 'white'
+                      }}>
+                        {g.count}
+                      </Box>
+                    </Box>
                   ))
                 ) : (
-                  <Typography variant="caption" color="warning.dark" sx={{ fontStyle: 'italic', opacity: 0.7 }}>Empty</Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.4 }}>No players drafted</Typography>
                 )}
               </Box>
-            </CardContent>
-          </Card>
+            </Box>
+          </Grid>
         </Grid>
-      </Grid>
+      </Paper>
 
       {/* Squad Grid */}
       {squad.length === 0 ? (

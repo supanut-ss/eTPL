@@ -302,7 +302,7 @@ const StandingPage = () => {
             Standings
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            PC · D1{season ? ` · Season ${season}` : ""}
+            eFootball · D1
           </Typography>
         </Box>
       </Box>

@@ -217,18 +217,22 @@ const UserMasterPage = () => {
   return (
     <Box>
       {/* Header */}
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={3}
-      >
-        <Box display="flex" alignItems="center" gap={1}>
-          <Person color="primary" />
-          <Typography variant="h5" fontWeight="bold">
-            Manage Users
-          </Typography>
-          <Chip label={`${rows.length} users`} size="small" sx={{ ml: 1 }} />
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3
+      }}>
+        <Box display="flex" alignItems="center" gap={1.5}>
+          <Person color="primary" sx={{ fontSize: 32 }} />
+          <Box>
+            <Typography variant="h5" fontWeight="bold">
+              Manage Users
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              MEMBER DATABASE • {rows.length} users
+            </Typography>
+          </Box>
         </Box>
         <Box display="flex" gap={1}>
           <Tooltip title="Refresh">

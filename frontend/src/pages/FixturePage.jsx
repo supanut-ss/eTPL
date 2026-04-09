@@ -347,28 +347,25 @@ const FixturePage = () => {
 
   return (
     <Box>
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={3}
-      >
-        <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
-          <SportsSoccer color="primary" />
-          <Typography variant="h5" fontWeight="bold">
-            Fixture
-          </Typography>
-          <Chip label={`${rows.length} matches`} size="small" sx={{ ml: 1 }} />
-          {isUserLevel && (
-            <Chip
-              label="Your matches only"
-              size="small"
-              color="info"
-              variant="outlined"
-              sx={{ ml: 0.5, fontWeight: 600 }}
-            />
-          )}
+      {/* Header */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3
+      }}>
+        <Box display="flex" alignItems="center" gap={1.5}>
+          <SportsSoccer color="primary" sx={{ fontSize: 32 }} />
+          <Box>
+            <Typography variant="h5" fontWeight="bold">
+              Fixture
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              MATCH SCHEDULE & RESULTS
+            </Typography>
+          </Box>
         </Box>
+
         <Tooltip title="Refresh">
           <IconButton onClick={() => fetchFixtures(search)} disabled={loading}>
             <Refresh />
@@ -506,7 +503,7 @@ const FixturePage = () => {
         >
           <EmojiEvents fontSize="small" color="action" />
           <Typography variant="caption" color="text.secondary">
-            PC · D1 · Season 36
+          eFootball · D1
           </Typography>
         </Box>
       </Paper>

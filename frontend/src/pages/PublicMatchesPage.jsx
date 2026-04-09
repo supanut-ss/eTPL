@@ -542,7 +542,7 @@ const PublicMatchesPage = () => {
               Matches
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              PC · D1
+              eFootball · D1
             </Typography>
           </Box>
         </Box>
@@ -571,7 +571,7 @@ const PublicMatchesPage = () => {
             Matches
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            PC · D1
+            eFootball · D1
           </Typography>
         </Box>
       </Box>

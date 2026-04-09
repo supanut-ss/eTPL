@@ -50,6 +50,10 @@ namespace eTPL.API.Models.Auction
         public int CurrentSquadCount { get; set; }
         public int MaxSquadSize { get; set; }
         public int RequiredReserve { get; set; }
+        public string? MarketStartTime { get; set; }
+        public string? MarketEndTime { get; set; }
+        public string? MarketStartDate { get; set; }
+        public string? MarketEndDate { get; set; }
     }
 
     public class AuctionSquadDto

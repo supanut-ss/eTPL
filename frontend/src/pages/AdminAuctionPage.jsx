@@ -82,18 +82,24 @@ const AdminAuctionPage = () => {
   return (
     <Box>
       {/* Header */}
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="center"
-        mb={3}
-      >
-        <Box display="flex" alignItems="center" gap={1}>
-          <Settings color="primary" />
-          <Typography variant="h5" fontWeight="bold">
-            Auction Management (Admin)
-          </Typography>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3
+      }}>
+        <Box display="flex" alignItems="center" gap={1.5}>
+          <Settings color="primary" sx={{ fontSize: 32 }} />
+          <Box>
+            <Typography variant="h5" fontWeight="bold">
+              Auction Management
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              AUCTION SYSTEM CONFIGURATION
+            </Typography>
+          </Box>
         </Box>
+
         <Box display="flex" gap={2}>
           <Tooltip title="Refresh">
             <IconButton onClick={fetchData} disabled={loading} color="primary" sx={{ bgcolor: 'action.hover' }}>

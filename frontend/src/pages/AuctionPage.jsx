@@ -259,10 +259,20 @@ const AuctionPage = () => {
   return (
     <Box>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box display="flex" alignItems="center" gap={1}>
-          <SportsSoccer color="primary" />
-          <Typography variant="h5" fontWeight="bold">Auction Draft Board</Typography>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3
+      }}>
+        <Box display="flex" alignItems="center" gap={1.5}>
+          <Gavel color="primary" sx={{ fontSize: 32 }} />
+          <Box>
+            <Typography variant="h5" fontWeight="bold">Auction Draft Board</Typography>
+            <Typography variant="body2" color="text.secondary">
+              TRANSFER MARKET BOARD
+            </Typography>
+          </Box>
         </Box>
         <Box display="flex" gap={1}>
           <Tooltip title="Refresh">
@@ -547,13 +557,43 @@ const AuctionPage = () => {
       )}
 
       {/* Active Auctions Section */}
-      <Box mb={2} display="flex" alignItems="center" gap={1}>
-        <Gavel color="warning" fontSize="small" />
-        <Typography variant="h6" fontWeight="bold">🔥 Live Auctions</Typography>
+      <Box mb={2} display="flex" alignItems="center" justifyContent="space-between" width="100%">
+        <Box display="flex" alignItems="center" gap={1}>
+          <Gavel color="warning" fontSize="small" />
+          <Typography variant="h6" fontWeight="bold">🔥 Live Auctions</Typography>
+        </Box>
+        {summary.marketStartTime && (
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1, 
+            bgcolor: 'grey.100', 
+            px: 1.5, 
+            py: 0.4, 
+            borderRadius: '4px',
+            border: '1px solid',
+            borderColor: 'grey.200'
+          }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.5px' }}>
+              MARKET HOURS
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 900, fontSize: '0.75rem' }}>
+              {summary.marketStartTime} - {summary.marketEndTime}
+              {summary.marketStartDate && summary.marketStartDate !== "N/A" && (
+                <span style={{ marginLeft: '8px', opacity: 0.6, fontWeight: 600, fontSize: '0.7rem' }}>
+                  ({summary.marketStartDate} - {summary.marketEndDate})
+                </span>
+              )}
+            </Typography>
+          </Box>
+        )}
       </Box>
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1}}>
-        {auctions.filter(a => a.dbStatus === "Active" && a.bidderUserIds?.includes(user?.id)).map((auction) => (
+        {auctions
+          .filter(a => a.dbStatus === "Active" && a.bidderUserIds?.includes(user?.id))
+          .sort((a, b) => new Date(a.finalEndTime) - new Date(b.finalEndTime))
+          .map((auction) => (
           <Box key={auction.auctionId} sx={{ width: 152, flexShrink: 0 }}>
             <Card sx={{ 
               width: 152, 
@@ -601,8 +641,17 @@ const AuctionPage = () => {
                       {auction.displayStatus === "Normal Bid" ? "Normal" : auction.displayStatus === "Final Bid" ? "Final" : "Wait"}
                     </Typography>
                   </Box>
-                  <Typography fontWeight="900" sx={{ color: auction.currentUserFinalBid != null ? '#ff9800' : '#4caf50', textShadow: `0 0 6px ${auction.currentUserFinalBid != null ? 'rgba(255,152,0,0.6)' : 'rgba(76,175,80,0.6)'}`, lineHeight: 1, fontSize: '1.1rem' }}>
-                    {auction.currentUserFinalBid ?? auction.currentPrice}<Typography component="span" sx={{ fontSize: '0.5rem', fontWeight: 'bold' }}> TP</Typography>
+                  <Typography fontWeight="900" sx={{ 
+                    color: auction.currentUserFinalBid != null ? '#FFD700' : '#00E676', 
+                    lineHeight: 1, 
+                    fontSize: '1.25rem',
+                    bgcolor: 'rgba(0,0,0,0.6)', // Sharper background for clarity without shadow
+                    px: 0.8,
+                    py: 0.2,
+                    borderRadius: '4px',
+                    transition: 'all 0.3s ease'
+                  }}>
+                    {auction.currentUserFinalBid ?? auction.currentPrice}<Typography component="span" sx={{ fontSize: '0.65rem', fontWeight: 'bold' }}> TP</Typography>
                   </Typography>
                 </Box>
 
@@ -623,10 +672,13 @@ const AuctionPage = () => {
                         size="small"
                         disabled={auction.highestBidderId === user?.id}
                         sx={{
-                          minWidth: '40px', p: '2px 6px',
-                          bgcolor: auction.highestBidderId === user?.id ? '#555 !important' : '#4caf50',
-                          '&:hover': { bgcolor: '#43a047' },
-                          '&.Mui-disabled': { bgcolor: 'rgba(248, 244, 4, 1) !important', color: '#0c0b0bff !important' },
+                          minWidth: '50px', p: '2px 6px',
+                          background: auction.highestBidderId === user?.id ? 'linear-gradient(135deg, #fdd835 0%, #fbc02d 100%) !important' : 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%) !important',
+                          '&:hover': { background: 'linear-gradient(135deg, #43a047 0%, #1b5e20 100%) !important' },
+                          '&.Mui-disabled': { 
+                            background: auction.highestBidderId === user?.id ? 'linear-gradient(135deg, #fdd835 0%, #fbc02d 100%) !important' : 'rgba(248, 244, 4, 1) !important', 
+                            color: '#000 !important' 
+                          },
                           fontWeight: 'bold', borderRadius: 0.75, fontSize: '0.7rem', height: '22px', lineHeight: 1
                         }}
                         onClick={() => handleBid(auction.auctionId, "normal", auction.currentPrice)}
@@ -640,10 +692,10 @@ const AuctionPage = () => {
                         size="small" 
                         disabled={auction.currentUserFinalBid != null}
                         sx={{ 
-                          minWidth: '40px', p: '2px 6px', 
-                          bgcolor: auction.currentUserFinalBid != null ? '#555 !important' : '#ff9800', 
-                          '&:hover': { bgcolor: '#f57c00' }, 
-                          '&.Mui-disabled': { color: '#ccc !important' },
+                          minWidth: '50px', p: '2px 6px', 
+                          background: auction.currentUserFinalBid != null ? '#555 !important' : 'linear-gradient(135deg, #ff9800 0%, #e65100 100%) !important', 
+                          '&:hover': { background: 'linear-gradient(135deg, #f57c00 0%, #bf360c 100%) !important' }, 
+                          '&.Mui-disabled': { color: '#ccc !important', background: '#555 !important' },
                           fontWeight: 'bold', borderRadius: 0.75, fontSize: '0.65rem', height: '22px', lineHeight: 1 
                         }} 
                         onClick={() => handleBid(auction.auctionId, "final", auction.currentPrice)}>
