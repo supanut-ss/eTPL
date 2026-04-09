@@ -88,7 +88,11 @@ const MySquadPage = () => {
       const res = await auctionService.getSummary();
       const data = res?.data || {};
       
-      setSquad(data.squad || []);
+      const squadData = (data.squad || []).sort((a, b) => {
+        if (b.playerOvr !== a.playerOvr) return b.playerOvr - a.playerOvr;
+        return a.playerName.localeCompare(b.playerName);
+      });
+      setSquad(squadData);
       setQuotas(data.quotas || []);
       setWallet(data.wallet || null);
     } catch (err) {

@@ -25,8 +25,9 @@ import {
   InputLabel,
   FormControlLabel,
   Checkbox,
+  alpha,
 } from "@mui/material";
-import { Gavel, Refresh, Search, SportsSoccer, AccountBalanceWallet, Groups } from "@mui/icons-material";
+import { Gavel, Refresh, Search, SportsSoccer, AccountBalanceWallet, Groups, HelpOutline } from "@mui/icons-material";
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
@@ -64,6 +65,32 @@ const AuctionPage = () => {
     feet: [],
     nationalities: []
   });
+
+  const getGradeColor = (ovr) => {
+    const q = grades.find(g => ovr >= g.minOVR && ovr <= g.maxOVR);
+    if (!q) return '#8E8E93';
+    const styles = {
+      "S": "#ffb300",
+      "A": "#f4511e",
+      "B": "#8e24aa",
+      "C": "#1e88e5",
+      "D": "#43a047",
+      "E": "#757575"
+    };
+    return styles[q.gradeName] || '#8E8E93';
+  };
+
+  const getGradeColorByName = (name) => {
+    const styles = {
+      "S": "#ffb300",
+      "A": "#f4511e",
+      "B": "#8e24aa",
+      "C": "#1e88e5",
+      "D": "#43a047",
+      "E": "#757575"
+    };
+    return styles[name] || '#8E8E93';
+  };
 
   
   // Real-time connection
@@ -269,46 +296,250 @@ const AuctionPage = () => {
       {summary && (
         <Grid container spacing={3} mb={4}>
           <Grid item xs={12} md={4}>
-            <Paper elevation={2} sx={{ borderRadius: 2, p: 3, height: '100%' }}>
-              <Box display="flex" alignItems="center" gap={1} mb={2}>
-                <AccountBalanceWallet color="primary" fontSize="small" />
-                <Typography variant="subtitle1" fontWeight="600">Budget</Typography>
+            <Paper elevation={0} sx={{ 
+              borderRadius: 0, 
+              p: 0, 
+              height: '100%', 
+              bgcolor: 'white', 
+              color: 'text.primary',
+              border: '1px solid',
+              borderColor: 'grey.200',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+            }}>
+              {/* Wallet Header */}
+              <Box sx={{ 
+                bgcolor: 'primary.main', 
+                p: '8px 16px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}>
+                <AccountBalanceWallet sx={{ fontSize: '1rem', color: 'white' }} />
+                <Typography variant="caption" fontWeight="900" sx={{ letterSpacing: 1, color: 'white' }}>
+                  ACCOUNT BALANCE
+                </Typography>
               </Box>
-              <Typography variant="h4" fontWeight="bold" color="secondary">
-                {summary.wallet?.availableBalance} <Typography component="span" variant="h6">TP</Typography>
-              </Typography>
-              <Box mt={1}>
-                <Typography variant="body2" color="text.secondary">
-                  Reserved: <strong>{summary.wallet?.reservedBalance} TP</strong>
+
+              {/* Balance Body */}
+              <Box sx={{ p: 2.5, flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
+                  AVAILABLE FUNDS
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Required Reserve: <strong>{summary.requiredReserve} TP</strong>
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                  <Typography variant="h3" fontWeight="900" sx={{ 
+                    color: 'success.main', 
+                    letterSpacing: '-1.5px',
+                  }}>
+                    {summary.wallet?.availableBalance?.toLocaleString()}
+                  </Typography>
+                  <Typography variant="h6" fontWeight="800" sx={{ color: 'text.disabled' }}>
+                    TP
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Reserved Footer */}
+              <Box sx={{ 
+                bgcolor: 'grey.50', 
+                p: '12px 16px', 
+                borderTop: '1px solid',
+                borderColor: 'grey.100',
+                display: 'flex',
+                justifyContent: 'space-between'
+              }}>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem', fontWeight: 700 }}>
+                      RESERVED
+                    </Typography>
+                    <Tooltip title="ยอดเงินที่ถูกล็อคไว้ในระบบประมูลที่คุณกำลังชนะ (จะคืนให้หากมีคนบิดสูงกว่า)">
+                      <HelpOutline sx={{ fontSize: '0.7rem', color: 'text.disabled', cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                  <Typography variant="body2" fontWeight="800" color="text.primary">
+                    {summary.wallet?.reservedBalance?.toLocaleString()} <Typography component="span" sx={{ fontSize: '0.6rem', opacity: 0.6 }}>TP</Typography>
+                  </Typography>
+                </Box>
+                <Box sx={{ textAlign: 'right' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem', fontWeight: 700 }}>
+                      REQ. RESERVE
+                    </Typography>
+                    <Tooltip title="เงินสำรองขั้นต่ำที่ต้องเหลือไว้เพื่อให้บิดนักเตะจนครบโควตาคน (เป็นระบบ Budget Lock)">
+                      <HelpOutline sx={{ fontSize: '0.7rem', color: 'text.disabled', cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                  <Typography variant="body2" fontWeight="800" color="warning.dark">
+                    {summary.requiredReserve?.toLocaleString()} <Typography component="span" sx={{ fontSize: '0.6rem', opacity: 0.6 }}>TP</Typography>
+                  </Typography>
+                </Box>
               </Box>
             </Paper>
           </Grid>
           <Grid item xs={12} md={8}>
-            <Paper elevation={2} sx={{ borderRadius: 2, p: 3, height: '100%' }}>
-              <Box display="flex" alignItems="center" gap={1} mb={2}>
-                <Groups color="primary" fontSize="small" />
-                <Typography variant="subtitle1" fontWeight="600">Player Quotas</Typography>
-                <Chip
-                    label={`${summary.currentSquadCount} / ${summary.maxSquadSize}`}
-                    color={summary.currentSquadCount >= summary.maxSquadSize ? "error" : "primary"}
-                    size="small"
-                    sx={{ ml: 'auto', fontWeight: 'bold' }}
-                  />
+            <Paper elevation={0} sx={{ 
+              borderRadius: 0, 
+              p: 0, 
+              height: '100%', 
+              bgcolor: 'white', 
+              border: '1px solid',
+              borderColor: 'grey.200',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+            }}>
+              {/* Quotas Header */}
+              <Box sx={{ 
+                bgcolor: 'primary.main', 
+                p: '8px 16px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}>
+                <Groups sx={{ fontSize: '1rem', color: 'white' }} />
+                <Typography variant="caption" fontWeight="900" sx={{ letterSpacing: 1, color: 'white' }}>
+                  PLAYER QUOTAS
+                </Typography>
+                <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 800, fontSize: '0.65rem' }}>
+                    TOTAL:
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'white', fontWeight: 900, fontSize: '0.75rem' }}>
+                    {summary.currentSquadCount} / {summary.maxSquadSize}
+                  </Typography>
+                </Box>
               </Box>
-              <Box display="flex" flexWrap="wrap" gap={1}>
-                {summary.quotas?.map((q) => (
-                  <Chip
-                    key={q.gradeName}
-                    label={`${q.gradeName}: ${q.currentCount}/${q.maxAllowed > 90 ? "∞" : q.maxAllowed}`}
-                    color={q.currentCount >= q.maxAllowed ? "error" : "default"}
-                    variant={q.currentCount > 0 ? "filled" : "outlined"}
-                    size="small"
-                  />
-                ))}
+
+              {/* Quotas Body */}
+              <Box sx={{ 
+                p: '12px 16px', 
+                flexGrow: 1,
+                display: 'flex', 
+                flexWrap: 'nowrap', 
+                gap: 1.5, 
+                overflowX: 'auto', 
+                pb: 1,
+                '&::-webkit-scrollbar': { height: '4px' },
+                '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(0,0,0,0.1)', borderRadius: '4px' }
+              }}>
+                {summary.quotas?.map((q) => {
+                  const gradeColor = getGradeColorByName(q.gradeName);
+                  const isFull = q.currentCount >= q.maxAllowed;
+                  const progress = Math.min(100, (q.currentCount / (q.maxAllowed || 1)) * 100);
+                  const isUnlimited = q.maxAllowed > 90;
+
+                  return (
+                    <Box
+                      key={q.gradeName}
+                      sx={{
+                        flex: '0 0 100px', // Fixed width for premium look
+                        minWidth: 100,
+                        height: 90, // Fixed height requested
+                        borderRadius: 0,
+                        border: '1px solid',
+                        borderColor: alpha(gradeColor, 0.4),
+                        bgcolor: 'white',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        position: 'relative',
+                        transition: 'all 0.2s ease',
+                        boxShadow: `0 4px 12px ${alpha(gradeColor, 0.08)}`,
+                        opacity: q.maxAllowed === 0 && !isUnlimited ? 0.3 : 1
+                      }}
+                    >
+                      {/* Header Ribbon */}
+                      <Box sx={{ 
+                        bgcolor: gradeColor, 
+                        py: 0.5, 
+                        px: 1, 
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        alignItems: 'center',
+                        position: 'relative'
+                      }}>
+                        <Typography variant="caption" sx={{ color: q.gradeName === 'E' ? '#333' : 'white', fontWeight: 900, letterSpacing: 0.8, fontSize: '0.7rem' }}>
+                          GRADE {q.gradeName}
+                        </Typography>
+                        {isFull && <Box sx={{ position: 'absolute', right: 6, width: 5, height: 5, borderRadius: '50%', bgcolor: 'white', animation: 'pulse 1.5s infinite' }} />}
+                      </Box>
+
+                      {/* Info Area */}
+                      <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', alignItems: 'center', bgcolor: alpha(gradeColor, 0.03) }}>
+                        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.3 }}>
+                          <Typography variant="h5" fontWeight="900" sx={{ color: '#1a1a1a', lineHeight: 1 }}>
+                            {q.currentCount}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800, fontSize: '0.75rem' }}>
+                            / {isUnlimited ? '∞' : q.maxAllowed}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      {/* Tech Progress Footer */}
+                      <Box sx={{ height: 4, bgcolor: alpha(gradeColor, 0.1), mt: 'auto', position: 'relative' }}>
+                        <Box sx={{ 
+                          width: `${isUnlimited ? (q.currentCount > 0 ? 100 : 0) : progress}%`, 
+                          height: '100%', 
+                          bgcolor: gradeColor,
+                          boxShadow: `0 0 8px ${gradeColor}`
+                        }} />
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+
+              {/* Quotas Footer - Analytical Summary */}
+              <Box sx={{ 
+                bgcolor: 'grey.50', 
+                p: '12px 16px', 
+                borderTop: '1px solid',
+                borderColor: 'grey.100',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem', fontWeight: 700 }}>
+                      SQUAD VALUATION ({summary.currentSquadCount} PLAYERS)
+                    </Typography>
+                    <Tooltip title="มูลค่ารวมของนักเตะที่มีอยู่และที่กำลังชนะประมูล (ราคาที่จ่าย + เงินที่จองไว้)">
+                      <HelpOutline sx={{ fontSize: '0.7rem', color: 'text.disabled', cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                  <Typography variant="body2" fontWeight="800" color="text.primary">
+                    {((summary.squad?.reduce((acc, p) => acc + (p.pricePaid || 0), 0) || 0) + (summary.wallet?.reservedBalance || 0)).toLocaleString()} 
+                    <Typography component="span" sx={{ fontSize: '0.6rem', opacity: 0.6, ml: 0.5 }}>TP</Typography>
+                  </Typography>
+                </Box>
+                <Box sx={{ textAlign: 'right' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem', fontWeight: 700 }}>
+                      EST. PURCHASING POWER
+                    </Typography>
+                    <Tooltip title="ค่าพลังเฉลี่ย (OVR) ที่คุณสามารถประมูลได้สำหรับโควตาที่เหลือ เมื่อคำนวณจากงบประมาณคงเหลือและเงินสำรอง">
+                      <HelpOutline sx={{ fontSize: '0.7rem', color: 'text.disabled', cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                  <Typography variant="body2" fontWeight="800" color="primary.main">
+                    {(() => {
+                      const remainingSlots = (summary.maxSquadSize || 0) - (summary.currentSquadCount || 0);
+                      const capital = (summary.wallet?.availableBalance || 0); // Directly use available funds
+                      if (remainingSlots <= 0) return "MAX SIZE";
+                      const result = capital / remainingSlots;
+                      return result.toFixed(1);
+                    })()}
+                    <Typography component="span" sx={{ fontSize: '0.6rem', opacity: 0.6, ml: 0.5 }}>AVG OVR</Typography>
+                  </Typography>
+                </Box>
               </Box>
             </Paper>
           </Grid>
@@ -321,33 +552,31 @@ const AuctionPage = () => {
         <Typography variant="h6" fontWeight="bold">🔥 Live Auctions</Typography>
       </Box>
 
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1}}>
         {auctions.filter(a => a.dbStatus === "Active" && a.bidderUserIds?.includes(user?.id)).map((auction) => (
-          <Box key={auction.auctionId} sx={{ width: 160, flexShrink: 0 }}>
+          <Box key={auction.auctionId} sx={{ width: 152, flexShrink: 0 }}>
             <Card sx={{ 
-              borderRadius: 1,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.4)', 
-              overflow: 'hidden',
-              color: 'white',
+              width: 152, 
+              height: 215, 
               position: 'relative',
-              transition: 'all 0.3s ease',
-              '&:hover': { 
-                boxShadow: '0 8px 20px rgba(76, 175, 80, 0.4)', 
-                transform: 'translateY(-3px)'
-              }
+              borderRadius: 0,
+              overflow: 'hidden',
+              boxShadow: auction.currentUserFinalBid != null ? '0 0 15px rgba(255,152,0,0.4)' : '0 4px 10px rgba(0,0,0,0.3)',
+              bgcolor: alpha(getGradeColor(auction.playerOvr), 0.15),
+              border: '2px solid',
+              borderColor: alpha(getGradeColor(auction.playerOvr), 0.5),
+              transition: 'transform 0.2s',
+              p: '1px', // Minimal padding
+              '&:hover': { transform: 'scale(1.02)' }
             }}>
-              <Box sx={{ position: 'relative', lineHeight: 0 }}>
+              <Box sx={{ position: 'relative', height: '100%', borderRadius: '6px', overflow: 'hidden' }}>
                 <CardMedia
                   component="img"
-                  image={auction.imageUrl}
-                  alt={auction.playerName}
+                  image={`https://pesdb.net/assets/img/card/b${auction.playerId}.png`}
                   sx={{ 
-                    aspectRatio: "240/339", 
-                    objectFit: "cover", 
-                    objectPosition: "top center",
-                    width: "100%",
-                    display: 'block',
-                    borderRadius: 0
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
                   }}
                 />
                 <Box sx={{
@@ -579,12 +808,13 @@ const AuctionPage = () => {
               const isWon = p.status === "Won";
               const getPosColor = (pos) => {
                 const p = pos?.toUpperCase() || '';
-                if (['CF', 'SS', 'LWF', 'RWF'].includes(p)) return '#FF3B30'; // Apple Red
-                if (['AMF', 'CMF', 'DMF', 'LMF', 'RMF'].includes(p)) return '#28CD41'; // Apple Green
-                if (['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p)) return '#007AFF'; // Apple Blue
-                if (p === 'GK') return '#FFCC00'; // Apple Yellow/Gold
-                return '#8E8E93'; // Apple Grey
+                if (['CF', 'SS', 'LWF', 'RWF'].includes(p)) return '#FF3B30';
+                if (['AMF', 'CMF', 'DMF', 'LMF', 'RMF'].includes(p)) return '#28CD41';
+                if (['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p)) return '#007AFF';
+                if (p === 'GK') return '#FFCC00';
+                return '#8E8E93';
               };
+              const gradeColor = getGradeColor(p.playerOvr);
 
               return (
               <Box key={p.idPlayer} sx={{ 
@@ -645,8 +875,17 @@ const AuctionPage = () => {
                     </Box>
                   </Box>
 
-                  {/* Player Image - SIZE KEPT AT 72x102 */}
-                  <Box sx={{ position: 'relative', flexShrink: 0 }}>
+                  {/* Player Image - WITH GRADE BORDER */}
+                  <Box sx={{ 
+                    position: 'relative', 
+                    flexShrink: 0,
+                    p: '3px',
+                    borderRadius: '8px',
+                    border: '0.5px solid',
+                    borderColor: alpha(gradeColor, 0.6),
+                    boxShadow: `0 0 10px ${alpha(gradeColor, 0.2)}`,
+                    bgcolor: alpha(gradeColor, 0.12)
+                  }}>
                     <Box 
                       component="img"
                       src={`https://pesdb.net/assets/img/card/b${p.idPlayer}.png`} 
