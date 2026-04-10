@@ -936,6 +936,7 @@ namespace eTPL.API.Services
                     PlayerId = s.PlayerId,
                     PlayerName = s.Player?.PlayerName ?? "Unknown Player",
                     PlayerOvr = s.Player?.PlayerOvr ?? 0,
+                    Position = s.Player?.Position,
                     // Fallback to sold board price if PricePaid is missing (0)
                     PricePaid = (s.PricePaid == 0) && soldBoards.ContainsKey(s.PlayerId) 
                                 ? soldBoards[s.PlayerId] 
@@ -992,6 +993,7 @@ namespace eTPL.API.Services
                 PlayerId = s.PlayerId,
                 PlayerName = s.Player?.PlayerName ?? "Unknown",
                 PlayerOvr = s.Player?.PlayerOvr ?? 0,
+                Position = s.Player?.Position,
                 PricePaid = s.PricePaid > 0 ? s.PricePaid : priceMap.ContainsKey(s.PlayerId) ? priceMap[s.PlayerId] : null,
                 AcquiredAt = DateTime.SpecifyKind(s.AcquiredAt, DateTimeKind.Utc),
                 ContractUntil = s.ContractUntil.HasValue ? DateTime.SpecifyKind(s.ContractUntil.Value, DateTimeKind.Utc) : null,

@@ -78,7 +78,8 @@ frontend/.env.*.local
 # ========================
 # IDE & Editors
 # ========================
-.vscode/
+.vscode/*
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo

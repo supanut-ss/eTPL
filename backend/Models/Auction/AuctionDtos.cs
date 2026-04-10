@@ -63,6 +63,7 @@ namespace eTPL.API.Models.Auction
         public int PlayerId { get; set; }
         public string PlayerName { get; set; } = string.Empty;
         public int PlayerOvr { get; set; }
+        public string? Position { get; set; }
         public string ImageUrl => $"https://pesdb.net/assets/img/card/b{PlayerId}.png";
         public int? PricePaid { get; set; }
         public DateTime? AcquiredAt { get; set; }

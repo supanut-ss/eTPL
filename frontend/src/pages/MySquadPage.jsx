@@ -89,6 +89,29 @@ const GRADE_STYLE_MAP = {
   },
 };
 
+const POSITION_GROUP_STYLE = {
+  GK: {
+    bg: "rgba(56, 189, 248, 0.22)",
+    border: "rgba(125, 211, 252, 0.45)",
+    label: "#dbeafe",
+  },
+  DEF: {
+    bg: "rgba(129, 140, 248, 0.2)",
+    border: "rgba(165, 180, 252, 0.45)",
+    label: "#e0e7ff",
+  },
+  MID: {
+    bg: "rgba(16, 185, 129, 0.2)",
+    border: "rgba(110, 231, 183, 0.45)",
+    label: "#d1fae5",
+  },
+  ATT: {
+    bg: "rgba(244, 114, 182, 0.2)",
+    border: "rgba(251, 182, 206, 0.45)",
+    label: "#ffe4f0",
+  },
+};
+
 const TX_TYPE_META = {
   AUCTION_BID: {
     label: "Auction Bid",
@@ -275,6 +298,26 @@ const MySquadPage = () => {
     };
   });
 
+  const positionSummary = squad.reduce((summary, player) => {
+    const position =
+      player.playerPosition ??
+      player.position ??
+      player.playerPos ??
+      player.pos ??
+      "UNK";
+    summary[position] = (summary[position] || 0) + 1;
+    return summary;
+  }, {});
+  const sortedPositionSummary = Object.entries(positionSummary).sort(
+    ([a], [b]) => a.localeCompare(b),
+  );
+  const positionGroups = [
+    ["GK"],
+    ["CB", "RB", "LB"],
+    ["DMF", "CMF", "RMF", "LMF", "AMF"],
+    ["LWF", "RWF", "SS", "CF"],
+  ];
+
   const formatDateTime = (iso) => {
     if (!iso) return "-";
     return new Date(iso).toLocaleString("en-US", {
@@ -406,20 +449,36 @@ const MySquadPage = () => {
 
         <Grid
           container
-          spacing={3}
+          spacing={1.6}
           alignItems="stretch"
           sx={{ position: "relative", zIndex: 1 }}
         >
           {/* Balance Section */}
-          <Grid item xs={12} sm={6} md={3.2}>
-            <Box display="flex" alignItems="flex-start" gap={2}>
+          <Grid item xs={12} md={3}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 1.4,
+                p: 1.35,
+                borderRadius: 2,
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.16) 100%)",
+                border: "1px solid rgba(255,255,255,0.34)",
+                backdropFilter: "blur(6px)",
+                boxShadow:
+                  "inset 0 1px 0 rgba(255,255,255,0.45), 0 10px 22px rgba(2,6,23,0.2)",
+                height: "100%",
+              }}
+            >
               <Box
                 sx={{
-                  mt: 0.5,
+                  mt: 0.2,
                   p: 1.5,
-                  borderRadius: 2,
-                  bgcolor: "rgba(33, 150, 243, 0.15)",
-                  color: "#2196f3",
+                  borderRadius: 1.8,
+                  bgcolor: "rgba(14,165,233,0.18)",
+                  color: "#0284c7",
+                  border: "1px solid rgba(125,211,252,0.55)",
                 }}
               >
                 <Wallet />
@@ -428,12 +487,12 @@ const MySquadPage = () => {
                 <Typography
                   variant="caption"
                   sx={{
-                    opacity: 0.6,
+                    color: "rgba(255,255,255,0.86)",
                     fontWeight: 800,
                     textTransform: "uppercase",
                     letterSpacing: 1.2,
                     display: "block",
-                    mb: 0.5,
+                    mb: 0.4,
                   }}
                 >
                   Available Balance
@@ -441,44 +500,67 @@ const MySquadPage = () => {
                 <Typography
                   variant="h5"
                   fontWeight="900"
-                  sx={{ display: "flex", alignItems: "baseline", gap: 0.5 }}
+                  sx={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    gap: 0.6,
+                    letterSpacing: -0.4,
+                    color: "white",
+                  }}
                 >
                   {wallet?.availableBalance?.toLocaleString() || 0}{" "}
                   <Typography
                     component="span"
                     variant="caption"
                     fontWeight="bold"
-                    sx={{ opacity: 0.5 }}
+                    sx={{ opacity: 0.86, color: "rgba(255,255,255,0.9)" }}
                   >
                     TP
                   </Typography>
                 </Typography>
+                {wallet?.reservedBalance > 0 && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      mt: 0.35,
+                      display: "block",
+                      color: "rgba(255,255,255,0.82)",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Reserved {wallet.reservedBalance.toLocaleString()} TP
+                  </Typography>
+                )}
               </Box>
             </Box>
           </Grid>
 
-          <Divider
-            orientation="vertical"
-            flexItem
-            sx={{
-              display: { xs: "none", md: "block" },
-              mx: 0.5,
-              borderColor: "rgba(255,255,255,0.08)",
-              height: 50,
-              my: "auto",
-            }}
-          />
-
           {/* Investment Section */}
-          <Grid item xs={12} sm={6} md={3.2}>
-            <Box display="flex" alignItems="flex-start" gap={2}>
+          <Grid item xs={12} md={3}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 1.4,
+                p: 1.35,
+                borderRadius: 2,
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.16) 100%)",
+                border: "1px solid rgba(255,255,255,0.34)",
+                backdropFilter: "blur(6px)",
+                boxShadow:
+                  "inset 0 1px 0 rgba(255,255,255,0.45), 0 10px 22px rgba(2,6,23,0.2)",
+                height: "100%",
+              }}
+            >
               <Box
                 sx={{
-                  mt: 0.5,
+                  mt: 0.2,
                   p: 1.5,
-                  borderRadius: 2,
-                  bgcolor: "rgba(0, 200, 83, 0.15)",
-                  color: "#00c853",
+                  borderRadius: 1.8,
+                  bgcolor: "rgba(22,163,74,0.18)",
+                  color: "#16a34a",
+                  border: "1px solid rgba(134,239,172,0.55)",
                 }}
               >
                 <AccountBalanceWallet />
@@ -487,12 +569,12 @@ const MySquadPage = () => {
                 <Typography
                   variant="caption"
                   sx={{
-                    opacity: 0.6,
+                    color: "rgba(255,255,255,0.86)",
                     fontWeight: 800,
                     textTransform: "uppercase",
                     letterSpacing: 1.2,
                     display: "block",
-                    mb: 0.5,
+                    mb: 0.4,
                   }}
                 >
                   Investment
@@ -500,14 +582,20 @@ const MySquadPage = () => {
                 <Typography
                   variant="h5"
                   fontWeight="900"
-                  sx={{ display: "flex", alignItems: "baseline", gap: 0.5 }}
+                  sx={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    gap: 0.6,
+                    letterSpacing: -0.4,
+                    color: "white",
+                  }}
                 >
                   {totalSpent.toLocaleString()}{" "}
                   <Typography
                     component="span"
                     variant="caption"
                     fontWeight="bold"
-                    sx={{ opacity: 0.5 }}
+                    sx={{ opacity: 0.86, color: "rgba(255,255,255,0.9)" }}
                   >
                     TP
                   </Typography>
@@ -516,80 +604,187 @@ const MySquadPage = () => {
             </Box>
           </Grid>
 
-          <Divider
-            orientation="vertical"
-            flexItem
-            sx={{
-              display: { xs: "none", md: "block" },
-              mx: 0.5,
-              borderColor: "rgba(255,255,255,0.08)",
-              height: 50,
-              my: "auto",
-            }}
-          />
-
-          {/* Grade Mix Section */}
-          <Grid item xs={12} sm={12} md={5}>
-            <Box sx={{ pl: { md: 1 } }}>
+          {/* Grade Section */}
+          <Grid item xs={12} md={3}>
+            <Box
+              sx={{
+                p: 1.35,
+                borderRadius: 2,
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.16) 100%)",
+                border: "1px solid rgba(255,255,255,0.34)",
+                backdropFilter: "blur(6px)",
+                boxShadow:
+                  "inset 0 1px 0 rgba(255,255,255,0.45), 0 10px 22px rgba(2,6,23,0.2)",
+                height: "100%",
+              }}
+            >
               <Typography
                 variant="caption"
                 sx={{
-                  opacity: 0.6,
+                  color: "rgba(255,255,255,0.86)",
                   fontWeight: 800,
                   textTransform: "uppercase",
                   letterSpacing: 1.2,
-                  mb: 0.5,
+                  mb: 0.8,
                   display: "block",
                 }}
               >
-                Roster Distribution
+                Grade Distribution
               </Typography>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.8 }}>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.55 }}>
                 {gradeSummary.length > 0 ? (
-                  gradeSummary.map((g) => (
-                    <Box
-                      key={g.label}
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        borderRadius: 1.5,
-                        overflow: "hidden",
-                        border: "1px solid rgba(255,255,255,0.15)",
-                        bgcolor: "rgba(0,0,0,0.3)",
-                        height: 32,
-                      }}
-                    >
+                  <>
+                    {gradeSummary.map((g) => (
                       <Box
+                        key={g.label}
                         sx={{
-                          px: 1.5,
-                          height: "100%",
                           display: "flex",
                           alignItems: "center",
-                          background: g.gradient,
-                          color: g.label === "E" ? "#333" : "white",
-                          fontWeight: 900,
-                          fontSize: "0.8rem",
+                          borderRadius: 1.5,
+                          overflow: "hidden",
+                          border: "1px solid rgba(255,255,255,0.32)",
+                          bgcolor: "rgba(255,255,255,0.14)",
+                          height: 30,
                         }}
                       >
-                        {g.label}
+                        <Box
+                          sx={{
+                            px: 1.25,
+                            height: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            background: g.gradient,
+                            color: g.label === "E" ? "#333" : "white",
+                            fontWeight: 900,
+                            fontSize: "0.75rem",
+                          }}
+                        >
+                          {g.label}
+                        </Box>
+                        <Box
+                          sx={{
+                            px: 1.15,
+                            fontWeight: 900,
+                            fontSize: "0.82rem",
+                            color: "white",
+                          }}
+                        >
+                          {g.count}
+                        </Box>
                       </Box>
-                      <Box
-                        sx={{
-                          px: 1.5,
-                          fontWeight: 900,
-                          fontSize: "0.9rem",
-                          color: "white",
-                        }}
-                      >
-                        {g.count}
-                      </Box>
-                    </Box>
-                  ))
+                    ))}
+                  </>
                 ) : (
                   <Typography variant="caption" sx={{ opacity: 0.4 }}>
                     No players drafted
                   </Typography>
                 )}
+              </Box>
+            </Box>
+          </Grid>
+
+          {/* Position Section */}
+          <Grid item xs={12} md={3}>
+            <Box
+              sx={{
+                p: 1.35,
+                borderRadius: 2,
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.16) 100%)",
+                border: "1px solid rgba(255,255,255,0.34)",
+                backdropFilter: "blur(6px)",
+                boxShadow:
+                  "inset 0 1px 0 rgba(255,255,255,0.45), 0 10px 22px rgba(2,6,23,0.2)",
+                height: "100%",
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "rgba(255,255,255,0.86)",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: 1.2,
+                  mb: 0.8,
+                  display: "block",
+                }}
+              >
+                Position Distribution
+              </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "stretch",
+                  gap: 0.7,
+                  px: 0,
+                  py: 0,
+                  color: "rgba(255,255,255,0.88)",
+                  overflowX: "auto",
+                  overflowY: "hidden",
+                  "&::-webkit-scrollbar": { height: 4 },
+                  "&::-webkit-scrollbar-thumb": {
+                    backgroundColor: "rgba(255,255,255,0.22)",
+                    borderRadius: 999,
+                  },
+                }}
+              >
+                {positionGroups.flat().map((pos) => (
+                  (() => {
+                    const group =
+                      positionGroups[0].includes(pos)
+                        ? "GK"
+                        : positionGroups[1].includes(pos)
+                          ? "DEF"
+                          : positionGroups[2].includes(pos)
+                            ? "MID"
+                            : "ATT";
+                    const style = POSITION_GROUP_STYLE[group];
+                    return (
+                      <Box
+                        key={`position-card-${pos}`}
+                        sx={{
+                          minWidth: 34,
+                          height: 36,
+                          px: 0.45,
+                          borderRadius: 1,
+                          border: `1px solid ${style.border}`,
+                          bgcolor: style.bg,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flex: "0 0 auto",
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontSize: "0.56rem",
+                            fontWeight: 700,
+                            lineHeight: 1,
+                            color: style.label,
+                            letterSpacing: 0.2,
+                          }}
+                        >
+                          {pos}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            mt: 0.25,
+                            fontSize: "0.74rem",
+                            fontWeight: 900,
+                            lineHeight: 1,
+                            color: "white",
+                          }}
+                        >
+                          {positionSummary[pos] || 0}
+                        </Typography>
+                      </Box>
+                    );
+                  })()
+                ))}
               </Box>
             </Box>
           </Grid>
@@ -892,21 +1087,24 @@ const MySquadPage = () => {
           <Box
             sx={{
               p: 3,
-              background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+              background:
+                "linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #0f172a 100%)",
               color: "white",
               display: "flex",
               flexDirection: "column",
-              gap: 0.2,
-              boxShadow: "inset 0 -10px 20px rgba(0,0,0,0.2)",
+              gap: 0.35,
+              boxShadow:
+                "inset 0 -10px 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1)",
             }}
           >
             <Typography
               variant="overline"
               sx={{
-                opacity: 0.7,
+                opacity: 0.86,
                 fontWeight: 900,
-                letterSpacing: 1,
+                letterSpacing: 1.1,
                 fontSize: "0.65rem",
+                color: "#bfdbfe",
               }}
             >
               Available TP Balance
@@ -919,13 +1117,16 @@ const MySquadPage = () => {
               <Typography
                 variant="h5"
                 fontWeight="900"
-                sx={{ letterSpacing: -0.5 }}
+                sx={{
+                  letterSpacing: -0.5,
+                  textShadow: "0 4px 16px rgba(59,130,246,0.35)",
+                }}
               >
                 {wallet?.availableBalance?.toLocaleString() || 0}
                 <Typography
                   component="span"
                   variant="h6"
-                  sx={{ ml: 0.5, opacity: 0.8 }}
+                  sx={{ ml: 0.5, opacity: 0.9, color: "#dbeafe" }}
                 >
                   TP
                 </Typography>
@@ -934,11 +1135,13 @@ const MySquadPage = () => {
                 <Typography
                   variant="caption"
                   sx={{
-                    bgcolor: "rgba(255,255,255,0.1)",
-                    px: 1.5,
-                    py: 0.5,
+                    bgcolor: "rgba(15,23,42,0.45)",
+                    border: "1px solid rgba(191,219,254,0.35)",
+                    color: "#dbeafe",
+                    px: 1.4,
+                    py: 0.45,
                     borderRadius: 5,
-                    fontWeight: 700,
+                    fontWeight: 800,
                   }}
                 >
                   Reserved: {wallet.reservedBalance.toLocaleString()} TP
