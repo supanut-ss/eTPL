@@ -11,8 +11,8 @@ namespace eTPL.API.Models.Auction
         public int PricePaid { get; set; } = 0;
         public DateTime AcquiredAt { get; set; } = DateTime.UtcNow;
 
-        // Contract
-        public DateTime? ContractUntil { get; set; }
+        // Seasons Tracker
+        public int SeasonsWithTeam { get; set; } = 1;
 
         // Loan
         public bool IsLoan { get; set; } = false;
@@ -21,6 +21,7 @@ namespace eTPL.API.Models.Auction
 
         // Status: "Active" | "Listed" | "Loaned"
         public string Status { get; set; } = "Active";
+        public int? ListingPrice { get; set; }
 
         // Navigation properties
         public User? User { get; set; }

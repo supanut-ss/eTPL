@@ -32,6 +32,8 @@ import {
   Campaign,
   AttachMoney,
   EmojiEvents,
+  Storefront,
+  Handshake,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -52,6 +54,18 @@ const navItems = [
     label: "Auction",
     path: "/auction",
     icon: <AttachMoney />,
+    loginRequired: true,
+  },
+  {
+    label: "Transfer Market",
+    path: "/transfer-board",
+    icon: <Storefront />,
+    loginRequired: true,
+  },
+  {
+    label: "Deal Center",
+    path: "/deal-center",
+    icon: <Handshake />,
     loginRequired: true,
   },
   {

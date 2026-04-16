@@ -19,14 +19,15 @@ const auctionService = {
       minWeight = null,
       maxWeight = null,
       minAge = null,
-      maxAge = null
+      maxAge = null,
+      ownedOnly = false
     } = filters;
 
     const res = await api.get("/api/auction/players", {
       params: { 
         searchTerm, page, pageSize, freeAgentOnly, grade,
         league, teamName, position, playingStyle, foot, nationality,
-        minHeight, maxHeight, minWeight, maxWeight, minAge, maxAge
+        minHeight, maxHeight, minWeight, maxWeight, minAge, maxAge, ownedOnly
       },
     });
     return res.data;
@@ -111,8 +112,8 @@ const auctionService = {
     return res.data;
   },
 
-  renewContract: async (squadId, cost, contractUntil) => {
-    const res = await api.post("/api/auction/squad/renew", { squadId, cost, contractUntil });
+  renewContract: async (squadId, cost, addSeasons) => {
+    const res = await api.post("/api/auction/squad/renew", { squadId, cost, addSeasons });
     return res.data;
   },
 
@@ -128,6 +129,47 @@ const auctionService = {
 
   giveBonus: async (targetUserId, amount, reason) => {
     const res = await api.post("/api/auction/bonus", { targetUserId, amount, reason });
+    return res.data;
+  },
+
+  // ── Transfer Market & Offers ──────────────────────────────────────────
+  listPlayer: async (squadId, listingPrice) => {
+    const res = await api.post("/api/auction/transfer/list", { squadId, listingPrice });
+    return res.data;
+  },
+
+  delistPlayer: async (squadId) => {
+    const res = await api.post("/api/auction/transfer/delist", { squadId });
+    return res.data;
+  },
+
+  getTransferBoard: async () => {
+    const res = await api.get("/api/auction/transfer/board");
+    return res.data;
+  },
+
+  submitOffer: async (squadId, offerType, amount) => {
+    const res = await api.post("/api/auction/transfer/offers", { squadId, offerType, amount });
+    return res.data;
+  },
+
+  respondOffer: async (offerId, accept) => {
+    const res = await api.post(`/api/auction/transfer/offers/${offerId}/respond`, { accept });
+    return res.data;
+  },
+
+  cancelOffer: async (offerId) => {
+    const res = await api.post(`/api/auction/transfer/offers/${offerId}/cancel`);
+    return res.data;
+  },
+
+  getIncomingOffers: async () => {
+    const res = await api.get("/api/auction/transfer/offers/incoming");
+    return res.data;
+  },
+
+  getOutgoingOffers: async () => {
+    const res = await api.get("/api/auction/transfer/offers/outgoing");
     return res.data;
   },
 };

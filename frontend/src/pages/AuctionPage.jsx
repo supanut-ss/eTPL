@@ -1001,7 +1001,7 @@ const AuctionPage = () => {
                         '&:hover': { bgcolor: '#000' }
                       }}
                     >
-                      Start {p.playerOvr} TP
+                      Start {p.playerOvr + 1} TP
                     </Button>
                   )}
                   {isNormalBid && (

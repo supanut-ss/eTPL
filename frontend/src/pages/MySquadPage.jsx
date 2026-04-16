@@ -23,6 +23,10 @@ import {
   ListItemText,
   alpha,
   CircularProgress,
+  TextField,
+  DialogActions,
+  Menu,
+  MenuItem,
 } from "@mui/material";
 import {
   SportsSoccer,
@@ -42,6 +46,10 @@ import {
   Cancel,
   Wallet,
   Diversity3,
+  LocalOffer,
+  MoreVert,
+  Bolt,
+  MonetizationOn,
 } from "@mui/icons-material";
 import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
@@ -198,6 +206,37 @@ const MySquadPage = () => {
   const [loading, setLoading] = useState(true);
   const [txOpen, setTxOpen] = useState(false);
 
+  // Offers State
+  const [incomingOffers, setIncomingOffers] = useState([]);
+  const [outgoingOffers, setOutgoingOffers] = useState([]);
+
+  // List Dialog State
+  const [listModalOpen, setListModalOpen] = useState(false);
+  const [selectedPlayerForList, setSelectedPlayerForList] = useState(null);
+  const [listPrice, setListPrice] = useState("");
+
+  // Menu State for 3-dots
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [menuPlayer, setMenuPlayer] = useState(null);
+
+  const handleOpenMenu = (event, player) => {
+    setMenuAnchor(event.currentTarget);
+    setMenuPlayer(player);
+  };
+
+  const handleCloseMenu = () => {
+    setMenuAnchor(null);
+    setMenuPlayer(null);
+  };
+
+  const handleMenuAction = (action) => {
+    const player = menuPlayer;
+    handleCloseMenu();
+    
+    if (action === "list") handleOpenList(player);
+    if (action === "delist") handleDelist(player);
+  };
+
   useEffect(() => {
     if (user) fetchData();
   }, [user]);
@@ -268,6 +307,68 @@ const MySquadPage = () => {
   const handleLoadMore = () => {
     if (!txLoading && hasMoreTx) {
       fetchTransactions(txPage + 1);
+    }
+  };
+
+  const handleOpenList = (player) => {
+    setSelectedPlayerForList(player);
+    setListPrice(player.pricePaid || 1);
+    setListModalOpen(true);
+  };
+
+  const handleCloseList = () => {
+    setListModalOpen(false);
+    setSelectedPlayerForList(null);
+  };
+
+  const submitListPlayer = async () => {
+    if (!listPrice || isNaN(listPrice) || parseInt(listPrice) <= 0) {
+      enqueueSnackbar("กรุณาใส่ราคาตั้งขายให้ถูกต้อง", { variant: "warning" });
+      return;
+    }
+    try {
+      await auctionService.listPlayer(selectedPlayerForList.squadId, parseInt(listPrice));
+      enqueueSnackbar(`ตั้งขาย ${selectedPlayerForList.playerName} สำเร็จแล้ว`, { variant: "success" });
+      handleCloseList();
+      fetchData();
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
+    }
+  };
+
+  const handleDelist = async (player) => {
+    const confirm = window.confirm(`ยกเลิกการตั้งขาย ${player.playerName} หรือไม่?`);
+    if (!confirm) return;
+    try {
+      await auctionService.delistPlayer(player.squadId);
+      enqueueSnackbar(`ยกเลิกการตั้งขายสำเร็จ`, { variant: "success" });
+      fetchData();
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
+    }
+  };
+
+  const handleRespondOffer = async (offerId, accept) => {
+    const confirmMsg = accept ? "ยืนยันรับข้อเสนอนี้?" : "ปฏิเสธข้อเสนอนี้?";
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      await auctionService.respondOffer(offerId, accept);
+      enqueueSnackbar(accept ? "รับข้อเสนอสำเร็จ (และโอนย้ายแล้ว)" : "ปฏิเสธข้อเสนอแล้ว", { variant: "success" });
+      fetchData();
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
+    }
+  };
+
+  const handleCancelOffer = async (offerId) => {
+    if (!window.confirm("ยกเลิกการยื่นข้อเสนอนี้?")) return;
+    try {
+      await auctionService.cancelOffer(offerId);
+      enqueueSnackbar("ยกเลิกข้อเสนอแล้ว", { variant: "info" });
+      fetchData();
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
     }
   };
 
@@ -874,12 +975,12 @@ const MySquadPage = () => {
                     sx={{
                       position: "absolute",
                       top: 10,
-                      right: 10,
+                      left: 10,
                       zIndex: 2,
                       display: "flex",
                       flexDirection: "column",
                       gap: 0.5,
-                      alignItems: "flex-end",
+                      alignItems: "flex-start",
                     }}
                   >
                     {isLoan && (
@@ -1029,12 +1130,109 @@ const MySquadPage = () => {
                       </Box>
                     </Box>
                   </CardContent>
+                  
+                  {/* 3-Dots Action Button */}
+                  <Box sx={{ position: "absolute", top: 10, right: 10, zIndex: 10 }}>
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenMenu(e, player);
+                      }} 
+                      sx={{ 
+                        color: "rgba(0,0,0,0.35)",
+                        "&:hover": { 
+                          bgcolor: "rgba(255,202,40,0.15)",
+                          transform: "scale(1.3) rotate(360deg)",
+                          color: "#ffa000",
+                          filter: "drop-shadow(0 0 10px rgba(255,160,0,0.5))"
+                        },
+                        transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+                      }}
+                    >
+                      <MonetizationOn fontSize="small" />
+                    </IconButton>
+                  </Box>
                 </Card>
               </Grid>
             );
           })}
         </Grid>
       )}
+
+      {/* 3-Dots Menu */}
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={handleCloseMenu}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        PaperProps={{
+          sx: {
+            mt: 1,
+            borderRadius: 2.5,
+            minWidth: 200,
+            boxShadow: "0 10px 40px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.04)",
+            border: "1px solid rgba(0,0,0,0.06)",
+            overflow: 'visible',
+            '&:before': {
+              content: '""',
+              display: 'block',
+              position: 'absolute',
+              top: 0,
+              right: 14,
+              width: 10,
+              height: 10,
+              bgcolor: 'background.paper',
+              transform: 'translateY(-50%) rotate(45deg)',
+              zIndex: 0,
+            },
+            "& .MuiMenuItem-root": {
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              py: 1.5,
+              px: 2,
+              mx: 0.5,
+              my: 0.2,
+              borderRadius: 1.5,
+              transition: "all 0.2s",
+              "& .MuiSvgIcon-root": {
+                fontSize: 18,
+                mr: 1.5,
+                opacity: 0.7
+              },
+              "&:hover": {
+                bgcolor: alpha("#1e88e5", 0.08),
+                color: "primary.main",
+                "& .MuiSvgIcon-root": {
+                  opacity: 1,
+                  transform: "scale(1.1)"
+                }
+              }
+            }
+          }
+        }}
+      >
+        {menuPlayer?.status === "Listed" ? (
+          <MenuItem onClick={() => handleMenuAction("delist")} sx={{ color: "error.main" }}>
+            <Cancel fontSize="small" /> Stop Selling
+          </MenuItem>
+        ) : (
+          <MenuItem 
+            onClick={() => handleMenuAction("list")} 
+            disabled={menuPlayer?.isLoan || menuPlayer?.status === "Loaned"}
+          >
+            <LocalOffer fontSize="small" /> List for Sale
+          </MenuItem>
+        )}
+        <MenuItem disabled>
+          <Handshake fontSize="small" /> Private Loan
+        </MenuItem>
+        <Divider sx={{ my: 1, opacity: 0.6 }} />
+        <MenuItem onClick={handleCloseMenu} sx={{ color: "error.main" }}>
+          <Close fontSize="small" sx={{ mr: 1.5 }} /> Release Player
+        </MenuItem>
+      </Menu>
 
       {/* ── Transaction History Dialog (Popup) ────────────────────────────────── */}
       <Dialog
@@ -1324,6 +1522,35 @@ const MySquadPage = () => {
             </Box>
           )}
         </DialogContent>
+      </Dialog>
+
+      {/* ── List Player Dialog ──────────────────────────────────────────────── */}
+      <Dialog open={listModalOpen} onClose={handleCloseList} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          ตั้งขายนักเตะ
+          <IconButton onClick={handleCloseList} size="small"><Close /></IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {selectedPlayerForList && (
+            <Box mb={3} textAlign="center">
+              <Avatar src={`https://pesdb.net/assets/img/card/b${selectedPlayerForList.playerId}.png`} sx={{ width: 80, height: 80, mx: "auto", mb: 1, border: "2px solid #ccc", "& img": { objectFit: "contain" } }} variant="rounded" />
+              <Typography variant="h6">{selectedPlayerForList.playerName}</Typography>
+              <Typography variant="body2" color="text.secondary">ทุน: {selectedPlayerForList.pricePaid?.toLocaleString() || 0} TP</Typography>
+            </Box>
+          )}
+          <TextField
+            fullWidth
+            label="ราคาตั้งขาย (TP)"
+            type="number"
+            value={listPrice}
+            onChange={(e) => setListPrice(e.target.value)}
+            InputProps={{ inputProps: { min: 1 } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCloseList} color="inherit">ยกเลิก</Button>
+          <Button onClick={submitListPlayer} variant="contained" color="success">ตั้งขาย</Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

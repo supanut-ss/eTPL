@@ -261,9 +261,9 @@ namespace eTPL.API.Services
         }
 
         public async Task<PagedResultDto<PlayerSearchResultDto>> SearchPlayersAsync(
-            string searchTerm, 
-            int page, 
-            int pageSize, 
+            string? searchTerm = null, 
+            int page = 1, 
+            int pageSize = 20, 
             bool freeAgentOnly = false, 
             string? grade = null,
             string? league = null,
@@ -277,9 +277,21 @@ namespace eTPL.API.Services
             int? minWeight = null,
             int? maxWeight = null,
             int? minAge = null,
-            int? maxAge = null)
+            int? maxAge = null,
+            bool ownedOnly = false,
+            int? excludeUserId = null)
         {
             var query = _context.PesPlayerTeams.Where(p => p.PlayerOvr >= 60);
+
+            if (ownedOnly)
+            {
+                var ownedQuery = _context.AuctionSquads.AsQueryable();
+                if (excludeUserId.HasValue)
+                {
+                    ownedQuery = ownedQuery.Where(s => s.UserId != excludeUserId.Value);
+                }
+                query = query.Where(p => ownedQuery.Any(s => s.PlayerId == p.IdPlayer));
+            }
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
@@ -394,14 +406,18 @@ namespace eTPL.API.Services
                 .ToListAsync();
 
             var now = DateTime.UtcNow;
+            var allGrades = await _context.AuctionGradeQuotas.ToListAsync();
 
             var items = players.Select(p =>
             {
+                var grade = allGrades.FirstOrDefault(g => p.PlayerOvr >= g.MinOVR && p.PlayerOvr <= g.MaxOVR)?.GradeName ?? "E";
+                
                 var result = new PlayerSearchResultDto
                 {
                     IdPlayer = p.IdPlayer,
                     PlayerName = p.PlayerName,
                     PlayerOvr = p.PlayerOvr,
+                    Grade = grade,
                     Status = "Available",
                     League = p.League,
                     TeamName = p.TeamName,
@@ -413,14 +429,31 @@ namespace eTPL.API.Services
                     Weight = p.Weight,
                     Age = p.Age
                 };
-
                 // Check if in squad (Won)
                 var squadEntry = squadEntries.FirstOrDefault(s => s.PlayerId == p.IdPlayer);
                 if (squadEntry != null)
                 {
                     result.Status = "Won";
-                    var soldBoard = soldAuctions.FirstOrDefault(b => b.PlayerId == p.IdPlayer);
-                    result.WinnerName = soldBoard?.HighestBidder?.UserId ?? squadEntry.User?.UserId ?? "Unknown";
+                    result.SquadId = squadEntry.SquadId;
+                    result.OwnedByUserId = squadEntry.UserId;
+
+                    var latestSoldBoard = soldAuctions
+                        .Where(b => b.PlayerId == p.IdPlayer)
+                        .OrderByDescending(b => b.FinalEndTime)
+                        .FirstOrDefault();
+
+                    // Prioritize LineName (Display Name) over UserId (Login ID)
+                    result.WinnerName = latestSoldBoard?.HighestBidder?.LineName 
+                                     ?? latestSoldBoard?.HighestBidder?.UserId 
+                                     ?? squadEntry.User?.LineName 
+                                     ?? squadEntry.User?.UserId 
+                                     ?? "Unknown";
+                    
+                    // Use sold board price as fallback for PricePaid if squad record is 0
+                    result.PricePaid = (squadEntry.PricePaid == 0 && latestSoldBoard != null) 
+                                       ? latestSoldBoard.CurrentPrice 
+                                       : squadEntry.PricePaid;
+
                     return result;
                 }
 
@@ -466,7 +499,7 @@ namespace eTPL.API.Services
             if (inSquad) throw new Exception("นักเตะคนนี้ถูกประมูลไปแล้ว");
 
             var settings = await _context.AuctionSettings.FirstOrDefaultAsync();
-            int startPrice = player.PlayerOvr;
+            int startPrice = player.PlayerOvr + 1;
 
             await ValidateBidEligibility(initiatorUserId, startPrice, player.PlayerOvr);
 
@@ -942,7 +975,7 @@ namespace eTPL.API.Services
                                 ? soldBoards[s.PlayerId] 
                                 : s.PricePaid,
                     AcquiredAt = s.AcquiredAt,
-                    ContractUntil = s.ContractUntil,
+                    SeasonsWithTeam = s.SeasonsWithTeam,
                     IsLoan = s.IsLoan,
                     LoanExpiry = s.LoanExpiry,
                     Status = s.Status
@@ -996,7 +1029,7 @@ namespace eTPL.API.Services
                 Position = s.Player?.Position,
                 PricePaid = s.PricePaid > 0 ? s.PricePaid : priceMap.ContainsKey(s.PlayerId) ? priceMap[s.PlayerId] : null,
                 AcquiredAt = DateTime.SpecifyKind(s.AcquiredAt, DateTimeKind.Utc),
-                ContractUntil = s.ContractUntil.HasValue ? DateTime.SpecifyKind(s.ContractUntil.Value, DateTimeKind.Utc) : null,
+                SeasonsWithTeam = s.SeasonsWithTeam,
                 IsLoan = s.IsLoan,
                 LoanExpiry = s.LoanExpiry.HasValue ? DateTime.SpecifyKind(s.LoanExpiry.Value, DateTimeKind.Utc) : null,
                 Status = s.Status
@@ -1132,11 +1165,11 @@ namespace eTPL.API.Services
                     throw new Exception($"TP ไม่เพียงพอสำหรับการต่อสัญญา (ต้องการ {request.Cost} TP)");
 
                 wallet.AvailableBalance -= request.Cost;
-                squad.ContractUntil = request.ContractUntil;
+                squad.SeasonsWithTeam += request.AddSeasons;
 
                 await RecordTransactionAsync(
                     userId, request.Cost, "DEBIT", "CONTRACT_RENEWAL",
-                    $"ต่อสัญญา {squad.Player?.PlayerName ?? ""} ถึง {request.ContractUntil:dd/MM/yyyy}",
+                    $"ต่อสัญญา {squad.Player?.PlayerName ?? ""} เพิ่ม {request.AddSeasons} ฤดูกาล",
                     wallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
 
                 await _context.SaveChangesAsync();
@@ -1265,6 +1298,273 @@ namespace eTPL.API.Services
                 await transaction.RollbackAsync();
                 throw;
             }
+        }
+
+    // ─── Transfer Market & Offers ─────────────────────────────────────────────
+
+        public async Task ListPlayerAsync(int userId, int squadId, int listingPrice)
+        {
+            var squad = await _context.AuctionSquads.FirstOrDefaultAsync(s => s.SquadId == squadId && s.UserId == userId);
+            if (squad == null) throw new Exception("ไม่พบนักเตะในทีม");
+            if (squad.IsLoan) throw new Exception("นักเตะยืมตัว ไม่สามารถตั้งขายได้");
+            if (listingPrice <= 0) throw new Exception("ราคาตั้งขายต้องมากกว่า 0");
+
+            squad.Status = "Listed";
+            squad.ListingPrice = listingPrice;
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task DelistPlayerAsync(int userId, int squadId)
+        {
+            var squad = await _context.AuctionSquads.FirstOrDefaultAsync(s => s.SquadId == squadId && s.UserId == userId);
+            if (squad == null) throw new Exception("ไม่พบนักเตะในทีม");
+
+            squad.Status = "Active";
+            squad.ListingPrice = null;
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task<List<AuctionSquadDto>> GetTransferBoardAsync()
+        {
+            var squad = await _context.AuctionSquads
+                .Include(s => s.Player)
+                .Where(s => s.Status == "Listed")
+                .ToListAsync();
+
+            return squad.Select(s => new AuctionSquadDto
+            {
+                SquadId = s.SquadId,
+                PlayerId = s.PlayerId,
+                PlayerName = s.Player?.PlayerName ?? "Unknown",
+                PlayerOvr = s.Player?.PlayerOvr ?? 0,
+                Position = s.Player?.Position,
+                PricePaid = s.PricePaid,
+                ListingPrice = s.ListingPrice,
+                AcquiredAt = DateTime.SpecifyKind(s.AcquiredAt, DateTimeKind.Utc),
+                Status = s.Status
+            }).OrderByDescending(s => s.PlayerOvr).ToList();
+        }
+
+        public async Task<TransferOfferDto> SubmitOfferAsync(int buyerUserId, CreateOfferRequest request)
+        {
+            var squad = await _context.AuctionSquads
+                .Include(s => s.Player)
+                .FirstOrDefaultAsync(s => s.SquadId == request.SquadId);
+            if (squad == null) throw new Exception("ไม่พบนักเตะ");
+            if (squad.UserId == buyerUserId) throw new Exception("คุณเป็นเจ้าของนักเตะนี้อยู่แล้ว");
+            
+            // Allow offering for unlisted players too, but enforce check for active offers so we don't spam
+            var existingOffer = await _context.TransferOffers
+                .FirstOrDefaultAsync(o => o.SquadId == request.SquadId && o.FromUserId == buyerUserId && o.Status == "Pending");
+            if (existingOffer != null) throw new Exception("คุณมีข้อเสนอที่รอการตอบรับอยู่แล้วสำหรับนักเตะคนนี้");
+
+            if (request.Amount <= 0) throw new Exception("ข้อเสนอต้องมากกว่า 0 TP");
+
+            var offer = new TransferOffer
+            {
+                SquadId = request.SquadId,
+                FromUserId = buyerUserId,
+                ToUserId = squad.UserId,
+                OfferType = request.OfferType,
+                Amount = request.Amount,
+                Status = "Pending"
+            };
+
+            _context.TransferOffers.Add(offer);
+            await _context.SaveChangesAsync();
+
+            offer = await _context.TransferOffers
+                .Include(o => o.FromUser).Include(o => o.ToUser).Include(o => o.Squad).ThenInclude(s => s.Player)
+                .FirstOrDefaultAsync(o => o.OfferId == offer.OfferId);
+
+            return MapOfferDto(offer!);
+        }
+
+        public async Task RespondOfferAsync(int sellerUserId, int offerId, RespondOfferRequest request)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            try
+            {
+                var offer = await _context.TransferOffers
+                    .Include(o => o.Squad).ThenInclude(s => s.Player)
+                    .FirstOrDefaultAsync(o => o.OfferId == offerId && o.ToUserId == sellerUserId && o.Status == "Pending");
+
+                if (offer == null) throw new Exception("ไม่พบข้อเสนอ หรือ ข้อเสนอถูกจัดการไปแล้ว");
+
+                if (!request.Accept)
+                {
+                    offer.Status = "Rejected";
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    return;
+                }
+
+                // If Accept, check buyer balance!
+                var buyerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == offer.FromUserId);
+                if (buyerWallet == null || buyerWallet.AvailableBalance < offer.Amount)
+                {
+                    offer.Status = "Collapsed"; // Deal fails because buyer lacks funds
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    throw new Exception("ดีลล่ม! ผู้ซื้อมีเงินไม่พอจ่ายค่าข้อเสนอ");
+                }
+
+                var sellerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == sellerUserId);
+                if (sellerWallet == null) throw new Exception("Seller Wallet not found");
+
+                var playerName = offer.Squad?.Player?.PlayerName ?? "Unknown";
+
+                if (offer.OfferType == "Transfer")
+                {
+                    // Deduct from buyer, credit to seller
+                    buyerWallet.AvailableBalance -= offer.Amount;
+                    sellerWallet.AvailableBalance += offer.Amount;
+
+                    // Transfer Ownership
+                    offer.Squad!.UserId = offer.FromUserId;
+                    offer.Squad.PricePaid = offer.Amount;
+                    offer.Squad.AcquiredAt = DateTime.UtcNow;
+                    offer.Squad.IsLoan = false;
+                    offer.Squad.LoanedFromUserId = null;
+                    offer.Squad.LoanExpiry = null;
+                    offer.Squad.Status = "Active";
+                    offer.Squad.ListingPrice = null;
+                    offer.Squad.SeasonsWithTeam = 1; // Reset seasons
+
+                    await RecordTransactionAsync(offer.FromUserId, offer.Amount, "DEBIT", "MARKET_BUY", $"ซื้อ {playerName} จากตลาด (Private) {offer.Amount} TP", buyerWallet.AvailableBalance, null, offer.Squad.PlayerId);
+                    await RecordTransactionAsync(sellerUserId, offer.Amount, "CREDIT", "MARKET_SELL", $"ขาย {playerName} {offer.Amount} TP", sellerWallet.AvailableBalance, null, offer.Squad.PlayerId);
+
+                    // Cancel other pending offers for this player
+                    var otherOffers = await _context.TransferOffers.Where(o => o.SquadId == offer.SquadId && o.Status == "Pending" && o.OfferId != offer.OfferId).ToListAsync();
+                    foreach (var o in otherOffers) o.Status = "Cancelled";
+                }
+                else if (offer.OfferType == "Loan")
+                {
+                    // Deduct loan fee
+                    buyerWallet.AvailableBalance -= offer.Amount;
+                    sellerWallet.AvailableBalance += offer.Amount;
+
+                    // Update Original Squad to Loaned
+                    offer.Squad!.Status = "Loaned";
+
+                    // Create Loan Entry for Borrower
+                    _context.AuctionSquads.Add(new AuctionSquad
+                    {
+                        UserId = offer.FromUserId,
+                        PlayerId = offer.Squad.PlayerId,
+                        PricePaid = 0,
+                        IsLoan = true,
+                        LoanedFromUserId = sellerUserId,
+                        Status = "Active",
+                        AcquiredAt = DateTime.UtcNow
+                    });
+
+                    await RecordTransactionAsync(offer.FromUserId, offer.Amount, "DEBIT", "LOAN_FEE", $"ค่ายืมตัว {playerName} 1 ฤดูกาล", buyerWallet.AvailableBalance, null, offer.Squad.PlayerId);
+                    await RecordTransactionAsync(sellerUserId, offer.Amount, "CREDIT", "LOAN_INCOME", $"รายได้ให้ยืม {playerName} 1 ฤดูกาล", sellerWallet.AvailableBalance, null, offer.Squad.PlayerId);
+                }
+
+                offer.Status = "Accepted";
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task CancelOfferAsync(int buyerUserId, int offerId)
+        {
+            var offer = await _context.TransferOffers.FirstOrDefaultAsync(o => o.OfferId == offerId && o.FromUserId == buyerUserId && o.Status == "Pending");
+            if (offer == null) throw new Exception("ไม่พบข้อเสนอ หรือ ข้อเสนอนี้ไม่ถูกดำเนินการแล้ว");
+
+            offer.Status = "Cancelled";
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task<List<TransferOfferDto>> GetIncomingOffersAsync(int userId)
+        {
+            var offers = await _context.TransferOffers
+                .Include(o => o.FromUser).Include(o => o.ToUser).Include(o => o.Squad).ThenInclude(s => s.Player)
+                .Where(o => o.ToUserId == userId && o.Status == "Pending")
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync();
+
+            return offers.Select(MapOfferDto).ToList();
+        }
+
+        public async Task<List<TransferOfferDto>> GetOutgoingOffersAsync(int userId)
+        {
+            var offers = await _context.TransferOffers
+                .Include(o => o.FromUser).Include(o => o.ToUser).Include(o => o.Squad).ThenInclude(s => s.Player)
+                .Where(o => o.FromUserId == userId && (o.Status == "Pending" || o.Status == "Rejected" || o.Status == "Collapsed"))
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync();
+
+            return offers.Select(MapOfferDto).ToList();
+        }
+
+        public async Task HandleSeasonChangeAsync(int newSeason)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            try
+            {
+                // Find all currently loaned players that exist as borrow entries
+                var activeLoans = await _context.AuctionSquads
+                    .Where(s => s.IsLoan == true && s.LoanedFromUserId != null)
+                    .Include(s => s.Player)
+                    .ToListAsync();
+
+                foreach (var loan in activeLoans)
+                {
+                    // Find original record
+                    var originalSquad = await _context.AuctionSquads
+                        .FirstOrDefaultAsync(s => s.PlayerId == loan.PlayerId && s.UserId == loan.LoanedFromUserId && s.Status == "Loaned");
+
+                    if (originalSquad != null)
+                    {
+                        originalSquad.Status = "Active";
+                    }
+
+                    // Delete the borrowed entry
+                    _context.AuctionSquads.Remove(loan);
+                }
+
+                // Delete any pending transfer offers that might be invalidated
+                var pendingOffers = await _context.TransferOffers.Where(o => o.Status == "Pending").ToListAsync();
+                foreach(var offer in pendingOffers) {
+                    offer.Status = "Cancelled";
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        private TransferOfferDto MapOfferDto(TransferOffer offer)
+        {
+            return new TransferOfferDto
+            {
+                OfferId = offer.OfferId,
+                SquadId = offer.SquadId,
+                PlayerId = offer.Squad?.PlayerId ?? 0,
+                PlayerName = offer.Squad?.Player?.PlayerName ?? "Unknown",
+                PlayerOvr = offer.Squad?.Player?.PlayerOvr ?? 0,
+                FromUserId = offer.FromUserId,
+                FromUserName = offer.FromUser?.UserId,
+                ToUserId = offer.ToUserId,
+                ToUserName = offer.ToUser?.UserId,
+                OfferType = offer.OfferType,
+                Amount = offer.Amount,
+                Status = offer.Status,
+                CreatedAt = DateTime.SpecifyKind(offer.CreatedAt, DateTimeKind.Utc)
+            };
         }
     }
 }

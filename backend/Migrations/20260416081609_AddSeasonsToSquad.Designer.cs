@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using eTPL.API.Data;
 
@@ -11,9 +12,11 @@ using eTPL.API.Data;
 namespace eTPL.API.Migrations
 {
     [DbContext(typeof(MsSqlDbContext))]
-    partial class MsSqlDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260416081609_AddSeasonsToSquad")]
+    partial class AddSeasonsToSquad
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -261,9 +264,6 @@ namespace eTPL.API.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<int?>("ListingPrice")
-                        .HasColumnType("int");
-
                     b.Property<DateTime?>("LoanExpiry")
                         .HasColumnType("datetime2");
 
@@ -444,57 +444,6 @@ namespace eTPL.API.Migrations
                         {
                             t.ExcludeFromMigrations();
                         });
-                });
-
-            modelBuilder.Entity("eTPL.API.Models.Auction.TransferOffer", b =>
-                {
-                    b.Property<int>("OfferId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("offer_id");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("OfferId"));
-
-                    b.Property<int>("Amount")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<int>("FromUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("OfferType")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("Transfer");
-
-                    b.Property<int>("SquadId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)")
-                        .HasDefaultValue("Pending");
-
-                    b.Property<int>("ToUserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("OfferId");
-
-                    b.HasIndex("FromUserId");
-
-                    b.HasIndex("SquadId");
-
-                    b.HasIndex("ToUserId");
-
-                    b.ToTable("tbs_transfer_offer", "dbo");
                 });
 
             modelBuilder.Entity("eTPL.API.Models.Permission", b =>
@@ -681,35 +630,6 @@ namespace eTPL.API.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("eTPL.API.Models.Auction.TransferOffer", b =>
-                {
-                    b.HasOne("eTPL.API.Models.User", "FromUser")
-                        .WithMany()
-                        .HasForeignKey("FromUserId")
-                        .HasPrincipalKey("Id")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("eTPL.API.Models.Auction.AuctionSquad", "Squad")
-                        .WithMany()
-                        .HasForeignKey("SquadId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("eTPL.API.Models.User", "ToUser")
-                        .WithMany()
-                        .HasForeignKey("ToUserId")
-                        .HasPrincipalKey("Id")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("FromUser");
-
-                    b.Navigation("Squad");
-
-                    b.Navigation("ToUser");
                 });
 #pragma warning restore 612, 618
         }

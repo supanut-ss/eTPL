@@ -17,6 +17,8 @@ import PublicMatchesPage from "./pages/PublicMatchesPage";
 import AuctionPage from "./pages/AuctionPage";
 import AdminAuctionPage from "./pages/AdminAuctionPage";
 import MySquadPage from "./pages/MySquadPage";
+import TransferBoardPage from "./pages/TransferBoardPage";
+import MarketOverviewPage from "./pages/MarketOverviewPage";
 
 import LineCallbackPage from "./pages/LineCallbackPage";
 
@@ -62,6 +64,22 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <MySquadPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="transfer-board"
+                element={
+                  <ProtectedRoute>
+                    <TransferBoardPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="deal-center"
+                element={
+                  <ProtectedRoute>
+                    <MarketOverviewPage />
                   </ProtectedRoute>
                 }
               />

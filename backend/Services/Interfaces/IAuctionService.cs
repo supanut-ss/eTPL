@@ -7,9 +7,9 @@ namespace eTPL.API.Services.Interfaces
     public interface IAuctionService
     {
         Task<PagedResultDto<PlayerSearchResultDto>> SearchPlayersAsync(
-            string searchTerm, 
-            int page, 
-            int pageSize, 
+            string? searchTerm = null, 
+            int page = 1, 
+            int pageSize = 20, 
             bool freeAgentOnly = false, 
             string? grade = null,
             string? league = null,
@@ -23,7 +23,9 @@ namespace eTPL.API.Services.Interfaces
             int? minWeight = null,
             int? maxWeight = null,
             int? minAge = null,
-            int? maxAge = null);
+            int? maxAge = null,
+            bool ownedOnly = false,
+            int? excludeUserId = null);
 
         Task<PlayerFilterOptionsDto> GetPlayerFilterOptionsAsync(string? league = null);
 
@@ -37,6 +39,7 @@ namespace eTPL.API.Services.Interfaces
         Task<UserAuctionSummaryDto> GetUserSummaryAsync(int userId);
         Task<List<AuctionSquadDto>> GetMySquadAsync(int userId);
         Task RunLazySweepAsync();
+        Task HandleSeasonChangeAsync(int newSeason);
 
         // Transaction history
         Task<PagedResultDto<AuctionTransactionDto>> GetTransactionsAsync(int userId, int page = 1, int pageSize = 20);
@@ -47,5 +50,14 @@ namespace eTPL.API.Services.Interfaces
         Task RenewContractAsync(int userId, RenewContractRequest request);
         Task LoanPlayerAsync(int ownerUserId, LoanPlayerRequest request);
         Task TransferPlayerAsync(int sellerUserId, TransferOfferRequest request);
+        // Transfer Market & Offers
+        Task ListPlayerAsync(int userId, int squadId, int listingPrice);
+        Task DelistPlayerAsync(int userId, int squadId);
+        Task<TransferOfferDto> SubmitOfferAsync(int buyerUserId, CreateOfferRequest request);
+        Task RespondOfferAsync(int sellerUserId, int offerId, RespondOfferRequest request);
+        Task CancelOfferAsync(int buyerUserId, int offerId);
+        Task<List<TransferOfferDto>> GetIncomingOffersAsync(int userId);
+        Task<List<TransferOfferDto>> GetOutgoingOffersAsync(int userId);
+        Task<List<AuctionSquadDto>> GetTransferBoardAsync();
     }
 }

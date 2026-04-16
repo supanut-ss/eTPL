@@ -14,5 +14,6 @@ namespace eTPL.API.Models.Auction
         public TimeSpan DailyBidEndTime { get; set; } = new TimeSpan(23, 59, 59); // 23:59:59
         public int NormalBidDurationMinutes { get; set; } = 1200; // 20 hours
         public int FinalBidDurationMinutes { get; set; } = 1440; // 24 hours
+        public int CurrentSeason { get; set; } = 1; // Tracks the current active season
     }
 }

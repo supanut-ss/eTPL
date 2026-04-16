@@ -20,6 +20,7 @@ namespace eTPL.API.Data
         public DbSet<AuctionBoard> AuctionBoards { get; set; }
         public DbSet<AuctionBidLog> AuctionBidLogs { get; set; }
         public DbSet<AuctionTransaction> AuctionTransactions { get; set; }
+        public DbSet<TransferOffer> TransferOffers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -192,6 +193,33 @@ namespace eTPL.API.Data
                 entity.HasOne(e => e.User)
                       .WithMany()
                       .HasForeignKey(e => e.UserId)
+                      .HasPrincipalKey(e => e.Id)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<TransferOffer>(entity =>
+            {
+                entity.ToTable("tbs_transfer_offer", "dbo");
+                entity.HasKey(e => e.OfferId);
+                entity.Property(e => e.OfferId).HasColumnName("offer_id");
+                entity.Property(e => e.OfferType).HasMaxLength(20).HasDefaultValue("Transfer");
+                entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("Pending");
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+                entity.HasOne(e => e.Squad)
+                      .WithMany()
+                      .HasForeignKey(e => e.SquadId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.FromUser)
+                      .WithMany()
+                      .HasForeignKey(e => e.FromUserId)
+                      .HasPrincipalKey(e => e.Id)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.ToUser)
+                      .WithMany()
+                      .HasForeignKey(e => e.ToUserId)
                       .HasPrincipalKey(e => e.Id)
                       .OnDelete(DeleteBehavior.Restrict);
             });

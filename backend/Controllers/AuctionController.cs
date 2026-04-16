@@ -58,14 +58,21 @@ namespace eTPL.API.Controllers
             [FromQuery] int? minWeight = null,
             [FromQuery] int? maxWeight = null,
             [FromQuery] int? minAge = null,
-            [FromQuery] int? maxAge = null)
+            [FromQuery] int? maxAge = null,
+            [FromQuery] bool ownedOnly = false)
         {
             try
             {
+                // Correctly get integer userId using the existing helper
+                int? userId = null;
+                try {
+                    userId = await GetCurrentUserIdAsync();
+                } catch { /* Ignore if unauthenticated if ever allowed Anonymous */ }
+                
                 var result = await _auctionService.SearchPlayersAsync(
                     searchTerm, page, pageSize, freeAgentOnly, grade, 
                     league, teamName, position, playingStyle, foot, nationality, 
-                    minHeight, maxHeight, minWeight, maxWeight, minAge, maxAge);
+                    minHeight, maxHeight, minWeight, maxWeight, minAge, maxAge, ownedOnly, userId);
                 return Ok(ApiResponse<object>.Ok(result));
             }
             catch (Exception ex)
@@ -272,11 +279,14 @@ namespace eTPL.API.Controllers
                 var settings = await _db.AuctionSettings.FirstOrDefaultAsync();
                 if (settings == null) throw new Exception("Not found");
 
+                bool seasonChanged = settings.CurrentSeason != updatedSettings.CurrentSeason;
+
                 settings.StartingBudget = updatedSettings.StartingBudget;
                 settings.MaxSquadSize = updatedSettings.MaxSquadSize;
                 settings.MinBidPrice = updatedSettings.MinBidPrice;
                 settings.AuctionStartDate = updatedSettings.AuctionStartDate;
                 settings.AuctionEndDate = updatedSettings.AuctionEndDate;
+                settings.CurrentSeason = updatedSettings.CurrentSeason;
                 
                 settings.DailyBidStartTime = updatedSettings.DailyBidStartTime;
                 settings.DailyBidEndTime = updatedSettings.DailyBidEndTime;
@@ -285,6 +295,12 @@ namespace eTPL.API.Controllers
                 settings.FinalBidDurationMinutes = updatedSettings.FinalBidDurationMinutes;
 
                 await _db.SaveChangesAsync();
+
+                if (seasonChanged)
+                {
+                    await _auctionService.HandleSeasonChangeAsync(updatedSettings.CurrentSeason);
+                }
+
                 return Ok(ApiResponse<object>.Ok(new { message = "อัปเดตการตั้งค่าสำเร็จ", data = settings }));
             }
             catch (Exception ex)
@@ -427,6 +443,131 @@ namespace eTPL.API.Controllers
                 var userId = await GetCurrentUserIdAsync();
                 await _auctionService.TransferPlayerAsync(userId, request);
                 return Ok(ApiResponse<object>.Ok(new { message = "โอนย้ายนักเตะสำเร็จ" }));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        // ─── Transfer Market & Offers ─────────────────────────────────────────────
+
+        [HttpPost("transfer/list")]
+        public async Task<IActionResult> ListPlayer([FromBody] dynamic request)
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                int squadId = request.GetProperty("squadId").GetInt32();
+                int price = request.GetProperty("listingPrice").GetInt32();
+                await _auctionService.ListPlayerAsync(userId, squadId, price);
+                return Ok(ApiResponse<object>.Ok(new { message = "ตั้งขายนักเตะสำเร็จ" }));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPost("transfer/delist")]
+        public async Task<IActionResult> DelistPlayer([FromBody] dynamic request)
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                int squadId = request.GetProperty("squadId").GetInt32();
+                await _auctionService.DelistPlayerAsync(userId, squadId);
+                return Ok(ApiResponse<object>.Ok(new { message = "ยกเลิกการตั้งขายสำเร็จ" }));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpGet("transfer/board")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetTransferBoard()
+        {
+            try
+            {
+                var result = await _auctionService.GetTransferBoardAsync();
+                return Ok(ApiResponse<object>.Ok(result));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPost("transfer/offers")]
+        public async Task<IActionResult> SubmitOffer([FromBody] CreateOfferRequest request)
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                var result = await _auctionService.SubmitOfferAsync(userId, request);
+                return Ok(ApiResponse<object>.Ok(new { message = "ยื่นข้อเสนอสำเร็จ", data = result }));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPost("transfer/offers/{offerId}/respond")]
+        public async Task<IActionResult> RespondOffer(int offerId, [FromBody] RespondOfferRequest request)
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                await _auctionService.RespondOfferAsync(userId, offerId, request);
+                return Ok(ApiResponse<object>.Ok(new { message = "จัดการข้อเสนอสำเร็จ" }));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPost("transfer/offers/{offerId}/cancel")]
+        public async Task<IActionResult> CancelOffer(int offerId)
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                await _auctionService.CancelOfferAsync(userId, offerId);
+                return Ok(ApiResponse<object>.Ok(new { message = "ยกเลิกข้อเสนอสำเร็จ" }));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpGet("transfer/offers/incoming")]
+        public async Task<IActionResult> GetIncomingOffers()
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                var result = await _auctionService.GetIncomingOffersAsync(userId);
+                return Ok(ApiResponse<object>.Ok(result));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpGet("transfer/offers/outgoing")]
+        public async Task<IActionResult> GetOutgoingOffers()
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                var result = await _auctionService.GetOutgoingOffersAsync(userId);
+                return Ok(ApiResponse<object>.Ok(result));
             }
             catch (Exception ex)
             {

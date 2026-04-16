@@ -67,10 +67,11 @@ namespace eTPL.API.Models.Auction
         public string ImageUrl => $"https://pesdb.net/assets/img/card/b{PlayerId}.png";
         public int? PricePaid { get; set; }
         public DateTime? AcquiredAt { get; set; }
-        public DateTime? ContractUntil { get; set; }
+        public int SeasonsWithTeam { get; set; }
         public bool IsLoan { get; set; }
         public DateTime? LoanExpiry { get; set; }
         public string Status { get; set; } = "Active"; // "Active" | "Listed" | "Loaned"
+        public int? ListingPrice { get; set; }
     }
 
     /// <summary>Status values: "Available", "In Normal Bid", "In Final Bid", "Won"</summary>
@@ -94,7 +95,11 @@ namespace eTPL.API.Models.Auction
         public int? ActiveAuctionId { get; set; }
         public int? CurrentPrice { get; set; }  // current bid price (for Normal Bid)
         public string? WinnerName { get; set; } // display name of winner (for Won)
+        public int? SquadId { get; set; } // ID in squad table (if owned)
+        public int? OwnedByUserId { get; set; } // ID of owner
+        public int? PricePaid { get; set; } // Latest price paid
 
+        public string? Grade { get; set; }
         public string? League { get; set; }
         public string? TeamName { get; set; }
         public string? Position { get; set; }
@@ -159,22 +164,56 @@ namespace eTPL.API.Models.Auction
     {
         public int SquadId { get; set; }
         public int Cost { get; set; }
-        public DateTime ContractUntil { get; set; }
+        public int AddSeasons { get; set; }
     }
 
     public class LoanPlayerRequest
     {
-        public int SquadId { get; set; }         // the player's current squad entry
-        public int TargetUserId { get; set; }    // who receives the loan
-        public int LoanFee { get; set; }         // TP paid by receiving team
+        public int SquadId { get; set; }
+        public int TargetUserId { get; set; }
+        public int LoanFee { get; set; }
         public DateTime LoanExpiry { get; set; }
     }
 
     public class TransferOfferRequest
     {
-        public int SquadId { get; set; }         // seller's squad entry
+        public int SquadId { get; set; }
         public int BuyerUserId { get; set; }
         public int TransferFee { get; set; }
+    }
+
+    // ─── Transfer Market & Offers ─────────────────────────────────────────────
+
+    public class TransferOfferDto
+    {
+        public int OfferId { get; set; }
+        public int SquadId { get; set; }
+        public int PlayerId { get; set; }
+        public string PlayerName { get; set; } = string.Empty;
+        public int PlayerOvr { get; set; }
+        public string ImageUrl => $"https://pesdb.net/assets/img/card/b{PlayerId}.png";
+        
+        public int FromUserId { get; set; }
+        public string? FromUserName { get; set; }
+        public int ToUserId { get; set; }
+        public string? ToUserName { get; set; }
+        
+        public string OfferType { get; set; } = "Transfer"; 
+        public int Amount { get; set; }
+        public string Status { get; set; } = "Pending"; 
+        public DateTime CreatedAt { get; set; }
+    }
+
+    public class CreateOfferRequest
+    {
+        public int SquadId { get; set; }
+        public string OfferType { get; set; } = "Transfer"; // "Transfer" or "Loan"
+        public int Amount { get; set; }
+    }
+
+    public class RespondOfferRequest
+    {
+        public bool Accept { get; set; }
     }
 }
 
