@@ -14,6 +14,56 @@ import { useSnackbar } from "notistack";
 import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
 
+const GRADE_STYLE_MAP = {
+  S: {
+    color: "#ffb300",
+    bg: "rgba(255,179,0,0.15)",
+    border: "#ffb300",
+    gradient: "linear-gradient(135deg, #ffe082 0%, #ffb300 100%)",
+  },
+  A: {
+    color: "#f4511e",
+    bg: "rgba(244,81,30,0.15)",
+    border: "#f4511e",
+    gradient: "linear-gradient(135deg, #ffab91 0%, #f4511e 100%)",
+  },
+  B: {
+    color: "#8e24aa",
+    bg: "rgba(142,36,170,0.15)",
+    border: "#8e24aa",
+    gradient: "linear-gradient(135deg, #ce93d8 0%, #8e24aa 100%)",
+  },
+  C: {
+    color: "#1e88e5",
+    bg: "rgba(30,136,229,0.15)",
+    border: "#1e88e5",
+    gradient: "linear-gradient(135deg, #90caf9 0%, #1e88e5 100%)",
+  },
+  D: {
+    color: "#43a047",
+    bg: "rgba(67,160,71,0.15)",
+    border: "#43a047",
+    gradient: "linear-gradient(135deg, #a5d6a7 0%, #43a047 100%)",
+  },
+  E: {
+    color: "#757575",
+    bg: "rgba(117,117,117,0.12)",
+    border: "#757575",
+    gradient: "linear-gradient(135deg, #eeeeee 0%, #9e9e9e 100%)",
+  },
+  DEFAULT: {
+    color: "#9e9e9e",
+    bg: "rgba(158,158,158,0.12)",
+    border: "#9e9e9e",
+    gradient: "linear-gradient(135deg, #eeeeee 0%, #9e9e9e 100%)",
+  },
+};
+
+const getGradeStyle = (gradeLetter) => {
+  const normalized = (gradeLetter || "DEFAULT").toUpperCase();
+  return GRADE_STYLE_MAP[normalized] || GRADE_STYLE_MAP.DEFAULT;
+};
+
 const MarketOverviewPage = () => {
   const { user } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
@@ -24,6 +74,7 @@ const MarketOverviewPage = () => {
   const [myListings, setMyListings] = useState([]);
   const [wallet, setWallet] = useState(null);
   const [tabValue, setTabValue] = useState(0);
+  const [quotas, setQuotas] = useState([]);
 
   const fetchData = async () => {
     try {
@@ -41,6 +92,10 @@ const MarketOverviewPage = () => {
       setWallet(summary.data.wallet);
       setMyListings((summary.data.squad || []).filter(p => p.status === "Listed"));
 
+      // Load Quotas
+      const quotaRes = await auctionService.getQuotas();
+      setQuotas(quotaRes?.data || []);
+
     } catch (err) {
       console.error(err);
       enqueueSnackbar("Failed to load market data", { variant: "error" });
@@ -52,6 +107,19 @@ const MarketOverviewPage = () => {
   useEffect(() => {
     if (user) fetchData();
   }, [user]);
+
+  const getDynamicGrade = (ovr) => {
+    const safeOvr = typeof ovr === "number" ? ovr : parseInt(ovr || "0", 10);
+    const quota = quotas.find((q) => {
+      const min = q.minOvr ?? q.minOVR ?? q.MinOVR;
+      const max = q.maxOvr ?? q.maxOVR ?? q.MaxOVR;
+      return safeOvr >= min && safeOvr <= max;
+    });
+
+    if (!quota) return { label: "-", ...getGradeStyle("DEFAULT") };
+    const name = quota.gradeName ?? quota.GradeName;
+    return { label: name, ...getGradeStyle(name) };
+  };
 
   const handleRespondOffer = async (offerId, accept) => {
     try {
@@ -93,14 +161,19 @@ const MarketOverviewPage = () => {
     <Box sx={{ pb: 8 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", mb: 4 }}>
         <Box>
-          <Typography variant="h4" fontWeight="bold" gutterBottom>Deal Center</Typography>
-          <Typography variant="body1" color="text.secondary">จัดการการซื้อขายและข้อเสนอทั้งหมดของคุณ</Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Handshake color="primary" sx={{ fontSize: 36 }} />
+                <Box>
+                    <Typography variant="h4" fontWeight="bold">Deal Center</Typography>
+                    <Typography variant="body1" color="text.secondary">จัดการการซื้อขายและข้อเสนอที่เกี่ยวข้องกับคุณ</Typography>
+                </Box>
+            </Box>
         </Box>
-        <Paper elevation={0} sx={{ p: 2, borderRadius: 3, bgcolor: "#1e1e2d", color: "white", display: "flex", alignItems: "center", gap: 2 }}>
-            <AccountBalanceWallet sx={{ color: "#4ade80" }} />
+        <Paper elevation={0} sx={{ p: 2.5, borderRadius: 4, bgcolor: "#0f172a", color: "white", display: "flex", alignItems: "center", gap: 2, boxShadow: "0 10px 30px -10px rgba(15,23,42,0.3)" }}>
+            <AccountBalanceWallet sx={{ color: "#4ade80", fontSize: 32 }} />
             <Box>
-                <Typography variant="caption" sx={{ opacity: 0.7, display: "block", lineHeight: 1 }}>Available Balance</Typography>
-                <Typography variant="h6" fontWeight="bold" color="#4ade80">{wallet?.availableBalance?.toLocaleString()} TP</Typography>
+                <Typography variant="caption" sx={{ opacity: 0.7, display: "block", lineHeight: 1, letterSpacing: 1, fontWeight: "bold" }}>YOUR TP</Typography>
+                <Typography variant="h5" fontWeight="900" color="#4ade80">{wallet?.availableBalance?.toLocaleString()}</Typography>
             </Box>
         </Paper>
       </Box>
@@ -108,136 +181,197 @@ const MarketOverviewPage = () => {
       <Tabs 
         value={tabValue} 
         onChange={(e, v) => setTabValue(v)} 
-        sx={{ mb: 4, borderBottom: 1, borderColor: "divider" }}
+        sx={{ 
+            mb: 4, 
+            "& .MuiTab-root": { fontWeight: "bold", fontSize: "1rem", textTransform: "none", minHeight: 64 },
+            "& .MuiTabs-indicator": { height: 4, borderRadius: 2 }
+        }}
       >
-        <Tab icon={<Badge badgeContent={incomingOffers.length} color="error" sx={{ "& .MuiBadge-badge": { right: -10 } }}><ArrowBack /></Badge>} iconPosition="start" label="Incoming (Inbox)" />
-        <Tab icon={<ArrowForward />} iconPosition="start" label="Outgoing (Outbox)" />
-        <Tab icon={<Storefront />} iconPosition="start" label="My Active Listings" />
+        <Tab icon={<Badge badgeContent={incomingOffers.length} color="error" sx={{ "& .MuiBadge-badge": { right: -6, top: 2 } }}><ArrowBack /></Badge>} iconPosition="start" label="Incoming Offers" />
+        <Tab icon={<ArrowForward />} iconPosition="start" label="My Offers" />
+        <Tab icon={<Storefront />} iconPosition="start" label="Market Listings" />
       </Tabs>
 
       {/* Tab 0: Incoming Offers */}
       {tabValue === 0 && (
-        <Box>
-           {incomingOffers.length === 0 ? (
-             <Paper sx={{ p: 8, textAlign: "center", borderRadius: 4, bgcolor: "rgba(0,0,0,0.02)", border: "1px dashed #ccc" }}>
-                <Campaign sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
-                <Typography variant="h6" color="text.secondary">ไม่มีข้อเสนอรอการตอบรับ</Typography>
-             </Paper>
-           ) : (
-             <Grid container spacing={2}>
-               {incomingOffers.map(offer => (
-                 <Grid item xs={12} key={offer.offerId}>
-                   <Card sx={{ borderRadius: 3, borderLeft: "6px solid #4ade80", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
-                     <CardContent sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                            <Avatar src={offer.imageUrl} variant="rounded" sx={{ width: 60, height: 60, bgcolor: "#f1f5f9" }} />
-                            <Box>
-                                <Typography variant="subtitle1" fontWeight="bold">{offer.playerName}</Typography>
-                                <Typography variant="body2" color="text.secondary">ยื่นโดย: <b>{offer.fromUserName}</b></Typography>
-                                <Chip size="small" label={offer.offerType} color="primary" sx={{ mt: 0.5, height: 20, fontSize: "0.7rem" }} />
-                            </Box>
-                        </Box>
-                        <Box sx={{ textAlign: "right", mr: 4 }}>
-                            <Typography variant="h5" fontWeight="bold" color="primary">{offer.amount?.toLocaleString()} TP</Typography>
-                            <Typography variant="caption" color="text.secondary">{new Date(offer.createdAt).toLocaleString()}</Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", gap: 1 }}>
-                            <Button variant="contained" color="success" startIcon={<CheckCircle />} onClick={() => handleRespondOffer(offer.offerId, true)}>Accept</Button>
-                            <Button variant="outlined" color="error" onClick={() => handleRespondOffer(offer.offerId, false)}>Reject</Button>
-                        </Box>
-                     </CardContent>
-                   </Card>
-                 </Grid>
-               ))}
-             </Grid>
-           )}
-        </Box>
+        <Grid container spacing={incomingOffers.length === 0 ? 0 : 2.5}>
+            {incomingOffers.length === 0 ? (
+                <Grid item xs={12}>
+                    <Paper elevation={0} sx={{ 
+                        width: '100%',
+                        p: 12, textAlign: "center", borderRadius: 8, 
+                        bgcolor: "#f8fafc", 
+                        border: "1px dashed #cbd5e1",
+                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                        minHeight: 400
+                    }}>
+                        <Campaign sx={{ fontSize: 48, color: "text.disabled", mb: 2, opacity: 0.5 }} />
+                        <Typography variant="h5" fontWeight="800" color="text.primary" gutterBottom>
+                            ไม่มีข้อเสนอใหม่ในขณะนี้
+                        </Typography>
+                        <Typography variant="body1" color="text.secondary">
+                            เมื่อมีคนยื่นข้อเสนอให้คุณ ข้อมูลจะปรากฏขึ้นที่ตรงนี้เพื่อรอการยืนยัน
+                        </Typography>
+                    </Paper>
+                </Grid>
+            ) : (
+                incomingOffers.map(offer => {
+                    const grade = getDynamicGrade(offer.playerOvr || 0);
+                    return (
+                        <Grid item xs={12} md={6} lg={4} key={offer.offerId}>
+                            <Card sx={{ 
+                                display: "flex", p: 1.8, gap: 2, height: 160, minWidth: 350, borderRadius: 3, alignItems: "center", 
+                                position: "relative", border: `2.5px solid ${grade.color}`, transition: "transform 0.2s",
+                                "&:hover": { transform: "translateY(-4px)" }
+                            }}>
+                                <Box sx={{ position: "relative", width: 80, height: 110, flexShrink: 0 }}>
+                                    <Avatar src={offer.imageUrl} variant="rounded" sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc" }} />
+                                    <Box sx={{ position: "absolute", top: -8, left: -8, background: grade.gradient, color: "white", minWidth: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", border: "2px solid white", zIndex: 2 }}>{grade.label}</Box>
+                                </Box>
+                                    <Box sx={{ flexGrow: 1, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                            <Box>
+                                                <Typography variant="subtitle2" fontWeight="bold" noWrap>{offer.playerName}</Typography>
+                                                <Typography variant="caption" display="block" color="text.secondary">From: <b>{offer.fromUserName}</b></Typography>
+                                                <Typography variant="caption" display="block" color="text.secondary">OVR: <b>{offer.playerOvr}</b></Typography>
+                                                <Typography variant="caption" display="block" color="text.secondary">Position: <b>{offer.position} ({offer.playingStyle})</b></Typography>
+                                            </Box>
+                                            <Typography variant="h5" fontWeight="900" color="primary" sx={{ whiteSpace: "nowrap" }}>
+                                                {(offer.amount || 0).toLocaleString()} TP
+                                            </Typography>
+                                        </Box>
+                                    <Box sx={{ display: "flex", gap: 1 }}>
+                                        <Button variant="contained" size="small" color="success" fullWidth onClick={() => handleRespondOffer(offer.offerId, true)} sx={{ borderRadius: 1.5, fontWeight: "bold" }}>Accept</Button>
+                                        <Button variant="outlined" size="small" color="error" fullWidth onClick={() => handleRespondOffer(offer.offerId, false)} sx={{ borderRadius: 1.5, fontWeight: "bold" }}>Reject</Button>
+                                    </Box>
+                                </Box>
+                            </Card>
+                        </Grid>
+                    )
+                })
+            )}
+        </Grid>
       )}
 
       {/* Tab 1: Outgoing Offers */}
       {tabValue === 1 && (
-        <Box>
-            {outgoingOffers.length === 0 ? (
-             <Paper sx={{ p: 8, textAlign: "center", borderRadius: 4, bgcolor: "rgba(0,0,0,0.02)", border: "1px dashed #ccc" }}>
-                <ArrowForward sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
-                <Typography variant="h6" color="text.secondary">คุณยังไม่ได้ยื่นข้อเสนอหาใคร</Typography>
-             </Paper>
-           ) : (
-             <Grid container spacing={2}>
-                {outgoingOffers.map(offer => (
-                  <Grid item xs={12} key={offer.offerId}>
-                    <Card sx={{ borderRadius: 3, borderLeft: "6px solid #fbbf24", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
-                      <CardContent sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                            <Avatar src={offer.imageUrl} variant="rounded" sx={{ width: 60, height: 60, bgcolor: "#f1f5f9" }} />
-                            <Box>
-                                <Typography variant="subtitle1" fontWeight="bold">{offer.playerName}</Typography>
-                                <Typography variant="body2" color="text.secondary">ยื่นไปยัง: <b>{offer.toUserName}</b></Typography>
-                                <Chip 
-                                    size="small" 
-                                    label={offer.status} 
-                                    color={offer.status === "Pending" ? "warning" : "default"} 
-                                    sx={{ mt: 0.5, height: 20, fontSize: "0.7rem", fontWeight: "bold" }} 
-                                />
-                            </Box>
-                        </Box>
-                        <Box sx={{ textAlign: "right", mr: 4 }}>
-                            <Typography variant="h5" fontWeight="bold">{offer.amount?.toLocaleString()} TP</Typography>
-                            <Typography variant="caption" color="text.secondary">{new Date(offer.createdAt).toLocaleString()}</Typography>
-                        </Box>
-                        <Box>
-                            {offer.status === "Pending" ? (
-                                <Button variant="outlined" color="error" startIcon={<Cancel />} onClick={() => handleCancelOffer(offer.offerId)}>Cancel Offer</Button>
-                            ) : (
-                                <Typography variant="body2" color="text.secondary" fontStyle="italic">No Actions Available</Typography>
-                            )}
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-             </Grid>
-           )}
-        </Box>
+        <Grid container spacing={outgoingOffers.filter(o => o.status !== "Rejected").length === 0 ? 0 : 2.5}>
+            {outgoingOffers.filter(o => o.status !== "Rejected").length === 0 ? (
+                <Grid item xs={12}>
+                    <Paper elevation={0} sx={{ 
+                        width: '100%',
+                        p: 12, textAlign: "center", borderRadius: 8, 
+                        bgcolor: "#f8fafc", 
+                        border: "1px dashed #cbd5e1",
+                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                        minHeight: 400
+                    }}>
+                        <ArrowForward sx={{ fontSize: 48, color: "text.disabled", mb: 2, opacity: 0.5 }} />
+                        <Typography variant="h5" fontWeight="800" color="text.primary" gutterBottom>
+                            คุณยังไม่ได้ยื่นข้อเสนอในขณะนี้
+                        </Typography>
+                        <Typography variant="body1" color="text.secondary">
+                            ไปที่หน้า Transfer Board เพื่อเริ่มต้นยื่นข้อเสนอซื้อทรายนักเตะที่คุณต้องการ
+                        </Typography>
+                    </Paper>
+                </Grid>
+            ) : (
+                outgoingOffers
+                    .filter(o => o.status !== "Rejected")
+                    .map(offer => {
+                        const grade = getDynamicGrade(offer.playerOvr || 0);
+                        return (
+                        <Grid item xs={12} md={6} lg={4} key={offer.offerId}>
+                            <Card sx={{ 
+                                display: "flex", p: 1.8, gap: 2, height: 160, minWidth: 350, borderRadius: 3, alignItems: "center", 
+                                position: "relative", border: `2.5px solid ${grade.color}`, transition: "transform 0.2s",
+                                "&:hover": { transform: "translateY(-4px)" }
+                            }}>
+                                <Box sx={{ position: "relative", width: 80, height: 110, flexShrink: 0 }}>
+                                    <Avatar src={offer.imageUrl} variant="rounded" sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc" }} />
+                                    <Box sx={{ position: "absolute", top: -8, left: -8, background: grade.gradient, color: "white", minWidth: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", border: "2px solid white", zIndex: 2 }}>{grade.label}</Box>
+                                </Box>
+                                    <Box sx={{ flexGrow: 1, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                            <Box>
+                                                <Typography variant="subtitle2" fontWeight="bold" noWrap>{offer.playerName}</Typography>
+                                                <Typography variant="caption" display="block" color="text.secondary">Target: <b>{offer.toUserName}</b></Typography>
+                                                <Typography variant="caption" display="block" color="text.secondary">OVR: <b>{offer.playerOvr}</b></Typography>
+                                                <Typography variant="caption" display="block" color="text.secondary">Position: <b>{offer.position} ({offer.playingStyle})</b></Typography>
+                                            </Box>
+                                            <Typography variant="h5" fontWeight="900" color="primary" sx={{ whiteSpace: "nowrap" }}>
+                                                {(offer.amount || 0).toLocaleString()} TP
+                                            </Typography>
+                                        </Box>
+                                    <Box>
+                                        {offer.status === "Pending" && (
+                                            <Button variant="outlined" size="small" color="error" fullWidth startIcon={<Cancel />} onClick={() => handleCancelOffer(offer.offerId)} sx={{ borderRadius: 1.5, fontWeight: "bold" }}>Cancel Offer</Button>
+                                        )}
+                                    </Box>
+                                </Box>
+                            </Card>
+                        </Grid>
+                    )
+                })
+            )}
+        </Grid>
       )}
 
-      {/* Tab 2: My Active Listings */}
+      {/* Tab 2: My Listings */}
       {tabValue === 2 && (
-        <Box>
+        <Grid container spacing={myListings.length === 0 ? 0 : 2.5}>
             {myListings.length === 0 ? (
-             <Paper sx={{ p: 8, textAlign: "center", borderRadius: 4, bgcolor: "rgba(0,0,0,0.02)", border: "1px dashed #ccc" }}>
-                <Storefront sx={{ fontSize: 64, color: "text.disabled", mb: 2 }} />
-                <Typography variant="h6" color="text.secondary">คุณยังไม่มีนักเตะที่ตั้งขายไว้ในตลาด</Typography>
-             </Paper>
-           ) : (
-             <Grid container spacing={2}>
-                {myListings.map(p => (
-                   <Grid item xs={12} sm={6} md={4} key={p.squadId}>
-                      <Card sx={{ borderRadius: 3, position: "relative", overflow: "hidden" }}>
-                        <Box sx={{ position: "absolute", top: 12, left: 12, zIndex: 1 }}>
-                            <Chip label={`OVR ${p.playerOvr}`} size="small" sx={{ bgcolor: "gold", fontWeight: "bold" }} />
-                        </Box>
-                        <CardContent sx={{ pt: 5, textAlign: "center" }}>
-                            <Avatar src={p.imageUrl} sx={{ width: 100, height: 100, mx: "auto", mb: 2, border: "3px solid gold" }} />
-                            <Typography variant="h6" fontWeight="bold" noWrap>{p.playerName}</Typography>
-                            <Typography variant="body2" color="text.secondary" mb={2}>{p.position}</Typography>
-                            
-                            <Divider sx={{ mb: 2 }} />
-                            
-                            <Box display="flex" justifyContent="space-between" alignItems="center">
-                                <Box textAlign="left">
-                                    <Typography variant="caption" color="text.secondary" display="block">Listing Price</Typography>
-                                    <Typography variant="subtitle1" fontWeight="bold" color="primary">{p.listingPrice?.toLocaleString()} TP</Typography>
+                <Grid item xs={12}>
+                    <Paper elevation={0} sx={{ 
+                        width: '100%',
+                        p: 12, textAlign: "center", borderRadius: 8, 
+                        bgcolor: "#f8fafc", 
+                        border: "1px dashed #cbd5e1",
+                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                        minHeight: 400
+                    }}>
+                        <Storefront sx={{ fontSize: 48, color: "text.disabled", mb: 2, opacity: 0.5 }} />
+                        <Typography variant="h5" fontWeight="800" color="text.primary" gutterBottom>
+                            คุณไม่มีรายการตั้งขายในขณะนี้
+                        </Typography>
+                        <Typography variant="body1" color="text.secondary">
+                            คุณสามารถเลือกนักเตะจาก Squad ของคุณเพื่อนำมาขึ้นทะเบียนขายบนตลาดซื้อขายได้
+                        </Typography>
+                    </Paper>
+                </Grid>
+            ) : (
+                myListings.map(p => {
+                    const grade = getDynamicGrade(p.playerOvr);
+                    return (
+                        <Grid item xs={12} md={6} lg={4} key={p.squadId}>
+                            <Card sx={{ 
+                                display: "flex", p: 1.8, gap: 2, height: 160, minWidth: 350, borderRadius: 3, alignItems: "center", 
+                                position: "relative", border: `2.5px solid ${grade.color}`, transition: "transform 0.2s",
+                                "&:hover": { transform: "translateY(-4px)" }
+                            }}>
+                                <Box sx={{ position: "relative", width: 80, height: 110, flexShrink: 0 }}>
+                                    <Avatar src={p.imageUrl} variant="rounded" sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc" }} />
+                                    <Box sx={{ position: "absolute", top: -8, left: -8, background: grade.gradient, color: "white", minWidth: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", border: "2px solid white", zIndex: 2 }}>{grade.label}</Box>
                                 </Box>
-                                <Button variant="outlined" color="error" size="small" startIcon={<DeleteSweep />} onClick={() => handleDelist(p)}>Delist</Button>
-                            </Box>
-                        </CardContent>
-                      </Card>
-                   </Grid>
-                ))}
-             </Grid>
-           )}
-        </Box>
+                                    <Box sx={{ flexGrow: 1, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                            <Box>
+                                                <Typography variant="subtitle2" fontWeight="bold" noWrap>{p.playerName}</Typography>
+                                                <Typography variant="caption" display="block" color="text.secondary">OVR: <b>{p.playerOvr}</b></Typography>
+                                                <Typography variant="caption" display="block" color="text.secondary">Position: <b>{p.position} ({p.playingStyle || p.PlayingStyle})</b></Typography>
+                                            </Box>
+                                            <Typography variant="h5" fontWeight="900" color="primary" sx={{ whiteSpace: "nowrap" }}>
+                                                {(p.listingPrice || p.ListingPrice || p.price || p.Price || 0).toLocaleString()} TP
+                                            </Typography>
+                                        </Box>
+                                    <Button variant="outlined" size="small" color="error" fullWidth startIcon={<DeleteSweep />} onClick={() => handleDelist(p)} sx={{ borderRadius: 1.5, fontWeight: "bold" }}>Remove Listing</Button>
+                                </Box>
+                            </Card>
+                        </Grid>
+                    )
+                })
+            )}
+        </Grid>
       )}
 
     </Box>

@@ -963,6 +963,7 @@ namespace eTPL.API.Services
                 MarketEndTime = settings.DailyBidEndTime.ToString(@"hh\:mm"),
                 MarketStartDate = settings.AuctionStartDate?.ToString("dd/MM") ?? "N/A",
                 MarketEndDate = settings.AuctionEndDate?.ToString("dd/MM") ?? "N/A",
+                NormalBidDurationMinutes = settings.NormalBidDurationMinutes,
                 Squad = squad.Select(s => new AuctionSquadDto
                 {
                     SquadId = s.SquadId,
@@ -978,7 +979,10 @@ namespace eTPL.API.Services
                     SeasonsWithTeam = s.SeasonsWithTeam,
                     IsLoan = s.IsLoan,
                     LoanExpiry = s.LoanExpiry,
-                    Status = s.Status
+                    Status = s.Status,
+                    ListingPrice = s.ListingPrice,
+                    Price = s.ListingPrice,
+                    PlayingStyle = s.Player?.PlayingStyle
                 }).ToList()
             };
 
@@ -1032,7 +1036,9 @@ namespace eTPL.API.Services
                 SeasonsWithTeam = s.SeasonsWithTeam,
                 IsLoan = s.IsLoan,
                 LoanExpiry = s.LoanExpiry.HasValue ? DateTime.SpecifyKind(s.LoanExpiry.Value, DateTimeKind.Utc) : null,
-                Status = s.Status
+                Status = s.Status,
+                ListingPrice = s.ListingPrice,
+                PlayingStyle = s.Player?.PlayingStyle
             }).OrderByDescending(s => s.PlayerOvr).ToList();
         }
 
@@ -1326,12 +1332,13 @@ namespace eTPL.API.Services
 
         public async Task<List<AuctionSquadDto>> GetTransferBoardAsync()
         {
-            var squad = await _context.AuctionSquads
+            var squads = await _context.AuctionSquads
                 .Include(s => s.Player)
+                .Include(s => s.User)
                 .Where(s => s.Status == "Listed")
                 .ToListAsync();
 
-            return squad.Select(s => new AuctionSquadDto
+            return squads.Select(s => new AuctionSquadDto
             {
                 SquadId = s.SquadId,
                 PlayerId = s.PlayerId,
@@ -1340,8 +1347,11 @@ namespace eTPL.API.Services
                 Position = s.Player?.Position,
                 PricePaid = s.PricePaid,
                 ListingPrice = s.ListingPrice,
+                PlayingStyle = s.Player?.PlayingStyle,
                 AcquiredAt = DateTime.SpecifyKind(s.AcquiredAt, DateTimeKind.Utc),
-                Status = s.Status
+                Status = s.Status,
+                OwnerId = s.UserId,
+                OwnerName = s.User?.LineName ?? s.User?.UserId ?? "Unknown"
             }).OrderByDescending(s => s.PlayerOvr).ToList();
         }
 
@@ -1359,6 +1369,10 @@ namespace eTPL.API.Services
             if (existingOffer != null) throw new Exception("คุณมีข้อเสนอที่รอการตอบรับอยู่แล้วสำหรับนักเตะคนนี้");
 
             if (request.Amount <= 0) throw new Exception("ข้อเสนอต้องมากกว่า 0 TP");
+
+            var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == buyerUserId);
+            if (wallet == null || wallet.AvailableBalance < request.Amount)
+                throw new Exception("ยอดเงินคงเหลือไม่เพียงพอสำหรับการยื่นข้อเสนอ");
 
             var offer = new TransferOffer
             {
@@ -1433,10 +1447,6 @@ namespace eTPL.API.Services
 
                     await RecordTransactionAsync(offer.FromUserId, offer.Amount, "DEBIT", "MARKET_BUY", $"ซื้อ {playerName} จากตลาด (Private) {offer.Amount} TP", buyerWallet.AvailableBalance, null, offer.Squad.PlayerId);
                     await RecordTransactionAsync(sellerUserId, offer.Amount, "CREDIT", "MARKET_SELL", $"ขาย {playerName} {offer.Amount} TP", sellerWallet.AvailableBalance, null, offer.Squad.PlayerId);
-
-                    // Cancel other pending offers for this player
-                    var otherOffers = await _context.TransferOffers.Where(o => o.SquadId == offer.SquadId && o.Status == "Pending" && o.OfferId != offer.OfferId).ToListAsync();
-                    foreach (var o in otherOffers) o.Status = "Cancelled";
                 }
                 else if (offer.OfferType == "Loan")
                 {
@@ -1464,6 +1474,13 @@ namespace eTPL.API.Services
                 }
 
                 offer.Status = "Accepted";
+
+                // Reject all other pending offers for this player
+                var otherOffers = await _context.TransferOffers
+                    .Where(o => o.SquadId == offer.SquadId && o.Status == "Pending" && o.OfferId != offer.OfferId)
+                    .ToListAsync();
+                foreach (var o in otherOffers) o.Status = "Rejected";
+
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
             }
@@ -1560,6 +1577,8 @@ namespace eTPL.API.Services
                 FromUserName = offer.FromUser?.UserId,
                 ToUserId = offer.ToUserId,
                 ToUserName = offer.ToUser?.UserId,
+                Position = offer.Squad?.Player?.Position,
+                PlayingStyle = offer.Squad?.Player?.PlayingStyle,
                 OfferType = offer.OfferType,
                 Amount = offer.Amount,
                 Status = offer.Status,

@@ -5,7 +5,7 @@ import {
   LinearProgress, Paper, Avatar, IconButton, CircularProgress,
   List, ListItem, ListItemAvatar, ListItemText, InputAdornment
 } from "@mui/material";
-import { LocalOffer, CheckCircle, PeopleAlt, Close, Search, SearchOff, Diversity3 } from "@mui/icons-material";
+import { LocalOffer, CheckCircle, PeopleAlt, Close, Search, SearchOff, Handshake } from "@mui/icons-material";
 import { useSnackbar } from "notistack";
 import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
@@ -62,7 +62,7 @@ const getGradeStyle = (gradeLetter) => {
 };
 
 // Search Modal
-const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results, onSearch, searching, onSelect }) => (
+const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results, onSearch, searching, onSelect, user }) => (
     <Dialog 
         open={open} 
         onClose={onClose} 
@@ -142,6 +142,7 @@ const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results,
                 }}>
                     {results.map(p => {
                         const style = getGradeStyle(p.grade || p.Grade);
+                        const isOwner = p.ownedByUserId === user?.id;
                         return (
                             <Card key={p.idPlayer} sx={{ 
                                 display: "flex", 
@@ -242,6 +243,7 @@ const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results,
                                         size="small" 
                                         variant="contained" 
                                         fullWidth
+                                        disabled={isOwner}
                                         onClick={() => onSelect(p)}
                                         startIcon={<LocalOffer fontSize="small" />}
                                         sx={{ 
@@ -276,6 +278,7 @@ const TransferBoardPage = () => {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [quotas, setQuotas] = useState([]);
+  const [userBalance, setUserBalance] = useState(0);
 
   // Negotiation Modal State
   const [offerModalOpen, setOfferModalOpen] = useState(false);
@@ -307,14 +310,23 @@ const TransferBoardPage = () => {
       setQuotas(res?.data || []);
     } catch (err) {
       console.error("Failed to load grade quotas:", err);
-      // Still allow page to render without grade borders
       setQuotas([]);
+    }
+  };
+
+  const fetchWallet = async () => {
+    try {
+      const res = await auctionService.getWallet();
+      setUserBalance(res?.data?.availableBalance || 0);
+    } catch (err) {
+      console.error("Failed to load wallet:", err);
     }
   };
 
   useEffect(() => {
     fetchQuotas();
     fetchBoard();
+    fetchWallet();
   }, []);
 
   const getDynamicGrade = (ovr) => {
@@ -334,6 +346,11 @@ const TransferBoardPage = () => {
   const handleBuyOut = async (player) => {
     const confirmBuy = window.confirm(`ยืนยันการฉีกสัญญา (Buy Out) ${player.playerName} ในราคา ${player.listingPrice} TP ใช่หรือไม่?`);
     if (!confirmBuy) return;
+
+    if (userBalance < player.listingPrice) {
+      enqueueSnackbar(`ยอดเงินไม่เพียงพอ (ต้องการ ${player.listingPrice.toLocaleString()} TP, มีอยู่ ${userBalance.toLocaleString()} TP)`, { variant: "error" });
+      return;
+    }
 
     try {
       await auctionService.submitOffer(player.squadId, "Transfer", player.listingPrice);
@@ -361,11 +378,18 @@ const TransferBoardPage = () => {
       return;
     }
 
+    const amountInt = parseInt(offerAmount);
+    if (userBalance < amountInt) {
+      enqueueSnackbar(`ยอดเงินไม่เพียงพอ (ต้องการ ${amountInt.toLocaleString()} TP, มีอยู่ ${userBalance.toLocaleString()} TP)`, { variant: "error" });
+      return;
+    }
+
     try {
       await auctionService.submitOffer(selectedPlayer.squadId, "Transfer", parseInt(offerAmount));
       enqueueSnackbar(`ยื่นข้อเสนอสำหรับ ${selectedPlayer.playerName} จำนวน ${offerAmount} TP สำเร็จ`, { variant: "success" });
       handleCloseNegotiate();
       fetchBoard();
+      fetchWallet();
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
     }
@@ -425,7 +449,7 @@ const TransferBoardPage = () => {
     <Box sx={{ pb: 6 }}>
       <Box sx={{ display: "flex", alignItems: "center", mb: 3, gap: 1.5 }}>
         <Box display="flex" alignItems="center" gap={1.5}>
-          <Diversity3 color="primary" sx={{ fontSize: 32 }} />
+          <Handshake color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h5" fontWeight="bold">Transfer Market</Typography>
             <Typography variant="body2" color="text.secondary">ตลาดซื้อขายนักเตะแบบเปิด</Typography>
@@ -435,12 +459,21 @@ const TransferBoardPage = () => {
         <Box sx={{ flexGrow: 1 }} />
         
         <Button 
-            variant="outlined" 
+            variant="contained" 
+            size="small"
             startIcon={<Search />} 
             onClick={handleOpenSearch}
-            sx={{ borderRadius: 2 }}
+            sx={{ 
+                borderRadius: "12px",
+                bgcolor: "#0f172a",
+                textTransform: "none",
+                fontWeight: "800",
+                px: 2,
+                boxShadow: "0 4px 12px rgba(15, 23, 42, 0.25)",
+                "&:hover": { bgcolor: "#1e293b", boxShadow: "0 6px 16px rgba(15, 23, 42, 0.35)" }
+            }}
         >
-            Search Players (Private Offer)
+            Offer Search
         </Button>
       </Box>
       
@@ -457,6 +490,7 @@ const TransferBoardPage = () => {
           position: "relative",
           overflow: "hidden",
           boxShadow: "0 25px 60px -25px rgba(15,23,42,0.16)",
+          minHeight: "80vh"
         }}
       >
         <Box
@@ -492,154 +526,149 @@ const TransferBoardPage = () => {
               </Typography>
             </Paper>
           ) : (
-            <Grid container spacing={1.5}>
-              {players.map((p) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={p.squadId}>
-                  {(() => {
-                    const grade = getDynamicGrade(p.playerOvr);
-                    const style = grade;
-                    const gradeLabel = grade.label;
-                    const gradeTextColor = style.color === "#757575" ? "#333" : "white";
+            <Grid container spacing={2.5}>
+              {players.map((p) => {
+                const grade = getDynamicGrade(p.playerOvr);
+                const style = grade;
+                const gradeLabel = grade.label;
+                const isOwner = p.ownerId === user?.id;
 
-                    return (
-                      <Card
-                        sx={{
-                          borderRadius: 3,
-                          bgcolor: "#ffffff",
-                          color: "text.primary",
-                          border: `2px solid ${style.color}`,
-                          boxShadow: `0 12px 28px ${style.bg}`,
-                          height: "100%",
-                          display: "flex",
-                          flexDirection: "column",
-                          position: "relative",
-                          overflow: "hidden",
-                          transition:
-                            "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-                          "&:hover": {
+                return (
+                  <Grid item xs={6} sm={4} md={3} lg={2} key={p.squadId}>
+                    <Card sx={{ 
+                        display: "flex", 
+                        p: 1.8, 
+                        gap: 2, 
+                        height: 155, 
+                        minWidth: 350,
+                        width: "100%",
+                        borderRadius: 3,
+                        alignItems: "center",
+                        bgcolor: "#fff",
+                        position: "relative",
+                        border: `2.5px solid ${style.color}`,
+                        boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+                        "&:hover": {
+                            boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
                             transform: "translateY(-4px)",
-                            boxShadow: `0 22px 50px ${style.bg}`,
-                          },
-                        }}
-                      >
-                        {/* Subtle grade accent background */}
-                        <Box
-                          sx={{
-                            position: "absolute",
-                            inset: 0,
-                        background: style.gradient,
-                            opacity: 0.06,
-                            pointerEvents: "none",
-                          }}
-                        />
+                        },
+                        transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+                        overflow: "hidden"
+                    }}>
+                        {/* Neutral background */}
 
-                        <Box
-                          sx={{
-                            position: "absolute",
-                            top: 10,
-                            right: 10,
-                            zIndex: 2,
-                            width: 34,
-                            height: 34,
-                            borderRadius: "50%",
-                            background: style.gradient,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: gradeTextColor,
-                            fontWeight: 900,
-                            boxShadow: `0 4px 10px ${style.bg}`,
-                            border: "2px solid white",
-                            userSelect: "none",
-                          }}
-                        >
-                          {gradeLabel}
+                        <Box sx={{ position: "relative", zIndex: 1, width: 80, height: 110, flexShrink: 0 }}>
+                            <Avatar 
+                                src={p.imageUrl}
+                                variant="rounded"
+                                sx={{ 
+                                    width: "100%", 
+                                    height: "100%", 
+                                    bgcolor: "rgba(0,0,0,0.03)",
+                                    "& img": { objectFit: "contain" } 
+                                }}
+                            />
+                            <Box sx={{ 
+                                position: "absolute", 
+                                top: -8, 
+                                left: -8, 
+                                background: style.gradient,
+                                color: "white", 
+                                minWidth: 32,
+                                height: 32,
+                                borderRadius: "50%", 
+                                fontSize: "1rem", 
+                                fontWeight: "900",
+                                boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                border: "2px solid white",
+                                zIndex: 2
+                            }}>
+                                {gradeLabel}
+                            </Box>
                         </Box>
 
-                        <CardMedia
-                          component="img"
-                          height="160"
-                          image={p.imageUrl}
-                          alt={p.playerName}
-                          sx={{
-                            objectFit: "contain",
-                            pt: 1.5,
-                            zIndex: 1,
+                        <Box sx={{ 
                             position: "relative",
-                          }}
-                        />
-
-                        <CardContent
-                          sx={{
-                            flexGrow: 1,
-                            p: 1.75,
                             zIndex: 1,
-                            position: "relative",
-                          }}
-                        >
-                          <Typography variant="subtitle1" fontWeight="bold" noWrap>
-                            {p.playerName}
-                          </Typography>
+                            flexGrow: 1, 
+                            display: "flex", 
+                            flexDirection: "column", 
+                            justifyContent: "space-between",
+                            height: "100%",
+                            overflow: "hidden" 
+                        }}>
+                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                <Box sx={{ flexGrow: 1 }}>
+                                    <Typography variant="subtitle2" fontWeight="800" sx={{ color: "text.primary", lineHeight: 1.1, mb: 0.2 }}>
+                                        {p.playerName}
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
+                                        Owner: <b>{p.ownerName || "-"}</b>
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
+                                        OVR: <b>{p.playerOvr}</b>
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
+                                        Position: <b>{p.position} ({p.playingStyle})</b>
+                                    </Typography>
+                                </Box>
+                                <Box sx={{ textAlign: "right", ml: 1 }}>
+                                    <Typography variant="h5" sx={{ color: "primary.main", fontWeight: "900", lineHeight: 1 }}>
+                                        {(p.listingPrice || p.ListingPrice || p.price || p.Price || 0).toLocaleString()}
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: "bold" }}>
+                                        TP
+                                    </Typography>
+                                </Box>
+                            </Box>
 
-                          <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                            <Typography variant="caption" sx={{ opacity: 0.65 }}>
-                              Listing Price
-                            </Typography>
-                            <Typography variant="subtitle2" fontWeight="bold" sx={{ color: "#16a34a" }}>
-                              {p.listingPrice?.toLocaleString()} TP
-                            </Typography>
-                          </Box>
-                        </CardContent>
-
-                        <Box
-                          sx={{
-                            p: 1.5,
-                            pt: 0,
-                            display: "flex",
-                            gap: 0.9,
-                            zIndex: 1,
-                            position: "relative",
-                          }}
-                        >
-                          <Button
-                            fullWidth
-                            variant="contained"
-                            color="success"
-                            onClick={() => handleBuyOut(p)}
-                            startIcon={<CheckCircle />}
-                            sx={{
-                              borderRadius: 2,
-                              py: 1,
-                              fontWeight: 900,
-                              textTransform: "none",
-                              boxShadow: "0 10px 25px rgba(34,197,94,0.18)",
-                              fontSize: "0.85rem",
-                            }}
-                          >
-                            Buy Out
-                          </Button>
-                          <Button
-                            fullWidth
-                            variant="outlined"
-                            color="warning"
-                            onClick={() => handleOpenNegotiate(p)}
-                            startIcon={<LocalOffer />}
-                            sx={{
-                              borderRadius: 2,
-                              py: 1,
-                              fontWeight: 900,
-                              textTransform: "none",
-                              fontSize: "0.85rem",
-                            }}
-                          >
-                            Negotiate
-                          </Button>
+                            <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+                                <Button 
+                                    variant="contained" 
+                                    size="small"
+                                    fullWidth
+                                    disabled={isOwner}
+                                    onClick={() => handleBuyOut(p)} 
+                                    startIcon={<CheckCircle fontSize="small" />}
+                                    sx={{ 
+                                        borderRadius: 2, 
+                                        textTransform: "none",
+                                        fontWeight: "800",
+                                        bgcolor: "#22c55e",
+                                        fontSize: "0.75rem",
+                                        "&:hover": { bgcolor: "#16a34a" }
+                                    }}
+                                >
+                                    Buy
+                                </Button>
+                                <Button 
+                                    variant="outlined" 
+                                    size="small"
+                                    fullWidth
+                                    disabled={isOwner}
+                                    onClick={() => handleOpenNegotiate(p)} 
+                                    startIcon={<LocalOffer fontSize="small" />}
+                                    sx={{ 
+                                        borderRadius: 2, 
+                                        textTransform: "none",
+                                        fontWeight: "800",
+                                        borderColor: style.color,
+                                        color: style.color,
+                                        fontSize: "0.75rem",
+                                        "&:hover": { bgcolor: style.bg, borderColor: style.color }
+                                    }}
+                                >
+                                    Offer
+                                </Button>
+                            </Box>
                         </Box>
-                      </Card>
-                    );
-                  })()}
-                </Grid>
-              ))}
+                    </Card>
+                  </Grid>
+                );
+              })}
             </Grid>
           )}
         </Box>
@@ -715,6 +744,7 @@ const TransferBoardPage = () => {
         onSearch={handleSearch}
         searching={searching}
         onSelect={handleSelectFromSearch}
+        user={user}
       />
     </Box>
   );

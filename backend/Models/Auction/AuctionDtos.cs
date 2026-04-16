@@ -46,6 +46,7 @@ namespace eTPL.API.Models.Auction
     public class UserAuctionSummaryDto
     {
         public AuctionWalletDto Wallet { get; set; } = new();
+        [System.Text.Json.Serialization.JsonPropertyName("squad")]
         public List<AuctionSquadDto> Squad { get; set; } = new();
         public List<GradeQuotaUsageDto> Quotas { get; set; } = new();
         public int CurrentSquadCount { get; set; }
@@ -55,6 +56,7 @@ namespace eTPL.API.Models.Auction
         public string? MarketEndTime { get; set; }
         public string? MarketStartDate { get; set; }
         public string? MarketEndDate { get; set; }
+        public int NormalBidDurationMinutes { get; set; }
     }
 
     public class AuctionSquadDto
@@ -70,8 +72,18 @@ namespace eTPL.API.Models.Auction
         public int SeasonsWithTeam { get; set; }
         public bool IsLoan { get; set; }
         public DateTime? LoanExpiry { get; set; }
-        public string Status { get; set; } = "Active"; // "Active" | "Listed" | "Loaned"
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
+        public string Status { get; set; } = "Active"; 
+        [System.Text.Json.Serialization.JsonPropertyName("listingPrice")]
         public int? ListingPrice { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public int? Price { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("ownerId")]
+        public int? OwnerId { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("ownerName")]
+        public string? OwnerName { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("playingStyle")]
+        public string? PlayingStyle { get; set; }
     }
 
     /// <summary>Status values: "Available", "In Normal Bid", "In Final Bid", "Won"</summary>
@@ -198,9 +210,15 @@ namespace eTPL.API.Models.Auction
         public int ToUserId { get; set; }
         public string? ToUserName { get; set; }
         
+        public string? Position { get; set; }
+        public string? PlayingStyle { get; set; }
+        
         public string OfferType { get; set; } = "Transfer"; 
+        [System.Text.Json.Serialization.JsonPropertyName("amount")]
         public int Amount { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("status")]
         public string Status { get; set; } = "Pending"; 
+        [System.Text.Json.Serialization.JsonPropertyName("createdAt")]
         public DateTime CreatedAt { get; set; }
     }
 
