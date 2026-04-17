@@ -27,6 +27,7 @@ import {
 import auctionService from "../services/auctionService";
 import { useSnackbar } from "notistack";
 import { useAuth } from "../store/AuthContext";
+import { getPlayerFaceUrl } from "../utils/imageUtils";
 
 const GRADE_STYLE_MAP = {
   S: { color: "#ffb300", bg: "rgba(255,179,0,0.15)" },
@@ -77,12 +78,12 @@ const getPositionGroup = (pos) => {
 };
 
 const PlayerAvatar = ({ playerId }) => {
-  const [src, setSrc] = useState(`https://www.pesmaster.com/pes-2021/graphics/players/player_${playerId}.png`);
+  const [src, setSrc] = useState(getPlayerFaceUrl(playerId, "png"));
   const [failed, setFailed] = useState(false);
 
   const handleError = () => {
     if (!failed) {
-      setSrc(`https://www.pesmaster.com/efootball-2022/graphics/players/${playerId}_.webp`);
+      setSrc(getPlayerFaceUrl(playerId, "webp"));
       setFailed(true);
     }
   };

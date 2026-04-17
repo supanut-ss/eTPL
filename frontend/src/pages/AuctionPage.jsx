@@ -34,12 +34,9 @@ import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
 import { useSnackbar } from "notistack";
 import { checkMarketOpen } from "../utils/marketUtils";
+import { getPesdbLinkFromUrl, getPlayerCardUrl } from "../utils/imageUtils";
 
-const getPesdbLink = (imageUrl) => {
-  if (!imageUrl) return null;
-  const match = imageUrl.match(/(\d+)\.png/);
-  return match ? `https://pesdb.net/efootball/?id=${match[1]}` : null;
-};
+const getPesdbLink = getPesdbLinkFromUrl;
 
 const AuctionPage = () => {
   const { user } = useAuth();
@@ -723,8 +720,8 @@ const AuctionPage = () => {
                     bgcolor: "#fff"
                 }}>
                     <Box 
-                        component={getPesdbLink(`https://pesdb.net/assets/img/card/b${auction.playerId}.png`) ? "a" : "div"}
-                        href={getPesdbLink(`https://pesdb.net/assets/img/card/b${auction.playerId}.png`)}
+                        component={getPesdbLink(auction.imageUrl || getPlayerCardUrl(auction.playerId)) ? "a" : "div"}
+                        href={getPesdbLink(auction.imageUrl || getPlayerCardUrl(auction.playerId))}
                         target="_blank"
                         rel="noopener noreferrer"
                         sx={{ 
@@ -738,7 +735,7 @@ const AuctionPage = () => {
                         }}
                     >
                         <Avatar 
-                            src={`https://pesdb.net/assets/img/card/b${auction.playerId}.png`}
+                            src={auction.imageUrl || getPlayerCardUrl(auction.playerId)}
                             variant="rounded" 
                             sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc", "& img": { objectFit: "contain" } }} 
                         />
@@ -1086,8 +1083,8 @@ const AuctionPage = () => {
 
                   {/* Player Image - WITH GRADE BORDER */}
                   <Box 
-                    component={getPesdbLink(`https://pesdb.net/assets/img/card/b${p.idPlayer}.png`) ? "a" : "div"}
-                    href={getPesdbLink(`https://pesdb.net/assets/img/card/b${p.idPlayer}.png`)}
+                    component={getPesdbLink(p.imageUrl || getPlayerCardUrl(p.idPlayer)) ? "a" : "div"}
+                    href={getPesdbLink(p.imageUrl || getPlayerCardUrl(p.idPlayer))}
                     target="_blank"
                     rel="noopener noreferrer"
                     sx={{ 
@@ -1106,7 +1103,7 @@ const AuctionPage = () => {
                   >
                     <Box 
                       component="img"
-                      src={`https://pesdb.net/assets/img/card/b${p.idPlayer}.png`} 
+                      src={p.imageUrl || getPlayerCardUrl(p.idPlayer)} 
                       sx={{ 
                         width: 72, 
                         height: 102, 

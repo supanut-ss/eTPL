@@ -57,12 +57,9 @@ import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
 import { useSnackbar } from "notistack";
 import { checkMarketOpen } from "../utils/marketUtils";
+import { getPesdbLinkFromUrl, getPlayerCardUrl } from "../utils/imageUtils";
 
-const getPesdbLink = (imageUrl) => {
-  if (!imageUrl) return null;
-  const match = imageUrl.match(/(\d+)\.png/);
-  return match ? `https://pesdb.net/efootball/?id=${match[1]}` : null;
-};
+const getPesdbLink = getPesdbLinkFromUrl;
 
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
@@ -1215,14 +1212,14 @@ const MySquadPage = () => {
                   >
                     <Box 
                       sx={{ position: "relative", mb: 2 }}
-                      component={getPesdbLink(`https://pesdb.net/assets/img/card/b${player.playerId}.png`) ? "a" : "div"}
-                      href={getPesdbLink(`https://pesdb.net/assets/img/card/b${player.playerId}.png`)}
+                      component={getPesdbLink(player.imageUrl || getPlayerCardUrl(player.playerId)) ? "a" : "div"}
+                      href={getPesdbLink(player.imageUrl || getPlayerCardUrl(player.playerId))}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
                       <Avatar
                         className="player-avatar"
-                        src={`https://pesdb.net/assets/img/card/b${player.playerId}.png`}
+                        src={player.imageUrl || getPlayerCardUrl(player.playerId)}
                         variant="rounded"
                         sx={{
                           width: 120,
@@ -1878,13 +1875,13 @@ const MySquadPage = () => {
           {selectedPlayerForList && (
             <Box mb={3} textAlign="center">
               <Box
-                component={getPesdbLink(`https://pesdb.net/assets/img/card/b${selectedPlayerForList.playerId}.png`) ? "a" : "div"}
-                href={getPesdbLink(`https://pesdb.net/assets/img/card/b${selectedPlayerForList.playerId}.png`)}
+                component={getPesdbLink(selectedPlayerForList.imageUrl || getPlayerCardUrl(selectedPlayerForList.playerId)) ? "a" : "div"}
+                href={getPesdbLink(selectedPlayerForList.imageUrl || getPlayerCardUrl(selectedPlayerForList.playerId))}
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 <Avatar 
-                  src={`https://pesdb.net/assets/img/card/b${selectedPlayerForList.playerId}.png`} 
+                  src={selectedPlayerForList.imageUrl || getPlayerCardUrl(selectedPlayerForList.playerId)} 
                   sx={{ 
                     width: 80, height: 80, mx: "auto", mb: 1, border: "2px solid #ccc", 
                     "& img": { objectFit: "contain" },
