@@ -172,6 +172,11 @@ const auctionService = {
     const res = await api.get("/api/auction/transfer/offers/outgoing");
     return res.data;
   },
+  
+  resetMarket: async (password) => {
+    const res = await api.post("/api/auction/admin/reset-market", { password });
+    return res.data;
+  },
 };
 
 export default auctionService;

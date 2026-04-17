@@ -23,8 +23,17 @@ import {
   Event, 
   Schedule, 
   Timer, 
-  Timelapse 
+  Timelapse,
+  DeleteForever,
+  History,
+  RestartAlt
 } from "@mui/icons-material";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from "@mui/material";
 
 const AdminAuctionPage = () => {
   const { enqueueSnackbar } = useSnackbar();
@@ -32,6 +41,9 @@ const AdminAuctionPage = () => {
   const [quotas, setQuotas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [password, setPassword] = useState("");
 
   const fetchData = async () => {
     try {
@@ -77,6 +89,25 @@ const AdminAuctionPage = () => {
     }
   };
 
+  const handleResetMarket = async () => {
+    if (!password) {
+      enqueueSnackbar("กรุณากรอกรหัสผ่านเพื่อยืนยัน", { variant: "warning" });
+      return;
+    }
+    try {
+      setResetting(true);
+      await auctionService.resetMarket(password);
+      enqueueSnackbar("ล้างข้อมูลตลาดเทรดและทีมทั้งหมดเรียบร้อยแล้ว", { variant: "success" });
+      setResetDialogOpen(false);
+      setPassword("");
+      fetchData();
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
+    } finally {
+      setResetting(false);
+    }
+  };
+
   if (loading) return <LinearProgress />;
 
   return (
@@ -100,19 +131,49 @@ const AdminAuctionPage = () => {
           </Box>
         </Box>
 
-        <Box display="flex" gap={2}>
-          <Tooltip title="Refresh">
-            <IconButton onClick={fetchData} disabled={loading} color="primary" sx={{ bgcolor: 'action.hover' }}>
-              <Refresh />
-            </IconButton>
-          </Tooltip>
+        <Box display="flex" gap={1.5}>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<RestartAlt />}
+            onClick={() => setResetDialogOpen(true)}
+            sx={{
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontWeight: 700,
+              px: 2.5,
+              height: 42,
+              transition: 'all 0.2s',
+              "&:hover": { 
+                transform: 'translateY(-1px)',
+                bgcolor: 'rgba(211, 47, 47, 0.04)',
+                borderColor: 'error.main'
+              },
+            }}
+          >
+            Reset Market
+          </Button>
+
           <Button
             variant="contained"
             color="primary"
+            disableElevation
             startIcon={<Save />}
             onClick={handleSaveAll}
             disabled={saving}
-            sx={{ borderRadius: 2, px: 3, fontWeight: 'bold' }}
+            sx={{
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontWeight: 700,
+              px: 3,
+              height: 42,
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
+              transition: 'all 0.2s',
+              "&:hover": { 
+                transform: 'translateY(-1px)',
+                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.3)',
+              },
+            }}
           >
             {saving ? "Saving..." : "Save All Changes"}
           </Button>
@@ -336,6 +397,67 @@ const AdminAuctionPage = () => {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* Reset Confirmation Dialog */}
+      <Dialog
+        open={resetDialogOpen}
+        onClose={() => !resetting && setResetDialogOpen(false)}
+        PaperProps={{ sx: { borderRadius: 3, maxWidth: 450 } }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'error.main', fontWeight: 'bold' }}>
+          <DeleteForever /> Reset Auction Market?
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body1" gutterBottom fontWeight="bold" color="error">
+            คำเตือน: การดำเนินการนี้ไม่สามารถย้อนกลับได้!
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            การ Reset ตลาดจะทำให้เกิดผลดังนี้:
+          </Typography>
+          <ul style={{ paddingLeft: 20, margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
+            <li>นักเตะทุกคนในทุกทีมจะถูกลบออก (กลับเป็น Free Agent)</li>
+            <li>ประวัติการทำรายการ (Transactions) ทั้งหมดจะถูกล้าง</li>
+            <li>ประวัติราคาและการประมูล (Auction History & Bids) จะถูกล้าง</li>
+            <li>ข้อเสนอการซื้อขาย (Transfer Offers) ทั้งหมดจะถูกล้าง</li>
+          </ul>
+          <Typography variant="body2" sx={{ mt: 2, fontStyle: 'italic', color: 'text.secondary' }}>
+            * การตั้งค่า Grade Quota และ Market Settings จะยังคงเดิม
+          </Typography>
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>
+              ยืนยันรหัสผ่านเพื่อดำเนินการ:
+            </Typography>
+            <TextField
+              fullWidth
+              type="password"
+              size="small"
+              placeholder="กรอกรหัสผ่านของคุณ"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={resetting}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button 
+            onClick={() => setResetDialogOpen(false)} 
+            disabled={resetting}
+            sx={{ fontWeight: 'bold' }}
+            color="inherit"
+          >
+            ยกเลิก
+          </Button>
+          <Button 
+            onClick={handleResetMarket} 
+            variant="contained" 
+            color="error"
+            disabled={resetting}
+            sx={{ borderRadius: 2, fontWeight: 'bold', px: 3 }}
+          >
+            {resetting ? "Resetting..." : "ยืนยัน Reset ตลาดทั้งหมด"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

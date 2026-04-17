@@ -235,15 +235,25 @@ const UserMasterPage = () => {
           </Box>
         </Box>
         <Box display="flex" gap={1}>
-          <Tooltip title="Refresh">
-            <IconButton onClick={fetchUsers} disabled={loading}>
-              <Refresh />
-            </IconButton>
-          </Tooltip>
+
           <Button
             variant="contained"
+            disableElevation
             startIcon={<Add />}
             onClick={handleOpenAdd}
+            sx={{
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontWeight: 700,
+              px: 3,
+              height: 42,
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
+              transition: 'all 0.2s',
+              "&:hover": { 
+                transform: 'translateY(-1px)',
+                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.3)',
+              },
+            }}
           >
             Add User
           </Button>

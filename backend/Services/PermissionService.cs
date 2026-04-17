@@ -13,11 +13,18 @@ namespace eTPL.API.Services
         // รายการ menus ทั้งหมดในระบบ (single source of truth)
         public static readonly List<(string Key, string Label)> AllMenus = new()
         {
-            ("dashboard",    "Dashboard"),
-            ("fixtures",     "Fixture"),
-            ("users",        "จัดการผู้ใช้"),
-            ("announcements","จัดการประกาศ"),
-            ("permissions",  "จัดการสิทธิ์"),
+            ("dashboard",      "Dashboard"),
+            ("standings",      "Standings"),
+            ("matches",        "Matches"),
+            ("fixtures",       "Fixtures"),
+            ("auction",        "Auction Market"),
+            ("transfer-board", "Transfer Market"),
+            ("deal-center",    "Deal Center"),
+            ("my-squad",       "My Squad"),
+            ("users",          "จัดการผู้ใช้"),
+            ("announcements",  "จัดการประกาศ"),
+            ("admin-auction",  "Auction Settings"),
+            ("permissions",    "จัดการสิทธิ์"),
         };
 
         public static readonly string[] AllLevels = { "admin", "user" };

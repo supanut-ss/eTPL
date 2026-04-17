@@ -25,14 +25,21 @@ import {
   InputLabel,
   FormControlLabel,
   Checkbox,
-  alpha,
+  CircularProgress,
 } from "@mui/material";
-import { Gavel, Refresh, Search, SportsSoccer, AccountBalanceWallet, Groups, HelpOutline, Campaign } from "@mui/icons-material";
+import { alpha } from "@mui/material/styles";
+import { Gavel, Refresh, Search, SearchOff, SportsSoccer, AccountBalanceWallet, Groups, HelpOutline, Campaign, History, Timer, EmojiEvents, ArrowBack, Close } from "@mui/icons-material";
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
 import { useSnackbar } from "notistack";
 import { checkMarketOpen } from "../utils/marketUtils";
+
+const getPesdbLink = (imageUrl) => {
+  if (!imageUrl) return null;
+  const match = imageUrl.match(/(\d+)\.png/);
+  return match ? `https://pesdb.net/efootball/?id=${match[1]}` : null;
+};
 
 const AuctionPage = () => {
   const { user } = useAuth();
@@ -56,6 +63,9 @@ const AuctionPage = () => {
   const [filterFoot, setFilterFoot] = useState("");
   const [filterNationality, setFilterNationality] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [searchPage, setSearchPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingSearch, setLoadingSearch] = useState(false);
 
   // Dynamic Filter Options
   const [filterOptions, setFilterOptions] = useState({
@@ -197,8 +207,11 @@ const AuctionPage = () => {
     return () => clearInterval(interval);
   }, [user]);
 
-  const handleSearch = async (term = searchTerm, grade = searchGrade, free = freeAgentOnly) => {
+  const handleSearch = async (term = searchTerm, grade = searchGrade, free = freeAgentOnly, isNew = true) => {
+    if (loadingSearch) return;
     try {
+      setLoadingSearch(true);
+      const nextPage = isNew ? 1 : searchPage + 1;
       const filters = {
         searchTerm: term,
         grade,
@@ -209,11 +222,27 @@ const AuctionPage = () => {
         playingStyle: filterPlayingStyle,
         foot: filterFoot,
         nationality: filterNationality,
+        page: nextPage,
+        pageSize: 30
       };
+      
       const res = await auctionService.searchPlayers(filters);
-      setSearchResults(res.data.items);
+      const newItems = res?.data?.items || res?.items || [];
+      
+      if (isNew) {
+        setSearchResults(newItems);
+        setSearchPage(1);
+      } else {
+        setSearchResults(prev => [...prev, ...newItems]);
+        setSearchPage(nextPage);
+      }
+      
+      setHasMore(newItems.length >= 30);
     } catch (err) {
+      console.error(err);
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
+    } finally {
+      setLoadingSearch(false);
     }
   };
 
@@ -221,7 +250,7 @@ const AuctionPage = () => {
     try {
       await auctionService.placeNormalBid(auctionId, currentPrice + 1);
       enqueueSnackbar("Bid placed successfully", { variant: "success" });
-      handleSearch(); // refresh search results
+      handleSearch(); // Refresh results to update player status
       fetchData();
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
@@ -260,7 +289,7 @@ const AuctionPage = () => {
     try {
       await auctionService.startAuction(playerId);
       enqueueSnackbar("Auction started successfully", { variant: "success" });
-      setSearchOpen(false);
+      handleSearch(); // Refresh results to update player status
       fetchData();
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
@@ -327,13 +356,10 @@ const AuctionPage = () => {
           </Box>
         </Box>
         <Box display="flex" gap={1}>
-          <Tooltip title="Refresh">
-            <IconButton onClick={fetchData} disabled={loading}>
-              <Refresh />
-            </IconButton>
-          </Tooltip>
+
           <Button 
             variant="contained" 
+            disableElevation
             startIcon={<Search />} 
             onClick={() => {
               setSearchOpen(true);
@@ -341,12 +367,28 @@ const AuctionPage = () => {
               setSearchTerm("");
               setSearchGrade("All");
               setFreeAgentOnly(false);
+              setSearchPage(1);
+              setHasMore(true);
               setFilterLeague("");
               setFilterPosition("");
               setFilterPlayingStyle("");
               setFilterFoot("");
               setFilterNationality("");
               setShowFilters(false);
+            }}
+            sx={{
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontWeight: 700,
+              px: 3,
+              height: 42,
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
+              transition: 'all 0.2s',
+              "&:hover": { 
+                transform: 'translateY(-1px)',
+                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.3)',
+                bgcolor: 'primary.dark'
+              },
             }}
           >
             Start Auction
@@ -630,7 +672,7 @@ const AuctionPage = () => {
           <Gavel color="warning" fontSize="small" />
           <Typography variant="h6" fontWeight="bold">🔥 Live Auctions</Typography>
         </Box>
-        {summary.marketStartTime && (
+        {summary && summary.marketStartTime && (
           <Box sx={{ 
             display: 'flex', 
             alignItems: 'center', 
@@ -663,8 +705,8 @@ const AuctionPage = () => {
           .filter(a => a.dbStatus === "Active" && a.bidderUserIds?.includes(user?.id))
           .sort((a, b) => new Date(a.finalEndTime) - new Date(b.finalEndTime))
           .map((auction) => {
-            const gradeColor = getGradeColor(auction.playerOvr);
-            const gradeLabel = getDynamicGrade(auction.playerOvr).label;
+            const gradeColor = getGradeColor(auction?.playerOvr || 0);
+            const gradeLabel = getDynamicGrade(auction?.playerOvr || 0).label;
             const isNormal = auction.displayStatus === "Normal Bid";
             const isFinal = auction.displayStatus === "Final Bid";
             const isWaiting = auction.displayStatus === "Waiting Confirm";
@@ -680,7 +722,21 @@ const AuctionPage = () => {
                     overflow: "hidden",
                     bgcolor: "#fff"
                 }}>
-                    <Box sx={{ position: "relative", width: 80, height: 110, flexShrink: 0 }}>
+                    <Box 
+                        component={getPesdbLink(`https://pesdb.net/assets/img/card/b${auction.playerId}.png`) ? "a" : "div"}
+                        href={getPesdbLink(`https://pesdb.net/assets/img/card/b${auction.playerId}.png`)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ 
+                            position: "relative", 
+                            width: 80, 
+                            height: 110, 
+                            flexShrink: 0,
+                            cursor: "pointer",
+                            transition: "transform 0.2s",
+                            "&:hover": { transform: "scale(1.05)" }
+                        }}
+                    >
                         <Avatar 
                             src={`https://pesdb.net/assets/img/card/b${auction.playerId}.png`}
                             variant="rounded" 
@@ -919,21 +975,55 @@ const AuctionPage = () => {
               </Box>
           </Box>
           )}
-          <Box display="flex" flexDirection="column" gap={1.5} sx={{ maxHeight: 500, overflowY: 'auto', pr: 0.5 }}>
+          <Box 
+            display="flex" 
+            flexDirection="column" 
+            gap={1.5} 
+            sx={{ 
+              maxHeight: 600, 
+              overflowY: 'auto', 
+              pr: 0.5,
+              scrollBehavior: 'smooth',
+              minHeight: 200
+            }}
+            onScroll={(e) => {
+              const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+              if (scrollHeight - scrollTop <= clientHeight + 100) { // 100px before bottom
+                if (hasMore && !loadingSearch) {
+                  handleSearch(searchTerm, searchGrade, freeAgentOnly, false);
+                }
+              }
+            }}
+          >
+            {loadingSearch && searchResults.length === 0 && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 10, gap: 2 }}>
+                <CircularProgress />
+                <Typography color="text.secondary" variant="body2">กำลังค้นหานักเตะ...</Typography>
+              </Box>
+            )}
+
+            {!loadingSearch && searchResults.length === 0 && (
+              <Box sx={{ textAlign: 'center', py: 8, bgcolor: 'rgba(0,0,0,0.02)', borderRadius: 4, border: '2px dashed', borderColor: 'rgba(0,0,0,0.05)' }}>
+                 <SearchOff sx={{ fontSize: 48, color: 'text.disabled', mb: 1, opacity: 0.5 }} />
+                 <Typography color="text.secondary" fontWeight="600">ไม่พบนักเตะตามเงื่อนไขที่ระบุ</Typography>
+                 <Typography variant="caption" color="text.disabled">ลองปรับเปลี่ยนตัวกรองหรือคำค้นหาใหม่</Typography>
+              </Box>
+            )}
+
             {searchResults.map((p) => {
               const isAvailable = p.status === "Available";
               const isNormalBid = p.status === "In Normal Bid";
               const isFinalBid = p.status === "In Final Bid";
               const isWon = p.status === "Won";
               const getPosColor = (pos) => {
-                const p = pos?.toUpperCase() || '';
-                if (['CF', 'SS', 'LWF', 'RWF'].includes(p)) return '#FF3B30';
-                if (['AMF', 'CMF', 'DMF', 'LMF', 'RMF'].includes(p)) return '#28CD41';
-                if (['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(p)) return '#007AFF';
-                if (p === 'GK') return '#FFCC00';
+                const pName = pos?.toUpperCase() || '';
+                if (['CF', 'SS', 'LWF', 'RWF'].includes(pName)) return '#FF3B30';
+                if (['AMF', 'CMF', 'DMF', 'LMF', 'RMF'].includes(pName)) return '#28CD41';
+                if (['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(pName)) return '#007AFF';
+                if (pName === 'GK') return '#FFCC00';
                 return '#8E8E93';
               };
-              const gradeColor = getGradeColor(p.playerOvr);
+              const gradeColor = getGradeColor(p?.playerOvr || 0);
 
               return (
               <Box key={p.idPlayer} sx={{ 
@@ -995,16 +1085,25 @@ const AuctionPage = () => {
                   </Box>
 
                   {/* Player Image - WITH GRADE BORDER */}
-                  <Box sx={{ 
-                    position: 'relative', 
-                    flexShrink: 0,
-                    p: '3px',
-                    borderRadius: '8px',
-                    border: '0.5px solid',
-                    borderColor: alpha(gradeColor, 0.6),
-                    boxShadow: `0 0 10px ${alpha(gradeColor, 0.2)}`,
-                    bgcolor: alpha(gradeColor, 0.12)
-                  }}>
+                  <Box 
+                    component={getPesdbLink(`https://pesdb.net/assets/img/card/b${p.idPlayer}.png`) ? "a" : "div"}
+                    href={getPesdbLink(`https://pesdb.net/assets/img/card/b${p.idPlayer}.png`)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{ 
+                      position: 'relative', 
+                      flexShrink: 0,
+                      p: '3px',
+                      borderRadius: '8px',
+                      border: '0.5px solid',
+                      borderColor: alpha(gradeColor, 0.6),
+                      boxShadow: `0 0 10px ${alpha(gradeColor, 0.2)}`,
+                      bgcolor: alpha(gradeColor, 0.12),
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s',
+                      '&:hover': { transform: 'scale(1.05)' }
+                    }}
+                  >
                     <Box 
                       component="img"
                       src={`https://pesdb.net/assets/img/card/b${p.idPlayer}.png`} 
@@ -1095,6 +1194,18 @@ const AuctionPage = () => {
               </Box>
             );
             })}
+            
+            {loadingSearch && searchResults.length > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <CircularProgress size={24} />
+              </Box>
+            )}
+
+            {!hasMore && searchResults.length > 0 && (
+              <Box sx={{ textAlign: 'center', p: 3, opacity: 0.5 }}>
+                <Typography variant="caption">สิ้นสุดรายการค้นหา</Typography>
+              </Box>
+            )}
           </Box>
         </DialogContent>
         <Divider />

@@ -175,18 +175,25 @@ const AnnouncementPage = () => {
         </Box>
 
         <Box display="flex" gap={1}>
-          <Button
-            variant="outlined"
-            startIcon={<Refresh />}
-            onClick={loadData}
-            disabled={loading}
-          >
-            Refresh
-          </Button>
+
           <Button
             variant="contained"
+            disableElevation
             startIcon={<Add />}
             onClick={handleOpenCreate}
+            sx={{
+              borderRadius: '12px',
+              textTransform: 'none',
+              fontWeight: 700,
+              px: 3,
+              height: 42,
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
+              transition: 'all 0.2s',
+              "&:hover": { 
+                transform: 'translateY(-1px)',
+                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.3)',
+              },
+            }}
           >
             Add Announcement
           </Button>

@@ -606,5 +606,30 @@ namespace eTPL.API.Controllers
                 return BadRequest(ApiResponse<object>.Fail(ex.Message));
             }
         }
+
+        public class ResetMarketRequest
+        {
+            public string Password { get; set; } = string.Empty;
+        }
+
+        [HttpPost("admin/reset-market")]
+        public async Task<IActionResult> ResetMarket([FromBody] ResetMarketRequest req)
+        {
+            try
+            {
+                var userStrId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userStrId);
+                if (user == null || user.UserLevel != "admin") throw new UnauthorizedAccessException("สำหรับ Admin เท่านั้น");
+
+                if (user.Password != req.Password) throw new UnauthorizedAccessException("รหัสผ่านสำหรับยืนยันการ Reset ไม่ถูกต้อง");
+
+                await _auctionService.ResetMarketAsync();
+                return Ok(ApiResponse<object>.Ok(null, "ล้างข้อมูลตลาดเทรดทั้งหมดเรียบร้อยแล้ว"));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
     }
 }

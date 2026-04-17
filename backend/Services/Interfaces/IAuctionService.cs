@@ -60,5 +60,6 @@ namespace eTPL.API.Services.Interfaces
         Task<List<TransferOfferDto>> GetIncomingOffersAsync(int userId);
         Task<List<TransferOfferDto>> GetOutgoingOffersAsync(int userId);
         Task<List<AuctionSquadDto>> GetTransferBoardAsync();
+        Task ResetMarketAsync();
     }
 }

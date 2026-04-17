@@ -15,6 +15,12 @@ import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
 import { checkMarketOpen } from "../utils/marketUtils";
 
+const getPesdbLink = (imageUrl) => {
+  if (!imageUrl) return null;
+  const match = imageUrl.match(/(\d+)\.png/);
+  return match ? `https://pesdb.net/efootball/?id=${match[1]}` : null;
+};
+
 const GRADE_STYLE_MAP = {
   S: {
     color: "#ffb300",
@@ -180,13 +186,25 @@ const MarketOverviewPage = () => {
                 </Box>
             </Box>
         </Box>
-        <Paper elevation={0} sx={{ p: 2.5, borderRadius: 4, bgcolor: "#0f172a", color: "white", display: "flex", alignItems: "center", gap: 2, boxShadow: "0 10px 30px -10px rgba(15,23,42,0.3)" }}>
-            <AccountBalanceWallet sx={{ color: "#4ade80", fontSize: 32 }} />
+        <Box sx={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: 1.5, 
+            px: 2.5, 
+            py: 1.2, 
+            bgcolor: "grey.50", 
+            borderRadius: 2.5, 
+            border: "1px solid", 
+            borderColor: "divider" 
+        }}>
+            <AccountBalanceWallet sx={{ color: "primary.main", fontSize: 24 }} />
             <Box>
-                <Typography variant="caption" sx={{ opacity: 0.7, display: "block", lineHeight: 1, letterSpacing: 1, fontWeight: "bold" }}>YOUR TP</Typography>
-                <Typography variant="h5" fontWeight="900" color="#4ade80">{wallet?.availableBalance?.toLocaleString()}</Typography>
+                <Typography variant="caption" color="text.secondary" fontWeight="800" sx={{ display: "block", lineHeight: 1, letterSpacing: 0.5 }}>MY BALANCE</Typography>
+                <Typography variant="h6" fontWeight="900" color="text.primary" sx={{ lineHeight: 1.2 }}>
+                    {wallet?.availableBalance?.toLocaleString()} <Typography component="span" variant="caption" fontWeight="bold" sx={{ opacity: 0.5 }}>TP</Typography>
+                </Typography>
             </Box>
-        </Paper>
+        </Box>
       </Box>
 
       {marketSummary && !checkMarketOpen(marketSummary).isOpen && (
@@ -205,44 +223,57 @@ const MarketOverviewPage = () => {
         </Paper>
       )}
 
-      <Tabs 
-        value={tabValue} 
-        onChange={(e, v) => setTabValue(v)} 
-        sx={{ 
-            mb: 4, 
-            "& .MuiTab-root": { fontWeight: "bold", fontSize: "1rem", textTransform: "none", minHeight: 64 },
-            "& .MuiTabs-indicator": { height: 4, borderRadius: 2 }
-        }}
-      >
-        <Tab icon={<Badge badgeContent={incomingOffers.length} color="error" sx={{ "& .MuiBadge-badge": { right: -6, top: 2 } }}><ArrowBack /></Badge>} iconPosition="start" label="Incoming Offers" />
-        <Tab icon={<ArrowForward />} iconPosition="start" label="My Offers" />
-        <Tab icon={<Storefront />} iconPosition="start" label="Market Listings" />
-      </Tabs>
+      <Box sx={{ mb: 4, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Tabs 
+            value={tabValue} 
+            onChange={(e, v) => setTabValue(v)} 
+            sx={{ 
+                "& .MuiTab-root": { 
+                    fontWeight: 800, 
+                    fontSize: "0.95rem", 
+                    textTransform: "none", 
+                    minHeight: 60,
+                    color: 'text.secondary',
+                    px: 4,
+                    transition: 'all 0.2s',
+                    "&:hover": { color: 'primary.main', bgcolor: 'rgba(25, 118, 210, 0.02)' },
+                    '&.Mui-selected': { color: 'primary.main' }
+                },
+                "& .MuiTabs-indicator": { height: 3, borderRadius: '3px 3px 0 0' }
+            }}
+          >
+            <Tab icon={<Badge badgeContent={incomingOffers.length} color="error" sx={{ "& .MuiBadge-badge": { right: -8, top: 4 } }}><ArrowBack sx={{ fontSize: 20 }} /></Badge>} iconPosition="start" label="Incoming Offers" />
+            <Tab icon={<ArrowForward sx={{ fontSize: 20 }} />} iconPosition="start" label="My Offers" />
+            <Tab icon={<Storefront sx={{ fontSize: 20 }} />} iconPosition="start" label="Market Listings" />
+          </Tabs>
+      </Box>
 
       {/* Tab 0: Incoming Offers */}
       {tabValue === 0 && (
-        <Grid container spacing={incomingOffers.length === 0 ? 0 : 2.5} >
-            {incomingOffers.length === 0 ? (
-                <Grid item xs={12}>
+          incomingOffers.length === 0 ? (
+                <Box sx={{ width: '100%', mt: 1 }}>
                     <Paper elevation={0} sx={{ 
                         width: '100%',
-                        p: 12, textAlign: "center", borderRadius: 8, 
-                        bgcolor: "#f8fafc", 
-                        border: "1px dashed #cbd5e1",
+                        p: 10, textAlign: "center", borderRadius: 4, 
+                        bgcolor: "rgba(2,6,23,0.02)", 
+                        border: "1px dashed rgba(2,6,23,0.14)",
                         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                        minHeight: 300
+                        minHeight: 380
                     }}>
-                        <Campaign sx={{ fontSize: 48, color: "text.disabled", mb: 2, opacity: 0.5 }} />
-                        <Typography variant="h5" fontWeight="800" color="text.primary" gutterBottom>
+                        <Box sx={{ width: 100, height: 100, borderRadius: '50%', bgcolor: 'rgba(2,6,23,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+                            <Campaign sx={{ fontSize: 50, color: "rgba(2,6,23,0.55)", opacity: 0.35 }} />
+                        </Box>
+                        <Typography variant="h5" fontWeight="900" sx={{ color: "rgba(2,6,23,0.78)" }} gutterBottom>
                             ไม่มีข้อเสนอใหม่ในขณะนี้
                         </Typography>
-                        <Typography variant="body1" color="text.secondary">
+                        <Typography variant="body1" sx={{ color: "rgba(2,6,23,0.60)", maxWidth: 500 }}>
                             เมื่อมีคนยื่นข้อเสนอให้คุณ ข้อมูลจะปรากฏขึ้นที่ตรงนี้เพื่อรอการยืนยัน
                         </Typography>
                     </Paper>
-                </Grid>
+                </Box>
             ) : (
-                incomingOffers.map(offer => {
+                <Grid container spacing={2.5} >
+                {incomingOffers.map(offer => {
                     const grade = getDynamicGrade(offer.playerOvr || 0);
                     return (
                         <Grid item xs={12} md={6} lg={4} key={offer.offerId}>
@@ -251,7 +282,21 @@ const MarketOverviewPage = () => {
                                 position: "relative", border: `2.5px solid ${grade.color}`, transition: "transform 0.2s",
                                 "&:hover": { transform: "translateY(-4px)" }
                             }}>
-                                <Box sx={{ position: "relative", width: 80, height: 110, flexShrink: 0 }}>
+                                <Box 
+                                    component={getPesdbLink(offer.imageUrl) ? "a" : "div"}
+                                    href={getPesdbLink(offer.imageUrl)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    sx={{ 
+                                        position: "relative", 
+                                        width: 80, 
+                                        height: 110, 
+                                        flexShrink: 0,
+                                        cursor: getPesdbLink(offer.imageUrl) ? "pointer" : "default",
+                                        transition: "transform 0.2s",
+                                        "&:hover": { transform: getPesdbLink(offer.imageUrl) ? "scale(1.05)" : "none" }
+                                    }}
+                                >
                                     <Avatar src={offer.imageUrl} variant="rounded" sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc" }} />
                                     <Box sx={{ position: "absolute", top: -8, left: -8, background: grade.gradient, color: "white", minWidth: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", border: "2px solid white", zIndex: 2 }}>{grade.label}</Box>
                                 </Box>
@@ -260,6 +305,7 @@ const MarketOverviewPage = () => {
                                             <Box>
                                                 <Typography variant="subtitle2" fontWeight="bold" noWrap>{offer.playerName}</Typography>
                                                 <Typography variant="caption" display="block" color="text.secondary">From: <b>{offer.fromUserName}</b></Typography>
+                                                <Typography variant="caption" display="block" color="text.secondary">Offer: <b style={{ color: offer.offerType === "Loan" ? "#f59e0b" : "#3b82f6" }}>{offer.offerType === "Loan" ? "Loan (1 Season)" : "Transfer"}</b></Typography>
                                                 <Typography variant="caption" display="block" color="text.secondary">OVR: <b>{offer.playerOvr}</b></Typography>
                                                 <Typography variant="caption" display="block" color="text.secondary">Position: <b>{offer.position} ({offer.playingStyle})</b></Typography>
                                             </Box>
@@ -274,36 +320,38 @@ const MarketOverviewPage = () => {
                                 </Box>
                             </Card>
                         </Grid>
-                    )
-                })
-            )}
-        </Grid>
+                    );
+                })}
+                </Grid>
+            )
       )}
 
       {/* Tab 1: Outgoing Offers */}
       {tabValue === 1 && (
-        <Grid container spacing={outgoingOffers.filter(o => o.status !== "Rejected").length === 0 ? 0 : 2.5}>
-            {outgoingOffers.filter(o => o.status !== "Rejected").length === 0 ? (
-                <Grid item xs={12}>
+          outgoingOffers.filter(o => o.status !== "Rejected").length === 0 ? (
+                <Box sx={{ width: '100%', mt: 1 }}>
                     <Paper elevation={0} sx={{ 
                         width: '100%',
-                        p: 12, textAlign: "center", borderRadius: 8, 
-                        bgcolor: "#f8fafc", 
-                        border: "1px dashed #cbd5e1",
+                        p: 10, textAlign: "center", borderRadius: 4, 
+                        bgcolor: "rgba(2,6,23,0.02)", 
+                        border: "1px dashed rgba(2,6,23,0.14)",
                         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                        minHeight: 300
+                        minHeight: 380
                     }}>
-                        <ArrowForward sx={{ fontSize: 48, color: "text.disabled", mb: 2, opacity: 0.5 }} />
-                        <Typography variant="h5" fontWeight="800" color="text.primary" gutterBottom>
+                        <Box sx={{ width: 100, height: 100, borderRadius: '50%', bgcolor: 'rgba(2,6,23,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+                            <ArrowForward sx={{ fontSize: 50, color: "rgba(2,6,23,0.55)", opacity: 0.35 }} />
+                        </Box>
+                        <Typography variant="h5" fontWeight="900" sx={{ color: "rgba(2,6,23,0.78)" }} gutterBottom>
                             คุณยังไม่ได้ยื่นข้อเสนอในขณะนี้
                         </Typography>
-                        <Typography variant="body1" color="text.secondary">
-                            ไปที่หน้า Transfer Board เพื่อเริ่มต้นยื่นข้อเสนอซื้อทรายนักเตะที่คุณต้องการ
+                        <Typography variant="body1" sx={{ color: "rgba(2,6,23,0.60)", maxWidth: 500 }}>
+                            ไปที่หน้า Transfer Board เพื่อเริ่มต้นยื่นข้อเสนอซื้อนักเตะที่คุณต้องการ
                         </Typography>
                     </Paper>
-                </Grid>
+                </Box>
             ) : (
-                outgoingOffers
+                <Grid container spacing={2.5}>
+                {outgoingOffers
                     .filter(o => o.status !== "Rejected")
                     .map(offer => {
                         const grade = getDynamicGrade(offer.playerOvr || 0);
@@ -314,7 +362,21 @@ const MarketOverviewPage = () => {
                                 position: "relative", border: `2.5px solid ${grade.color}`, transition: "transform 0.2s",
                                 "&:hover": { transform: "translateY(-4px)" }
                             }}>
-                                <Box sx={{ position: "relative", width: 80, height: 110, flexShrink: 0 }}>
+                                <Box 
+                                    component={getPesdbLink(offer.imageUrl) ? "a" : "div"}
+                                    href={getPesdbLink(offer.imageUrl)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    sx={{ 
+                                        position: "relative", 
+                                        width: 80, 
+                                        height: 110, 
+                                        flexShrink: 0,
+                                        cursor: getPesdbLink(offer.imageUrl) ? "pointer" : "default",
+                                        transition: "transform 0.2s",
+                                        "&:hover": { transform: getPesdbLink(offer.imageUrl) ? "scale(1.05)" : "none" }
+                                    }}
+                                >
                                     <Avatar src={offer.imageUrl} variant="rounded" sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc" }} />
                                     <Box sx={{ position: "absolute", top: -8, left: -8, background: grade.gradient, color: "white", minWidth: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", border: "2px solid white", zIndex: 2 }}>{grade.label}</Box>
                                 </Box>
@@ -323,6 +385,7 @@ const MarketOverviewPage = () => {
                                             <Box>
                                                 <Typography variant="subtitle2" fontWeight="bold" noWrap>{offer.playerName}</Typography>
                                                 <Typography variant="caption" display="block" color="text.secondary">Target: <b>{offer.toUserName}</b></Typography>
+                                                <Typography variant="caption" display="block" color="text.secondary">Offer: <b style={{ color: offer.offerType === "Loan" ? "#f59e0b" : "#3b82f6" }}>{offer.offerType === "Loan" ? "Loan (1 Season)" : "Transfer"}</b></Typography>
                                                 <Typography variant="caption" display="block" color="text.secondary">OVR: <b>{offer.playerOvr}</b></Typography>
                                                 <Typography variant="caption" display="block" color="text.secondary">Position: <b>{offer.position} ({offer.playingStyle})</b></Typography>
                                             </Box>
@@ -334,40 +397,45 @@ const MarketOverviewPage = () => {
                                         {offer.status === "Pending" && (
                                             <Button variant="outlined" size="small" color="error" fullWidth startIcon={<Cancel />} onClick={() => handleCancelOffer(offer.offerId)} sx={{ borderRadius: 1.5, fontWeight: "bold" }}>Cancel Offer</Button>
                                         )}
+                                        {offer.status === "Collapsed" && (
+                                            <Chip label="Deal Collapsed (Check Quota/TP)" color="error" size="small" variant="filled" sx={{ borderRadius: 1.5, fontWeight: "900", width: "100%" }} icon={<Cancel sx={{ fontSize: '1rem !important' }} />} />
+                                        )}
                                     </Box>
                                 </Box>
                             </Card>
                         </Grid>
-                    )
-                })
-            )}
-        </Grid>
+                        );
+                    })}
+                </Grid>
+            )
       )}
 
       {/* Tab 2: My Listings */}
       {tabValue === 2 && (
-        <Grid container spacing={myListings.length === 0 ? 0 : 2.5}>
-            {myListings.length === 0 ? (
-                <Grid item xs={12}>
+          myListings.length === 0 ? (
+                <Box sx={{ width: '100%', mt: 1 }}>
                     <Paper elevation={0} sx={{ 
                         width: '100%',
-                        p: 12, textAlign: "center", borderRadius: 8, 
-                        bgcolor: "#f8fafc", 
-                        border: "1px dashed #cbd5e1",
+                        p: 10, textAlign: "center", borderRadius: 4, 
+                        bgcolor: "rgba(2,6,23,0.02)", 
+                        border: "1px dashed rgba(2,6,23,0.14)",
                         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                        minHeight: 300
+                        minHeight: 380
                     }}>
-                        <Storefront sx={{ fontSize: 48, color: "text.disabled", mb: 2, opacity: 0.5 }} />
-                        <Typography variant="h5" fontWeight="800" color="text.primary" gutterBottom>
+                        <Box sx={{ width: 100, height: 100, borderRadius: '50%', bgcolor: 'rgba(2,6,23,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+                            <Storefront sx={{ fontSize: 50, color: "rgba(2,6,23,0.55)", opacity: 0.35 }} />
+                        </Box>
+                        <Typography variant="h5" fontWeight="900" sx={{ color: "rgba(2,6,23,0.78)" }} gutterBottom>
                             คุณไม่มีรายการตั้งขายในขณะนี้
                         </Typography>
-                        <Typography variant="body1" color="text.secondary">
+                        <Typography variant="body1" sx={{ color: "rgba(2,6,23,0.60)" }}>
                             คุณสามารถเลือกนักเตะจาก Squad ของคุณเพื่อนำมาขึ้นทะเบียนขายบนตลาดซื้อขายได้
                         </Typography>
                     </Paper>
-                </Grid>
+                </Box>
             ) : (
-                myListings.map(p => {
+                <Grid container spacing={2.5}>
+                {myListings.map(p => {
                     const grade = getDynamicGrade(p.playerOvr);
                     return (
                         <Grid item xs={12} md={6} lg={4} key={p.squadId}>
@@ -376,7 +444,21 @@ const MarketOverviewPage = () => {
                                 position: "relative", border: `2.5px solid ${grade.color}`, transition: "transform 0.2s",
                                 "&:hover": { transform: "translateY(-4px)" }
                             }}>
-                                <Box sx={{ position: "relative", width: 80, height: 110, flexShrink: 0 }}>
+                                <Box 
+                                    component={getPesdbLink(p.imageUrl) ? "a" : "div"}
+                                    href={getPesdbLink(p.imageUrl)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    sx={{ 
+                                        position: "relative", 
+                                        width: 80, 
+                                        height: 110, 
+                                        flexShrink: 0,
+                                        cursor: getPesdbLink(p.imageUrl) ? "pointer" : "default",
+                                        transition: "transform 0.2s",
+                                        "&:hover": { transform: getPesdbLink(p.imageUrl) ? "scale(1.05)" : "none" }
+                                    }}
+                                >
                                     <Avatar src={p.imageUrl} variant="rounded" sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc" }} />
                                     <Box sx={{ position: "absolute", top: -8, left: -8, background: grade.gradient, color: "white", minWidth: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", border: "2px solid white", zIndex: 2 }}>{grade.label}</Box>
                                 </Box>
@@ -395,10 +477,10 @@ const MarketOverviewPage = () => {
                                 </Box>
                             </Card>
                         </Grid>
-                    )
-                })
-            )}
-        </Grid>
+                    );
+                })}
+                </Grid>
+            )
       )}
 
     </Box>

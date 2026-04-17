@@ -54,11 +54,17 @@ builder.Services.AddCors(options =>
 
 // ── MS SQL DbContext (Users + Business Data)
 builder.Services.AddDbContext<MsSqlDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("MsSql"), o => o.UseCompatibilityLevel(120)));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("MsSql"), sqlOptions => {
+        sqlOptions.UseCompatibilityLevel(120);
+        sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
+    }));
 
 // ── Scaffolded DbContext (ใช้ connection string เดียวกัน)
 builder.Services.AddDbContext<ScaffoldedDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("MsSql"), o => o.UseCompatibilityLevel(120)));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("MsSql"), sqlOptions => {
+        sqlOptions.UseCompatibilityLevel(120);
+        sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
+    }));
 
 // ── MySQL DbContext (สำรองไว้ถ้ามีใช้ในอนาคต)
 // var mySqlConn = builder.Configuration.GetConnectionString("MySql");

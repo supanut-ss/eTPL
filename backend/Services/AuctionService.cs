@@ -118,7 +118,7 @@ namespace eTPL.API.Services
             if (settings == null) throw new Exception("Auction settings not found.");
 
             // Get winning count + squad count
-            var currentSquadCount = await _context.AuctionSquads.CountAsync(s => s.UserId == userId);
+            var currentSquadCount = await _context.AuctionSquads.CountAsync(s => s.UserId == userId && s.Status != "Loaned");
             var winningAuctions = await GetUserWinningAuctionsInternalAsync(userId);
             var winningCount = winningAuctions.Count(a => a.AuctionId != (excludeAuctionId ?? 0));
 
@@ -134,13 +134,13 @@ namespace eTPL.API.Services
 
             var quotas = await _context.AuctionGradeQuotas.ToListAsync();
             var gradeE = quotas.FirstOrDefault(q => q.GradeName == "E");
-            int lowestPrice = gradeE?.MinOVR ?? settings.MinBidPrice;
+            int lowestPrice = (gradeE?.MinOVR ?? 65) + 1;
 
             int remainingSlotsToFill = settings.MaxSquadSize - totalOwnedAndWinning - 1; 
             int requiredReserve = remainingSlotsToFill > 0 ? remainingSlotsToFill * lowestPrice : 0;
 
             if (wallet.AvailableBalance - bidAmount < requiredReserve)
-                throw new Exception($"Budget Lock: ต้องเหลือเงินอย่างน้อย {requiredReserve} สำหรับซื้ออีก {remainingSlotsToFill} ตำแหน่งด้วยราคาเกรด {gradeE?.GradeName ?? "E"} ({lowestPrice} TP)");
+                throw new Exception($"Budget Lock: ต้องเหลือเงินอย่างน้อย {requiredReserve} สำหรับซื้ออีก {remainingSlotsToFill} ตำแหน่งด้วยราคาเกรด {gradeE?.GradeName ?? "E"} +1 ({lowestPrice} TP)");
 
             // 3. Grade Quota Check
             var targetGrade = quotas.FirstOrDefault(q => playerOvr >= q.MinOVR && playerOvr <= q.MaxOVR);
@@ -148,7 +148,7 @@ namespace eTPL.API.Services
             if (targetGrade != null && targetGrade.MaxAllowedPerUser < 99)
             {
                 var squadOVRs = await _context.AuctionSquads
-                    .Where(s => s.UserId == userId)
+                    .Where(s => s.UserId == userId && s.Status != "Loaned") // Exclude loaned-out, Include loaned-in
                     .Select(s => s.Player!.PlayerOvr)
                     .ToListAsync();
                     
@@ -236,9 +236,12 @@ namespace eTPL.API.Services
 
             if (!expiredAuctions.Any()) return;
 
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
             {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
                 foreach (var auction in expiredAuctions)
                 {
                     auction.DbStatus = "Cancelled";
@@ -278,12 +281,13 @@ namespace eTPL.API.Services
                 }
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                }
+                catch
+                {
+                    try { await transaction.RollbackAsync(); } catch { }
+                    throw;
+                }
+            });
         }
 
         public async Task<PagedResultDto<PlayerSearchResultDto>> SearchPlayersAsync(
@@ -311,7 +315,8 @@ namespace eTPL.API.Services
 
             if (ownedOnly)
             {
-                var ownedQuery = _context.AuctionSquads.AsQueryable();
+                // Exclude loaned players (both lender and borrower records)
+                var ownedQuery = _context.AuctionSquads.Where(s => s.Status != "Loaned" && !s.IsLoan);
                 if (excludeUserId.HasValue)
                 {
                     ownedQuery = ownedQuery.Where(s => s.UserId != excludeUserId.Value);
@@ -456,7 +461,10 @@ namespace eTPL.API.Services
                     Age = p.Age
                 };
                 // Check if in squad (Won)
-                var squadEntry = squadEntries.FirstOrDefault(s => s.PlayerId == p.IdPlayer);
+                // If the player is loaned, there are two entries. Prioritize the one that is currently "Active" (borrower).
+                var playerSquads = squadEntries.Where(s => s.PlayerId == p.IdPlayer).ToList();
+                var squadEntry = playerSquads.FirstOrDefault(s => s.Status == "Active") ?? playerSquads.FirstOrDefault();
+
                 if (squadEntry != null)
                 {
                     result.Status = "Won";
@@ -468,11 +476,11 @@ namespace eTPL.API.Services
                         .OrderByDescending(b => b.FinalEndTime)
                         .FirstOrDefault();
 
-                    // Prioritize LineName (Display Name) over UserId (Login ID)
-                    result.WinnerName = latestSoldBoard?.HighestBidder?.LineName 
+                    // Use current squad owner as the absolute truth for ownership
+                    result.WinnerName = squadEntry.User?.LineName 
+                                     ?? squadEntry.User?.UserId
+                                     ?? latestSoldBoard?.HighestBidder?.LineName 
                                      ?? latestSoldBoard?.HighestBidder?.UserId 
-                                     ?? squadEntry.User?.LineName 
-                                     ?? squadEntry.User?.UserId 
                                      ?? "Unknown";
                     
                     // Use sold board price as fallback for PricePaid if squad record is 0
@@ -540,9 +548,12 @@ namespace eTPL.API.Services
                 DbStatus = "Active"
             };
 
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
             {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
                 _context.AuctionBoards.Add(auction);
                 await _context.SaveChangesAsync();
 
@@ -570,13 +581,14 @@ namespace eTPL.API.Services
                     wallet.AvailableBalance, auction.AuctionId, player.IdPlayer);
 
                 await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                    await transaction.CommitAsync();
+                }
+                catch
+                {
+                    try { await transaction.RollbackAsync(); } catch { }
+                    throw;
+                }
+            });
 
             auction = await _context.AuctionBoards
                 .Include(a => a.Player)
@@ -656,9 +668,12 @@ namespace eTPL.API.Services
 
         public async Task<AuctionBoardDto> PlaceNormalBidAsync(int auctionId, int userId, int bidAmount)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
             {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
                 var auction = await _context.AuctionBoards
                     .Include(b => b.Player)
                     .Include(b => b.HighestBidder)
@@ -728,23 +743,27 @@ namespace eTPL.API.Services
                     .CountAsync();
 
                 return MapToDto(auction, currentBiddersCount);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                throw new Exception("Conflict: มีคนบิดไปแล้ว โปรดลองใหม่");
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    throw new Exception("Conflict: มีคนบิดไปแล้ว โปรดลองใหม่");
+                }
+                catch
+                {
+                    try { await transaction.RollbackAsync(); } catch { }
+                    throw;
+                }
+            });
         }
 
         public async Task<AuctionBoardDto> PlaceFinalBidAsync(int auctionId, int userId, int bidAmount)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
             {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
                 var auction = await _context.AuctionBoards
                     .Include(b => b.Player)
                     .FirstOrDefaultAsync(b => b.AuctionId == auctionId);
@@ -798,31 +817,35 @@ namespace eTPL.API.Services
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
+                    
+                    var currentCount = await _context.AuctionBidLogs
+                        .Where(l => l.AuctionId == auctionId)
+                        .Select(l => l.UserId)
+                        .Distinct()
+                        .CountAsync();
 
-                var currentBiddersCount = await _context.AuctionBidLogs
-                    .Where(l => l.AuctionId == auctionId)
-                    .Select(l => l.UserId)
-                    .Distinct()
-                    .CountAsync();
-
-                return MapToDto(auction, currentBiddersCount);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                throw new Exception("Conflict: Server กำลังจัดการข้อมูล");
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                    return MapToDto(auction, currentCount);
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    throw new Exception("Conflict: มีคนบิดไปแล้ว โปรดลองใหม่");
+                }
+                catch
+                {
+                    try { await transaction.RollbackAsync(); } catch { }
+                    throw;
+                }
+            });
         }
 
         public async Task<AuctionBoardDto> ConfirmAuctionAsync(int auctionId, int userId)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
             {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
                 var auction = await _context.AuctionBoards
                     .Include(b => b.Player)
                     .FirstOrDefaultAsync(b => b.AuctionId == auctionId);
@@ -914,25 +937,38 @@ namespace eTPL.API.Services
                         winnerWallet.AvailableBalance, auctionId, auction.PlayerId);
                 }
 
-                _context.AuctionSquads.Add(new AuctionSquad
+                var existingSquad = await _context.AuctionSquads.FirstOrDefaultAsync(s => s.UserId == winnerId.Value && s.PlayerId == auction.PlayerId);
+                if (existingSquad != null)
                 {
-                    UserId = winnerId.Value,
-                    PlayerId = auction.PlayerId,
-                    PricePaid = winningPrice,
-                    AcquiredAt = DateTime.UtcNow,
-                    Status = "Active"
-                });
+                    existingSquad.PricePaid = winningPrice;
+                    existingSquad.Status = "Active";
+                    existingSquad.AcquiredAt = DateTime.UtcNow;
+                    existingSquad.IsLoan = false;
+                    existingSquad.LoanedFromUserId = null;
+                }
+                else
+                {
+                    _context.AuctionSquads.Add(new AuctionSquad
+                    {
+                        UserId = winnerId.Value,
+                        PlayerId = auction.PlayerId,
+                        PricePaid = winningPrice,
+                        AcquiredAt = DateTime.UtcNow,
+                        Status = "Active"
+                    });
+                }
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                return MapToDto(auction);
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                throw new Exception(ex.Message);
-            }
+                    return MapToDto(auction);
+                }
+                catch (Exception ex)
+                {
+                    try { await transaction.RollbackAsync(); } catch { }
+                    throw new Exception(ex.Message);
+                }
+            });
         }
 
         public async Task<AuctionWalletDto> GetWalletAsync(int userId)
@@ -977,9 +1013,13 @@ namespace eTPL.API.Services
                 .GroupBy(b => b.PlayerId)
                 .ToDictionary(g => g.Key, g => g.First().CurrentPrice);
 
-            var currentSquadCount = squad.Count + winning.Count;
+            var quotas = await _context.AuctionGradeQuotas.ToListAsync();
+            var gradeE = quotas.FirstOrDefault(q => q.GradeName == "E");
+            int lowestPriceForReserve = (gradeE?.MinOVR ?? 65) + 1;
+
+            var currentSquadCount = squad.Count(s => s.Status != "Loaned") + winning.Count;
             int remainingSlots = settings.MaxSquadSize - currentSquadCount;
-            int required = remainingSlots > 0 ? remainingSlots * settings.MinBidPrice : 0;
+            int required = remainingSlots > 0 ? remainingSlots * lowestPriceForReserve : 0;
 
             var summary = new UserAuctionSummaryDto
             {
@@ -1014,8 +1054,8 @@ namespace eTPL.API.Services
                 }).ToList()
             };
 
-            var quotas = await _context.AuctionGradeQuotas.ToListAsync();
-            var allOVRs = squad.Where(s => s.Player != null).Select(s => s.Player!.PlayerOvr)
+            // Use allOVRs for quota usage
+            var allOVRs = squad.Where(s => s.Player != null && s.Status != "Loaned").Select(s => s.Player!.PlayerOvr)
                           .Concat(winning.Where(w => w.Player != null).Select(b => b.Player!.PlayerOvr)).ToList();
 
             foreach (var q in quotas)
@@ -1150,13 +1190,22 @@ namespace eTPL.API.Services
 
         public async Task ReleasePlayerAsync(int userId, ReleasePlayerRequest request)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
             {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
                 var squad = await _context.AuctionSquads
                     .Include(s => s.Player)
                     .FirstOrDefaultAsync(s => s.SquadId == request.SquadId && s.UserId == userId)
                     ?? throw new Exception("ไม่พบนักเตะในทีมของคุณ");
+
+                if (squad.IsLoan)
+                    throw new Exception("ไม่สามารถปล่อยตัวนักเตะที่ยังอยู่ระหว่างการยืมตัวได้");
+                    
+                if (squad.Status == "Loaned")
+                    throw new Exception("ไม่สามารถปล่อยตัวนักเตะที่กำลังให้ทีมอื่นยืมอยู่ได้");
 
                 var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == userId)
                     ?? throw new Exception("Wallet not found.");
@@ -1167,6 +1216,14 @@ namespace eTPL.API.Services
                 }
 
                 var playerName = squad.Player?.PlayerName ?? "Unknown";
+
+                // Remove any pending/existing transfer offers associated with this squad to avoid FK constraint violations
+                var relatedOffers = await _context.TransferOffers.Where(o => o.SquadId == squad.SquadId).ToListAsync();
+                if (relatedOffers.Any())
+                {
+                    _context.TransferOffers.RemoveRange(relatedOffers);
+                }
+
                 _context.AuctionSquads.Remove(squad);
 
                 await RecordTransactionAsync(
@@ -1175,24 +1232,31 @@ namespace eTPL.API.Services
                     wallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
 
                 await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                    await transaction.CommitAsync();
+                }
+                catch
+                {
+                    try { await transaction.RollbackAsync(); } catch { }
+                    throw;
+                }
+            });
         }
 
         public async Task RenewContractAsync(int userId, RenewContractRequest request)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
             {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
                 var squad = await _context.AuctionSquads
                     .Include(s => s.Player)
                     .FirstOrDefaultAsync(s => s.SquadId == request.SquadId && s.UserId == userId)
                     ?? throw new Exception("ไม่พบนักเตะในทีมของคุณ");
+
+                if (squad.IsLoan)
+                    throw new Exception("ไม่สามารถต่อสัญญานักเตะยืมตัวได้");
 
                 var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == userId)
                     ?? throw new Exception("Wallet not found.");
@@ -1210,19 +1274,23 @@ namespace eTPL.API.Services
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                }
+                catch
+                {
+                    try { await transaction.RollbackAsync(); } catch { }
+                    throw;
+                }
+            });
         }
 
         public async Task LoanPlayerAsync(int ownerUserId, LoanPlayerRequest request)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
             {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
                 var squad = await _context.AuctionSquads
                     .Include(s => s.Player)
                     .FirstOrDefaultAsync(s => s.SquadId == request.SquadId && s.UserId == ownerUserId)
@@ -1230,6 +1298,10 @@ namespace eTPL.API.Services
 
                 if (squad.Status != "Active")
                     throw new Exception("นักเตะคนนี้ไม่พร้อมให้ยืม");
+
+                var currentlyLoanedOut = await _context.AuctionSquads.CountAsync(s => s.UserId == ownerUserId && s.Status == "Loaned");
+                if (currentlyLoanedOut >= 2)
+                    throw new Exception("ทีมของคุณปล่อยยืมตัวนักเตะครบโควตา 2 คนแล้ว ไม่สามารถปล่อยยืมเพิ่มได้");
 
                 var buyerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == request.TargetUserId)
                     ?? throw new Exception("Wallet ของทีมที่รับยืมไม่พบ");
@@ -1271,19 +1343,23 @@ namespace eTPL.API.Services
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                }
+                catch
+                {
+                    try { await transaction.RollbackAsync(); } catch { }
+                    throw;
+                }
+            });
         }
 
         public async Task TransferPlayerAsync(int sellerUserId, TransferOfferRequest request)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
             {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
                 var squad = await _context.AuctionSquads
                     .Include(s => s.Player)
                     .FirstOrDefaultAsync(s => s.SquadId == request.SquadId && s.UserId == sellerUserId)
@@ -1328,12 +1404,13 @@ namespace eTPL.API.Services
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                }
+                catch
+                {
+                    try { await transaction.RollbackAsync(); } catch { }
+                    throw;
+                }
+            });
         }
 
     // ─── Transfer Market & Offers ─────────────────────────────────────────────
@@ -1392,6 +1469,8 @@ namespace eTPL.API.Services
                 .FirstOrDefaultAsync(s => s.SquadId == request.SquadId);
             if (squad == null) throw new Exception("ไม่พบนักเตะ");
             if (squad.UserId == buyerUserId) throw new Exception("คุณเป็นเจ้าของนักเตะนี้อยู่แล้ว");
+            if (squad.IsLoan) throw new Exception("ไม่สามารถยื่นข้อเสนอสำหรับนักเตะที่อยู่ระหว่างการยืมตัวได้");
+            if (squad.Status == "Loaned") throw new Exception("นักเตะคนนี้ถูกปล่อยยืมตัวอยู่ ไม่สามารถทำรายการได้");
             
             // Allow offering for unlisted players too, but enforce check for active offers so we don't spam
             var existingOffer = await _context.TransferOffers
@@ -1426,10 +1505,14 @@ namespace eTPL.API.Services
 
         public async Task RespondOfferAsync(int sellerUserId, int offerId, RespondOfferRequest request)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
             {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
                 var offer = await _context.TransferOffers
+                    .Include(o => o.FromUser)
                     .Include(o => o.Squad).ThenInclude(s => s.Player)
                     .FirstOrDefaultAsync(o => o.OfferId == offerId && o.ToUserId == sellerUserId && o.Status == "Pending");
 
@@ -1438,23 +1521,112 @@ namespace eTPL.API.Services
                 if (!request.Accept)
                 {
                     offer.Status = "Rejected";
+                    offer.UpdatedAt = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
                     return;
                 }
 
-                // If Accept, check buyer balance!
-                var buyerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == offer.FromUserId);
-                if (buyerWallet == null || buyerWallet.AvailableBalance < offer.Amount)
+                // If Accept, check buyer balance! (Use AsNoTracking then Find to ensure fresh look outside cache if needed, but inside TX is usually fine)
+                var buyerWallet = await _context.AuctionUserWallets.AsNoTracking().FirstOrDefaultAsync(w => w.UserId == offer.FromUserId);
+                if (buyerWallet == null) 
                 {
-                    offer.Status = "Collapsed"; // Deal fails because buyer lacks funds
+                    offer.Status = "Collapsed";
+                    offer.UpdatedAt = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
-                    throw new Exception("ดีลล่ม! ผู้ซื้อมีเงินไม่พอจ่ายค่าข้อเสนอ");
+                    throw new Exception("ดีลล่ม! ไม่พบข้อมูลกระเป๋าเงินของผู้เสนอราคา");
+                }
+
+                if (buyerWallet.AvailableBalance < offer.Amount)
+                {
+                    offer.Status = "Collapsed"; // Deal fails because buyer lacks funds
+                    offer.UpdatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    throw new Exception($"ดีลล่ม! ทีมผู้เสนอ ({offer.FromUser?.LineName ?? offer.FromUserId.ToString()}) มี TP ไม่พอจ่ายค่าข้อเสนอ (มีเหลือ {buyerWallet.AvailableBalance} TP แต่ต้องการ {offer.Amount} TP)");
+                }
+
+                // Re-fetch with tracking for update
+                buyerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == offer.FromUserId);
+
+
+                // --- QUOTA & BUDGET LOCK CHECK for Borrower/Buyer ---
+                var settings = await _context.AuctionSettings.FirstOrDefaultAsync() ?? new AuctionSetting();
+                var buyerSquad = await _context.AuctionSquads
+                    .Where(s => s.UserId == offer.FromUserId && s.Status != "Loaned")
+                    .Include(s => s.Player)
+                    .ToListAsync();
+                
+                var buyerWinning = await GetUserWinningAuctionsInternalAsync(offer.FromUserId);
+                var totalBuyerCount = buyerSquad.Count + buyerWinning.Count;
+
+                // 1. Max Squad Size Check
+                if (totalBuyerCount >= settings.MaxSquadSize)
+                {
+                    offer.Status = "Collapsed";
+                    offer.UpdatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    throw new Exception($"ดีลล่ม! ทีมผู้เสนอ ({offer.FromUser?.LineName ?? offer.FromUserId.ToString()}) มีนักเตะครบ {settings.MaxSquadSize} คนแล้ว กรุณาแจ้งให้ผู้ซื้อไปจัดการทีมก่อน");
+                }
+
+                // 2. Budget Lock Check (Must have enough left for remaining slots)
+                var quotas = await _context.AuctionGradeQuotas.ToListAsync();
+                var gradeE = quotas.FirstOrDefault(q => q.GradeName == "E");
+                // Use (Grade E MinOVR + 1) as the reserve price per slot (User requirement)
+                int reservePricePerSlot = (gradeE?.MinOVR ?? 65) + 1; 
+
+                int futureSquadCount = totalBuyerCount + 1; // Buyer will gain 1 player
+                int remainingSlotsAfterThis = settings.MaxSquadSize - futureSquadCount;
+                int requiredReserve = remainingSlotsAfterThis > 0 ? remainingSlotsAfterThis * reservePricePerSlot : 0;
+
+                if (buyerWallet.AvailableBalance - offer.Amount < requiredReserve)
+                {
+                    offer.Status = "Collapsed";
+                    offer.UpdatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    throw new Exception($"ดีลล่ม! ทีมผู้เสนอ ({offer.FromUser?.LineName ?? offer.FromUserId.ToString()}) ติดกฎ Budget Lock (หลังจ่ายเงินต้องเหลือเงินสำรอง {requiredReserve} TP สำหรับ {remainingSlotsAfterThis} สล็อตที่เหลือ แต่ทีมนี้จะเหลือเพียง {buyerWallet.AvailableBalance - offer.Amount} TP)");
+                }
+
+                // 3. Grade Quota Check
+                var targetOvr = offer.Squad!.Player!.PlayerOvr;
+                var targetGrade = quotas.FirstOrDefault(q => targetOvr >= q.MinOVR && targetOvr <= q.MaxOVR);
+
+                if (targetGrade != null && targetGrade.MaxAllowedPerUser < 99)
+                {
+                    var allOvr = buyerSquad.Select(s => s.Player!.PlayerOvr)
+                                  .Concat(buyerWinning.Select(w => w.Player!.PlayerOvr));
+                    var currentGradeCount = allOvr.Count(ovr => ovr >= targetGrade.MinOVR && ovr <= targetGrade.MaxOVR);
+
+                    if (currentGradeCount >= targetGrade.MaxAllowedPerUser)
+                    {
+                        offer.Status = "Collapsed";
+                        offer.UpdatedAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+                        throw new Exception($"ดีลล่ม! ทีมผู้เสนอ ({offer.FromUser?.LineName ?? offer.FromUserId.ToString()}) มีโควตาเกรด {targetGrade.GradeName} เต็มแล้ว ({targetGrade.MaxAllowedPerUser} คน)");
+                    }
                 }
 
                 var sellerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == sellerUserId);
                 if (sellerWallet == null) throw new Exception("Seller Wallet not found");
+
+                // --- BUDGET LOCK CHECK for SELLER ---
+                // Selling or Loaning out increases empty slots, which increases required reserve.
+                var sellerSquadCount = await _context.AuctionSquads.CountAsync(s => s.UserId == sellerUserId && s.Status != "Loaned");
+                var sellerWinning = await GetUserWinningAuctionsInternalAsync(sellerUserId);
+                int totalSellerActive = sellerSquadCount + sellerWinning.Count;
+
+                int sellerFutureActive = totalSellerActive - 1; // Seller is losing 1 active player
+                int sellerRemainingSlots = settings.MaxSquadSize - sellerFutureActive;
+                int sellerRequiredReserve = sellerRemainingSlots > 0 ? sellerRemainingSlots * reservePricePerSlot : 0;
+
+                if (sellerWallet.AvailableBalance + offer.Amount < sellerRequiredReserve)
+                {
+                    throw new Exception($"ไม่สามารถรับข้อเสนอได้: คุณต้องมีเงินสำรอง Budget Lock อย่างน้อย {sellerRequiredReserve} TP สำหรับ {sellerRemainingSlots} สล็อตที่เหลือ (ตอนนี้มี {sellerWallet.AvailableBalance} + ค่าตัว {offer.Amount} = {sellerWallet.AvailableBalance + offer.Amount} TP)");
+                }
 
                 var playerName = offer.Squad?.Player?.PlayerName ?? "Unknown";
 
@@ -1480,6 +1652,10 @@ namespace eTPL.API.Services
                 }
                 else if (offer.OfferType == "Loan")
                 {
+                    var currentlyLoanedOut = await _context.AuctionSquads.CountAsync(s => s.UserId == sellerUserId && s.Status == "Loaned");
+                    if (currentlyLoanedOut >= 2)
+                        throw new Exception("ทีมของคุณปล่อยยืมตัวนักเตะครบโควตา 2 คนแล้ว ไม่สามารถรับข้อเสนอยืมตัวเพิ่มได้");
+
                     // Deduct loan fee
                     buyerWallet.AvailableBalance -= offer.Amount;
                     sellerWallet.AvailableBalance += offer.Amount;
@@ -1504,29 +1680,36 @@ namespace eTPL.API.Services
                 }
 
                 offer.Status = "Accepted";
+                offer.UpdatedAt = DateTime.UtcNow;
 
                 // Reject all other pending offers for this player
                 var otherOffers = await _context.TransferOffers
                     .Where(o => o.SquadId == offer.SquadId && o.Status == "Pending" && o.OfferId != offer.OfferId)
                     .ToListAsync();
-                foreach (var o in otherOffers) o.Status = "Rejected";
+                foreach (var o in otherOffers) 
+                {
+                    o.Status = "Rejected";
+                    o.UpdatedAt = DateTime.UtcNow;
+                }
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                }
+                catch
+                {
+                    try { await transaction.RollbackAsync(); } catch { /* Ignore if already committed or closed */ }
+                    throw;
+                }
+            });
         }
 
         public async Task CancelOfferAsync(int buyerUserId, int offerId)
         {
             var offer = await _context.TransferOffers.FirstOrDefaultAsync(o => o.OfferId == offerId && o.FromUserId == buyerUserId && o.Status == "Pending");
-            if (offer == null) throw new Exception("ไม่พบข้อเสนอ หรือ ข้อเสนอนี้ไม่ถูกดำเนินการแล้ว");
-
+            if (offer == null) throw new Exception("ไม่พบข้อเสนอ");
+            
             offer.Status = "Cancelled";
+            offer.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
 
@@ -1543,9 +1726,13 @@ namespace eTPL.API.Services
 
         public async Task<List<TransferOfferDto>> GetOutgoingOffersAsync(int userId)
         {
+            var yesterday = DateTime.UtcNow.AddDays(-1);
             var offers = await _context.TransferOffers
                 .Include(o => o.FromUser).Include(o => o.ToUser).Include(o => o.Squad).ThenInclude(s => s.Player)
-                .Where(o => o.FromUserId == userId && (o.Status == "Pending" || o.Status == "Rejected" || o.Status == "Collapsed"))
+                .Where(o => o.FromUserId == userId && (
+                    o.Status == "Pending" || 
+                    ((o.Status == "Rejected" || o.Status == "Collapsed" || o.Status == "Cancelled") && (o.UpdatedAt ?? o.CreatedAt) > yesterday)
+                ))
                 .OrderByDescending(o => o.CreatedAt)
                 .ToListAsync();
 
@@ -1554,9 +1741,12 @@ namespace eTPL.API.Services
 
         public async Task HandleSeasonChangeAsync(int newSeason)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
-            try
+            var strategy = _context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
             {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
                 // Find all currently loaned players that exist as borrow entries
                 var activeLoans = await _context.AuctionSquads
                     .Where(s => s.IsLoan == true && s.LoanedFromUserId != null)
@@ -1574,6 +1764,13 @@ namespace eTPL.API.Services
                         originalSquad.Status = "Active";
                     }
 
+                    // Remove related offers
+                    var relatedOffers = await _context.TransferOffers.Where(o => o.SquadId == loan.SquadId).ToListAsync();
+                    if (relatedOffers.Any())
+                    {
+                        _context.TransferOffers.RemoveRange(relatedOffers);
+                    }
+
                     // Delete the borrowed entry
                     _context.AuctionSquads.Remove(loan);
                 }
@@ -1585,13 +1782,53 @@ namespace eTPL.API.Services
                 }
 
                 await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-            }
-            catch
+                    await transaction.CommitAsync();
+                }
+                catch
+                {
+                    try { await transaction.RollbackAsync(); } catch { }
+                    throw;
+                }
+            });
+        }
+
+        public async Task ResetMarketAsync()
+        {
+            var strategy = _context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
             {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
+                    // Clear all auction state
+                    _context.AuctionTransactions.RemoveRange(_context.AuctionTransactions);
+                    _context.AuctionSquads.RemoveRange(_context.AuctionSquads);
+                    _context.AuctionBidLogs.RemoveRange(_context.AuctionBidLogs);
+                    _context.AuctionBoards.RemoveRange(_context.AuctionBoards);
+                    _context.TransferOffers.RemoveRange(_context.TransferOffers);
+
+                    await _context.SaveChangesAsync();
+
+                    // Reset wallets to starting budget
+                    var settings = await _context.AuctionSettings.FirstOrDefaultAsync();
+                    var startingBudget = settings?.StartingBudget ?? 2000;
+                    
+                    var wallets = await _context.AuctionUserWallets.ToListAsync();
+                    foreach (var wallet in wallets)
+                    {
+                        wallet.AvailableBalance = startingBudget;
+                        wallet.ReservedBalance = 0;
+                    }
+
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                }
+                catch
+                {
+                    try { await transaction.RollbackAsync(); } catch { }
+                    throw;
+                }
+            });
         }
 
         private TransferOfferDto MapOfferDto(TransferOffer offer)
@@ -1604,9 +1841,9 @@ namespace eTPL.API.Services
                 PlayerName = offer.Squad?.Player?.PlayerName ?? "Unknown",
                 PlayerOvr = offer.Squad?.Player?.PlayerOvr ?? 0,
                 FromUserId = offer.FromUserId,
-                FromUserName = offer.FromUser?.UserId,
+                FromUserName = offer.FromUser?.LineName ?? offer.FromUser?.UserId,
                 ToUserId = offer.ToUserId,
-                ToUserName = offer.ToUser?.UserId,
+                ToUserName = offer.ToUser?.LineName ?? offer.ToUser?.UserId,
                 Position = offer.Squad?.Player?.Position,
                 PlayingStyle = offer.Squad?.Player?.PlayingStyle,
                 OfferType = offer.OfferType,

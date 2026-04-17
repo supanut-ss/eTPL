@@ -366,11 +366,7 @@ const FixturePage = () => {
           </Box>
         </Box>
 
-        <Tooltip title="Refresh">
-          <IconButton onClick={() => fetchFixtures(search)} disabled={loading}>
-            <Refresh />
-          </IconButton>
-        </Tooltip>
+
       </Box>
 
       <Stack direction="row" spacing={2} mb={3} flexWrap="wrap">

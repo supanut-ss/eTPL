@@ -12,6 +12,7 @@ namespace eTPL.API.Models.Auction
         public int Amount { get; set; }
         public string Status { get; set; } = "Pending"; // "Pending", "Accepted", "Rejected", "Collapsed", "Cancelled"
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
 
         public AuctionSquad? Squad { get; set; }
         public User? FromUser { get; set; }

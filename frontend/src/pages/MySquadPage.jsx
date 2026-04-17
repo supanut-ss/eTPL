@@ -58,6 +58,12 @@ import { useAuth } from "../store/AuthContext";
 import { useSnackbar } from "notistack";
 import { checkMarketOpen } from "../utils/marketUtils";
 
+const getPesdbLink = (imageUrl) => {
+  if (!imageUrl) return null;
+  const match = imageUrl.match(/(\d+)\.png/);
+  return match ? `https://pesdb.net/efootball/?id=${match[1]}` : null;
+};
+
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
 });
@@ -250,6 +256,10 @@ const MySquadPage = () => {
   };
 
   const handleOpenRelease = (player) => {
+    if (player.isLoan || player.status === "Loaned") {
+      enqueueSnackbar("นักเตะที่ติดสัญญายืมตัวไม่สามารถปล่อยตัวได้", { variant: "error" });
+      return;
+    }
     setPlayerToRelease(player);
     setReleaseDialogOpen(true);
   };
@@ -556,34 +566,60 @@ const MySquadPage = () => {
             startIcon={<History />}
             onClick={() => setTxOpen(true)}
             sx={{
-              borderRadius: 2,
+              borderRadius: '12px',
               borderColor: "divider",
               color: "text.primary",
-              fontWeight: 900,
-              textTransform: "none",
-              height: 42,
+              textTransform: 'none',
+              fontWeight: 700,
               px: 2.5,
-              "&:hover": { bgcolor: "grey.50", borderColor: "primary.main" },
+              height: 42,
+              transition: 'all 0.2s',
+              "&:hover": { 
+                bgcolor: "grey.50", 
+                borderColor: "text.primary",
+                transform: 'translateY(-1px)'
+              },
             }}
           >
             TP Statement
           </Button>
           <Box
             sx={{
-              height: 42,
-              px: 2,
-              borderRadius: 2,
+              px: 2.5,
+              borderRadius: '12px',
               display: "flex",
               alignItems: "center",
-              gap: 1,
-              background: "linear-gradient(135deg, #1e1e1e 0%, #000 100%)",
-              color: "white",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+              gap: 1.5,
+              border: "1px solid",
+              borderColor: "divider",
+              color: "text.primary",
+              height: 42,
+              bgcolor: 'rgba(255,255,255,0.5)',
             }}
           >
-            <Groups sx={{ fontSize: "1rem" }} />
-            <Typography variant="body2" fontWeight="900">
-              {squad.length} / 23
+            <Groups sx={{ fontSize: "1.2rem", color: "primary.main" }} />
+            <Typography variant="body2" fontWeight="800" sx={{ letterSpacing: 0.5 }}>
+              {marketSummary?.currentSquadCount || squad.filter(p => p.status !== 'Loaned').length} / {marketSummary?.maxSquadSize || 23}
+            </Typography>
+          </Box>
+
+          <Box
+            sx={{
+              px: 2.5,
+              borderRadius: '12px',
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              border: "1px solid",
+              borderColor: "divider",
+              color: "text.primary",
+              height: 42,
+              bgcolor: 'rgba(255,255,255,0.5)',
+            }}
+          >
+            <Handshake sx={{ fontSize: "1.2rem", color: "warning.main" }} />
+            <Typography variant="body2" fontWeight="800" sx={{ letterSpacing: 0.5 }}>
+              Loans: {squad.filter(p => p.status === 'Loaned').length} / 2
             </Typography>
           </Box>
         </Box>
@@ -1177,7 +1213,13 @@ const MySquadPage = () => {
                       zIndex: 1,
                     }}
                   >
-                    <Box sx={{ position: "relative", mb: 2 }}>
+                    <Box 
+                      sx={{ position: "relative", mb: 2 }}
+                      component={getPesdbLink(`https://pesdb.net/assets/img/card/b${player.playerId}.png`) ? "a" : "div"}
+                      href={getPesdbLink(`https://pesdb.net/assets/img/card/b${player.playerId}.png`)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       <Avatar
                         className="player-avatar"
                         src={`https://pesdb.net/assets/img/card/b${player.playerId}.png`}
@@ -1368,11 +1410,11 @@ const MySquadPage = () => {
             <LocalOffer fontSize="small" /> List for Sale
           </MenuItem>
         )}
-        <MenuItem disabled>
-          <Handshake fontSize="small" /> Private Loan
-        </MenuItem>
-        <Divider sx={{ my: 1, opacity: 0.6 }} />
-        <MenuItem onClick={() => handleMenuAction("release")} sx={{ color: "error.main" }}>
+        <MenuItem 
+          onClick={() => handleMenuAction("release")} 
+          sx={{ color: "error.main" }}
+          disabled={menuPlayer?.isLoan || menuPlayer?.status === "Loaned"}
+        >
           <Cancel fontSize="small" sx={{ mr: 1.5 }} /> Release Player
         </MenuItem>
       </Menu>
@@ -1835,7 +1877,24 @@ const MySquadPage = () => {
         <DialogContent dividers>
           {selectedPlayerForList && (
             <Box mb={3} textAlign="center">
-              <Avatar src={`https://pesdb.net/assets/img/card/b${selectedPlayerForList.playerId}.png`} sx={{ width: 80, height: 80, mx: "auto", mb: 1, border: "2px solid #ccc", "& img": { objectFit: "contain" } }} variant="rounded" />
+              <Box
+                component={getPesdbLink(`https://pesdb.net/assets/img/card/b${selectedPlayerForList.playerId}.png`) ? "a" : "div"}
+                href={getPesdbLink(`https://pesdb.net/assets/img/card/b${selectedPlayerForList.playerId}.png`)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Avatar 
+                  src={`https://pesdb.net/assets/img/card/b${selectedPlayerForList.playerId}.png`} 
+                  sx={{ 
+                    width: 80, height: 80, mx: "auto", mb: 1, border: "2px solid #ccc", 
+                    "& img": { objectFit: "contain" },
+                    cursor: "pointer",
+                    transition: "transform 0.2s",
+                    "&:hover": { transform: "scale(1.05)" }
+                  }} 
+                  variant="rounded" 
+                />
+              </Box>
               <Typography variant="h6">{selectedPlayerForList.playerName}</Typography>
               <Typography variant="body2" color="text.secondary">ทุน: {selectedPlayerForList.pricePaid?.toLocaleString() || 0} TP</Typography>
             </Box>

@@ -23,31 +23,18 @@ import { getPermissions, updatePermissions } from "../api/permissionApi";
 
 // List of menus matching backend PermissionService.AllMenus
 const ALL_MENUS = [
-  {
-    key: "dashboard",
-    label: "Dashboard",
-    description: "Home / System overview",
-  },
-  {
-    key: "fixtures",
-    label: "Fixtures",
-    description: "View and report match fixtures",
-  },
-  {
-    key: "users",
-    label: "Manage Users",
-    description: "Add, edit, delete users",
-  },
-  {
-    key: "announcements",
-    label: "Announcements",
-    description: "Manage system announcements",
-  },
-  {
-    key: "permissions",
-    label: "Permissions",
-    description: "Define menu access permissions",
-  },
+  { key: "dashboard", label: "Dashboard", description: "Home / System overview" },
+  { key: "standings", label: "Standings", description: "League table and rank" },
+  { key: "matches", label: "Matches", description: "Public match history" },
+  { key: "fixtures", label: "Fixtures", description: "Match reporting for players" },
+  { key: "auction", label: "Auction Market", description: "Normal auction system" },
+  { key: "transfer-board", label: "Transfer Market", description: "Private offer search" },
+  { key: "deal-center", label: "Deal Center", description: "Manage incoming/outgoing offers" },
+  { key: "my-squad", label: "My Squad", description: "Personal squad management" },
+  { key: "users", label: "Manage Users", description: "Add, edit, delete users" },
+  { key: "announcements", label: "Announcements", description: "Manage news and updates" },
+  { key: "admin-auction", label: "Auction Settings", description: "System financial & timer rules" },
+  { key: "permissions", label: "Permissions", description: "Define menu access permissions" },
 ];
 
 const ALL_LEVELS = ["admin", "user"];
@@ -59,19 +46,11 @@ const LEVEL_COLORS = {
 
 // dashboard is accessible by all; fixture access is admin-only; other admin menus stay locked for admin level
 const isLocked = (menuKey, userLevel) =>
-  menuKey === "dashboard" ||
-  (menuKey === "fixtures" && userLevel === "user") ||
-  (userLevel === "admin" && ["permissions", "users", "announcements", "fixtures"].includes(menuKey));
+  menuKey === "dashboard" || userLevel === "admin";
 
 const getFixedValue = (menuKey, userLevel) => {
   if (menuKey === "dashboard") return true;
-  if (menuKey === "fixtures" && userLevel === "user") return true;
-  if (
-    userLevel === "admin" &&
-    ["permissions", "users", "announcements", "fixtures"].includes(menuKey)
-  ) {
-    return true;
-  }
+  if (userLevel === "admin") return true;
   return null;
 };
 
@@ -176,11 +155,25 @@ const PermissionPage = () => {
         </Box>
         <Button
           variant="contained"
+          disableElevation
           startIcon={
             saving ? <CircularProgress size={16} color="inherit" /> : <Save />
           }
           onClick={handleSave}
           disabled={saving || loading}
+          sx={{
+            borderRadius: '12px',
+            textTransform: 'none',
+            fontWeight: 700,
+            px: 3,
+            height: 42,
+            boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
+            transition: 'all 0.2s',
+            "&:hover": { 
+              transform: 'translateY(-1px)',
+              boxShadow: '0 6px 16px rgba(25, 118, 210, 0.3)',
+            },
+          }}
         >
           {saving ? "Saving..." : "Save Permissions"}
         </Button>
