@@ -27,11 +27,12 @@ import {
   Checkbox,
   alpha,
 } from "@mui/material";
-import { Gavel, Refresh, Search, SportsSoccer, AccountBalanceWallet, Groups, HelpOutline } from "@mui/icons-material";
+import { Gavel, Refresh, Search, SportsSoccer, AccountBalanceWallet, Groups, HelpOutline, Campaign } from "@mui/icons-material";
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
 import { useSnackbar } from "notistack";
+import { checkMarketOpen } from "../utils/marketUtils";
 
 const AuctionPage = () => {
   const { user } = useAuth();
@@ -145,9 +146,9 @@ const AuctionPage = () => {
     };
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const [sumRes, boardRes, quotaRes] = await Promise.all([
         auctionService.getSummary(),
         auctionService.getBoard(),
@@ -161,7 +162,7 @@ const AuctionPage = () => {
       console.error(err);
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -186,6 +187,14 @@ const AuctionPage = () => {
     if (user) {
       fetchData();
     }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 30000);
+    return () => clearInterval(interval);
   }, [user]);
 
   const handleSearch = async (term = searchTerm, grade = searchGrade, free = freeAgentOnly) => {
@@ -221,6 +230,12 @@ const AuctionPage = () => {
 
   const handleStartAuction = async (playerId) => {
     // Market Hour Validation
+    const market = checkMarketOpen(summary);
+    if (!market.isOpen) {
+      enqueueSnackbar(market.message, { variant: "error" });
+      return;
+    }
+
     if (summary?.marketEndTime) {
       try {
         const [hour, minute] = summary.marketEndTime.split(':').map(Number);
@@ -338,6 +353,22 @@ const AuctionPage = () => {
           </Button>
         </Box>
       </Box>
+
+      {summary && !checkMarketOpen(summary).isOpen && (
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            p: 1.5, mb: 3, bgcolor: "rgba(239, 68, 68, 0.1)", 
+            border: "1px solid rgba(239, 68, 68, 0.2)", 
+            borderRadius: 2, display: "flex", alignItems: "center", gap: 2 
+          }}
+        >
+          <Campaign color="error" />
+          <Typography variant="body2" color="error.main" fontWeight="bold">
+            {checkMarketOpen(summary).message}
+          </Typography>
+        </Paper>
+      )}
 
       {/* Summary Dashboard */}
       {summary && (
@@ -626,6 +657,7 @@ const AuctionPage = () => {
         )}
       </Box>
 
+
       <Grid container spacing={2.5}>
         {auctions
           .filter(a => a.dbStatus === "Active" && a.bidderUserIds?.includes(user?.id))
@@ -679,16 +711,18 @@ const AuctionPage = () => {
                                 </Box>
                                 <Typography variant="caption" display="block" color="text.secondary">OVR: <b>{auction.playerOvr}</b></Typography>
                                 <Typography variant="caption" display="block" color="text.secondary">
-                                    Ends: <b>{new Date(auction.finalEndTime).toLocaleTimeString("th-TH", { hour: '2-digit', minute: '2-digit' })}</b>
+                                    Ends: <b>{new Date(auction.finalEndTime).toLocaleString("th-TH", { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</b>
                                 </Typography>
                             </Box>
                             <Box sx={{ textAlign: "right" }}>
                                 <Typography variant="h5" fontWeight="900" color="primary">
                                     {(auction.currentUserFinalBid ?? auction.currentPrice).toLocaleString()} TP
                                 </Typography>
-                                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 'bold' }}>
-                                    High: {auction.highestBidderName || "-"}
-                                </Typography>
+                                {auction.displayStatus === "Waiting Confirm" && (
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 'bold' }}>
+                                        Win: {auction.highestBidderName || "-"}
+                                    </Typography>
+                                )}
                             </Box>
                         </Box>
 

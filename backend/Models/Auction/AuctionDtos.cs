@@ -131,6 +131,8 @@ namespace eTPL.API.Models.Auction
         public int MaxOVR { get; set; }
         public int MaxAllowed { get; set; }
         public int CurrentCount { get; set; }
+        public int RenewalPercent { get; set; }
+        public int ReleasePercent { get; set; }
     }
 
     public class PagedResultDto<T>

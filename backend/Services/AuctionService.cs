@@ -202,6 +202,32 @@ namespace eTPL.API.Services
             return dto;
         }
 
+        public async Task<int> FixStuckAuctionsAsync()
+        {
+            // Find auctions where the timeline is inverted (FinalEndTime <= NormalEndTime)
+            // These are stuck on "Normal Bid" forever because of a previous bug
+            var settings = await _context.AuctionSettings.FirstOrDefaultAsync();
+            var finalDuration = settings?.FinalBidDurationMinutes ?? 240;
+
+            var stuckAuctions = await _context.AuctionBoards
+                .Where(b => b.DbStatus == "Active" && b.FinalEndTime <= b.NormalEndTime)
+                .ToListAsync();
+
+            if (!stuckAuctions.Any()) return 0;
+
+            var now = DateTime.UtcNow;
+            foreach (var a in stuckAuctions)
+            {
+                // Expire the Normal phase immediately (1 second in the past)
+                a.NormalEndTime = now.AddSeconds(-1);
+                // Give a fresh Final Bid window from now
+                a.FinalEndTime = now.AddMinutes(finalDuration);
+            }
+
+            await _context.SaveChangesAsync();
+            return stuckAuctions.Count;
+        }
+
         public async Task RunLazySweepAsync()
         {
             var expiredAuctions = await _context.AuctionBoards
@@ -509,7 +535,8 @@ namespace eTPL.API.Services
                 InitiatorUserId = initiatorUserId,
                 CurrentPrice = startPrice - 1,
                 NormalEndTime = DateTime.UtcNow.AddMinutes(settings?.NormalBidDurationMinutes ?? 1200),
-                FinalEndTime = DateTime.UtcNow.AddMinutes(settings?.FinalBidDurationMinutes ?? 1440),
+                FinalEndTime = DateTime.UtcNow.AddMinutes(settings?.NormalBidDurationMinutes ?? 1200)
+                                              .AddMinutes(settings?.FinalBidDurationMinutes ?? 240),
                 DbStatus = "Active"
             };
 
@@ -570,8 +597,9 @@ namespace eTPL.API.Services
 
             var auctionIds = boards.Select(b => b.AuctionId).ToList();
 
+            // Only count distinct bidders from Normal phase to decide if Final Bid is needed
             var distinctBids = await _context.AuctionBidLogs
-                .Where(l => auctionIds.Contains(l.AuctionId))
+                .Where(l => auctionIds.Contains(l.AuctionId) && l.Phase == "Normal")
                 .Select(l => new { l.AuctionId, l.UserId })
                 .Distinct()
                 .ToListAsync();
@@ -999,7 +1027,9 @@ namespace eTPL.API.Services
                     MinOVR = q.MinOVR,
                     MaxOVR = q.MaxOVR,
                     MaxAllowed = q.MaxAllowedPerUser,
-                    CurrentCount = allOVRs.Count(o => o >= q.MinOVR && o <= q.MaxOVR)
+                    CurrentCount = allOVRs.Count(o => o >= q.MinOVR && o <= q.MaxOVR),
+                    RenewalPercent = q.RenewalPercent,
+                    ReleasePercent = q.ReleasePercent
                 });
             }
 

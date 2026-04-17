@@ -1,7 +1,8 @@
 param(
     [string]$Server = "ftp.thaipesleague.com",
     [string]$Username = "thaipes",
-    [string]$Password = "Ws7#3es2"
+    [string]$Password = "Ws7#3es2",
+    [string]$BackendPath = ".\deploy\backend"
 )
 
 $ErrorActionPreference = "Stop"
@@ -68,7 +69,7 @@ $pwsh = if (Get-Command powershell -ErrorAction SilentlyContinue) { "powershell"
   -Server $Server `
   -Username $Username `
   -Password $Password `
-  -LocalPath .\deploy\backend `
+  -LocalPath $BackendPath `
         -RemotePath "apicore.thaipesleague.com"
 
 # 4. Remove app_offline.htm to bring app back online

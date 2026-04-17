@@ -13,6 +13,7 @@ import {
 import { useSnackbar } from "notistack";
 import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
+import { checkMarketOpen } from "../utils/marketUtils";
 
 const GRADE_STYLE_MAP = {
   S: {
@@ -75,10 +76,11 @@ const MarketOverviewPage = () => {
   const [wallet, setWallet] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [quotas, setQuotas] = useState([]);
+  const [marketSummary, setMarketSummary] = useState(null);
 
-  const fetchData = async () => {
+  const fetchData = async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       
       // Load Offers
       const incomingRes = await auctionService.getIncomingOffers();
@@ -89,6 +91,7 @@ const MarketOverviewPage = () => {
 
       // Load Summary (contains Wallet and Squad)
       const summary = await auctionService.getSummary();
+      setMarketSummary(summary.data);
       setWallet(summary.data.wallet);
       setMyListings((summary.data.squad || []).filter(p => p.status === "Listed"));
 
@@ -100,12 +103,20 @@ const MarketOverviewPage = () => {
       console.error(err);
       enqueueSnackbar("Failed to load market data", { variant: "error" });
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
   useEffect(() => {
     if (user) fetchData();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 30000);
+    return () => clearInterval(interval);
   }, [user]);
 
   const getDynamicGrade = (ovr) => {
@@ -178,6 +189,22 @@ const MarketOverviewPage = () => {
         </Paper>
       </Box>
 
+      {marketSummary && !checkMarketOpen(marketSummary).isOpen && (
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            p: 1.5, mb: 3, bgcolor: "rgba(239, 68, 68, 0.1)", 
+            border: "1px solid rgba(239, 68, 68, 0.2)", 
+            borderRadius: 2, display: "flex", alignItems: "center", gap: 2 
+          }}
+        >
+          <Campaign color="error" />
+          <Typography variant="body2" color="error.main" fontWeight="bold">
+            {checkMarketOpen(marketSummary).message}
+          </Typography>
+        </Paper>
+      )}
+
       <Tabs 
         value={tabValue} 
         onChange={(e, v) => setTabValue(v)} 
@@ -194,7 +221,7 @@ const MarketOverviewPage = () => {
 
       {/* Tab 0: Incoming Offers */}
       {tabValue === 0 && (
-        <Grid container spacing={incomingOffers.length === 0 ? 0 : 2.5}>
+        <Grid container spacing={incomingOffers.length === 0 ? 0 : 2.5} >
             {incomingOffers.length === 0 ? (
                 <Grid item xs={12}>
                     <Paper elevation={0} sx={{ 
@@ -203,7 +230,7 @@ const MarketOverviewPage = () => {
                         bgcolor: "#f8fafc", 
                         border: "1px dashed #cbd5e1",
                         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                        minHeight: 400
+                        minHeight: 300
                     }}>
                         <Campaign sx={{ fontSize: 48, color: "text.disabled", mb: 2, opacity: 0.5 }} />
                         <Typography variant="h5" fontWeight="800" color="text.primary" gutterBottom>
@@ -264,7 +291,7 @@ const MarketOverviewPage = () => {
                         bgcolor: "#f8fafc", 
                         border: "1px dashed #cbd5e1",
                         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                        minHeight: 400
+                        minHeight: 300
                     }}>
                         <ArrowForward sx={{ fontSize: 48, color: "text.disabled", mb: 2, opacity: 0.5 }} />
                         <Typography variant="h5" fontWeight="800" color="text.primary" gutterBottom>
@@ -328,7 +355,7 @@ const MarketOverviewPage = () => {
                         bgcolor: "#f8fafc", 
                         border: "1px dashed #cbd5e1",
                         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                        minHeight: 400
+                        minHeight: 300
                     }}>
                         <Storefront sx={{ fontSize: 48, color: "text.disabled", mb: 2, opacity: 0.5 }} />
                         <Typography variant="h5" fontWeight="800" color="text.primary" gutterBottom>

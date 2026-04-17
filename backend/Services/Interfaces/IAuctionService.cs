@@ -39,6 +39,7 @@ namespace eTPL.API.Services.Interfaces
         Task<UserAuctionSummaryDto> GetUserSummaryAsync(int userId);
         Task<List<AuctionSquadDto>> GetMySquadAsync(int userId);
         Task RunLazySweepAsync();
+        Task<int> FixStuckAuctionsAsync();
         Task HandleSeasonChangeAsync(int newSeason);
 
         // Transaction history

@@ -50,10 +50,13 @@ import {
   MoreVert,
   Bolt,
   MonetizationOn,
+  Campaign,
+  WarningAmber,
 } from "@mui/icons-material";
 import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
 import { useSnackbar } from "notistack";
+import { checkMarketOpen } from "../utils/marketUtils";
 
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
@@ -196,6 +199,7 @@ const MySquadPage = () => {
   const [squad, setSquad] = useState([]);
   const [quotas, setQuotas] = useState([]);
   const [wallet, setWallet] = useState(null);
+  const [marketSummary, setMarketSummary] = useState(null);
 
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading] = useState(false);
@@ -219,6 +223,13 @@ const MySquadPage = () => {
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuPlayer, setMenuPlayer] = useState(null);
 
+  // Renewal Detail Dialog State
+  const [renewalOpen, setRenewalOpen] = useState(false);
+
+  // Release Dialog State
+  const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
+  const [playerToRelease, setPlayerToRelease] = useState(null);
+
   const handleOpenMenu = (event, player) => {
     setMenuAnchor(event.currentTarget);
     setMenuPlayer(player);
@@ -235,6 +246,36 @@ const MySquadPage = () => {
     
     if (action === "list") handleOpenList(player);
     if (action === "delist") handleDelist(player);
+    if (action === "release") handleOpenRelease(player);
+  };
+
+  const handleOpenRelease = (player) => {
+    setPlayerToRelease(player);
+    setReleaseDialogOpen(true);
+  };
+
+  const handleConfirmRelease = async () => {
+    if (!playerToRelease) return;
+    
+    try {
+      const q = quotas.find(q => {
+        const min = q.minOvr ?? q.minOVR ?? q.MinOVR;
+        const max = q.maxOvr ?? q.maxOVR ?? q.MaxOVR;
+        return playerToRelease.playerOvr >= min && playerToRelease.playerOvr <= max;
+      });
+      
+      const releasePercent = q?.releasePercent ?? q?.ReleasePercent ?? 0;
+      const refund = Math.floor((playerToRelease.pricePaid || 0) * releasePercent / 100);
+      
+      await auctionService.releasePlayer(playerToRelease.squadId, refund);
+      enqueueSnackbar(`ปล่อยนักเตะเสร็จสิ้น (ได้รับคืน ${refund.toLocaleString()} TP)`, { variant: "success" });
+      fetchData();
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || "ปล่อยนักเตะไม่สำเร็จ", { variant: "error" });
+    } finally {
+      setReleaseDialogOpen(false);
+      setPlayerToRelease(null);
+    }
   };
 
   useEffect(() => {
@@ -254,6 +295,7 @@ const MySquadPage = () => {
       setSquad(squadData);
       setQuotas(data.quotas || []);
       setWallet(data.wallet || null);
+      setMarketSummary(data);
     } catch (err) {
       enqueueSnackbar("Failed to refresh squad summary", { variant: "error" });
       console.error(err);
@@ -311,6 +353,11 @@ const MySquadPage = () => {
   };
 
   const handleOpenList = (player) => {
+    const market = checkMarketOpen(marketSummary);
+    if (!market.isOpen) {
+      enqueueSnackbar(market.message, { variant: "error" });
+      return;
+    }
     setSelectedPlayerForList(player);
     setListPrice(player.pricePaid || 1);
     setListModalOpen(true);
@@ -385,6 +432,30 @@ const MySquadPage = () => {
   };
 
   const totalSpent = squad.reduce((sum, p) => sum + (p.pricePaid ?? 0), 0);
+
+  // Renewal cost per player: pricePaid × grade.renewalPercent / 100
+  const renewalDetails = squad
+    .filter(p => !p.isLoan) // don't count loaned-in players
+    .map(p => {
+      const quota = quotas.find(q => {
+        const min = q.minOvr ?? q.minOVR ?? q.MinOVR;
+        const max = q.maxOvr ?? q.maxOVR ?? q.MaxOVR;
+        return p.playerOvr >= min && p.playerOvr <= max;
+      });
+      const renewalPercent = quota?.renewalPercent ?? quota?.RenewalPercent ?? 0;
+      const gradeName = quota?.gradeName ?? quota?.GradeName ?? '-';
+      const cost = Math.round((p.pricePaid ?? 0) * renewalPercent / 100);
+      return { 
+        name: p.playerName, 
+        gradeName, 
+        pricePaid: p.pricePaid ?? 0, 
+        renewalPercent, 
+        cost,
+        seasonsWithTeam: p.seasonsWithTeam ?? 0
+      };
+    })
+    .sort((a, b) => b.cost - a.cost);
+  const totalRenewalCost = renewalDetails.reduce((s, r) => s + r.cost, 0);
 
   const gradeSummary = quotas.map((q) => {
     const style = GRADE_STYLE_MAP[q.gradeName] || GRADE_STYLE_MAP["DEFAULT"];
@@ -550,19 +621,19 @@ const MySquadPage = () => {
 
         <Grid
           container
-          spacing={1.6}
+          spacing={1}
           alignItems="stretch"
           sx={{ position: "relative", zIndex: 1 }}
         >
           {/* Balance Section */}
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={2} sx={{ minWidth: 0 }}>
             <Box
               sx={{
                 display: "flex",
                 alignItems: "flex-start",
-                gap: 1.4,
-                p: 1.35,
-                borderRadius: 2,
+                gap: 1.2,
+                p: 1.2,
+                borderRadius: 1,
                 background:
                   "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.16) 100%)",
                 border: "1px solid rgba(255,255,255,0.34)",
@@ -575,8 +646,8 @@ const MySquadPage = () => {
               <Box
                 sx={{
                   mt: 0.2,
-                  p: 1.5,
-                  borderRadius: 1.8,
+                  p: 1.2,
+                  borderRadius: 1,
                   bgcolor: "rgba(14,165,233,0.18)",
                   color: "#0284c7",
                   border: "1px solid rgba(125,211,252,0.55)",
@@ -637,14 +708,14 @@ const MySquadPage = () => {
           </Grid>
 
           {/* Investment Section */}
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={2} sx={{ minWidth: 0 }}>
             <Box
               sx={{
                 display: "flex",
                 alignItems: "flex-start",
-                gap: 1.4,
-                p: 1.35,
-                borderRadius: 2,
+                gap: 1.2,
+                p: 1.2,
+                borderRadius: 1,
                 background:
                   "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.16) 100%)",
                 border: "1px solid rgba(255,255,255,0.34)",
@@ -657,8 +728,8 @@ const MySquadPage = () => {
               <Box
                 sx={{
                   mt: 0.2,
-                  p: 1.5,
-                  borderRadius: 1.8,
+                  p: 1.2,
+                  borderRadius: 1,
                   bgcolor: "rgba(22,163,74,0.18)",
                   color: "#16a34a",
                   border: "1px solid rgba(134,239,172,0.55)",
@@ -706,11 +777,11 @@ const MySquadPage = () => {
           </Grid>
 
           {/* Grade Section */}
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={3} sx={{ minWidth: 0 }}>
             <Box
               sx={{
-                p: 1.35,
-                borderRadius: 2,
+                p: 1.2,
+                borderRadius: 1,
                 background:
                   "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.16) 100%)",
                 border: "1px solid rgba(255,255,255,0.34)",
@@ -742,7 +813,7 @@ const MySquadPage = () => {
                         sx={{
                           display: "flex",
                           alignItems: "center",
-                          borderRadius: 1.5,
+                          borderRadius: 0.75,
                           overflow: "hidden",
                           border: "1px solid rgba(255,255,255,0.32)",
                           bgcolor: "rgba(255,255,255,0.14)",
@@ -786,11 +857,11 @@ const MySquadPage = () => {
           </Grid>
 
           {/* Position Section */}
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={3} sx={{ minWidth: 0 }}>
             <Box
               sx={{
-                p: 1.35,
-                borderRadius: 2,
+                p: 1.2,
+                borderRadius: 1,
                 background:
                   "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.16) 100%)",
                 border: "1px solid rgba(255,255,255,0.34)",
@@ -848,7 +919,7 @@ const MySquadPage = () => {
                           minWidth: 34,
                           height: 36,
                           px: 0.45,
-                          borderRadius: 1,
+                          borderRadius: 0.75,
                           border: `1px solid ${style.border}`,
                           bgcolor: style.bg,
                           display: "flex",
@@ -868,24 +939,96 @@ const MySquadPage = () => {
                             letterSpacing: 0.2,
                           }}
                         >
-                          {pos}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            mt: 0.25,
-                            fontSize: "0.74rem",
-                            fontWeight: 900,
-                            lineHeight: 1,
-                            color: "white",
-                          }}
-                        >
-                          {positionSummary[pos] || 0}
+                          {pos}</Typography><Typography variant="caption" sx={{ mt: 0.25, fontSize: "0.74rem", fontWeight: 900, lineHeight: 1, color: "white" }}>{positionSummary[pos] || 0}
                         </Typography>
                       </Box>
                     );
                   })()
                 ))}
+              </Box>
+            </Box>
+          </Grid>
+
+          {/* Renewal Section */}
+          <Grid item xs={12} md={2} sx={{ minWidth: 0 }}>
+            <Box
+              onClick={() => setRenewalOpen(true)}
+              sx={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 1.2,
+                p: 1.2,
+                borderRadius: 1,
+                background: "linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.16) 100%)",
+                border: "1px solid rgba(255,255,255,0.34)",
+                backdropFilter: "blur(6px)",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.45), 0 10px 22px rgba(2,6,23,0.2)",
+                height: "100%",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                "&:hover": { 
+                  transform: "translateY(-4px)", 
+                  background: "linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.2) 100%)",
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6), 0 15px 30px rgba(0,0,0,0.3)" 
+                },
+              }}
+            >
+              <Box
+                sx={{
+                  mt: 0.2,
+                  p: 1.2,
+                  borderRadius: 1,
+                  bgcolor: "rgba(167,139,250,0.18)",
+                  color: "#c4b5fd",
+                  border: "1px solid rgba(167,139,250,0.55)",
+                }}
+              >
+                <Autorenew />
+              </Box>
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "rgba(255,255,255,0.86)",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: 1.2,
+                    display: "block",
+                    mb: 0.4,
+                  }}
+                >
+                  Renewal Cost
+                </Typography>
+                <Typography
+                  variant="h5"
+                  fontWeight="900"
+                  sx={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    gap: 0.6,
+                    letterSpacing: -0.4,
+                    color: "#c4b5fd",
+                  }}
+                >
+                  {totalRenewalCost.toLocaleString()}{" "}
+                  <Typography
+                    component="span"
+                    variant="caption"
+                    fontWeight="bold"
+                    sx={{ opacity: 0.86, color: "rgba(196,181,253,0.9)" }}
+                  >
+                    TP
+                  </Typography>
+                </Typography>
+                {renewalDetails.length > 0 && renewalDetails.every(r => r.renewalPercent === 0) ? (
+                  <Typography variant="caption" sx={{ mt: 0.35, display: "block", color: "#fbbf24", fontWeight: 700, fontSize: '0.65rem' }}>
+                    ⚠️ No Percent Set
+                  </Typography>
+                ) : (
+                  <Typography variant="caption" sx={{ mt: 0.35, display: "block", color: "rgba(255,255,255,0.5)", fontWeight: 700, fontSize: '0.65rem' }}>
+                    Click for breakdown
+                  </Typography>
+                )}
               </Box>
             </Box>
           </Grid>
@@ -1229,10 +1372,169 @@ const MySquadPage = () => {
           <Handshake fontSize="small" /> Private Loan
         </MenuItem>
         <Divider sx={{ my: 1, opacity: 0.6 }} />
-        <MenuItem onClick={handleCloseMenu} sx={{ color: "error.main" }}>
-          <Close fontSize="small" sx={{ mr: 1.5 }} /> Release Player
+        <MenuItem onClick={() => handleMenuAction("release")} sx={{ color: "error.main" }}>
+          <Cancel fontSize="small" sx={{ mr: 1.5 }} /> Release Player
         </MenuItem>
       </Menu>
+
+      {/* ── Renewal Cost Detail Dialog ──────────────────────────────────────────── */}
+      <Dialog
+        open={renewalOpen}
+        onClose={() => setRenewalOpen(false)}
+        TransitionComponent={Transition}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 4, overflow: "hidden" } }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            bgcolor: "white",
+            borderBottom: "1px solid rgba(0,0,0,0.05)",
+            py: 2,
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={1.5}>
+            <Typography variant="h6" fontWeight="900" color="text.primary">
+              Contract Renewal Cost
+            </Typography>
+            <Chip
+              label={renewalDetails.length}
+              size="small"
+              variant="outlined"
+              sx={{ fontWeight: 800 }}
+            />
+          </Box>
+          <IconButton
+            onClick={() => setRenewalOpen(false)}
+            size="small"
+            sx={{ bgcolor: "grey.50" }}
+          >
+            <Close fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 0, bgcolor: "#f8fafc" }}>
+          {/* Total Budget Banner (Matching TP Statement Style) */}
+          <Box
+            sx={{
+              p: 3,
+              background: "linear-gradient(135deg, #4c1d95 0%, #6d28d9 55%, #4c1d95 100%)",
+              color: "white",
+              display: "flex",
+              flexDirection: "column",
+              gap: 0.35,
+              boxShadow: "inset 0 -10px 20px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.1)",
+            }}
+          >
+            <Typography
+              variant="overline"
+              sx={{
+                opacity: 0.86,
+                fontWeight: 900,
+                letterSpacing: 1.1,
+                fontSize: "0.65rem",
+                color: "#e9d5ff",
+              }}
+            >
+              Estimated Renewal Budget
+            </Typography>
+            <Box display="flex" justifyContent="space-between" alignItems="baseline">
+              <Typography
+                variant="h5"
+                fontWeight="900"
+                sx={{
+                  letterSpacing: -0.5,
+                  textShadow: "0 4px 16px rgba(139,92,246,0.35)",
+                }}
+              >
+                {totalRenewalCost.toLocaleString()}
+                <Typography
+                  component="span"
+                  variant="h6"
+                  sx={{ ml: 0.5, opacity: 0.9, color: "#f3e8ff" }}
+                >
+                  TP
+                </Typography>
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Per-player list */}
+          <Box sx={{ maxHeight: 480, overflowY: "auto" }}>
+            {renewalDetails.length === 0 ? (
+              <Box p={4} textAlign="center">
+                <Typography color="text.secondary">ไม่มีข้อมูลนักเตะ</Typography>
+              </Box>
+            ) : (
+              renewalDetails.map((r, i) => {
+                const gradeStyle = GRADE_STYLE_MAP[r.gradeName] || GRADE_STYLE_MAP["DEFAULT"];
+                return (
+                  <Box
+                    key={i}
+                    sx={{
+                      display: "flex", alignItems: "center", px: 3, py: 1.6,
+                      borderBottom: "1px solid rgba(0,0,0,0.04)",
+                      "&:hover": { bgcolor: "rgba(99,102,241,0.04)" },
+                      gap: 2,
+                    }}
+                  >
+                    {/* Rank */}
+                    <Typography variant="caption" sx={{ color: "text.disabled", fontWeight: 700, width: 18, textAlign: "center" }}>
+                      {i + 1}
+                    </Typography>
+
+                    {/* Grade badge */}
+                    <Box sx={{ width: 28, height: 28, borderRadius: "50%", background: gradeStyle.gradient, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Typography variant="caption" fontWeight="900" sx={{ color: r.gradeName === "E" ? "#333" : "white", fontSize: "0.7rem" }}>
+                        {r.gradeName}
+                      </Typography>
+                    </Box>
+
+                    {/* Name & Seasons */}
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Typography variant="body2" fontWeight="700">
+                        {r.name}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem" }}>
+                        In Squad: {r.seasonsWithTeam} {r.seasonsWithTeam > 1 ? 'Seasons' : 'Season'}
+                      </Typography>
+                    </Box>
+
+                    {/* Price paid */}
+                    <Typography variant="caption" color="text.secondary" sx={{ minWidth: 60, textAlign: "right" }}>
+                      {r.pricePaid.toLocaleString()} TP
+                    </Typography>
+
+                    {/* Percent */}
+                    <Box sx={{ minWidth: 38, textAlign: "center" }}>
+                      <Typography variant="caption" sx={{ bgcolor: "rgba(99,102,241,0.1)", color: "#6366f1", fontWeight: 800, px: 0.8, py: 0.2, borderRadius: 1 }}>
+                        {r.renewalPercent}%
+                      </Typography>
+                    </Box>
+
+                    {/* Cost */}
+                    <Typography variant="body2" fontWeight="900" sx={{ color: r.cost > 0 ? "#7c3aed" : "text.disabled", minWidth: 64, textAlign: "right" }}>
+                      {r.cost.toLocaleString()} TP
+                    </Typography>
+                  </Box>
+                );
+              })
+            )}
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 2, borderTop: "1px solid", borderColor: "divider", bgcolor: "#fafafa" }}>
+          <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>
+            * ไม่รวมนักเตะที่ยืมมา (Loan)
+          </Typography>
+          <Button onClick={() => setRenewalOpen(false)} variant="contained" disableElevation sx={{ borderRadius: 2, bgcolor: "#0f172a", px: 3, textTransform: "none", fontWeight: 800 }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* ── Transaction History Dialog (Popup) ────────────────────────────────── */}
       <Dialog
@@ -1550,6 +1852,75 @@ const MySquadPage = () => {
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={handleCloseList} color="inherit">ยกเลิก</Button>
           <Button onClick={submitListPlayer} variant="contained" color="success">ตั้งขาย</Button>
+        </DialogActions>
+      </Dialog>
+      {/* Release Confirmation Dialog */}
+      <Dialog
+        open={releaseDialogOpen}
+        onClose={() => setReleaseDialogOpen(false)}
+        PaperProps={{ sx: { borderRadius: 3, maxWidth: 400 } }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pb: 1 }}>
+          <Box sx={{ p: 1, borderRadius: 1.5, bgcolor: 'rgba(211, 47, 47, 0.1)', color: 'error.main', display: 'flex' }}>
+            <WarningAmber />
+          </Box>
+          <Typography variant="h6" fontWeight="900">Release Player?</Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
+            คุณแน่ใจหรือไม่ว่าต้องการปล่อย <strong>{playerToRelease?.playerName}</strong> ออกจากทีม? 
+            <br />
+            นักเตะจะกลับไปเป็น Free Agent และคุณจะได้รับเงินคืนบางส่วน
+          </Typography>
+          
+          <Box sx={{ mt: 3, p: 2, borderRadius: 2, bgcolor: '#f8fafc', border: '1px dashed #e2e8f0' }}>
+            <Box display="flex" justifyContent="space-between" mb={1}>
+              <Typography variant="caption" color="text.secondary">Purchase Price:</Typography>
+              <Typography variant="caption" fontWeight="bold">{(playerToRelease?.pricePaid || 0).toLocaleString()} TP</Typography>
+            </Box>
+            <Box display="flex" justifyContent="space-between" mb={1}>
+              <Typography variant="caption" color="text.secondary">Release Refund %:</Typography>
+              <Typography variant="caption" fontWeight="bold" color="success.main">
+                {(() => {
+                  const q = quotas.find(q => {
+                    const min = q.minOvr ?? q.minOVR ?? q.MinOVR;
+                    const max = q.maxOvr ?? q.maxOVR ?? q.MaxOVR;
+                    return playerToRelease?.playerOvr >= min && playerToRelease?.playerOvr <= max;
+                  });
+                  return q?.releasePercent ?? q?.ReleasePercent ?? 0;
+                })()}%
+              </Typography>
+            </Box>
+            <Divider sx={{ my: 1.5 }} />
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Typography variant="body2" fontWeight="900">You will get back:</Typography>
+              <Typography variant="h6" fontWeight="900" color="success.main">
+                {(() => {
+                  const q = quotas.find(q => {
+                    const min = q.minOvr ?? q.minOVR ?? q.MinOVR;
+                    const max = q.maxOvr ?? q.maxOVR ?? q.MaxOVR;
+                    return playerToRelease?.playerOvr >= min && playerToRelease?.playerOvr <= max;
+                  });
+                  const rate = q?.releasePercent ?? q?.ReleasePercent ?? 0;
+                  return Math.floor((playerToRelease?.pricePaid || 0) * rate / 100).toLocaleString();
+                })()} TP
+              </Typography>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
+          <Button onClick={() => setReleaseDialogOpen(false)} sx={{ fontWeight: 700, color: 'text.secondary' }}>
+            ยกเลิก
+          </Button>
+          <Button 
+            onClick={handleConfirmRelease} 
+            variant="contained" 
+            color="error"
+            disableElevation
+            sx={{ borderRadius: 2, fontWeight: 900, px: 3 }}
+          >
+            Confirm Release
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

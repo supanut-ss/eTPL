@@ -262,6 +262,9 @@ const AdminAuctionPage = () => {
                     <th style={{ textAlign: 'center', padding: '16px' }}>Min OVR</th>
                     <th style={{ textAlign: 'center', padding: '16px' }}>Max OVR</th>
                     <th style={{ textAlign: 'center', padding: '16px' }}>Max Allowed</th>
+                    <th style={{ textAlign: 'center', padding: '16px' }}>Renew %</th>
+                    <th style={{ textAlign: 'center', padding: '16px' }}>Release %</th>
+                    <th style={{ textAlign: 'center', padding: '16px' }}>Max Seasons</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -295,6 +298,34 @@ const AdminAuctionPage = () => {
                           value={q.maxAllowedPerUser}
                           onChange={(e) => handleQuotaChange(q.gradeId, 'maxAllowedPerUser', parseInt(e.target.value))}
                           sx={{ width: 80 }}
+                        />
+                      </td>
+                      <td style={{ padding: '16px', textAlign: 'center' }}>
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={q.renewalPercent || 0}
+                          onChange={(e) => handleQuotaChange(q.gradeId, 'renewalPercent', parseInt(e.target.value))}
+                          sx={{ width: 70 }}
+                        />
+                      </td>
+                      <td style={{ padding: '16px', textAlign: 'center' }}>
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={q.releasePercent || 0}
+                          onChange={(e) => handleQuotaChange(q.gradeId, 'releasePercent', parseInt(e.target.value))}
+                          sx={{ width: 70 }}
+                        />
+                      </td>
+                      <td style={{ padding: '16px', textAlign: 'center' }}>
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={q.maxSeasonsPerTeam || 0}
+                          onChange={(e) => handleQuotaChange(q.gradeId, 'maxSeasonsPerTeam', parseInt(e.target.value))}
+                          sx={{ width: 70 }}
+                          inputProps={{ min: 0 }}
                         />
                       </td>
                     </tr>

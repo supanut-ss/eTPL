@@ -5,10 +5,11 @@ import {
   LinearProgress, Paper, Avatar, IconButton, CircularProgress,
   List, ListItem, ListItemAvatar, ListItemText, InputAdornment
 } from "@mui/material";
-import { LocalOffer, CheckCircle, PeopleAlt, Close, Search, SearchOff, Handshake } from "@mui/icons-material";
+import { LocalOffer, CheckCircle, PeopleAlt, Close, Search, SearchOff, Handshake, Campaign } from "@mui/icons-material";
 import { useSnackbar } from "notistack";
 import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
+import { checkMarketOpen } from "../utils/marketUtils";
 
 // Sync Grade Styles with My Squad Page
 const GRADE_STYLE_MAP = {
@@ -279,6 +280,7 @@ const TransferBoardPage = () => {
   const [loading, setLoading] = useState(true);
   const [quotas, setQuotas] = useState([]);
   const [userBalance, setUserBalance] = useState(0);
+  const [marketSummary, setMarketSummary] = useState(null);
 
   // Negotiation Modal State
   const [offerModalOpen, setOfferModalOpen] = useState(false);
@@ -291,43 +293,40 @@ const TransferBoardPage = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
 
-  const fetchBoard = async () => {
+  const fetchData = async (isSilent = false) => {
     try {
-      setLoading(true);
-      const res = await auctionService.getTransferBoard();
-      setPlayers(res?.data || []);
+      if (!isSilent) setLoading(true);
+      const [boardRes, quotaRes, walletRes, sumRes] = await Promise.all([
+        auctionService.getTransferBoard(),
+        auctionService.getQuotas(),
+        auctionService.getWallet(),
+        auctionService.getSummary()
+      ]);
+      setPlayers(boardRes?.data || []);
+      setQuotas(quotaRes?.data || []);
+      setUserBalance(walletRes?.data?.availableBalance || 0);
+      setMarketSummary(sumRes?.data || null);
     } catch (err) {
-      console.error(err);
-      enqueueSnackbar("Failed to load Transfer Board", { variant: "error" });
+      console.error("Fetch data error:", err);
+      if (!isSilent) enqueueSnackbar("Failed to load board data", { variant: "error" });
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchQuotas = async () => {
-    try {
-      const res = await auctionService.getQuotas();
-      setQuotas(res?.data || []);
-    } catch (err) {
-      console.error("Failed to load grade quotas:", err);
-      setQuotas([]);
-    }
-  };
-
-  const fetchWallet = async () => {
-    try {
-      const res = await auctionService.getWallet();
-      setUserBalance(res?.data?.availableBalance || 0);
-    } catch (err) {
-      console.error("Failed to load wallet:", err);
+      if (!isSilent) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchQuotas();
-    fetchBoard();
-    fetchWallet();
-  }, []);
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const getDynamicGrade = (ovr) => {
     const safeOvr = typeof ovr === "number" ? ovr : parseInt(ovr || "0", 10);
@@ -344,6 +343,12 @@ const TransferBoardPage = () => {
   };
 
   const handleBuyOut = async (player) => {
+    const market = checkMarketOpen(marketSummary);
+    if (!market.isOpen) {
+      enqueueSnackbar(market.message, { variant: "error" });
+      return;
+    }
+
     const confirmBuy = window.confirm(`ยืนยันการฉีกสัญญา (Buy Out) ${player.playerName} ในราคา ${player.listingPrice} TP ใช่หรือไม่?`);
     if (!confirmBuy) return;
 
@@ -355,13 +360,18 @@ const TransferBoardPage = () => {
     try {
       await auctionService.submitOffer(player.squadId, "Transfer", player.listingPrice);
       enqueueSnackbar(`ส่งคำสั่งซื้อ ${player.playerName} สำเร็จแล้ว (รอผู้ขายตอบรับหรือถูกหักเงินออโต้ตามระบบ)`, { variant: "success" });
-      fetchBoard();
+      fetchData(true);
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
     }
   };
 
   const handleOpenNegotiate = (player) => {
+    const market = checkMarketOpen(marketSummary);
+    if (!market.isOpen) {
+      enqueueSnackbar(market.message, { variant: "error" });
+      return;
+    }
     setSelectedPlayer(player);
     setOfferAmount("");
     setOfferModalOpen(true);
@@ -388,8 +398,7 @@ const TransferBoardPage = () => {
       await auctionService.submitOffer(selectedPlayer.squadId, "Transfer", parseInt(offerAmount));
       enqueueSnackbar(`ยื่นข้อเสนอสำหรับ ${selectedPlayer.playerName} จำนวน ${offerAmount} TP สำเร็จ`, { variant: "success" });
       handleCloseNegotiate();
-      fetchBoard();
-      fetchWallet();
+      fetchData(true);
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
     }
@@ -426,6 +435,11 @@ const TransferBoardPage = () => {
   };
 
   const handleSelectFromSearch = (player) => {
+    const market = checkMarketOpen(marketSummary);
+    if (!market.isOpen) {
+      enqueueSnackbar(market.message, { variant: "error" });
+      return;
+    }
     // Check if player is already Won/Owned in the search result
     if (player.status !== "Won") {
         enqueueSnackbar("นักเตะคนนี้ยังไม่มีเจ้าของ (เป็น Free Agent) กรุณาประมูลในระบบตลาดปกติ", { variant: "info" });
@@ -476,7 +490,23 @@ const TransferBoardPage = () => {
             Offer Search
         </Button>
       </Box>
-      
+
+      {marketSummary && !checkMarketOpen(marketSummary).isOpen && (
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            p: 1.5, mb: 3, bgcolor: "rgba(239, 68, 68, 0.1)", 
+            border: "1px solid rgba(239, 68, 68, 0.2)", 
+            borderRadius: 2, display: "flex", alignItems: "center", gap: 2 
+          }}
+        >
+          <Campaign color="error" />
+          <Typography variant="body2" color="error.main" fontWeight="bold">
+            {checkMarketOpen(marketSummary).message}
+          </Typography>
+        </Paper>
+      )}
+
       {/* Glassmorphism Content Wrapper */}
       <Paper
         elevation={0}

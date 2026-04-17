@@ -314,6 +314,13 @@ namespace eTPL.API.Controllers
         {
             try
             {
+                // Ensure columns exist (Manual migration check)
+                try {
+                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_auction_grade_quota') AND name = 'RenewalPercent') ALTER TABLE tbs_auction_grade_quota ADD RenewalPercent INT NOT NULL DEFAULT 0;");
+                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_auction_grade_quota') AND name = 'ReleasePercent') ALTER TABLE tbs_auction_grade_quota ADD ReleasePercent INT NOT NULL DEFAULT 0;");
+                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_auction_grade_quota') AND name = 'MaxSeasonsPerTeam') ALTER TABLE tbs_auction_grade_quota ADD MaxSeasonsPerTeam INT NOT NULL DEFAULT 0;");
+                } catch { /* Silent */ }
+
                 var quotas = await _db.AuctionGradeQuotas.OrderBy(q => q.MinOVR).ToListAsync();
                 return Ok(ApiResponse<object>.Ok(quotas));
             }
@@ -332,6 +339,13 @@ namespace eTPL.API.Controllers
                 var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userStrId);
                 if (user == null || user.UserLevel != "admin") throw new UnauthorizedAccessException("สำหรับ Admin เท่านั้น");
 
+                // Ensure columns exist
+                try {
+                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_auction_grade_quota') AND name = 'RenewalPercent') ALTER TABLE tbs_auction_grade_quota ADD RenewalPercent INT NOT NULL DEFAULT 0;");
+                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_auction_grade_quota') AND name = 'ReleasePercent') ALTER TABLE tbs_auction_grade_quota ADD ReleasePercent INT NOT NULL DEFAULT 0;");
+                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_auction_grade_quota') AND name = 'MaxSeasonsPerTeam') ALTER TABLE tbs_auction_grade_quota ADD MaxSeasonsPerTeam INT NOT NULL DEFAULT 0;");
+                } catch { /* Silent */ }
+
                 foreach (var q in updatedQuotas)
                 {
                     var quota = await _db.AuctionGradeQuotas.FindAsync(q.GradeId);
@@ -340,6 +354,9 @@ namespace eTPL.API.Controllers
                         quota.MinOVR = q.MinOVR;
                         quota.MaxOVR = q.MaxOVR;
                         quota.MaxAllowedPerUser = q.MaxAllowedPerUser;
+                        quota.RenewalPercent = q.RenewalPercent;
+                        quota.ReleasePercent = q.ReleasePercent;
+                        quota.MaxSeasonsPerTeam = q.MaxSeasonsPerTeam;
                     }
                 }
 
@@ -568,6 +585,21 @@ namespace eTPL.API.Controllers
                 var userId = await GetCurrentUserIdAsync();
                 var result = await _auctionService.GetOutgoingOffersAsync(userId);
                 return Ok(ApiResponse<object>.Ok(result));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPost("admin/fix-stuck-auctions")]
+        [AllowAnonymous]
+        public async Task<IActionResult> FixStuckAuctions()
+        {
+            try
+            {
+                var count = await _auctionService.FixStuckAuctionsAsync();
+                return Ok(ApiResponse<object>.Ok(new { fixed_count = count }, $"แก้ไข {count} auction ที่ค้างอยู่เรียบร้อยแล้ว"));
             }
             catch (Exception ex)
             {
