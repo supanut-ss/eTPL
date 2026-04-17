@@ -172,6 +172,16 @@ const auctionService = {
     const res = await api.get("/api/auction/transfer/offers/outgoing");
     return res.data;
   },
+
+  getClubs: async () => {
+    const res = await api.get("/api/auction/clubs");
+    return res.data;
+  },
+
+  getClubSquad: async (userStrId) => {
+    const res = await api.get(`/api/auction/clubs/${userStrId}/squad`);
+    return res.data;
+  },
   
   resetMarket: async (password) => {
     const res = await api.post("/api/auction/admin/reset-market", { password });

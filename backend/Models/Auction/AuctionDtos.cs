@@ -84,6 +84,10 @@ namespace eTPL.API.Models.Auction
         public string? OwnerName { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("playingStyle")]
         public string? PlayingStyle { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("league")]
+        public string? League { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("teamName")]
+        public string? TeamName { get; set; }
     }
 
     /// <summary>Status values: "Available", "In Normal Bid", "In Final Bid", "Won"</summary>
@@ -222,6 +226,8 @@ namespace eTPL.API.Models.Auction
         public string Status { get; set; } = "Pending"; 
         [System.Text.Json.Serialization.JsonPropertyName("createdAt")]
         public DateTime CreatedAt { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("updatedAt")]
+        public DateTime? UpdatedAt { get; set; }
     }
 
     public class CreateOfferRequest

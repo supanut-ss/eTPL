@@ -592,6 +592,39 @@ namespace eTPL.API.Controllers
             }
         }
 
+        [HttpGet("clubs")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetClubs()
+        {
+            try
+            {
+                var result = await _auctionService.GetAllClubsAsync();
+                return Ok(ApiResponse<object>.Ok(result));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpGet("clubs/{userStrId}/squad")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetClubSquad(string userStrId)
+        {
+            try
+            {
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userStrId);
+                if (user == null) return NotFound(ApiResponse<object>.Fail("ไม่พบทีมที่ระบุ"));
+
+                var result = await _auctionService.GetUserSummaryAsync(user.Id);
+                return Ok(ApiResponse<object>.Ok(result));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
         [HttpPost("admin/fix-stuck-auctions")]
         [AllowAnonymous]
         public async Task<IActionResult> FixStuckAuctions()

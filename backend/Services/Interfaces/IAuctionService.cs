@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using eTPL.API.Models.Auction;
+using eTPL.API.Models.DTOs;
+
 
 namespace eTPL.API.Services.Interfaces
 {
@@ -60,6 +62,7 @@ namespace eTPL.API.Services.Interfaces
         Task<List<TransferOfferDto>> GetIncomingOffersAsync(int userId);
         Task<List<TransferOfferDto>> GetOutgoingOffersAsync(int userId);
         Task<List<AuctionSquadDto>> GetTransferBoardAsync();
+        Task<List<UserDto>> GetAllClubsAsync();
         Task ResetMarketAsync();
     }
 }

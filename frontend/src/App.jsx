@@ -17,6 +17,7 @@ import PublicMatchesPage from "./pages/PublicMatchesPage";
 import AuctionPage from "./pages/AuctionPage";
 import AdminAuctionPage from "./pages/AdminAuctionPage";
 import MySquadPage from "./pages/MySquadPage";
+import ClubSquadPage from "./pages/ClubSquadPage";
 import TransferBoardPage from "./pages/TransferBoardPage";
 import MarketOverviewPage from "./pages/MarketOverviewPage";
 
@@ -64,6 +65,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <MySquadPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="clubs-squad"
+                element={
+                  <ProtectedRoute>
+                    <ClubSquadPage />
                   </ProtectedRoute>
                 }
               />

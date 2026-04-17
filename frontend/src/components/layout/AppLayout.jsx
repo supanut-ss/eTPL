@@ -74,6 +74,12 @@ const navItems = [
     icon: <EmojiEvents />,
     loginRequired: true,
   },
+  {
+    label: "Club Rosters",
+    path: "/clubs-squad",
+    icon: <People />,
+    loginRequired: true,
+  },
   { label: "Manage Users", path: "/users", icon: <People />, adminOnly: true },
   {
     label: "Permissions",

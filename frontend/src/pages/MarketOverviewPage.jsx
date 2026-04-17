@@ -138,6 +138,17 @@ const MarketOverviewPage = () => {
     return { label: name, ...getGradeStyle(name) };
   };
 
+  const isOfferActive = (offer) => {
+    // These statuses should be removed after 24 hours
+    const terminalStatuses = ["Rejected", "Collapsed", "Cancelled"];
+    if (!terminalStatuses.includes(offer.status)) return true;
+    
+    // Check if updated more than 24 hours ago
+    const referenceTime = offer.updatedAt ? new Date(offer.updatedAt) : new Date(offer.createdAt);
+    const diffHours = (new Date() - referenceTime) / (1000 * 60 * 60);
+    return diffHours < 24;
+  };
+
   const handleRespondOffer = async (offerId, accept) => {
     try {
       await auctionService.respondOffer(offerId, accept);
@@ -248,9 +259,9 @@ const MarketOverviewPage = () => {
           </Tabs>
       </Box>
 
-      {/* Tab 0: Incoming Offers */}
+  {/* Tab 0: Incoming Offers */}
       {tabValue === 0 && (
-          incomingOffers.length === 0 ? (
+          incomingOffers.filter(isOfferActive).length === 0 ? (
                 <Box sx={{ width: '100%', mt: 1 }}>
                     <Paper elevation={0} sx={{ 
                         width: '100%',
@@ -273,7 +284,7 @@ const MarketOverviewPage = () => {
                 </Box>
             ) : (
                 <Grid container spacing={2.5} >
-                {incomingOffers.map(offer => {
+                {incomingOffers.filter(isOfferActive).map(offer => {
                     const grade = getDynamicGrade(offer.playerOvr || 0);
                     return (
                         <Grid item xs={12} md={6} lg={4} key={offer.offerId}>
@@ -314,8 +325,14 @@ const MarketOverviewPage = () => {
                                             </Typography>
                                         </Box>
                                     <Box sx={{ display: "flex", gap: 1 }}>
-                                        <Button variant="contained" size="small" color="success" fullWidth onClick={() => handleRespondOffer(offer.offerId, true)} sx={{ borderRadius: 1.5, fontWeight: "bold" }}>Accept</Button>
-                                        <Button variant="outlined" size="small" color="error" fullWidth onClick={() => handleRespondOffer(offer.offerId, false)} sx={{ borderRadius: 1.5, fontWeight: "bold" }}>Reject</Button>
+                                        {offer.status === "Pending" ? (
+                                          <>
+                                            <Button variant="contained" size="small" color="success" fullWidth onClick={() => handleRespondOffer(offer.offerId, true)} sx={{ borderRadius: 1.5, fontWeight: "bold" }}>Accept</Button>
+                                            <Button variant="outlined" size="small" color="error" fullWidth onClick={() => handleRespondOffer(offer.offerId, false)} sx={{ borderRadius: 1.5, fontWeight: "bold" }}>Reject</Button>
+                                          </>
+                                        ) : (
+                                          <Chip label={offer.status} color={offer.status === "Rejected" ? "error" : "default"} variant="outlined" sx={{ width: "100%", fontWeight: "bold" }} />
+                                        )}
                                     </Box>
                                 </Box>
                             </Card>
@@ -328,7 +345,7 @@ const MarketOverviewPage = () => {
 
       {/* Tab 1: Outgoing Offers */}
       {tabValue === 1 && (
-          outgoingOffers.filter(o => o.status !== "Rejected").length === 0 ? (
+          outgoingOffers.filter(isOfferActive).length === 0 ? (
                 <Box sx={{ width: '100%', mt: 1 }}>
                     <Paper elevation={0} sx={{ 
                         width: '100%',
@@ -352,7 +369,7 @@ const MarketOverviewPage = () => {
             ) : (
                 <Grid container spacing={2.5}>
                 {outgoingOffers
-                    .filter(o => o.status !== "Rejected")
+                    .filter(isOfferActive)
                     .map(offer => {
                         const grade = getDynamicGrade(offer.playerOvr || 0);
                         return (
@@ -399,6 +416,9 @@ const MarketOverviewPage = () => {
                                         )}
                                         {offer.status === "Collapsed" && (
                                             <Chip label="Deal Collapsed (Check Quota/TP)" color="error" size="small" variant="filled" sx={{ borderRadius: 1.5, fontWeight: "900", width: "100%" }} icon={<Cancel sx={{ fontSize: '1rem !important' }} />} />
+                                        )}
+                                        {offer.status === "Rejected" && (
+                                            <Chip label="Rejected" color="error" size="small" variant="filled" sx={{ borderRadius: 1.5, fontWeight: "900", width: "100%" }} icon={<Cancel sx={{ fontSize: '1rem !important' }} />} />
                                         )}
                                     </Box>
                                 </Box>

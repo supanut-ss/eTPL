@@ -5,7 +5,9 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using eTPL.API.Data;
 using eTPL.API.Models.Auction;
+using eTPL.API.Models.DTOs;
 using eTPL.API.Services.Interfaces;
+
 
 namespace eTPL.API.Services
 {
@@ -1050,7 +1052,9 @@ namespace eTPL.API.Services
                     Status = s.Status,
                     ListingPrice = s.ListingPrice,
                     Price = s.ListingPrice,
-                    PlayingStyle = s.Player?.PlayingStyle
+                    PlayingStyle = s.Player?.PlayingStyle,
+                    League = s.Player?.League,
+                    TeamName = s.Player?.TeamName
                 }).ToList()
             };
 
@@ -1792,6 +1796,30 @@ namespace eTPL.API.Services
             });
         }
 
+        public async Task<List<UserDto>> GetAllClubsAsync()
+        {
+            var activeUserIds = await _context.AuctionSquads
+                .Select(s => s.UserId)
+                .Distinct()
+                .ToListAsync();
+
+            var users = await _context.Users
+                .Where(u => activeUserIds.Contains(u.Id))
+                .OrderBy(u => u.UserId)
+                .Select(u => new UserDto
+                {
+                    Id = u.Id,
+                    UserId = u.UserId,
+                    UserLevel = u.UserLevel,
+                    LineId = u.LineId,
+                    LinePic = u.LinePic,
+                    LineName = u.LineName
+                })
+                .ToListAsync();
+
+            return users;
+        }
+
         public async Task ResetMarketAsync()
         {
             var strategy = _context.Database.CreateExecutionStrategy();
@@ -1849,7 +1877,8 @@ namespace eTPL.API.Services
                 OfferType = offer.OfferType,
                 Amount = offer.Amount,
                 Status = offer.Status,
-                CreatedAt = DateTime.SpecifyKind(offer.CreatedAt, DateTimeKind.Utc)
+                CreatedAt = DateTime.SpecifyKind(offer.CreatedAt, DateTimeKind.Utc),
+                UpdatedAt = offer.UpdatedAt.HasValue ? DateTime.SpecifyKind(offer.UpdatedAt.Value, DateTimeKind.Utc) : (DateTime?)null
             };
         }
     }
