@@ -254,7 +254,7 @@ const MySquadPage = () => {
 
   const handleOpenRelease = (player) => {
     if (player.isLoan || player.status === "Loaned") {
-      enqueueSnackbar("นักเตะที่ติดสัญญายืมตัวไม่สามารถปล่อยตัวได้", { variant: "error" });
+      enqueueSnackbar("Loaned players cannot be released", { variant: "error" });
       return;
     }
     setPlayerToRelease(player);
@@ -275,10 +275,10 @@ const MySquadPage = () => {
       const refund = Math.floor((playerToRelease.pricePaid || 0) * releasePercent / 100);
       
       await auctionService.releasePlayer(playerToRelease.squadId, refund);
-      enqueueSnackbar(`ปล่อยนักเตะเสร็จสิ้น (ได้รับคืน ${refund.toLocaleString()} TP)`, { variant: "success" });
+      enqueueSnackbar(`Player released. Refunded ${refund.toLocaleString()} TP.`, { variant: "success" });
       fetchData();
     } catch (err) {
-      enqueueSnackbar(err.response?.data?.message || "ปล่อยนักเตะไม่สำเร็จ", { variant: "error" });
+      enqueueSnackbar(err.response?.data?.message || "Failed to release player.", { variant: "error" });
     } finally {
       setReleaseDialogOpen(false);
       setPlayerToRelease(null);
@@ -377,12 +377,12 @@ const MySquadPage = () => {
 
   const submitListPlayer = async () => {
     if (!listPrice || isNaN(listPrice) || parseInt(listPrice) <= 0) {
-      enqueueSnackbar("กรุณาใส่ราคาตั้งขายให้ถูกต้อง", { variant: "warning" });
+      enqueueSnackbar("Please enter a valid listing price.", { variant: "warning" });
       return;
     }
     try {
       await auctionService.listPlayer(selectedPlayerForList.squadId, parseInt(listPrice));
-      enqueueSnackbar(`ตั้งขาย ${selectedPlayerForList.playerName} สำเร็จแล้ว`, { variant: "success" });
+      enqueueSnackbar(`Listed ${selectedPlayerForList.playerName} for sale.`, { variant: "success" });
       handleCloseList();
       fetchData();
     } catch (err) {
@@ -391,11 +391,11 @@ const MySquadPage = () => {
   };
 
   const handleDelist = async (player) => {
-    const confirm = window.confirm(`ยกเลิกการตั้งขาย ${player.playerName} หรือไม่?`);
+    const confirm = window.confirm(`Cancel listing for ${player.playerName}?`);
     if (!confirm) return;
     try {
       await auctionService.delistPlayer(player.squadId);
-      enqueueSnackbar(`ยกเลิกการตั้งขายสำเร็จ`, { variant: "success" });
+      enqueueSnackbar(`Listing canceled successfully.`, { variant: "success" });
       fetchData();
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
@@ -403,12 +403,12 @@ const MySquadPage = () => {
   };
 
   const handleRespondOffer = async (offerId, accept) => {
-    const confirmMsg = accept ? "ยืนยันรับข้อเสนอนี้?" : "ปฏิเสธข้อเสนอนี้?";
+    const confirmMsg = accept ? "Confirm and accept this offer?" : "Decline this offer?";
     if (!window.confirm(confirmMsg)) return;
 
     try {
       await auctionService.respondOffer(offerId, accept);
-      enqueueSnackbar(accept ? "รับข้อเสนอสำเร็จ (และโอนย้ายแล้ว)" : "ปฏิเสธข้อเสนอแล้ว", { variant: "success" });
+      enqueueSnackbar(accept ? "Offer accepted successfully." : "Offer declined.", { variant: "success" });
       fetchData();
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
@@ -416,10 +416,10 @@ const MySquadPage = () => {
   };
 
   const handleCancelOffer = async (offerId) => {
-    if (!window.confirm("ยกเลิกการยื่นข้อเสนอนี้?")) return;
+    if (!window.confirm("Cancel this offer?")) return;
     try {
       await auctionService.cancelOffer(offerId);
-      enqueueSnackbar("ยกเลิกข้อเสนอแล้ว", { variant: "info" });
+      enqueueSnackbar("Offer canceled.", { variant: "info" });
       fetchData();
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
@@ -545,10 +545,10 @@ const MySquadPage = () => {
         }}
       >
         <Box display="flex" alignItems="center" gap={1.5}>
-          <Diversity3 color="primary" sx={{ fontSize: 32 }} />
+          <EmojiEvents color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h5" fontWeight="bold">
-              My Squad
+              My Team
             </Typography>
             <Typography variant="body2" color="text.secondary">
               MANAGE YOUR CLUB ROSTER
@@ -835,7 +835,7 @@ const MySquadPage = () => {
                   display: "block",
                 }}
               >
-                Grade Distribution
+                Grade
               </Typography>
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.55 }}>
                 {gradeSummary.length > 0 ? (
@@ -915,7 +915,7 @@ const MySquadPage = () => {
                   display: "block",
                 }}
               >
-                Position Distribution
+                Position
               </Typography>
               <Box
                 sx={{
@@ -1505,7 +1505,7 @@ const MySquadPage = () => {
           <Box sx={{ maxHeight: 480, overflowY: "auto" }}>
             {renewalDetails.length === 0 ? (
               <Box p={4} textAlign="center">
-                <Typography color="text.secondary">ไม่มีข้อมูลนักเตะ</Typography>
+                <Typography color="text.secondary">No player data found</Typography>
               </Box>
             ) : (
               renewalDetails.map((r, i) => {
@@ -1567,7 +1567,7 @@ const MySquadPage = () => {
 
         <DialogActions sx={{ px: 3, py: 2, borderTop: "1px solid", borderColor: "divider", bgcolor: "#fafafa" }}>
           <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>
-            * ไม่รวมนักเตะที่ยืมมา (Loan)
+            * Excluding Loaned players
           </Typography>
           <Button onClick={() => setRenewalOpen(false)} variant="contained" disableElevation sx={{ borderRadius: 2, bgcolor: "#0f172a", px: 3, textTransform: "none", fontWeight: 800 }}>
             Close
@@ -1868,7 +1868,7 @@ const MySquadPage = () => {
       {/* ── List Player Dialog ──────────────────────────────────────────────── */}
       <Dialog open={listModalOpen} onClose={handleCloseList} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
         <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          ตั้งขายนักเตะ
+          List Player for Sale
           <IconButton onClick={handleCloseList} size="small"><Close /></IconButton>
         </DialogTitle>
         <DialogContent dividers>
@@ -1893,12 +1893,12 @@ const MySquadPage = () => {
                 />
               </Box>
               <Typography variant="h6">{selectedPlayerForList.playerName}</Typography>
-              <Typography variant="body2" color="text.secondary">ทุน: {selectedPlayerForList.pricePaid?.toLocaleString() || 0} TP</Typography>
+              <Typography variant="body2" color="text.secondary">Cost: {selectedPlayerForList.pricePaid?.toLocaleString() || 0} TP</Typography>
             </Box>
           )}
           <TextField
             fullWidth
-            label="ราคาตั้งขาย (TP)"
+            label="Listing Price (TP)"
             type="number"
             value={listPrice}
             onChange={(e) => setListPrice(e.target.value)}
@@ -1906,8 +1906,8 @@ const MySquadPage = () => {
           />
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleCloseList} color="inherit">ยกเลิก</Button>
-          <Button onClick={submitListPlayer} variant="contained" color="success">ตั้งขาย</Button>
+          <Button onClick={handleCloseList} color="inherit">Cancel</Button>
+          <Button onClick={submitListPlayer} variant="contained" color="success">List Now</Button>
         </DialogActions>
       </Dialog>
       {/* Release Confirmation Dialog */}
@@ -1924,9 +1924,9 @@ const MySquadPage = () => {
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
-            คุณแน่ใจหรือไม่ว่าต้องการปล่อย <strong>{playerToRelease?.playerName}</strong> ออกจากทีม? 
+            Are you sure you want to release <strong>{playerToRelease?.playerName}</strong> from your squad? 
             <br />
-            นักเตะจะกลับไปเป็น Free Agent และคุณจะได้รับเงินคืนบางส่วน
+            The player will return to the Free Agent pool and you will receive a partial refund.
           </Typography>
           
           <Box sx={{ mt: 3, p: 2, borderRadius: 2, bgcolor: '#f8fafc', border: '1px dashed #e2e8f0' }}>
@@ -1966,7 +1966,7 @@ const MySquadPage = () => {
         </DialogContent>
         <DialogActions sx={{ p: 2.5, pt: 1 }}>
           <Button onClick={() => setReleaseDialogOpen(false)} sx={{ fontWeight: 700, color: 'text.secondary' }}>
-            ยกเลิก
+            Cancel
           </Button>
           <Button 
             onClick={handleConfirmRelease} 

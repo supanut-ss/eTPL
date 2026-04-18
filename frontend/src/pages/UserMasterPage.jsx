@@ -20,7 +20,7 @@ import {
   Divider,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
-import { Add, Edit, Delete, Refresh, Person } from "@mui/icons-material";
+import { Add, Edit, Delete, Refresh, Person, ManageAccounts } from "@mui/icons-material";
 import { getUsers, createUser, updateUser, deleteUser } from "../api/userApi";
 import { useAuth } from "../store/AuthContext";
 
@@ -224,7 +224,7 @@ const UserMasterPage = () => {
         mb: 3
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
-          <Person color="primary" sx={{ fontSize: 32 }} />
+          <ManageAccounts color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h5" fontWeight="bold">
               Manage Users

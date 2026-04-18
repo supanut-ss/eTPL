@@ -20,6 +20,7 @@ import {
   Campaign,
   Login,
   TrendingUp,
+  Dashboard,
 } from "@mui/icons-material";
 import { useAuth } from "../store/AuthContext";
 import { getStandings } from "../api/standingApi";
@@ -357,21 +358,6 @@ const MainPage = () => {
         >
           <Box>
             <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
-              <Box
-                sx={{
-                  width: 68,
-                  height: 68,
-                  borderRadius: 3,
-                  background: "linear-gradient(135deg,#6366f1,#818cf8)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                  boxShadow: "0 18px 40px -18px rgba(129, 140, 248, 0.8)",
-                }}
-              >
-                <EmojiEvents sx={{ fontSize: 38 }} />
-              </Box>
               <Box flex={1}>
                 <Typography variant="h4" fontWeight={900} lineHeight={1.1}>
                   eTPL Dashboard

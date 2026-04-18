@@ -26,15 +26,16 @@ const ALL_MENUS = [
   { key: "dashboard", label: "Dashboard", description: "Home / System overview" },
   { key: "standings", label: "Standings", description: "League table and rank" },
   { key: "matches", label: "Matches", description: "Public match history" },
-  { key: "fixtures", label: "Fixtures", description: "Match reporting for players" },
+  { key: "fixtures", label: "My Fixtures", description: "Match reporting for players" },
+  { key: "my-squad", label: "My Team", description: "Personal squad management" },
+  { key: "clubs-squad", label: "League Teams", description: "View all team squads" },
   { key: "auction", label: "Auction Market", description: "Normal auction system" },
   { key: "transfer-board", label: "Transfer Market", description: "Private offer search" },
-  { key: "deal-center", label: "Deal Center", description: "Manage incoming/outgoing offers" },
-  { key: "my-squad", label: "My Squad", description: "Personal squad management" },
+  { key: "deal-center", label: "Transfer Center", description: "Manage incoming/outgoing offers" },
   { key: "users", label: "Manage Users", description: "Add, edit, delete users" },
-  { key: "announcements", label: "Announcements", description: "Manage news and updates" },
-  { key: "admin-auction", label: "Auction Settings", description: "System financial & timer rules" },
   { key: "permissions", label: "Permissions", description: "Define menu access permissions" },
+  { key: "admin-auction", label: "Auction Settings", description: "System financial & timer rules" },
+  { key: "announcements", label: "Announcements", description: "Manage news and updates" },
 ];
 
 const ALL_LEVELS = ["admin", "user"];

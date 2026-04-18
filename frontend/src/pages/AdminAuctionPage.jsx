@@ -81,7 +81,7 @@ const AdminAuctionPage = () => {
         auctionService.updateSettings(settings),
         auctionService.updateQuotas(quotas)
       ]);
-      enqueueSnackbar("บันทึกการตั้งค่าทั้งหมดสำเร็จ", { variant: "success" });
+      enqueueSnackbar("Settings saved successfully", { variant: "success" });
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
     } finally {
@@ -91,13 +91,13 @@ const AdminAuctionPage = () => {
 
   const handleResetMarket = async () => {
     if (!password) {
-      enqueueSnackbar("กรุณากรอกรหัสผ่านเพื่อยืนยัน", { variant: "warning" });
+      enqueueSnackbar("Please enter password to confirm", { variant: "warning" });
       return;
     }
     try {
       setResetting(true);
       await auctionService.resetMarket(password);
-      enqueueSnackbar("ล้างข้อมูลตลาดเทรดและทีมทั้งหมดเรียบร้อยแล้ว", { variant: "success" });
+      enqueueSnackbar("Market and teams reset successfully", { variant: "success" });
       setResetDialogOpen(false);
       setPassword("");
       fetchData();
@@ -409,29 +409,29 @@ const AdminAuctionPage = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Typography variant="body1" gutterBottom fontWeight="bold" color="error">
-            คำเตือน: การดำเนินการนี้ไม่สามารถย้อนกลับได้!
+            Warning: This action cannot be undone!
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            การ Reset ตลาดจะทำให้เกิดผลดังนี้:
+            Resetting the market will perform the following:
           </Typography>
           <ul style={{ paddingLeft: 20, margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
-            <li>นักเตะทุกคนในทุกทีมจะถูกลบออก (กลับเป็น Free Agent)</li>
-            <li>ประวัติการทำรายการ (Transactions) ทั้งหมดจะถูกล้าง</li>
-            <li>ประวัติราคาและการประมูล (Auction History & Bids) จะถูกล้าง</li>
-            <li>ข้อเสนอการซื้อขาย (Transfer Offers) ทั้งหมดจะถูกล้าง</li>
+            <li>All players in all teams will be removed (Back to Free Agent)</li>
+            <li>All transaction history (Transactions) will be cleared</li>
+            <li>All auction history and biddings will be cleared</li>
+            <li>All transfer offers will be cleared</li>
           </ul>
           <Typography variant="body2" sx={{ mt: 2, fontStyle: 'italic', color: 'text.secondary' }}>
-            * การตั้งค่า Grade Quota และ Market Settings จะยังคงเดิม
+            * Grade Quotas and Market Settings will remain unchanged.
           </Typography>
           <Box sx={{ mt: 3 }}>
             <Typography variant="body2" fontWeight="bold" sx={{ mb: 1 }}>
-              ยืนยันรหัสผ่านเพื่อดำเนินการ:
+              Confirm password to proceed:
             </Typography>
             <TextField
               fullWidth
               type="password"
               size="small"
-              placeholder="กรอกรหัสผ่านของคุณ"
+              placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={resetting}
@@ -445,7 +445,7 @@ const AdminAuctionPage = () => {
             sx={{ fontWeight: 'bold' }}
             color="inherit"
           >
-            ยกเลิก
+            Cancel
           </Button>
           <Button 
             onClick={handleResetMarket} 
@@ -454,7 +454,7 @@ const AdminAuctionPage = () => {
             disabled={resetting}
             sx={{ borderRadius: 2, fontWeight: 'bold', px: 3 }}
           >
-            {resetting ? "Resetting..." : "ยืนยัน Reset ตลาดทั้งหมด"}
+            {resetting ? "Resetting..." : "Confirm Full Market Reset"}
           </Button>
         </DialogActions>
       </Dialog>

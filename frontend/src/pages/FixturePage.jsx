@@ -358,7 +358,7 @@ const FixturePage = () => {
           <SportsSoccer color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h5" fontWeight="bold">
-              Fixture
+              My Fixtures
             </Typography>
             <Typography variant="body2" color="text.secondary">
               MATCH SCHEDULE & RESULTS

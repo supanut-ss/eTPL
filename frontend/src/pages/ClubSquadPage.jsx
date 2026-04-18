@@ -23,6 +23,7 @@ import {
   AccountBalanceWallet,
   Diversity3,
   Search,
+  People,
 } from "@mui/icons-material";
 import auctionService from "../services/auctionService";
 import { useSnackbar } from "notistack";
@@ -190,10 +191,10 @@ const ClubSquadPage = () => {
         }}
       >
         <Box display="flex" alignItems="center" gap={1.5}>
-          <Diversity3 color="primary" sx={{ fontSize: 32 }} />
+          <People color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h5" fontWeight="bold" sx={{ letterSpacing: -0.5 }}>
-              Club Rosters
+              League Teams
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
               VIEW SQUADS OF OTHER TEAMS
@@ -308,7 +309,7 @@ const ClubSquadPage = () => {
                   <Grid item xs={12} md={4}>
                     <Box sx={{ p: 1 }}>
                       <Typography variant="caption" sx={{ color: "text.primary", fontWeight: 1000, letterSpacing: 1.5, textTransform: "uppercase", display: "block", mb: 2, opacity: 0.8, fontSize: "0.75rem" }}>
-                        Grade Summary
+                        Grade
                       </Typography>
                       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.2 }}>
                         {gradeSummary.map((g) => (
@@ -338,7 +339,7 @@ const ClubSquadPage = () => {
                   <Grid item xs={12} md={3.5}>
                     <Box sx={{ p: 1 }}>
                       <Typography variant="caption" sx={{ color: "text.primary", fontWeight: 1000, letterSpacing: 1.5, textTransform: "uppercase", display: "block", mb: 2, opacity: 0.8, fontSize: "0.75rem" }}>
-                        Position distribution
+                        Position
                       </Typography>
                       <Box sx={{ 
                         display: "flex", 

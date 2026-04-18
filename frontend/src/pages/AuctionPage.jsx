@@ -274,8 +274,8 @@ const AuctionPage = () => {
         const potentialNormalEnd = new Date(now.getTime() + durationMins * 60000);
 
         if (potentialNormalEnd > marketEnd) {
-          const timeToWait = potentialNormalEnd.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-          enqueueSnackbar(`ไม่สามารถเริ่มประมูลได้เนื่องจากเวลาจบรอบ Normal (${timeToWait}) จะเกินเวลาปิดตลาด (${summary.marketEndTime} น.)`, { variant: "error" });
+          const timeToWait = potentialNormalEnd.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+          enqueueSnackbar(`Cannot start auction because Normal phase end time (${timeToWait}) exceeds market close time (${summary.marketEndTime})`, { variant: "error" });
           return;
         }
       } catch (e) {
@@ -473,7 +473,6 @@ const AuctionPage = () => {
                     <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem', fontWeight: 700 }}>
                       RESERVED
                     </Typography>
-                    <Tooltip title="ยอดเงินที่ถูกล็อคไว้ในระบบประมูลที่คุณกำลังชนะ (จะคืนให้หากมีคนบิดสูงกว่า)">
                       <HelpOutline sx={{ fontSize: '0.7rem', color: 'text.disabled', cursor: 'help' }} />
                     </Tooltip>
                   </Box>
@@ -486,7 +485,7 @@ const AuctionPage = () => {
                     <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem', fontWeight: 700 }}>
                       REQ. RESERVE
                     </Typography>
-                    <Tooltip title="เงินสำรองขั้นต่ำที่ต้องเหลือไว้เพื่อให้บิดนักเตะจนครบโควตาคน (เป็นระบบ Budget Lock)">
+                    <Tooltip title="Minimum reserve required to ensure enough funds to fill the remaining squad quota (Budget Lock system)">
                       <HelpOutline sx={{ fontSize: '0.7rem', color: 'text.disabled', cursor: 'help' }} />
                     </Tooltip>
                   </Box>
@@ -628,7 +627,7 @@ const AuctionPage = () => {
                     <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem', fontWeight: 700 }}>
                       SQUAD VALUATION ({summary.currentSquadCount} PLAYERS)
                     </Typography>
-                    <Tooltip title="มูลค่ารวมของนักเตะที่มีอยู่และที่กำลังชนะประมูล (ราคาที่จ่าย + เงินที่จองไว้)">
+                    <Tooltip title="Total value of owned players and winning auctions (Price Paid + Reserved Balance)">
                       <HelpOutline sx={{ fontSize: '0.7rem', color: 'text.disabled', cursor: 'help' }} />
                     </Tooltip>
                   </Box>
@@ -642,7 +641,7 @@ const AuctionPage = () => {
                     <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem', fontWeight: 700 }}>
                       EST. PURCHASING POWER
                     </Typography>
-                    <Tooltip title="ค่าพลังเฉลี่ย (OVR) ที่คุณสามารถประมูลได้สำหรับโควตาที่เหลือ เมื่อคำนวณจากงบประมาณคงเหลือและเงินสำรอง">
+                    <Tooltip title="Estimated Average OVR you can bid for remaining slots, calculated from remaining budget and reserve requirements.">
                       <HelpOutline sx={{ fontSize: '0.7rem', color: 'text.disabled', cursor: 'help' }} />
                     </Tooltip>
                   </Box>
@@ -764,7 +763,7 @@ const AuctionPage = () => {
                                 </Box>
                                 <Typography variant="caption" display="block" color="text.secondary">OVR: <b>{auction.playerOvr}</b></Typography>
                                 <Typography variant="caption" display="block" color="text.secondary">
-                                    Ends: <b>{new Date(auction.finalEndTime).toLocaleString("th-TH", { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</b>
+                                    Ends: <b>{new Date(auction.finalEndTime).toLocaleString("en-GB", { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</b>
                                 </Typography>
                             </Box>
                             <Box sx={{ textAlign: "right" }}>
@@ -995,15 +994,15 @@ const AuctionPage = () => {
             {loadingSearch && searchResults.length === 0 && (
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 10, gap: 2 }}>
                 <CircularProgress />
-                <Typography color="text.secondary" variant="body2">กำลังค้นหานักเตะ...</Typography>
+                <Typography color="text.secondary" variant="body2">Searching players...</Typography>
               </Box>
             )}
 
             {!loadingSearch && searchResults.length === 0 && (
               <Box sx={{ textAlign: 'center', py: 8, bgcolor: 'rgba(0,0,0,0.02)', borderRadius: 4, border: '2px dashed', borderColor: 'rgba(0,0,0,0.05)' }}>
                  <SearchOff sx={{ fontSize: 48, color: 'text.disabled', mb: 1, opacity: 0.5 }} />
-                 <Typography color="text.secondary" fontWeight="600">ไม่พบนักเตะตามเงื่อนไขที่ระบุ</Typography>
-                 <Typography variant="caption" color="text.disabled">ลองปรับเปลี่ยนตัวกรองหรือคำค้นหาใหม่</Typography>
+                 <Typography color="text.secondary" fontWeight="600">No players found with specified criteria</Typography>
+                 <Typography variant="caption" color="text.disabled">Try adjusting filters or search term</Typography>
               </Box>
             )}
 
@@ -1200,7 +1199,7 @@ const AuctionPage = () => {
 
             {!hasMore && searchResults.length > 0 && (
               <Box sx={{ textAlign: 'center', p: 3, opacity: 0.5 }}>
-                <Typography variant="caption">สิ้นสุดรายการค้นหา</Typography>
+                <Typography variant="caption">End of search results</Typography>
               </Box>
             )}
           </Box>

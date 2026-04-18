@@ -16,15 +16,16 @@ namespace eTPL.API.Services
             ("dashboard",      "Dashboard"),
             ("standings",      "Standings"),
             ("matches",        "Matches"),
-            ("fixtures",       "Fixtures"),
+            ("fixtures",       "My Fixtures"),
+            ("my-squad",       "My Team"),
+            ("clubs-squad",    "League Teams"),
             ("auction",        "Auction Market"),
             ("transfer-board", "Transfer Market"),
-            ("deal-center",    "Deal Center"),
-            ("my-squad",       "My Squad"),
-            ("users",          "จัดการผู้ใช้"),
-            ("announcements",  "จัดการประกาศ"),
+            ("deal-center",    "Transfer Center"),
+            ("users",          "Manage Users"),
+            ("permissions",    "Permissions"),
             ("admin-auction",  "Auction Settings"),
-            ("permissions",    "จัดการสิทธิ์"),
+            ("announcements",  "Announcements"),
         };
 
         public static readonly string[] AllLevels = { "admin", "user" };

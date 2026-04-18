@@ -21,7 +21,7 @@ export const checkMarketOpen = (summary) => {
     const [day, month] = marketStartDate.split('/').map(Number);
     const startDate = new Date(currentYear, month - 1, day, 0, 0, 0);
     if (thailandTime < startDate) {
-      return { isOpen: false, message: `ตลาดยังไม่เปิด จนกว่าจะถึงวันที่ ${marketStartDate}` };
+      return { isOpen: false, message: `Market is not open until ${marketStartDate}` };
     }
   }
 
@@ -29,7 +29,7 @@ export const checkMarketOpen = (summary) => {
     const [day, month] = marketEndDate.split('/').map(Number);
     const endDate = new Date(currentYear, month - 1, day, 23, 59, 59);
     if (thailandTime > endDate) {
-      return { isOpen: false, message: `ตลาดปิดตัวลงแล้วเมื่อวันที่ ${marketEndDate}` };
+      return { isOpen: false, message: `Market closed on ${marketEndDate}` };
     }
   }
 
@@ -43,7 +43,7 @@ export const checkMarketOpen = (summary) => {
     const currentTimeInMins = thailandTime.getHours() * 60 + thailandTime.getMinutes();
     
     if (currentTimeInMins < startTimeInMins || currentTimeInMins > endTimeInMins) {
-      return { isOpen: false, message: `ตลาดเปิดให้บริการระหว่างเวลา ${marketStartTime} - ${marketEndTime} น.` };
+      return { isOpen: false, message: `Market is open between ${marketStartTime} and ${marketEndTime}` };
     }
   }
 

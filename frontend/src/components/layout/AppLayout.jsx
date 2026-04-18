@@ -34,6 +34,9 @@ import {
   EmojiEvents,
   Storefront,
   Handshake,
+  ManageAccounts,
+  Gavel,
+  Settings,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -45,15 +48,27 @@ const navItems = [
   { label: "Standings", path: "/standings", icon: <Leaderboard /> },
   { label: "Matches", path: "/matches", icon: <CalendarMonth /> },
   {
-    label: "Fixtures",
+    label: "My Fixtures",
     path: "/fixtures",
     icon: <SportsSoccer />,
     loginRequired: true,
   },
   {
+    label: "My Team",
+    path: "/my-squad",
+    icon: <EmojiEvents />,
+    loginRequired: true,
+  },
+   {
+    label: "League Teams",
+    path: "/clubs-squad",
+    icon: <People />,
+    loginRequired: true,
+  },
+  {
     label: "Auction",
     path: "/auction",
-    icon: <AttachMoney />,
+    icon: <Gavel />,
     loginRequired: true,
   },
   {
@@ -63,24 +78,12 @@ const navItems = [
     loginRequired: true,
   },
   {
-    label: "Deal Center",
+    label: "Transfer Center",
     path: "/deal-center",
     icon: <Handshake />,
     loginRequired: true,
   },
-  {
-    label: "My Squad",
-    path: "/my-squad",
-    icon: <EmojiEvents />,
-    loginRequired: true,
-  },
-  {
-    label: "Club Rosters",
-    path: "/clubs-squad",
-    icon: <People />,
-    loginRequired: true,
-  },
-  { label: "Manage Users", path: "/users", icon: <People />, adminOnly: true },
+  { label: "Manage Users", path: "/users", icon: <ManageAccounts />, adminOnly: true },
   {
     label: "Permissions",
     path: "/permissions",
@@ -90,7 +93,7 @@ const navItems = [
   {
     label: "Auction Settings",
     path: "/admin/auction",
-    icon: <AttachMoney />,
+    icon: <Settings />,
     adminOnly: true,
   },
   {
