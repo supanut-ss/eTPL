@@ -12,6 +12,8 @@ import {
   Alert,
   CircularProgress,
   Chip,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {
   SportsSoccer,
@@ -78,6 +80,8 @@ const extractPlayer = (team) => {
 };
 
 const ReportResultDialog = ({ open, fixture, isAdmin, onClose, onSuccess }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [homeScore, setHomeScore] = useState(0);
   const [awayScore, setAwayScore] = useState(0);
   const [homeYellow, setHomeYellow] = useState(0);
@@ -171,7 +175,7 @@ const ReportResultDialog = ({ open, fixture, isAdmin, onClose, onSuccess }) => {
         : "text.secondary";
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
       <DialogTitle sx={{ pb: 1 }}>
         <Box display="flex" alignItems="center" gap={1}>
           {isEditMode ? (
@@ -320,7 +324,7 @@ const ReportResultDialog = ({ open, fixture, isAdmin, onClose, onSuccess }) => {
             </Box>
           </Box>
 
-          <Divider orientation="vertical" flexItem />
+          <Divider orientation={isMobile ? "horizontal" : "vertical"} flexItem sx={{ my: isMobile ? 2 : 0 }} />
 
           {/* Away Cards */}
           <Box>

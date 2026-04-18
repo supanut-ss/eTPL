@@ -18,6 +18,8 @@ import {
   CircularProgress,
   Avatar,
   Divider,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import { Add, Edit, Delete, Refresh, Person, ManageAccounts } from "@mui/icons-material";
@@ -35,6 +37,8 @@ const defaultForm = {
 };
 
 const UserMasterPage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { user: currentUser } = useAuth();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -220,8 +224,10 @@ const UserMasterPage = () => {
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mb: 3
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        mb: 3,
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 2, sm: 0 }
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <ManageAccounts color="primary" sx={{ fontSize: 32 }} />
@@ -241,6 +247,7 @@ const UserMasterPage = () => {
             disableElevation
             startIcon={<Add />}
             onClick={handleOpenAdd}
+            fullWidth={isMobile}
             sx={{
               borderRadius: '12px',
               textTransform: 'none',
@@ -288,6 +295,7 @@ const UserMasterPage = () => {
         onClose={() => !saving && setDialogOpen(false)}
         maxWidth="sm"
         fullWidth
+        fullScreen={isMobile}
       >
         <DialogTitle sx={{ pb: 1 }}>
           {editTarget ? "✏️ Edit User" : "➕ Add New User"}
@@ -382,6 +390,7 @@ const UserMasterPage = () => {
         onClose={() => !saving && setDeleteDialogOpen(false)}
         maxWidth="xs"
         fullWidth
+        fullScreen={isMobile}
       >
         <DialogTitle sx={{ color: "error.main" }}>
           🗑️ Confirm Delete

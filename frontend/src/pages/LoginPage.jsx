@@ -125,7 +125,7 @@ const LoginPage = () => {
       minHeight="100vh"
       sx={{ backgroundColor: "background.default" }}
     >
-      <Card sx={{ width: 400, p: 2, boxShadow: 4 }}>
+      <Card sx={{ width: 400, maxWidth: "90vw", p: 2, boxShadow: 4 }}>
         <CardContent>
           <Box display="flex" flexDirection="column" alignItems="center" mb={3}>
             <Lock color="primary" sx={{ fontSize: 48, mb: 1 }} />

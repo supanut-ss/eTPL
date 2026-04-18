@@ -33,9 +33,13 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 
 const AdminAuctionPage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { enqueueSnackbar } = useSnackbar();
   const [settings, setSettings] = useState(null);
   const [quotas, setQuotas] = useState([]);
@@ -116,8 +120,10 @@ const AdminAuctionPage = () => {
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mb: 3
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        mb: 3,
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 2.5, sm: 0 }
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <Settings color="primary" sx={{ fontSize: 32 }} />
@@ -130,13 +136,14 @@ const AdminAuctionPage = () => {
             </Typography>
           </Box>
         </Box>
-
-        <Box display="flex" gap={1.5}>
+        
+        <Box display="flex" gap={1.5} width={isMobile ? "100%" : "auto"} flexDirection={isMobile ? "column" : "row"}>
           <Button
             variant="outlined"
             color="error"
             startIcon={<RestartAlt />}
             onClick={() => setResetDialogOpen(true)}
+            fullWidth={isMobile}
             sx={{
               borderRadius: '12px',
               textTransform: 'none',
@@ -161,6 +168,7 @@ const AdminAuctionPage = () => {
             startIcon={<Save />}
             onClick={handleSaveAll}
             disabled={saving}
+            fullWidth={isMobile}
             sx={{
               borderRadius: '12px',
               textTransform: 'none',
@@ -402,7 +410,8 @@ const AdminAuctionPage = () => {
       <Dialog
         open={resetDialogOpen}
         onClose={() => !resetting && setResetDialogOpen(false)}
-        PaperProps={{ sx: { borderRadius: 3, maxWidth: 450 } }}
+        fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : 3, maxWidth: 450 } }}
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'error.main', fontWeight: 'bold' }}>
           <DeleteForever /> Reset Auction Market?

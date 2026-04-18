@@ -27,6 +27,8 @@ import {
   DialogActions,
   Menu,
   MenuItem,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {
   SportsSoccer,
@@ -196,6 +198,8 @@ const TX_TYPE_META = {
 };
 
 const MySquadPage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { user } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -1423,7 +1427,8 @@ const MySquadPage = () => {
         TransitionComponent={Transition}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 4, overflow: "hidden" } }}
+        fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : 4, overflow: "hidden" } }}
       >
         <DialogTitle
           sx={{
@@ -1582,9 +1587,10 @@ const MySquadPage = () => {
         TransitionComponent={Transition}
         maxWidth="sm"
         fullWidth
+        fullScreen={isMobile}
         PaperProps={{
           sx: {
-            borderRadius: 4,
+            borderRadius: isMobile ? 0 : 4,
             bgcolor: "#f8fafc",
             backgroundImage: "none",
             overflow: "hidden",
@@ -1866,7 +1872,14 @@ const MySquadPage = () => {
       </Dialog>
 
       {/* ── List Player Dialog ──────────────────────────────────────────────── */}
-      <Dialog open={listModalOpen} onClose={handleCloseList} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      <Dialog 
+        open={listModalOpen} 
+        onClose={handleCloseList} 
+        maxWidth="xs" 
+        fullWidth 
+        fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : 3 } }}
+      >
         <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           List Player for Sale
           <IconButton onClick={handleCloseList} size="small"><Close /></IconButton>
@@ -1914,7 +1927,8 @@ const MySquadPage = () => {
       <Dialog
         open={releaseDialogOpen}
         onClose={() => setReleaseDialogOpen(false)}
-        PaperProps={{ sx: { borderRadius: 3, maxWidth: 400 } }}
+        fullScreen={isMobile}
+        PaperProps={{ sx: { borderRadius: isMobile ? 0 : 3, maxWidth: 400 } }}
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pb: 1 }}>
           <Box sx={{ p: 1, borderRadius: 1.5, bgcolor: 'rgba(211, 47, 47, 0.1)', color: 'error.main', display: 'flex' }}>

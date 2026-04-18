@@ -12,11 +12,15 @@ import {
   Alert,
   IconButton,
   InputAdornment,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { changePassword } from "../api/userApi";
 
 const ChangePasswordDialog = ({ open, onClose, user }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [formData, setFormData] = useState({
     currentPassword: "",
     newPassword: "",
@@ -100,7 +104,7 @@ const ChangePasswordDialog = ({ open, onClose, user }) => {
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
       <DialogTitle>Change Password</DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>

@@ -8,7 +8,8 @@ import {
 
   CircularProgress, IconButton, Tooltip, Card, CardContent,
 
-  Tab, Tabs, Badge
+  Tab, Tabs, Badge,
+  useMediaQuery, useTheme
 
 } from "@mui/material";
 
@@ -139,7 +140,8 @@ const getGradeStyle = (gradeLetter) => {
 
 
 const MarketOverviewPage = () => {
-
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { user } = useAuth();
 
   const { enqueueSnackbar } = useSnackbar();
@@ -370,7 +372,14 @@ const MarketOverviewPage = () => {
 
     <Box sx={{ pb: 8 }}>
 
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", mb: 4 }}>
+      <Box sx={{ 
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: { xs: "flex-start", sm: "flex-end" }, 
+        mb: 4, 
+        flexDirection: { xs: "column", sm: "row" }, 
+        gap: { xs: 3, sm: 0 } 
+      }}>
 
         <Box>
 
@@ -471,6 +480,9 @@ const MarketOverviewPage = () => {
             value={tabValue} 
 
             onChange={(e, v) => setTabValue(v)} 
+            variant={isMobile ? "scrollable" : "fullWidth"}
+            scrollButtons="auto"
+            allowScrollButtonsMobile
 
             sx={{ 
 
@@ -478,7 +490,7 @@ const MarketOverviewPage = () => {
 
                     fontWeight: 800, 
 
-                    fontSize: "0.95rem", 
+                    fontSize: { xs: "0.85rem", sm: "0.95rem" }, 
 
                     textTransform: "none", 
 
@@ -486,7 +498,7 @@ const MarketOverviewPage = () => {
 
                     color: 'text.secondary',
 
-                    px: 4,
+                    px: { xs: 2.5, sm: 4 },
 
                     transition: 'all 0.2s',
 
@@ -570,11 +582,15 @@ const MarketOverviewPage = () => {
 
                             <Card sx={{ 
 
-                                display: "flex", p: 1.8, gap: 2, height: 160, minWidth: 350, borderRadius: 3, alignItems: "center", 
+                                display: "flex", p: 1.8, gap: 2, height: { xs: "auto", sm: 160 }, minWidth: { xs: "100%", sm: 350 }, borderRadius: 3, alignItems: "center", 
 
                                 position: "relative", border: `2.5px solid ${grade.color}`, transition: "transform 0.2s",
 
-                                "&:hover": { transform: "translateY(-4px)" }
+                                "&:hover": { transform: "translateY(-4px)" },
+
+                                flexDirection: { xs: "column", sm: "row" },
+
+                                py: { xs: 3, sm: 1.8 }
 
                             }}>
 
@@ -614,9 +630,9 @@ const MarketOverviewPage = () => {
 
                                 </Box>
 
-                                    <Box sx={{ flexGrow: 1, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                                    <Box sx={{ flexGrow: 1, width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
 
-                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: { xs: 2, sm: 0 } }}>
 
                                             <Box>
 
@@ -738,11 +754,15 @@ const MarketOverviewPage = () => {
 
                             <Card sx={{ 
 
-                                display: "flex", p: 1.8, gap: 2, height: 160, minWidth: 350, borderRadius: 3, alignItems: "center", 
+                                display: "flex", p: 1.8, gap: 2, height: { xs: "auto", sm: 160 }, minWidth: { xs: "100%", sm: 350 }, borderRadius: 3, alignItems: "center", 
 
                                 position: "relative", border: `2.5px solid ${grade.color}`, transition: "transform 0.2s",
 
-                                "&:hover": { transform: "translateY(-4px)" }
+                                "&:hover": { transform: "translateY(-4px)" },
+
+                                flexDirection: { xs: "column", sm: "row" },
+
+                                py: { xs: 3, sm: 1.8 }
 
                             }}>
 
@@ -782,9 +802,9 @@ const MarketOverviewPage = () => {
 
                                 </Box>
 
-                                    <Box sx={{ flexGrow: 1, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                                    <Box sx={{ flexGrow: 1, width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
 
-                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: { xs: 2, sm: 0 } }}>
 
                                             <Box>
 
@@ -904,11 +924,15 @@ const MarketOverviewPage = () => {
 
                             <Card sx={{ 
 
-                                display: "flex", p: 1.8, gap: 2, height: 160, minWidth: 350, borderRadius: 3, alignItems: "center", 
+                                display: "flex", p: 1.8, gap: 2, height: { xs: "auto", sm: 160 }, minWidth: { xs: "100%", sm: 350 }, borderRadius: 3, alignItems: "center", 
 
                                 position: "relative", border: `2.5px solid ${grade.color}`, transition: "transform 0.2s",
 
-                                "&:hover": { transform: "translateY(-4px)" }
+                                "&:hover": { transform: "translateY(-4px)" },
+
+                                flexDirection: { xs: "column", sm: "row" },
+
+                                py: { xs: 3, sm: 1.8 }
 
                             }}>
 
@@ -948,9 +972,9 @@ const MarketOverviewPage = () => {
 
                                 </Box>
 
-                                    <Box sx={{ flexGrow: 1, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                                    <Box sx={{ flexGrow: 1, width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
 
-                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: { xs: 2, sm: 0 } }}>
 
                                             <Box>
 

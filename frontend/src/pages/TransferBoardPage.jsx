@@ -4,7 +4,8 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, 
   LinearProgress, Paper, Avatar, IconButton, CircularProgress,
   List, ListItem, ListItemAvatar, ListItemText, InputAdornment, ToggleButton, ToggleButtonGroup, Slide,
-  Chip, Divider
+  Chip, Divider,
+  useMediaQuery, useTheme
 } from "@mui/material";
 import { LocalOffer, CheckCircle, PeopleAlt, Close, Search, SearchOff, Handshake, Campaign, AccountBalanceWallet, Storefront } from "@mui/icons-material";
 import { useSnackbar } from "notistack";
@@ -71,18 +72,23 @@ const getGradeStyle = (gradeLetter) => {
 };
 
 // Search Modal
-const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results, onSearch, searching, onSelect, user, hasMore, onLoadMore }) => (
+const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results, onSearch, searching, onSelect, user, hasMore, onLoadMore }) => {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+    
+    return (
     <Dialog 
         open={open} 
         onClose={onClose} 
-        maxWidth={false} 
+        maxWidth="lg" 
         fullWidth 
+        fullScreen={isMobile}
         PaperProps={{ 
             sx: { 
-                borderRadius: 4, 
-                width: 1200, 
-                maxWidth: "95vw",
-                height: '80vh',
+                borderRadius: isMobile ? 0 : 4, 
+                width: isMobile ? "100%" : 1200, 
+                maxWidth: isMobile ? "100%" : "95vw",
+                height: isMobile ? "100%" : '80vh',
                 background: "linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%)",
                 border: "1px solid rgba(0,0,0,0.06)",
                 boxShadow: "0 25px 60px rgba(0,0,0,0.18)",
@@ -160,7 +166,7 @@ const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results,
             ) : (
                 <Box sx={{ 
                     display: "grid", 
-                    gridTemplateColumns: "repeat(3, 1fr)", 
+                    gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, 
                     gap: 3,
                     width: "100%"
                 }}>
@@ -320,9 +326,12 @@ const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results,
             <Button onClick={onClose} color="inherit">Close Window</Button>
         </DialogActions>
     </Dialog>
-);
+    );
+};
 
 const TransferBoardPage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { user } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -805,10 +814,11 @@ const TransferBoardPage = () => {
         onClose={handleCloseNegotiate}
         maxWidth="sm"
         fullWidth
+        fullScreen={isMobile}
         TransitionComponent={Transition}
         PaperProps={{
           sx: {
-            borderRadius: 5,
+            borderRadius: isMobile ? 0 : 5,
             background: "rgba(255, 255, 255, 0.9)",
             backdropFilter: "blur(20px)",
             border: "1px solid rgba(255, 255, 255, 0.6)",

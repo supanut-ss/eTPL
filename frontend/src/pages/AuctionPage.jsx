@@ -26,6 +26,8 @@ import {
   FormControlLabel,
   Checkbox,
   CircularProgress,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { Gavel, Refresh, Search, SearchOff, SportsSoccer, AccountBalanceWallet, Groups, HelpOutline, Campaign, History, Timer, EmojiEvents, ArrowBack, Close } from "@mui/icons-material";
@@ -39,6 +41,8 @@ import { getPesdbLinkFromUrl, getPlayerCardUrl } from "../utils/imageUtils";
 const getPesdbLink = getPesdbLinkFromUrl;
 
 const AuctionPage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { user } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -473,6 +477,7 @@ const AuctionPage = () => {
                     <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem', fontWeight: 700 }}>
                       RESERVED
                     </Typography>
+                    <Tooltip title="Total TP currently locked in active winning bids">
                       <HelpOutline sx={{ fontSize: '0.7rem', color: 'text.disabled', cursor: 'help' }} />
                     </Tooltip>
                   </Box>
@@ -698,7 +703,7 @@ const AuctionPage = () => {
 
       <Grid container spacing={2.5}>
         {auctions
-          .filter(a => a.dbStatus === "Active" && a.bidderUserIds?.includes(user?.id))
+          .filter(a => a.dbStatus === "Active")
           .sort((a, b) => new Date(a.finalEndTime) - new Date(b.finalEndTime))
           .map((auction) => {
             const gradeColor = getGradeColor(auction?.playerOvr || 0);
@@ -710,13 +715,15 @@ const AuctionPage = () => {
             return (
               <Grid item xs={12} md={6} lg={4} key={auction.auctionId}>
                 <Card sx={{ 
-                    display: "flex", p: 1.8, gap: 2, height: 160, minWidth: 350, borderRadius: 3, alignItems: "center", 
+                    display: "flex", p: 1.8, gap: 2, height: { xs: "auto", sm: 160 }, minWidth: { xs: "100%", sm: 350 }, borderRadius: 3, alignItems: "center", 
                     position: "relative", border: `2.5px solid ${gradeColor}`, 
                     boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
                     "&:hover": { boxShadow: "0 12px 32px rgba(0,0,0,0.12)", transform: "translateY(-4px)" },
                     transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
                     overflow: "hidden",
-                    bgcolor: "#fff"
+                    bgcolor: "#fff",
+                    flexDirection: { xs: "column", sm: "row" },
+                    py: { xs: 3, sm: 1.8 }
                 }}>
                     <Box 
                         component={getPesdbLink(auction.imageUrl || getPlayerCardUrl(auction.playerId)) ? "a" : "div"}
@@ -749,8 +756,8 @@ const AuctionPage = () => {
                         </Box>
                     </Box>
 
-                    <Box sx={{ flexGrow: 1, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <Box sx={{ flexGrow: 1, width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: { xs: 2, sm: 0 } }}>
                             <Box>
                                 <Typography variant="subtitle2" fontWeight="bold" noWrap sx={{ maxWidth: 150 }}>
                                     {auction.playerName}
@@ -784,19 +791,19 @@ const AuctionPage = () => {
                                     variant="contained"
                                     size="small"
                                     fullWidth
-                                    disabled={auction.highestBidderId === user?.id}
+                                    disabled={auction.highestBidderId === user?.userId}
                                     sx={{
                                         borderRadius: 1.5, fontWeight: "900",
-                                        background: auction.highestBidderId === user?.id ? 'linear-gradient(135deg, #fdd835 0%, #fbc02d 100%) !important' : 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%) !important',
+                                        background: auction.highestBidderId === user?.userId ? 'linear-gradient(135deg, #fdd835 0%, #fbc02d 100%) !important' : 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%) !important',
                                         '&:hover': { background: 'linear-gradient(135deg, #43a047 0%, #1b5e20 100%) !important' },
                                         '&.Mui-disabled': { 
-                                            background: auction.highestBidderId === user?.id ? 'linear-gradient(135deg, #fdd835 0%, #fbc02d 100%) !important' : 'rgba(248, 244, 4, 1) !important', 
+                                            background: auction.highestBidderId === user?.userId ? 'linear-gradient(135deg, #fdd835 0%, #fbc02d 100%) !important' : 'rgba(248, 244, 4, 1) !important', 
                                             color: '#000 !important' 
                                         },
                                     }}
                                     onClick={() => handleBid(auction.auctionId, "normal", auction.currentPrice)}
                                 >
-                                    {auction.highestBidderId === user?.id ? "Leading" : "+1 TP"}
+                                    {auction.highestBidderId === user?.userId ? "Leading" : "+1 TP"}
                                 </Button>
                             )}
                             {isFinal && (
@@ -815,7 +822,7 @@ const AuctionPage = () => {
                                     {auction.currentUserFinalBid != null ? "Bid Submitted" : "Final Bid"}
                                 </Button>
                             )}
-                            {isWaiting && user?.id === auction.winnerId && (
+                            {isWaiting && user?.userId === auction.winnerId && (
                                 <Button 
                                     variant="contained" 
                                     size="small" 
@@ -834,7 +841,7 @@ const AuctionPage = () => {
           })}
       </Grid>
       
-      {auctions.filter(a => a.dbStatus === "Active" && a.bidderUserIds?.includes(user?.id)).length === 0 && (
+      {auctions.filter(a => a.dbStatus === "Active").length === 0 && (
         <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'grey.50', borderRadius: 2 }}>
           <Typography variant="body1" color="text.secondary">
             You do not have any active bids at the moment.
@@ -843,7 +850,13 @@ const AuctionPage = () => {
       )}
 
       {/* Start Auction Modal */}
-      <Dialog open={searchOpen} onClose={() => setSearchOpen(false)} maxWidth="md" fullWidth>
+      <Dialog 
+        open={searchOpen} 
+        onClose={() => setSearchOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+        fullScreen={isMobile}
+      >
         <DialogTitle sx={{ pb: 1 }}>🔍 Search Players to Start Auction</DialogTitle>
         <Divider />
         <DialogContent>
@@ -1027,7 +1040,9 @@ const AuctionPage = () => {
                 mb: 0.5,
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center',
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: { xs: 'flex-start', sm: 'center' },
+                gap: { xs: 2, sm: 0 },
                 borderRadius: '16px',
                 bgcolor: 'white',
                 border: '1px solid',
@@ -1148,11 +1163,12 @@ const AuctionPage = () => {
                 </Box>
 
                 {/* Actions */}
-                <Box sx={{ flexShrink: 0, ml: 2 }}>
+                <Box sx={{ flexShrink: 0, ml: { xs: 0, sm: 2 }, width: { xs: '100%', sm: 'auto' } }}>
                   {isAvailable && (
                     <Button 
                       variant="contained" 
                       onClick={() => handleStartAuction(p.idPlayer)}
+                      fullWidth={isMobile}
                       sx={{ 
                         bgcolor: '#1d1d1f', 
                         color: 'white',
@@ -1170,6 +1186,7 @@ const AuctionPage = () => {
                     <Button
                       variant="contained"
                       onClick={() => handleBidFromSearch(p.activeAuctionId, p.currentPrice)}
+                      fullWidth={isMobile}
                       sx={{ 
                         bgcolor: '#007AFF', 
                         color: 'white',
