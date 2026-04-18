@@ -1,14 +1,11 @@
 import { useState, useEffect } from "react";
+import { getLogoUrl } from "../utils/imageUtils";
 import { Box, Paper, Typography, Alert, CircularProgress } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import { Leaderboard, SquareRounded } from "@mui/icons-material";
 import { getStandings } from "../api/standingApi";
 
-// Build logo URL from teamName → /_image/CLUB_LOGO/{teamName}.png
-const getLogoUrl = (teamName) => {
-  if (!teamName) return "";
-  return `/_image/CLUB_LOGO/${encodeURIComponent(teamName)}.png`;
-};
+
 
 // Extract player name from parentheses, e.g. "AZ ALKMAAR (RREEF)" → "RREEF"
 const extractPlayer = (team) => {

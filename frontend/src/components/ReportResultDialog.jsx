@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getLogoUrl } from "../utils/imageUtils";
 import {
   Dialog,
   DialogTitle,
@@ -68,10 +69,7 @@ const ScoreInput = ({ label, value, onChange }) => (
   </Box>
 );
 
-const getLogoUrl = (teamName) => {
-  if (!teamName) return "";
-  return `/_image/CLUB_LOGO/${encodeURIComponent(teamName)}.png`;
-};
+
 
 const extractPlayer = (team) => {
   if (!team) return "";

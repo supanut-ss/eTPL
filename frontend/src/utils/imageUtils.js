@@ -1,3 +1,5 @@
+import { API_BASE_URL } from "../api/axiosInstance";
+
 /**
  * Central configuration for external image assets and links
  */
@@ -11,6 +13,18 @@ export const IMAGE_BASE_URLS = {
   
   // Link to PESDB database
   PESDB_INFO: "https://pesdb.net/efootball/?id={id}"
+};
+
+/**
+ * Generates the URL for a club's logo image
+ * @param {string} teamName - The name of the team
+ * @returns {string}
+ */
+export const getLogoUrl = (teamName) => {
+  if (!teamName) return "";
+  // In production, images are hosted on the API subdomain (apicore.thaipesleague.com)
+  // while the frontend is on the main domain (thaipesleague.com).
+  return `${API_BASE_URL}/_image/CLUB_LOGO/${encodeURIComponent(teamName)}.png`;
 };
 
 /**

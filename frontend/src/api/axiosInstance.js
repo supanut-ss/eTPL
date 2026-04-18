@@ -8,22 +8,23 @@ const resolveApiBaseUrl = () => {
 
   if (typeof window !== "undefined") {
     const { hostname } = window.location;
-    // When the frontend is served from the main web domain, point to the API subdomain.
-    // Always use HTTPS for API subdomain
-    if (
-      hostname === "thaipesleague.com" ||
-      hostname === "www.thaipesleague.com"
-    ) {
+    // For any subdomain of thaipesleague.com, point to the apicore subdomain.
+    if (hostname.includes("thaipesleague.com")) {
+      return "https://apicore.thaipesleague.com";
+    }
+    // If we're not on localhost and not on the main domain, still try to use the API subdomain as a fallback for production
+    if (hostname !== "localhost" && hostname !== "127.0.0.1") {
       return "https://apicore.thaipesleague.com";
     }
   }
 
-  // Default: same-origin (frontend is served directly by the backend).
   return "";
 };
 
+export const API_BASE_URL = resolveApiBaseUrl();
+
 const axiosInstance = axios.create({
-  baseURL: resolveApiBaseUrl(),
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },

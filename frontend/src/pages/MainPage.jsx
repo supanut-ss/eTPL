@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getLogoUrl } from "../utils/imageUtils";
 import {
   Card,
   CardContent,
@@ -47,10 +48,7 @@ import {
 } from "@mui/icons-material";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
-const getLogoUrl = (teamName) => {
-  if (!teamName) return "";
-  return `/_image/CLUB_LOGO/${encodeURIComponent(teamName)}.png`;
-};
+
 
 const extractPlayer = (team) => {
   if (!team) return "";

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { getLogoUrl } from "../utils/imageUtils";
 import {
   Box,
   Typography,
@@ -25,10 +26,7 @@ import {
 } from "@mui/icons-material";
 import { getPublicFixtures, getPublicH2H } from "../api/fixtureApi";
 
-const getLogoUrl = (teamName) => {
-  if (!teamName) return "";
-  return `/_image/CLUB_LOGO/${encodeURIComponent(teamName)}.png`;
-};
+
 
 // ---- Score badge ----
 const ScoreBadge = ({ homeScore, awayScore }) => {

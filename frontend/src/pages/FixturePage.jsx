@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { getLogoUrl } from "../utils/imageUtils";
 import {
   Box,
   Paper,
@@ -29,10 +30,7 @@ import { getFixtures } from "../api/fixtureApi";
 import { useAuth } from "../store/AuthContext";
 import ReportResultDialog from "../components/ReportResultDialog";
 
-const getLogoUrl = (teamName) => {
-  if (!teamName) return "";
-  return `/_image/CLUB_LOGO/${encodeURIComponent(teamName)}.png`;
-};
+
 
 const ScoreDisplay = ({ homeScore, awayScore }) => {
   const played = homeScore != null && awayScore != null;
