@@ -37,6 +37,7 @@ import { useAuth } from "../store/AuthContext";
 import { useSnackbar } from "notistack";
 import { checkMarketOpen } from "../utils/marketUtils";
 import { getPesdbLinkFromUrl, getPlayerCardUrl } from "../utils/imageUtils";
+import { getUsers } from "../api/userApi";
 
 const getPesdbLink = getPesdbLinkFromUrl;
 
@@ -55,6 +56,7 @@ const AuctionPage = () => {
   const [searchGrade, setSearchGrade] = useState("All");
   const [grades, setGrades] = useState([]);
   const [freeAgentOnly, setFreeAgentOnly] = useState(false);
+  const [members, setMembers] = useState([]);
 
   // Additional Filters
   const [filterLeague, setFilterLeague] = useState("");
@@ -160,14 +162,16 @@ const AuctionPage = () => {
   const fetchData = async (isSilent = false) => {
     try {
       if (!isSilent) setLoading(true);
-      const [sumRes, boardRes, quotaRes] = await Promise.all([
+      const [sumRes, boardRes, quotaRes, userRes] = await Promise.all([
         auctionService.getSummary(),
         auctionService.getBoard(),
-        auctionService.getQuotas()
+        auctionService.getQuotas(),
+        getUsers().catch(() => ({ data: { data: [] } }))
       ]);
       setSummary(sumRes.data);
       setAuctions(boardRes.data || []);
       setGrades(quotaRes.data || []);
+      setMembers(userRes.data?.data || []);
       await fetchOptions(); // Initial load
     } catch (err) {
       console.error(err);
@@ -295,6 +299,17 @@ const AuctionPage = () => {
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
     }
+  };
+
+  const getUserDisplayName = (idValue) => {
+    if (!idValue) return null;
+    const member = members.find(m => 
+      (m.id || m.Id) === idValue || 
+      (m.userId || m.UserId) === idValue || 
+      String(m.id || m.Id) === String(idValue) ||
+      String(m.userId || m.UserId) === String(idValue)
+    );
+    return (member?.lineName || member?.LineName) || (member?.userId || member?.UserId) || idValue;
   };
 
   const handleBid = async (auctionId, type, currentPrice) => {
@@ -701,153 +716,188 @@ const AuctionPage = () => {
       </Box>
 
 
-      <Grid container spacing={2.5}>
-        {auctions
-          .filter(a => a.dbStatus === "Active")
-          .sort((a, b) => new Date(a.finalEndTime) - new Date(b.finalEndTime))
-          .map((auction) => {
-            const gradeColor = getGradeColor(auction?.playerOvr || 0);
-            const gradeLabel = getDynamicGrade(auction?.playerOvr || 0).label;
-            const isNormal = auction.displayStatus === "Normal Bid";
-            const isFinal = auction.displayStatus === "Final Bid";
-            const isWaiting = auction.displayStatus === "Waiting Confirm";
+      <Grid container spacing={2.5} sx={{ width: '100%', m: 0 }}>
+        {(() => {
+          const filtered = auctions.filter(a => 
+            a.dbStatus === "Active" && 
+            (
+              a.highestBidderId === user?.id || 
+              (a.bidderUserIds && a.bidderUserIds.includes(user?.id)) ||
+              a.currentUserFinalBid !== null
+            )
+          );
 
+          if (filtered.length === 0) {
             return (
-              <Grid item xs={12} md={6} lg={4} key={auction.auctionId}>
-                <Card sx={{ 
-                    display: "flex", p: 1.8, gap: 2, height: { xs: "auto", sm: 160 }, minWidth: { xs: "100%", sm: 350 }, borderRadius: 3, alignItems: "center", 
-                    position: "relative", border: `2.5px solid ${gradeColor}`, 
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-                    "&:hover": { boxShadow: "0 12px 32px rgba(0,0,0,0.12)", transform: "translateY(-4px)" },
-                    transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
-                    overflow: "hidden",
-                    bgcolor: "#fff",
-                    flexDirection: { xs: "column", sm: "row" },
-                    py: { xs: 3, sm: 1.8 }
+              <Grid item xs={12} sx={{ width: '100%' }}>
+                <Paper elevation={0} sx={{ 
+                  p: 8, textAlign: "center", borderRadius: 4, 
+                  bgcolor: "rgba(0,0,0,0.02)", border: "2px dashed rgba(0,0,0,0.05)",
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 300
                 }}>
-                    <Box 
-                        component={getPesdbLink(auction.imageUrl || getPlayerCardUrl(auction.playerId)) ? "a" : "div"}
-                        href={getPesdbLink(auction.imageUrl || getPlayerCardUrl(auction.playerId))}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        sx={{ 
-                            position: "relative", 
-                            width: 80, 
-                            height: 110, 
-                            flexShrink: 0,
-                            cursor: "pointer",
-                            transition: "transform 0.2s",
-                            "&:hover": { transform: "scale(1.05)" }
-                        }}
-                    >
-                        <Avatar 
-                            src={auction.imageUrl || getPlayerCardUrl(auction.playerId)}
-                            variant="rounded" 
-                            sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc", "& img": { objectFit: "contain" } }} 
-                        />
-                        <Box sx={{ 
-                            position: "absolute", top: -8, left: -8, 
-                            background: `linear-gradient(135deg, ${gradeColor} 0%, ${alpha(gradeColor, 0.8)} 100%)`, 
-                            color: "white", minWidth: 32, height: 32, borderRadius: "50%", 
-                            display: "flex", alignItems: "center", justifyContent: "center", 
-                            fontWeight: "900", border: "2px solid white", zIndex: 2 
-                        }}>
-                            {gradeLabel}
-                        </Box>
-                    </Box>
+                  <SearchOff sx={{ fontSize: 64, color: "text.disabled", mb: 2, opacity: 0.5 }} />
+                  <Typography variant="h6" fontWeight="bold" color="text.secondary">
+                    No Active Bids
+                  </Typography>
+                  <Typography variant="body2" color="text.disabled" sx={{ mb: 3 }}>
+                    You are not participating in any live auctions at the moment.
+                  </Typography>
+                  <Button 
+                    variant="outlined" 
+                    startIcon={<Search />}
+                    onClick={() => setSearchOpen(true)}
+                    sx={{ borderRadius: 2, textTransform: "none", fontWeight: "bold" }}
+                  >
+                    Find Players to Bid
+                  </Button>
+                </Paper>
+              </Grid>
+            );
+          }
 
-                    <Box sx={{ flexGrow: 1, width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: { xs: 2, sm: 0 } }}>
-                            <Box>
-                                <Typography variant="subtitle2" fontWeight="bold" noWrap sx={{ maxWidth: 150 }}>
-                                    {auction.playerName}
-                                </Typography>
-                                <Box display="flex" alignItems="center" gap={0.5} mb={0.5}>
-                                    <Box component="span" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: isFinal ? '#ff9800' : '#4caf50' }} />
-                                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
-                                        {auction.displayStatus === "Normal Bid" ? "Normal" : auction.displayStatus === "Final Bid" ? "Final" : "Wait"}
+          return filtered
+            .sort((a, b) => new Date(a.finalEndTime) - new Date(b.finalEndTime))
+            .map((auction) => {
+                const gradeColor = getGradeColor(auction?.playerOvr || 0);
+                const gradeLabel = getDynamicGrade(auction?.playerOvr || 0).label;
+                const isNormal = auction.displayStatus === "Normal Bid";
+                const isFinal = auction.displayStatus === "Final Bid";
+                const isWaiting = auction.displayStatus === "Waiting Confirm";
+
+                return (
+                  <Grid item xs={12} md={6} lg={4} key={auction.auctionId}>
+                    <Card sx={{ 
+                        display: "flex", p: 1.8, gap: 2, height: { xs: "auto", sm: 160 }, minWidth: { xs: "100%", sm: 350 }, borderRadius: 3, alignItems: "center", 
+                        position: "relative", border: `2.5px solid ${gradeColor}`, 
+                        boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+                        "&:hover": { boxShadow: "0 12px 32px rgba(0,0,0,0.12)", transform: "translateY(-4px)" },
+                        transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
+                        overflow: "hidden",
+                        bgcolor: "#fff",
+                        flexDirection: { xs: "column", sm: "row" },
+                        py: { xs: 3, sm: 1.8 }
+                    }}>
+                        <Box 
+                            component={getPesdbLink(auction.imageUrl || getPlayerCardUrl(auction.playerId)) ? "a" : "div"}
+                            href={getPesdbLink(auction.imageUrl || getPlayerCardUrl(auction.playerId))}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{ 
+                                position: "relative", 
+                                width: 80, 
+                                height: 110, 
+                                flexShrink: 0,
+                                cursor: "pointer",
+                                transition: "transform 0.2s",
+                                "&:hover": { transform: "scale(1.05)" }
+                            }}
+                        >
+                            <Avatar 
+                                src={auction.imageUrl || getPlayerCardUrl(auction.playerId)}
+                                variant="rounded" 
+                                sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc", "& img": { objectFit: "contain" } }} 
+                            />
+                            <Box sx={{ 
+                                position: "absolute", top: -8, left: -8, 
+                                background: `linear-gradient(135deg, ${gradeColor} 0%, ${alpha(gradeColor, 0.8)} 100%)`, 
+                                color: "white", minWidth: 32, height: 32, borderRadius: "50%", 
+                                display: "flex", alignItems: "center", justifyContent: "center", 
+                                fontWeight: "900", border: "2px solid white", zIndex: 2 
+                            }}>
+                                {gradeLabel}
+                            </Box>
+                        </Box>
+
+                        <Box sx={{ flexGrow: 1, width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: { xs: 2, sm: 0 } }}>
+                                <Box>
+                                    <Typography variant="subtitle2" fontWeight="bold" noWrap sx={{ maxWidth: 150 }}>
+                                        {auction.playerName}
+                                    </Typography>
+                                    <Box display="flex" alignItems="center" gap={0.5} mb={0.5}>
+                                        <Box component="span" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: isFinal ? '#ff9800' : '#4caf50' }} />
+                                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 'bold' }}>
+                                            {auction.displayStatus === "Normal Bid" ? "Normal" : auction.displayStatus === "Final Bid" ? "Final" : "Wait"}
+                                        </Typography>
+                                    </Box>
+                                    <Typography variant="caption" display="block" color="text.secondary">OVR: <b>{auction.playerOvr}</b></Typography>
+                                    <Typography variant="caption" display="block" color="text.secondary">
+                                        Ends: <b>{new Date(auction.currentPhaseEndTime).toLocaleString("en-GB", { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</b>
                                     </Typography>
                                 </Box>
-                                <Typography variant="caption" display="block" color="text.secondary">OVR: <b>{auction.playerOvr}</b></Typography>
-                                <Typography variant="caption" display="block" color="text.secondary">
-                                    Ends: <b>{new Date(auction.finalEndTime).toLocaleString("en-GB", { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</b>
-                                </Typography>
-                            </Box>
-                            <Box sx={{ textAlign: "right" }}>
-                                <Typography variant="h5" fontWeight="900" color="primary">
-                                    {(auction.currentUserFinalBid ?? auction.currentPrice).toLocaleString()} TP
-                                </Typography>
-                                {auction.displayStatus === "Waiting Confirm" && (
-                                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 'bold' }}>
-                                        Win: {auction.highestBidderName || "-"}
+                                <Box sx={{ textAlign: "right" }}>
+                                    <Typography variant="h5" fontWeight="900" color="primary">
+                                        {(auction.currentUserFinalBid ?? auction.currentPrice).toLocaleString()} TP
                                     </Typography>
+                                    {auction.displayStatus === "Waiting Confirm" && (
+                                        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 'bold' }}>
+                                            Win: {getUserDisplayName(auction.winnerId || auction.highestBidderId) || auction.highestBidderName || "-"}
+                                        </Typography>
+                                    )}
+                                </Box>
+                            </Box>
+
+                            <Box sx={{ display: "flex", gap: 1 }}>
+                                {isNormal && (
+                                    <Button
+                                        variant="contained"
+                                        size="small"
+                                        fullWidth
+                                        disabled={auction.highestBidderId === user?.id}
+                                        sx={{
+                                            borderRadius: 1.5, fontWeight: "900",
+                                            background: auction.highestBidderId === user?.id ? 'linear-gradient(135deg, #fdd835 0%, #fbc02d 100%) !important' : 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%) !important',
+                                            '&:hover': { background: 'linear-gradient(135deg, #43a047 0%, #1b5e20 100%) !important' },
+                                            '&.Mui-disabled': { 
+                                                background: auction.highestBidderId === user?.id ? 'linear-gradient(135deg, #fdd835 0%, #fbc02d 100%) !important' : 'rgba(248, 244, 4, 1) !important', 
+                                                color: '#000 !important' 
+                                            },
+                                        }}
+                                        onClick={() => handleBid(auction.auctionId, "normal", auction.currentPrice)}
+                                    >
+                                        {auction.highestBidderId === user?.id ? "Leading" : "+1 TP"}
+                                    </Button>
+                                )}
+                                {isFinal && (
+                                    <Button 
+                                        variant="contained" 
+                                        size="small" 
+                                        fullWidth
+                                        disabled={auction.currentUserFinalBid != null}
+                                        sx={{ 
+                                            borderRadius: 1.5, fontWeight: "900",
+                                            background: auction.currentUserFinalBid != null ? '#555 !important' : 'linear-gradient(135deg, #ff9800 0%, #e65100 100%) !important', 
+                                            '&:hover': { background: 'linear-gradient(135deg, #f57c00 0%, #bf360c 100%) !important' }, 
+                                            '&.Mui-disabled': { color: '#ccc !important', background: '#555 !important' },
+                                        }} 
+                                        onClick={() => handleBid(auction.auctionId, "final", auction.currentPrice)}>
+                                        {auction.currentUserFinalBid != null ? "Bid Submitted" : "Final Bid"}
+                                    </Button>
+                                )}
+                                {isWaiting && String(user?.id || user?.Id) === String(auction.winnerId) && (
+                                    <Button 
+                                        variant="contained" 
+                                        size="small" 
+                                        fullWidth
+                                        sx={{ borderRadius: 1.5, fontWeight: "900", bgcolor: '#2196f3', '&:hover': { bgcolor: '#1e88e5' } }} 
+                                        onClick={() => handleConfirm(auction.auctionId)}
+                                    >
+                                        Confirm Player
+                                    </Button>
                                 )}
                             </Box>
                         </Box>
-
-                        <Box sx={{ display: "flex", gap: 1 }}>
-                            {isNormal && (
-                                <Button
-                                    variant="contained"
-                                    size="small"
-                                    fullWidth
-                                    disabled={auction.highestBidderId === user?.userId}
-                                    sx={{
-                                        borderRadius: 1.5, fontWeight: "900",
-                                        background: auction.highestBidderId === user?.userId ? 'linear-gradient(135deg, #fdd835 0%, #fbc02d 100%) !important' : 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%) !important',
-                                        '&:hover': { background: 'linear-gradient(135deg, #43a047 0%, #1b5e20 100%) !important' },
-                                        '&.Mui-disabled': { 
-                                            background: auction.highestBidderId === user?.userId ? 'linear-gradient(135deg, #fdd835 0%, #fbc02d 100%) !important' : 'rgba(248, 244, 4, 1) !important', 
-                                            color: '#000 !important' 
-                                        },
-                                    }}
-                                    onClick={() => handleBid(auction.auctionId, "normal", auction.currentPrice)}
-                                >
-                                    {auction.highestBidderId === user?.userId ? "Leading" : "+1 TP"}
-                                </Button>
-                            )}
-                            {isFinal && (
-                                <Button 
-                                    variant="contained" 
-                                    size="small" 
-                                    fullWidth
-                                    disabled={auction.currentUserFinalBid != null}
-                                    sx={{ 
-                                        borderRadius: 1.5, fontWeight: "900",
-                                        background: auction.currentUserFinalBid != null ? '#555 !important' : 'linear-gradient(135deg, #ff9800 0%, #e65100 100%) !important', 
-                                        '&:hover': { background: 'linear-gradient(135deg, #f57c00 0%, #bf360c 100%) !important' }, 
-                                        '&.Mui-disabled': { color: '#ccc !important', background: '#555 !important' },
-                                    }} 
-                                    onClick={() => handleBid(auction.auctionId, "final", auction.currentPrice)}>
-                                    {auction.currentUserFinalBid != null ? "Bid Submitted" : "Final Bid"}
-                                </Button>
-                            )}
-                            {isWaiting && user?.userId === auction.winnerId && (
-                                <Button 
-                                    variant="contained" 
-                                    size="small" 
-                                    fullWidth
-                                    sx={{ borderRadius: 1.5, fontWeight: "900", bgcolor: '#2196f3', '&:hover': { bgcolor: '#1e88e5' } }} 
-                                    onClick={() => handleConfirm(auction.auctionId)}
-                                >
-                                    Confirm Player
-                                </Button>
-                            )}
-                        </Box>
-                    </Box>
-                </Card>
-              </Grid>
-            )
-          })}
+                    </Card>
+                  </Grid>
+                );
+            });
+        })()}
       </Grid>
-      
-      {auctions.filter(a => a.dbStatus === "Active").length === 0 && (
-        <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'grey.50', borderRadius: 2 }}>
-          <Typography variant="body1" color="text.secondary">
-            You do not have any active bids at the moment.
-          </Typography>
-        </Paper>
-      )}
 
       {/* Start Auction Modal */}
       <Dialog 

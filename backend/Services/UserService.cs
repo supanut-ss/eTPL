@@ -106,6 +106,7 @@ namespace eTPL.API.Services
 
         private static UserDto ToDto(User u) => new()
         {
+            Id = u.Id,
             UserId = u.UserId,
             UserLevel = u.UserLevel,
             LineId = u.LineId,

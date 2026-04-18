@@ -46,6 +46,7 @@ namespace eTPL.API.Services.Interfaces
 
         // Transaction history
         Task<PagedResultDto<AuctionTransactionDto>> GetTransactionsAsync(int userId, int page = 1, int pageSize = 20);
+        Task<PagedResultDto<AuctionTransactionDto>> GetGlobalTransactionsAsync(int page = 1, int pageSize = 20);
 
         // Squad lifecycle
         Task GiveBonusAsync(int adminUserId, GiveBonusRequest request);

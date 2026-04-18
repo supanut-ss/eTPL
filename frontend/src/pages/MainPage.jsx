@@ -9,6 +9,9 @@ import {
   Divider,
   Alert,
   Skeleton,
+  IconButton,
+  Tooltip,
+  SvgIcon,
 } from "@mui/material";
 import {
   SportsSoccer,
@@ -31,6 +34,17 @@ import {
 } from "../api/fixtureApi";
 import { getPublicAnnouncements } from "../api/announcementApi";
 import { getUsers } from "../api/userApi";
+import auctionService from "../services/auctionService";
+import { 
+  LocalFireDepartment, 
+  Timeline, 
+  ConfirmationNumber, 
+  ArrowForward,
+  InfoOutlined,
+  EmojiEvents as TrophyIcon,
+  Facebook,
+  YouTube,
+} from "@mui/icons-material";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const getLogoUrl = (teamName) => {
@@ -54,6 +68,18 @@ const formatMatchDate = (value) => {
     year: "2-digit",
   });
 };
+
+const LineIcon = (props) => (
+  <SvgIcon {...props} viewBox="0 0 24 24">
+    <path d="M12 2C6.477 2 2 6.134 2 11.235c0 4.54 3.52 8.356 8.33 9.123l-.304 1.264c-.041.173.057.34.246.392.057.016.113.023.17.023.128 0 .252-.036.342-.111l2.272-1.882c.12-.101.272-.158.43-.158h.167c5.523 0 10-4.134 10-9.235S17.523 2 12 2z" fill="currentColor"/>
+  </SvgIcon>
+);
+
+const DiscordIcon = (props) => (
+  <SvgIcon {...props} viewBox="0 0 24 24">
+    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.419-2.157 2.419zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.419-2.157 2.419z"/>
+  </SvgIcon>
+);
 
 // ─── form badges ─────────────────────────────────────────────────────────────
 const FormDots = ({ last, max = 5 }) => {
@@ -107,48 +133,53 @@ const RankMedal = ({ rank }) => {
 };
 
 // ─── stat card ───────────────────────────────────────────────────────────────
-const StatCard = ({ title, value, icon, gradient, loading }) => (
+const StatCard = ({ title, value, icon, color, loading }) => (
   <Card
     elevation={0}
     sx={{
       height: "100%",
       border: "1px solid",
       borderColor: "divider",
-      borderRadius: 3,
+      borderRadius: 4,
+      background: "rgba(255, 255, 255, 0.7)",
+      backdropFilter: "blur(12px)",
       overflow: "hidden",
-      transition: "transform 0.15s, box-shadow 0.15s",
-      "&:hover": { transform: "translateY(-2px)", boxShadow: 3 },
+      position: "relative",
+      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+      "&:hover": { 
+        transform: "translateY(-4px)", 
+        boxShadow: "0 12px 24px -10px rgba(0,0,0,0.1)",
+        borderColor: color,
+        "& .icon-box": { transform: "scale(1.1) rotate(5deg)" }
+      },
     }}
   >
     <CardContent sx={{ p: 2.5 }}>
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="flex-start"
-      >
+      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
         <Box>
-          <Typography variant="body2" color="text.secondary" fontWeight={500}>
+          <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ letterSpacing: 0.5, textTransform: "uppercase" }}>
             {title}
           </Typography>
           {loading ? (
-            <Skeleton width={60} height={44} />
+            <Skeleton width={60} height={40} />
           ) : (
-            <Typography variant="h4" fontWeight={800} mt={0.5} lineHeight={1}>
+            <Typography variant="h4" fontWeight={900} mt={0.5} color="text.primary">
               {value ?? "—"}
             </Typography>
           )}
         </Box>
         <Box
+          className="icon-box"
           sx={{
-            width: 48,
-            height: 48,
-            borderRadius: 2,
-            background: gradient,
+            width: 44,
+            height: 44,
+            borderRadius: 3,
+            background: `linear-gradient(135deg, ${color}22 0%, ${color}44 100%)`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "white",
-            flexShrink: 0,
+            color: color,
+            transition: "all 0.3s ease",
           }}
         >
           {icon}
@@ -157,6 +188,51 @@ const StatCard = ({ title, value, icon, gradient, loading }) => (
     </CardContent>
   </Card>
 );
+
+// ─── Market Activity Row ──────────────────────────────────────────────────
+const ActivityRow = ({ activity }) => {
+  const isAward = activity.type?.toLowerCase().includes("award") || activity.reason?.toLowerCase().includes("bonus");
+  const isTransfer = activity.type?.toLowerCase().includes("transfer") || activity.type?.toLowerCase().includes("buy");
+  const isRelease = activity.type?.toLowerCase().includes("release");
+
+  let color = "#64748b";
+  let icon = <InfoOutlined fontSize="small" />;
+  
+  if (isAward) { color = "#f59e0b"; icon = <LocalFireDepartment fontSize="small" />; }
+  if (isTransfer) { color = "#6366f1"; icon = <Timeline fontSize="small" />; }
+  if (isRelease) { color = "#ef4444"; icon = <InfoOutlined fontSize="small" />; }
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 1.5,
+        p: 1.5,
+        borderRadius: 2.5,
+        bgcolor: "transparent",
+        border: "1px solid transparent",
+        "&:hover": { bgcolor: "rgba(0,0,0,0.02)", borderColor: "divider" },
+        transition: "all 0.2s ease"
+      }}
+    >
+      <Box sx={{ color, display: "flex", p: 1, bgcolor: `${color}11`, borderRadius: 1.5 }}>
+        {icon}
+      </Box>
+      <Box flex={1} minWidth={0}>
+        <Typography variant="body2" fontWeight={700} noWrap>
+          {activity.playerName || activity.description || activity.type || "System Activity"}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" noWrap display="block">
+          {activity.userName || "System"} • {activity.amount ? `${activity.amount.toLocaleString()} TP` : "Action"}
+        </Typography>
+      </Box>
+      <Typography variant="caption" color="text.disabled" sx={{ whiteSpace: "nowrap" }}>
+        {formatMatchDate(activity.createdAt)}
+      </Typography>
+    </Box>
+  );
+};
 
 // ─── section header ──────────────────────────────────────────────────────────
 const SectionHeader = ({ icon, title, color = "#0f172a" }) => (
@@ -198,16 +274,19 @@ const MainPage = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [announcementIndex, setAnnouncementIndex] = useState(0);
   const [members, setMembers] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [memberBannerIndex, setMemberBannerIndex] = useState(0);
+  const [marketActivity, setMarketActivity] = useState([]);
+  const [marketIndex, setMarketIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    setLoading(true);
+  const fetchDashboardData = (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     const fixtureRequest = user ? getFixtures({}) : getPublicFixtures();
     const canLoadMembers = !!user;
 
-    Promise.all([
+    return Promise.all([
       getStandings(),
       fixtureRequest,
       getPublicLastFixtures(),
@@ -217,32 +296,102 @@ const MainPage = () => {
         setStandings(sRes.data.data || []);
         setFixtures(fRes.data.data || []);
         setLastFixtures(lastRes.data.data || []);
-        setAnnouncements(aRes.data.data || []);
+        const sortedAnnouncements = (aRes.data.data || []).sort((a, b) => new Date(b.createDate) - new Date(a.createDate));
+        setAnnouncements(sortedAnnouncements);
 
         if (!canLoadMembers) {
           setMembers([]);
+          setTransactions([]);
           return null;
         }
 
-        return getUsers()
-          .then((uRes) => {
+        return Promise.all([
+          getUsers(),
+          auctionService.getGlobalTransactions(1, 100).catch(() => ({ data: [] })),
+          auctionService.getTransferBoard().catch(() => ({ data: [] }))
+        ])
+          .then(([uRes, tRes, bRes]) => {
             setMembers(uRes.data.data || []);
+            
+            // Format and Combine Activities
+            const txs = tRes.data?.items || tRes.items || [];
+            const listings = bRes.data || bRes || [];
+
+            const combined = [];
+            
+            // Add Confirmed Transactions (Sold Out / Accepted)
+            txs.forEach(tx => {
+              const desc = (tx.description || "").toLowerCase();
+              // Check for both English and Thai keywords used in DB
+              const isSignificant = desc.includes("won") || 
+                                    desc.includes("confirm") || 
+                                    desc.includes("accepted") || 
+                                    desc.includes("transfer") || 
+                                    desc.includes("success") || 
+                                    desc.includes("signed") ||
+                                    desc.includes("ชนะ") ||
+                                    desc.includes("ซื้อ") ||
+                                    desc.includes("ขาย") ||
+                                    desc.includes("ยืม") ||
+                                    desc.includes("ปล่อย") ||
+                                    desc.includes("สัญญา");
+              
+              if (isSignificant) {
+                // Find Line Name from members list if possible
+                const member = uRes.data.data?.find(m => m.userId === tx.userName);
+                const displayName = member?.lineName || tx.userName || "System";
+
+                combined.push({
+                  id: `tx-${tx.transactionId}`,
+                  type: "DEAL",
+                  title: tx.playerName || tx.relatedPlayerName || "Deal Confirmed",
+                  subtitle: `${displayName} ${tx.description}`,
+                  amount: tx.amount,
+                  date: tx.createdAt
+                });
+              }
+            });
+
+            // Add Current Listings
+            listings.forEach(player => {
+              combined.push({
+                id: `listing-${player.squadId}`,
+                type: "LISTING",
+                title: player.playerName,
+                subtitle: `${player.ownerName || "สโมสร"} ประกาศขายนักเตะ`,
+                amount: player.listingPrice || player.price,
+                date: new Date().toISOString()
+              });
+            });
+
+            // Sort by date and take latest 10
+            const sorted = combined.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+            setMarketActivity(sorted);
           })
-          .catch(() => {
-            setMembers([]);
+          .catch((err) => {
+            console.error("Member/Transaction load error", err);
           });
       })
       .catch((err) => {
-        const errorMsg = err.response?.data?.message || err.message || "Failed to load dashboard data";
-        console.error("Dashboard data load error:", {
-          status: err.response?.status,
-          message: errorMsg,
-          data: err.response?.data,
-          url: err.config?.url,
-        });
-        setError(errorMsg);
+        if (!isSilent) {
+          const errorMsg = err.response?.data?.message || err.message || "Failed to load dashboard data";
+          setError(errorMsg);
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!isSilent) setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+    
+    // Auto-reload data every 30 seconds
+    const intervalId = setInterval(() => {
+      fetchDashboardData(true);
+    }, 30000);
+
+    return () => clearInterval(intervalId);
   }, [user]);
 
   useEffect(() => {
@@ -303,44 +452,58 @@ const MainPage = () => {
     return () => clearInterval(timerId);
   }, [memberBannerCount]);
 
+  useEffect(() => {
+    if (marketActivity.length <= 1) return undefined;
+
+    const timerId = setInterval(() => {
+      setMarketIndex((prev) => (prev + 1) % marketActivity.length);
+    }, 4500);
+
+    return () => clearInterval(timerId);
+  }, [marketActivity.length]);
+
   return (
-    <Box sx={{ width: "100%" }}>
+    <Box sx={{ width: "100%", pb: 4 }}>
       <Paper
         elevation={0}
         sx={{
-          p: { xs: 2.5, sm: 3, md: 4 },
-          mb: 3,
-          borderRadius: 5,
-          background:
-            "linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #334155 100%)",
-          color: "white",
+          p: { xs: 3, sm: 4, md: 5 },
+          mb: 4,
+          borderRadius: 8,
+          background: "linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(240,245,255,0.95) 50%, rgba(224,231,255,0.9) 100%)",
+          backdropFilter: "blur(20px)",
+          color: "text.primary",
           position: "relative",
           overflow: "hidden",
-          border: "1px solid rgba(255,255,255,0.06)",
-          minHeight: { xs: "auto", md: 250 },
+          border: "1px solid",
+          borderColor: "rgba(99, 102, 241, 0.2)",
+          boxShadow: "0 20px 40px -20px rgba(15, 23, 42, 0.12)",
         }}
       >
+        {/* Animated Orbs */}
         <Box
           sx={{
             position: "absolute",
-            top: -45,
-            right: -40,
-            width: 180,
-            height: 180,
+            top: -100,
+            right: -60,
+            width: 400,
+            height: 400,
             borderRadius: "50%",
-            bgcolor: "rgba(99,102,241,0.16)",
+            background: "radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%)",
+            filter: "blur(60px)",
             pointerEvents: "none",
           }}
         />
         <Box
           sx={{
             position: "absolute",
-            bottom: -36,
-            right: 72,
-            width: 110,
-            height: 110,
+            bottom: -80,
+            left: "5%",
+            width: 250,
+            height: 250,
             borderRadius: "50%",
-            bgcolor: "rgba(99,102,241,0.08)",
+            background: "radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%)",
+            filter: "blur(40px)",
             pointerEvents: "none",
           }}
         />
@@ -350,34 +513,135 @@ const MainPage = () => {
             display: "grid",
             gridTemplateColumns: {
               xs: "1fr",
-              md: "minmax(0, 1.5fr) minmax(320px, 0.9fr)",
+              md: "1fr 1fr",
             },
-            gap: { xs: 2, md: 3 },
-            alignItems: "stretch",
+            gap: 4,
+            alignItems: "center",
+            position: "relative",
+            zIndex: 1,
           }}
         >
           <Box>
-            <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
-              <Box flex={1}>
-                <Typography variant="h4" fontWeight={900} lineHeight={1.1}>
-                  eTPL Dashboard
+     
+            
+            <Typography variant="h3" fontWeight={900} letterSpacing={-1} lineHeight={1} color="primary.main" sx={{ fontSize: { xs: "2rem", md: "3rem" } }}>
+              
+              <Box component="span" sx={{ color: "secondary.main" }}>eTPL</Box>
+            </Typography>
+            
+            <Typography variant="body1" sx={{ color: "text.secondary", mt: 2.5, mb: 4, maxWidth: 500, fontSize: 18, fontWeight: 500 }}>
+              Welcome back to eTPL by Thai PES League. Track your squad's performance and stay updated with the latest market moves.
+            </Typography>
+
+            <Box display="flex" gap={1.5} flexWrap="wrap" alignItems="center">
+              <Chip
+                icon={<SportsSoccer sx={{ color: "primary.main !important", fontSize: "18px !important" }} />}
+                label={`Season ${season || "1"}`}
+                sx={{ 
+                  bgcolor: "white", 
+                  color: "primary.main", 
+                  px: 1, 
+                  py: 2.2, 
+                  fontSize: 14,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+                  "& .MuiChip-label": { fontWeight: 700 }
+                }}
+              />
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1.5,
+                  px: 2,
+                  py: 1,
+                  borderRadius: "99px",
+                  bgcolor: "rgba(16,185,129,0.08)",
+                  border: "1px solid rgba(16,185,129,0.15)",
+                  color: "success.dark",
+                  mr: 2
+                }}
+              >
+                <Timeline sx={{ fontSize: 18 }} />
+                <Typography variant="body2" fontWeight={800}>
+                  {Math.round((playedMatches / (totalMatches || 1)) * 100)}% Season Complete
                 </Typography>
-                <Typography variant="body1" sx={{ opacity: 0.76, mt: 0.75 }}>
-                  Track standings, match results, and league activity in one
-                  place.
-                </Typography>
-                <Box display="flex" gap={1} flexWrap="wrap" mt={2}>
-                  <Chip
-                    icon={<SportsSoccer sx={{ color: "white !important" }} />}
-                    label={`eFootball · Division 1${season ? ` · Season ${season}` : ""}`}
-                    sx={{ bgcolor: "rgba(255,255,255,0.14)", color: "white" }}
-                  />
-                  <Chip
-                    icon={<TrendingUp sx={{ color: "white !important" }} />}
-                    label={`${playedMatches}/${totalMatches || 0} matches played`}
-                    sx={{ bgcolor: "rgba(255,255,255,0.10)", color: "white" }}
-                  />
-                </Box>
+              </Box>
+
+              {/* Social Icons */}
+              <Box display="flex" gap={1}>
+                <Tooltip title="Facebook Group">
+                  <IconButton 
+                    component="a"
+                    href="https://www.facebook.com/thaipesleague"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size="small" 
+                    sx={{ 
+                      bgcolor: "rgba(24, 119, 242, 0.1)", 
+                      color: "#1877f2",
+                      "&:hover": { bgcolor: "#1877f2", color: "white" },
+                      transition: "all 0.3s ease"
+                    }}
+                  >
+                    <Facebook fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                
+                <Tooltip title="Line Community">
+                  <IconButton 
+                    component="a"
+                    href="https://lin.ee/TxcwFFB"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size="small" 
+                    sx={{ 
+                      bgcolor: "rgba(0, 185, 0, 0.1)", 
+                      color: "#00b900",
+                      "&:hover": { bgcolor: "#00b900", color: "white" },
+                      transition: "all 0.3s ease",
+                    }}
+                  >
+                    <LineIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Tooltip>
+
+                <Tooltip title="YouTube Channel">
+                  <IconButton 
+                    component="a"
+                    href="https://www.youtube.com/@iamcrazygamerch?sub_confirmation=1"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size="small" 
+                    sx={{ 
+                      bgcolor: "rgba(255, 0, 0, 0.1)", 
+                      color: "#ff0000",
+                      "&:hover": { bgcolor: "#ff0000", color: "white" },
+                      transition: "all 0.3s ease"
+                    }}
+                  >
+                    <YouTube fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+
+                <Tooltip title="Discord Server">
+                  <IconButton 
+                    component="a"
+                    href="https://discord.gg/jXsh65jqy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    size="small" 
+                    sx={{ 
+                      bgcolor: "rgba(88, 101, 242, 0.1)", 
+                      color: "#5865f2",
+                      "&:hover": { bgcolor: "#5865f2", color: "white" },
+                      transition: "all 0.3s ease",
+                    }}
+                  >
+                    <DiscordIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </Tooltip>
               </Box>
             </Box>
           </Box>
@@ -386,42 +650,40 @@ const MainPage = () => {
             sx={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
-              gap: 1.25,
-              alignSelf: "stretch",
+              gap: 2,
+              p: 1,
             }}
           >
             {[
-              { label: "Welcome", value: user?.userId || "Guest" },
-              {
-                label: "Access",
-                value:
-                  user?.userLevel === "admin"
-                    ? "Admin"
-                    : user
-                      ? "Player"
-                      : "Public",
-              },
-              { label: "Teams", value: totalTeams || 0 },
-              { label: "Matches", value: totalMatches || 0 },
+              { label: "Active Manager", value: user?.userId || "Guest Access", highlight: !!user },
+              { label: "Total Clubs", value: totalTeams || 0 },
+              { label: "Matches Completed", value: playedMatches || 0 },
+              { label: "Market Status", value: "Active", dot: "#10b981" },
             ].map((item) => (
               <Box
                 key={item.label}
                 sx={{
-                  p: 2,
-                  borderRadius: 3,
-                  bgcolor: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  p: { xs: 2, sm: 3 },
+                  borderRadius: 4,
+                  bgcolor: "white",
+                  border: "1px solid",
+                  borderColor: "divider",
+                  boxShadow: "0 4px 12px -5px rgba(0,0,0,0.05)",
                   display: "flex",
                   flexDirection: "column",
-                  justifyContent: "center",
                 }}
               >
-                <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
                   {item.label}
                 </Typography>
-                <Typography variant="h6" fontWeight={800} mt={0.4} noWrap>
-                  {item.value}
-                </Typography>
+                <Box display="flex" alignItems="center" gap={1} mt={1}>
+                  {item.dot && (
+                    <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: item.dot, boxShadow: `0 0 10px ${item.dot}44` }} />
+                  )}
+                  <Typography variant="h5" fontWeight={900} noWrap sx={{ color: item.highlight ? "secondary.main" : "primary.main", fontSize: { xs: "1.1rem", sm: "1.5rem" } }}>
+                    {item.value}
+                  </Typography>
+                </Box>
               </Box>
             ))}
           </Box>
@@ -450,25 +712,25 @@ const MainPage = () => {
             title: "Total Matches",
             value: totalMatches,
             icon: <SportsSoccer fontSize="small" />,
-            gradient: "linear-gradient(135deg,#6366f1,#818cf8)",
+            color: "#6366f1",
           },
           {
             title: "Played",
             value: playedMatches,
             icon: <CheckCircle fontSize="small" />,
-            gradient: "linear-gradient(135deg,#22c55e,#4ade80)",
+            color: "#22c55e",
           },
           {
             title: "Pending",
             value: pendingMatches,
             icon: <HourglassBottom fontSize="small" />,
-            gradient: "linear-gradient(135deg,#f59e0b,#fbbf24)",
+            color: "#f59e0b",
           },
           {
-            title: "Teams",
+            title: "Clubs",
             value: totalTeams,
             icon: <Groups fontSize="small" />,
-            gradient: "linear-gradient(135deg,#3b82f6,#60a5fa)",
+            color: "#3b82f6",
           },
         ].map((item) => (
           <Box key={item.title}>
@@ -477,122 +739,225 @@ const MainPage = () => {
         ))}
       </Box>
 
-      <Paper elevation={0} sx={{ ...panelSx, mb: 3 }}>
-        <SectionHeader
-          icon={<Campaign fontSize="small" />}
-          title="Announcements"
-          color="#f59e0b"
-        />
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "1fr",
+            md: "1fr 1fr",
+          },
+          gap: 3,
+          mb: 3
+        }}
+      >
+        <Paper elevation={0} sx={{ ...panelSx, border: "none", bgcolor: "rgba(255,255,255,0.7)" }}>
+          <SectionHeader
+            icon={<Campaign fontSize="small" />}
+            title="League Announcements"
+            color="#f59e0b"
+          />
 
-        <Box p={{ xs: 2, sm: 2.5 }}>
-          {announcements.length === 0 ? (
-            <Box
-              display="flex"
-              alignItems="center"
-              justifyContent="space-between"
-              flexWrap="wrap"
-              gap={2}
-            >
-              <Box display="flex" alignItems="center" gap={1.5}>
-                <Campaign sx={{ color: "grey.400", fontSize: 30 }} />
-                <Box>
-                  <Typography fontWeight={700}>No announcements yet</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    League updates and important announcements will appear here.
-                  </Typography>
-                </Box>
+          <Box p={3} sx={{ minHeight: 180, display: "flex", flexDirection: "column" }}>
+            {announcements.length === 0 ? (
+              <Box
+                display="flex"
+                flexDirection="column"
+                alignItems="center"
+                justifyContent="center"
+                flex={1}
+                textAlign="center"
+                gap={1}
+              >
+                <Campaign sx={{ color: "grey.300", fontSize: 48 }} />
+                <Typography fontWeight={700} color="text.secondary">No active announcements</Typography>
               </Box>
-              {user?.userLevel === "admin" && (
-                <Typography variant="caption" color="text.disabled">
-                  Add announcements from the Announcements admin page.
-                </Typography>
-              )}
-            </Box>
-          ) : (
-            <Box
-              sx={{
-                display: "grid",
-                gap: 2,
-              }}
-            >
-              {activeAnnouncement && (
-                <Box
-                  key={activeAnnouncement.id}
-                  sx={{
-                    p: 2,
-                    borderRadius: 3,
-                    border: "1px solid",
-                    borderColor: "divider",
-                    bgcolor: "rgba(248,250,252,0.9)",
-                  }}
-                >
-                  <Typography
-                    variant="body2"
-                    color="text.primary"
-                    sx={{ whiteSpace: "pre-wrap" }}
+            ) : (
+              <Box flex={1}>
+                {activeAnnouncement && (
+                   <Box
+                    key={activeAnnouncement.id}
+                    sx={{
+                      p: { xs: 2, sm: 3 },
+                      borderRadius: 4,
+                      bgcolor: "white",
+                      boxShadow: "0 4px 12px -5px rgba(0,0,0,0.05)",
+                      border: "1px solid",
+                      borderColor: "divider",
+                      display: "flex", // Added flex
+                      alignItems: "center",
+                      gap: { xs: 1.5, sm: 2.5 },
+                      minHeight: 120 // Set minHeight
+                    }}
                   >
-                    {activeAnnouncement.announcement}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    mt={1.25}
-                    display="block"
-                  >
-                    by {activeAnnouncement.announcer || "system"}
-                    {activeAnnouncement.createDate
-                      ? ` • ${formatMatchDate(activeAnnouncement.createDate)}`
-                      : ""}
-                  </Typography>
-                </Box>
-              )}
+                    <Box sx={{ 
+                      width: 50, 
+                      height: 50, 
+                      borderRadius: 3, 
+                      bgcolor: "rgba(245, 158, 11, 0.1)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "warning.main",
+                      flexShrink: 0
+                    }}>
+                      <Campaign />
+                    </Box>
+                    <Box flex={1}>
+                      <Typography
+                        variant="body1"
+                        color="text.primary"
+                        sx={{ whiteSpace: "pre-wrap", fontWeight: 700, lineHeight: 1.4, mb: 0.5 }}
+                      >
+                        {activeAnnouncement.announcement}
+                      </Typography>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Box sx={{ width: 4, height: 4, borderRadius: "50%", bgcolor: "warning.main" }} />
+                        <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                          Issued by {activeAnnouncement.announcer || "System"} • {formatMatchDate(activeAnnouncement.createDate)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+            )}
+            
+            {announcements.length > 1 && (
+              <Box display="flex" justifyContent="center" gap={1} mt="auto" py={2}>
+                {announcements.map((_, index) => (
+                  <Box
+                    key={index}
+                    onClick={() => setAnnouncementIndex(index)}
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      cursor: "pointer",
+                      bgcolor: index === announcementIndex ? "#f59e0b" : "grey.200",
+                      transition: "all 0.3s ease"
+                    }}
+                  />
+                ))}
+              </Box>
+            )}
+          </Box>
+        </Paper>
 
-              {announcements.length > 1 && (
-                <Box
-                  display="flex"
-                  alignItems="center"
-                  gap={0.75}
-                  flexWrap="wrap"
-                >
-                  <Typography variant="caption" color="text.secondary" mr={0.5}>
-                    Rotating messages:
-                  </Typography>
-                  {announcements.map((item, index) => (
-                    <Box
-                      key={item.id}
-                      onClick={() => setAnnouncementIndex(index)}
-                      sx={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        cursor: "pointer",
-                        bgcolor:
-                          index === announcementIndex
-                            ? "primary.main"
-                            : "grey.400",
-                      }}
-                    />
-                  ))}
-                </Box>
-              )}
-            </Box>
-          )}
-        </Box>
-      </Paper>
+        <Paper elevation={0} sx={{ ...panelSx, border: "none", bgcolor: "rgba(255,255,255,0.7)" }}>
+          <SectionHeader
+            icon={<LocalFireDepartment fontSize="small" />}
+            title="Market Pulse — Latest Moves"
+            color="#6366f1"
+          />
+
+          <Box p={3} sx={{ minHeight: 180, display: "flex", flexDirection: "column" }}>
+            {marketActivity.length === 0 ? (
+              <Box
+                display="flex"
+                flexDirection="column"
+                alignItems="center"
+                justifyContent="center"
+                flex={1}
+                textAlign="center"
+                gap={1}
+              >
+                <Timeline sx={{ color: "grey.300", fontSize: 48 }} />
+                <Typography fontWeight={700} color="text.secondary">Market is quiet right now</Typography>
+              </Box>
+            ) : (
+              <Box flex={1}>
+                {marketActivity[marketIndex] && (
+                  <Box
+                    key={marketActivity[marketIndex].id}
+                    sx={{
+                      p: { xs: 2, sm: 3 },
+                      borderRadius: 4,
+                      bgcolor: "white",
+                      boxShadow: "0 4px 12px -5px rgba(0,0,0,0.05)",
+                      border: "1px solid",
+                      borderColor: "divider",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: { xs: 1.5, sm: 2.5 },
+                      minHeight: 120 // Set minHeight
+                    }}
+                  >
+                    <Box sx={{ 
+                      width: 50, 
+                      height: 50, 
+                      borderRadius: 3, 
+                      bgcolor: marketActivity[marketIndex].type === "DEAL" ? "rgba(99, 102, 241, 0.1)" : "rgba(16, 185, 129, 0.1)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: marketActivity[marketIndex].type === "DEAL" ? "indigo.500" : "success.main"
+                    }}>
+                      {marketActivity[marketIndex].type === "DEAL" ? <CheckCircle /> : <Timeline />}
+                    </Box>
+                    <Box flex={1}>
+                      <Typography variant="body1" fontWeight={800} color="primary.main">
+                        {marketActivity[marketIndex].title}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500} sx={{ mb: 1 }}>
+                        {marketActivity[marketIndex].subtitle}
+                      </Typography>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Chip 
+                          label={`${marketActivity[marketIndex].amount?.toLocaleString()} TP`} 
+                          size="small" 
+                          sx={{ 
+                            fontWeight: 800, 
+                            bgcolor: marketActivity[marketIndex].type === "DEAL" ? "indigo.50" : "success.50",
+                            color: marketActivity[marketIndex].type === "DEAL" ? "indigo.700" : "success.700",
+                            border: "1px solid",
+                            borderColor: marketActivity[marketIndex].type === "DEAL" ? "indigo.100" : "success.100"
+                          }} 
+                        />
+                        <Typography variant="caption" color="text.disabled" fontWeight={600}>
+                          {marketActivity[marketIndex].type === "DEAL" ? "SUCCESSFUL MOVE" : "FOR SALE"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+            )}
+            
+            {marketActivity.length > 1 && (
+              <Box display="flex" justifyContent="center" gap={1} mt={3}>
+                {marketActivity.map((_, index) => (
+                  <Box
+                    key={index}
+                    onClick={() => setMarketIndex(index)}
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      cursor: "pointer",
+                      bgcolor: index === marketIndex ? "#6366f1" : "grey.200",
+                      transition: "all 0.3s ease"
+                    }}
+                  />
+                ))}
+              </Box>
+            )}
+          </Box>
+        </Paper>
+      </Box>
 
       <Box
         sx={{
           display: "grid",
           gridTemplateColumns: {
             xs: "1fr",
-            md: "repeat(2, minmax(0, 1fr))",
+          md: "repeat(3, minmax(0, 1fr))",
           },
           gap: 3,
           alignItems: "stretch",
           mb: 3,
         }}
       >
-        <Paper elevation={0} sx={{ ...panelSx, height: "100%" }}>
+        <Paper elevation={0} sx={{ ...panelSx, height: "100%", minHeight: 740, display: "flex", flexDirection: "column" }}>
           <SectionHeader
             icon={<Leaderboard fontSize="small" />}
             title="Standings — Top 10"
@@ -611,57 +976,123 @@ const MainPage = () => {
             </Box>
           ) : (
             <Box>
-              {top10.map((team, idx) => (
+              {/* Podium View for Top 3 */}
+              {top10.length >= 3 && (
+                <Box 
+                  sx={{ 
+                    display: "flex", 
+                    justifyContent: "center", 
+                    alignItems: "flex-end", 
+                    gap: 1.5, 
+                    p: 3, 
+                    bgcolor: "rgba(248,250,252,0.5)",
+                    borderBottom: "1px solid",
+                    borderColor: "divider",
+                    mb: 1
+                  }}
+                >
+                  {[top10[1], top10[0], top10[2]].map((team, idx) => {
+                    const isWinner = idx === 1;
+                    const height = isWinner ? 100 : 80;
+                    return (
+                      <Box 
+                        key={team.id || idx} 
+                        sx={{ 
+                          display: "flex", 
+                          flexDirection: "column", 
+                          alignItems: "center", 
+                          width: { xs: 80, sm: 90 },
+                        }}
+                      >
+                         <Box
+                          component="img"
+                          src={getLogoUrl(team.teamName)}
+                          alt={team.teamName}
+                          sx={{
+                            width: isWinner ? 50 : 38,
+                            height: isWinner ? 50 : 38,
+                            objectFit: "contain",
+                            mb: 1,
+                            filter: isWinner ? "drop-shadow(0 0 8px rgba(255,215,0,0.4))" : "none"
+                          }}
+                        />
+                        <Typography variant="caption" fontWeight={800} noWrap sx={{ maxWidth: "100%", mb: 0.5 }}>
+                          {extractPlayer(team.team)}
+                        </Typography>
+                        <Box 
+                          sx={{ 
+                            width: "100%", 
+                            height: height, 
+                            background: isWinner 
+                              ? "linear-gradient(180deg, #FFD700 0%, #FFB900 100%)" 
+                              : idx === 0 
+                                ? "linear-gradient(180deg, #C0C0C0 0%, #A0A0A0 100%)"
+                                : "linear-gradient(180deg, #CD7F32 0%, #A0522D 100%)",
+                            borderRadius: "12px 12px 4px 4px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "white",
+                            boxShadow: isWinner ? "0 10px 20px -5px rgba(255,185,0,0.3)" : "none"
+                          }}
+                        >
+                          <Typography variant="h5" fontWeight={900}>{team.rank}</Typography>
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
+
+              {top10.slice(3).map((team, idx) => (
                 <Box
                   key={team.id ?? idx}
                   sx={{
                     display: "flex",
                     alignItems: "center",
-                    px: 2,
-                    py: 0.75,
-                    borderBottom: idx < top10.length - 1 ? "1px solid" : "none",
+                    px: 3,
+                    py: 1.25,
+                    borderBottom: idx < top10.length - 4 ? "1px solid" : "none",
                     borderColor: "divider",
-                    bgcolor: idx % 2 === 0 ? "transparent" : "grey.50",
+                    bgcolor: idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.01)",
                     minHeight: DASHBOARD_ROW_HEIGHT,
-                    boxSizing: "border-box",
+                    transition: "all 0.2s ease",
+                    "&:hover": { bgcolor: "rgba(0,0,0,0.02)", px: 3.5 }
                   }}
                 >
-                  <Box width={30} display="flex" justifyContent="center">
+                  <Box width={32} display="flex" justifyContent="center">
                     <RankMedal rank={team.rank} />
                   </Box>
                   <Box
                     component="img"
                     src={getLogoUrl(team.teamName)}
                     alt={team.teamName}
-                    onError={(e) => {
-                      e.target.style.display = "none";
-                    }}
                     sx={{
-                      width: 24,
-                      height: 24,
+                      width: 26,
+                      height: 26,
                       objectFit: "contain",
-                      mx: 1,
+                      mx: 1.5,
                       flexShrink: 0,
                     }}
                   />
                   <Box flex={1} minWidth={0}>
-                    <Typography fontSize={12.5} fontWeight={700} noWrap>
+                    <Typography fontSize={13} fontWeight={700} noWrap>
                       {extractPlayer(team.team)}
                     </Typography>
                     <Typography fontSize={11} color="text.secondary" noWrap>
-                      W {team.w ?? 0} · D {team.d ?? 0} · L {team.l ?? 0}
+                      {team.pld ?? 0} Matched · {team.w ?? 0}W {team.d ?? 0}D {team.l ?? 0}L
                     </Typography>
                   </Box>
-                  <Box width={44} textAlign="center" mr={1.5}>
+                  <Box width={48} textAlign="center" mr={2}>
                     <Typography
-                      fontSize={14}
-                      fontWeight={800}
+                      fontSize={15}
+                      fontWeight={900}
                       color="secondary.main"
                     >
                       {team.pts ?? 0}
                     </Typography>
                   </Box>
-                  <Box width={56} display="flex" justifyContent="center" marginRight={3}>
+                  <Box width={56} display="flex" justifyContent="center" mr={1}>
                     <FormDots last={team.last} />
                   </Box>
                 </Box>
@@ -678,7 +1109,7 @@ const MainPage = () => {
           )}
         </Paper>
 
-        <Paper elevation={0} sx={{ ...panelSx, height: "100%"}}>
+        <Paper elevation={0} sx={{ ...panelSx, height: "100%", minHeight: 740, display: "flex", flexDirection: "column" }}>
           <SectionHeader
             icon={<SportsSoccer fontSize="small" />}
             title="Latest 10 Matches"
@@ -700,127 +1131,62 @@ const MainPage = () => {
               {recentMatches.map((fixture, idx) => {
                 const homeScore = fixture.homeScore ?? 0;
                 const awayScore = fixture.awayScore ?? 0;
-                const homePlayer =
-                  extractPlayer(fixture.home) ||
-                  fixture.home ||
-                  fixture.homeTeamName ||
-                  "-";
-                const awayPlayer =
-                  extractPlayer(fixture.away) ||
-                  fixture.away ||
-                  fixture.awayTeamName ||
-                  "-";
+                const homePlayer = extractPlayer(fixture.home) || fixture.homeTeamName || "-";
+                const awayPlayer = extractPlayer(fixture.away) || fixture.awayTeamName || "-";
                 const homeLogoName = fixture.homeTeamName || fixture.home || "";
                 const awayLogoName = fixture.awayTeamName || fixture.away || "";
+                
+                const homeWinner = homeScore > awayScore;
+                const awayWinner = awayScore > homeScore;
                 const isDraw = homeScore === awayScore;
-                const resultColor = isDraw
-                  ? "#fef3c7"
-                  : homeScore > awayScore
-                    ? "#dcfce7"
-                    : "#fee2e2";
 
+                // Height adjustment to match standings box
                 return (
                   <Box
                     key={fixture.fixtureId ?? idx}
                     sx={{
-                      px: 2,
-                      py: 0.75,
-                      borderBottom:
-                        idx < recentMatches.length - 1 ? "1px solid" : "none",
+                      px: 2.5,
+                      py: 1.5,
+                      borderBottom: idx < recentMatches.length - 1 ? "1px solid" : "none",
                       borderColor: "divider",
                       display: "flex",
                       alignItems: "center",
-                      gap: 1,
-                      bgcolor: idx % 2 === 0 ? "transparent" : "grey.50",
-                      minHeight: DASHBOARD_ROW_HEIGHT,
-                      boxSizing: "border-box",
+                      gap: 2,
+                      bgcolor: idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.01)",
+                      transition: "all 0.2s ease",
+                      "&:hover": { bgcolor: "rgba(0,0,0,0.02)" },
+                      minHeight: 70
                     }}
                   >
-                    <Chip
-                      label={formatMatchDate(fixture.matchDate)}
-                      size="small"
-                      sx={{
-                        height: 20,
-                        fontSize: 10,
-                        fontWeight: 700,
-                        bgcolor: "#e2e8f0",
-                        color: "text.secondary",
-                        flexShrink: 0,
-                      }}
-                    />
-                    <Box
-                      display="flex"
-                      alignItems="center"
-                      gap={0.75}
-                      flex={1}
-                      minWidth={0}
-                      justifyContent="flex-end"
-                    >
-                      <Typography
-                        fontSize={12}
-                        noWrap
-                        fontWeight={homeScore > awayScore ? 700 : 500}
-                      >
+                    {/* Home Team */}
+                    <Box display="flex" alignItems="center" gap={1.5} flex={1} justifyContent="flex-end" minWidth={0}>
+                      <Typography variant="body2" fontWeight={800} noWrap sx={{ color: "text.primary", textAlign: "right" }}>
                         {homePlayer}
                       </Typography>
-                      <Box
-                        component="img"
-                        src={getLogoUrl(homeLogoName)}
-                        alt={homeLogoName}
-                        onError={(e) => {
-                          e.target.style.display = "none";
-                        }}
-                        sx={{
-                          width: 23,
-                          height: 23,
-                          objectFit: "contain",
-                          flexShrink: 0,
-                        }}
-                      />
+                      <Box component="img" src={getLogoUrl(homeLogoName)} alt={homeLogoName} sx={{ width: 26, height: 26, objectFit: "contain" }} />
                     </Box>
 
-                    <Box
-                      sx={{
-                        px: 1.25,
-                        py: 0.25,
-                        borderRadius: 1.5,
-                        bgcolor: resultColor,
-                        minWidth: 52,
-                        textAlign: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Typography fontSize={13.5} fontWeight={800}>
+                    {/* Result & Date */}
+                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: { xs: 60, sm: 70 } }}>
+                      <Typography
+                        sx={{
+                          fontWeight: 900,
+                          fontSize: { xs: 15, sm: 18 },
+                          color: "text.primary",
+                          letterSpacing: 1
+                        }}
+                      >
                         {homeScore} - {awayScore}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: "text.disabled", fontWeight: 620, fontSize: 10 }}>
+                        {formatMatchDate(fixture.matchDate)}
                       </Typography>
                     </Box>
 
-                    <Box
-                      display="flex"
-                      alignItems="center"
-                      gap={0.75}
-                      flex={1}
-                      minWidth={0}
-                    >
-                      <Box
-                        component="img"
-                        src={getLogoUrl(awayLogoName)}
-                        alt={awayLogoName}
-                        onError={(e) => {
-                          e.target.style.display = "none";
-                        }}
-                        sx={{
-                          width: 23,
-                          height: 23,
-                          objectFit: "contain",
-                          flexShrink: 0,
-                        }}
-                      />
-                      <Typography
-                        fontSize={12}
-                        noWrap
-                        fontWeight={awayScore > homeScore ? 700 : 500}
-                      >
+                    {/* Away Team */}
+                    <Box display="flex" alignItems="center" gap={1.5} flex={1} justifyContent="flex-start" minWidth={0}>
+                      <Box component="img" src={getLogoUrl(awayLogoName)} alt={awayLogoName} sx={{ width: 26, height: 26, objectFit: "contain" }} />
+                      <Typography variant="body2" fontWeight={800} noWrap sx={{ color: "text.primary" }}>
                         {awayPlayer}
                       </Typography>
                     </Box>
@@ -838,211 +1204,106 @@ const MainPage = () => {
             </Box>
           )}
         </Paper>
-      </Box>
 
-      {user ? (
-        <Paper elevation={0} sx={{ ...panelSx }}>
+        {/* Managers Sidebar */}
+        <Paper elevation={0} sx={{ ...panelSx, height: "100%", minHeight: 740, display: "flex", flexDirection: "column" }}>
           <SectionHeader
             icon={<Groups fontSize="small" />}
-            title={`Member List (${sortedMembers.length})`}
+            title="Club Managers"
             color="#3b82f6"
           />
-
           {loading ? (
-            <Box
-              sx={{
-                p: 2,
-                display: "flex",
-                gap: "8px",
-                overflow: "hidden",
-              }}
-            >
+            <Box p={2}>
               {[...Array(8)].map((_, idx) => (
-                <Skeleton
-                  key={idx}
-                  variant="rounded"
-                  sx={{
-                    borderRadius: 2,
-                    width: { xs: 104, sm: 116, md: 128 },
-                    flex: "0 0 auto",
-                    aspectRatio: "1 / 1",
-                  }}
-                />
+                <Skeleton key={idx} height={48} sx={{ mb: 0.6, borderRadius: 1 }} />
               ))}
             </Box>
           ) : (
-            <>
-              {sortedMembers.length === 0 ? (
-                <Box px={2} py={3} textAlign="center">
-                  <Typography variant="body2" color="text.secondary">
-                    No members found
-                  </Typography>
-                </Box>
-              ) : (
-                <Box sx={{ p: 2, overflow: "hidden" }}>
-                  <Box
+            <Box>
+              {visibleMembers.map((member, idx) => (
+                <Box
+                  key={member.userId ?? idx}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    px: 2.5,
+                    py: 1.5,
+                    borderBottom: idx < visibleMembers.length - 1 ? "1px solid" : "none",
+                    borderColor: "divider",
+                    transition: "all 0.2s ease",
+                    "&:hover": { bgcolor: "rgba(0,0,0,0.02)" }
+                  }}
+                >
+                   <Box
                     sx={{
-                      display: "flex",
-                      gap: "8px",
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      overflow: "hidden",
+                      bgcolor: "grey.100",
+                      border: "2px solid white",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                      flexShrink: 0
                     }}
                   >
-                    {visibleMembers.map((member, idx) => (
-                      <Box
-                        key={`${member.userId ?? "member"}-${memberBannerIndex}-${idx}`}
-                        sx={{
-                          position: "relative",
-                          borderRadius: 2,
-                          overflow: "hidden",
-                          width: "calc((100% - 72px) / 10)",
-                          minWidth: 0,
-                          aspectRatio: "1 / 1",
-                          background: "linear-gradient(165deg, #ffffff 0%, #f8fafc 58%, #f1f5f9 100%)",
-                          border: "1px solid rgba(148,163,184,0.45)",
-                          boxShadow: "0 10px 18px -14px rgba(15,23,42,0.16), inset 0 0 0 1px rgba(255,255,255,0.75)",
-                        }}
-                      >
-                        {member.linePic ? (
-                          <Box
-                            component="img"
-                            src={member.linePic}
-                            alt={member.userId}
-                            sx={{
-                              position: "absolute",
-                              inset: 0,
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                              filter: "saturate(115%) contrast(1.06) brightness(1.03)",
-                              display: "block",
-                            }}
-                          />
-                        ) : (
-                          <Box
-                            sx={{
-                              position: "absolute",
-                              inset: 0,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#334155",
-                              fontSize: 34,
-                              fontWeight: 900,
-                              background:
-                                "radial-gradient(circle at 20% 20%, rgba(255,255,255,0.68) 0%, transparent 42%), radial-gradient(circle at 74% 62%, rgba(226,232,240,0.65) 0%, transparent 46%), linear-gradient(145deg, #ffffff 0%, #f1f5f9 100%)",
-                            }}
-                          >
-                            {member.userId?.[0]?.toUpperCase() || "?"}
-                          </Box>
-                        )}
-
-                        <Box
-                          sx={{
-                            position: "absolute",
-                            inset: 0,
-                            background:
-                              "linear-gradient(180deg, rgba(248,250,252,0.18) 0%, rgba(241,245,249,0.24) 48%, rgba(226,232,240,0.52) 100%)",
-                            zIndex: 1,
-                          }}
-                        />
-
-                        <Box
-                          sx={{
-                            position: "absolute",
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            px: 0.9,
-                            py: 0.75,
-                            background:
-                              "linear-gradient(180deg, rgba(255,255,255,0.62) 0%, rgba(248,250,252,0.64) 54%, rgba(241,245,249,0.68) 100%)",
-                            borderTop: "1px solid rgba(148,163,184,0.35)",
-                            zIndex: 2,
-                          }}
-                        >
-                          <Typography
-                            sx={{
-                              color: "#0f172a",
-                              fontWeight: 900,
-                              fontSize: { xs: 11, sm: 12 },
-                              letterSpacing: 0.2,
-                              lineHeight: 1,
-                              textTransform: "none",
-                              textAlign: "center",
-                              textShadow: "none",
-                            }}
-                            noWrap
-                          >
-                            {member.userId}
-                          </Typography>
-                          <Typography
-                            sx={{
-                              color: "#475569",
-                              fontWeight: 800,
-                              fontSize: { xs: 8.8, sm: 9.5 },
-                              letterSpacing: 0.22,
-                              lineHeight: 1,
-                              textTransform: "none",
-                              textAlign: "center",
-                              mt: 0.2,
-                            }}
-                            noWrap
-                          >
-                            {member.lineName || member.userId}
-                          </Typography>
-                        </Box>
+                    {member.linePic ? (
+                      <Box component="img" src={member.linePic} alt={member.userId} sx={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <Box display="flex" alignItems="center" justifyContent="center" height="100%" sx={{ color: "grey.400" }}>
+                        <Groups sx={{ fontSize: 20 }} />
                       </Box>
-                    ))}
-
-                    {[...Array(memberPlaceholders)].map((_, idx) => (
-                      <Box
-                        key={`member-placeholder-${idx}`}
-                        sx={{
-                          width: "calc((100% - 72px) / 10)",
-                          minWidth: 0,
-                          aspectRatio: "1 / 1",
-                          borderRadius: 2,
-                          border: "1px dashed rgba(148,163,184,0.25)",
-                          bgcolor: "rgba(241,245,249,0.45)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "rgba(100,116,139,0.35)",
-                          fontWeight: 800,
-                          fontSize: { xs: 13, sm: 14 },
-                          letterSpacing: 0.8,
-                          userSelect: "none",
-                        }}
-                      >
-                        eTPL
-                      </Box>
-                    ))}
+                    )}
                   </Box>
+                  <Box ml={2} flex={1} minWidth={0}>
+                    <Typography fontSize={13} fontWeight={700} noWrap>
+                      {member.lineName || "Manager"}
+                    </Typography>
+                    <Typography fontSize={11} color="text.secondary" noWrap>
+                      @{member.userId}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      bgcolor: "success.main",
+                      boxShadow: "0 0 0 2px white, 0 0 8px rgba(34, 197, 94, 0.4)"
+                    }}
+                  />
+                </Box>
+              ))}
 
-                  {memberBannerCount > 1 && (
-                    <Box mt={1.1} display="flex" justifyContent="center" gap={0.7}>
-                      {[...Array(memberBannerCount)].map((_, idx) => (
-                        <Box
-                          key={`member-banner-dot-${idx}`}
-                          sx={{
-                            width: idx === memberBannerIndex ? 14 : 6,
-                            height: 6,
-                            borderRadius: 99,
-                            bgcolor:
-                              idx === memberBannerIndex
-                                ? "rgba(59,130,246,0.78)"
-                                : "rgba(148,163,184,0.42)",
-                            transition: "all 0.2s ease",
-                          }}
-                        />
-                      ))}
-                    </Box>
-                  )}
+              {memberBannerCount > 1 && (
+                <Box py={2} mt="auto" display="flex" justifyContent="center" gap={1}>
+                  {[...Array(memberBannerCount)].map((_, idx) => (
+                    <Box
+                      key={idx}
+                      onClick={() => setMemberBannerIndex(idx)}
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        bgcolor: idx === memberBannerIndex ? "primary.main" : "grey.200",
+                        cursor: "pointer",
+                        transition: "all 0.3s ease"
+                      }}
+                    />
+                  ))}
                 </Box>
               )}
-            </>
+
+              {visibleMembers.length === 0 && (
+                <Box p={3} textAlign="center">
+                  <Typography variant="body2" color="text.secondary">No managers found</Typography>
+                </Box>
+              )}
+            </Box>
           )}
         </Paper>
-      ) : (
+      </Box>
+
+      {!user && (
         <Paper elevation={0} sx={{ ...panelSx }}>
           <SectionHeader
             icon={<Login fontSize="small" />}

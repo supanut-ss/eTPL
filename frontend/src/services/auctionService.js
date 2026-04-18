@@ -105,6 +105,12 @@ const auctionService = {
     });
     return res.data;
   },
+  getGlobalTransactions: async (page = 1, pageSize = 20) => {
+    const res = await api.get("/api/auction/transactions/global", {
+      params: { page, pageSize },
+    });
+    return res.data;
+  },
 
   // ── Squad Lifecycle ──────────────────────────────────────────────────
   releasePlayer: async (squadId, refundAmount = 0) => {

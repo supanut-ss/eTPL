@@ -167,7 +167,7 @@ namespace eTPL.API.Services
             }
         }
 
-        private AuctionBoardDto MapToDto(AuctionBoard board, int bidderCount = 1, int? winnerId = null)
+        private AuctionBoardDto MapToDto(AuctionBoard board, int bidderCount = 1, int? winnerId = null, int? winPrice = null)
         {
             var dto = new AuctionBoardDto
             {
@@ -175,7 +175,7 @@ namespace eTPL.API.Services
                 PlayerId = board.PlayerId,
                 PlayerName = board.Player?.PlayerName ?? "Unknown",
                 PlayerOvr = board.Player?.PlayerOvr ?? 0,
-                CurrentPrice = board.CurrentPrice,
+                CurrentPrice = winPrice ?? board.CurrentPrice,
                 HighestBidderId = board.HighestBidderId,
                 HighestBidderName = board.HighestBidder?.UserId, // The string username from User table
                 NormalEndTime = DateTime.SpecifyKind(board.NormalEndTime, DateTimeKind.Utc),
@@ -200,6 +200,10 @@ namespace eTPL.API.Services
                 dto.DisplayStatus = "Waiting Confirm";
             else
                 dto.DisplayStatus = "Expired";
+
+            dto.CurrentPhaseEndTime = (dto.DisplayStatus == "Normal Bid") 
+                ? dto.NormalEndTime 
+                : (bidderCount > 1 ? dto.FinalEndTime : dto.NormalEndTime);
 
             return dto;
         }
@@ -645,6 +649,8 @@ namespace eTPL.API.Services
                 
                 // Determine winnerId
                 int? winnerId = b.HighestBidderId;
+                int? winningPrice = null;
+
                 if (now >= b.NormalEndTime && bidders.Count > 1)
                 {
                     var bidsForThis = finalBidsData.Where(l => l.AuctionId == b.AuctionId)
@@ -656,10 +662,11 @@ namespace eTPL.API.Services
                     if (bidsForThis.Any())
                     {
                         winnerId = bidsForThis.First().UserId;
+                        winningPrice = bidsForThis.First().BidAmount;
                     }
                 }
                 
-                var dto = MapToDto(b, bidders.Count, winnerId);
+                var dto = MapToDto(b, bidders.Count, winnerId, winningPrice);
                 dto.BidderUserIds = bidders;
                 dto.CurrentUserFinalBid = currentUserFinalBids.ContainsKey(b.AuctionId) ? currentUserFinalBids[b.AuctionId] : null;
                 return dto;
@@ -1140,7 +1147,17 @@ namespace eTPL.API.Services
         public async Task<PagedResultDto<AuctionTransactionDto>> GetTransactionsAsync(int userId, int page = 1, int pageSize = 20)
         {
             var query = _context.AuctionTransactions.Where(t => t.UserId == userId);
-            
+            return await FetchTransactionsInternalAsync(query, page, pageSize);
+        }
+
+        public async Task<PagedResultDto<AuctionTransactionDto>> GetGlobalTransactionsAsync(int page = 1, int pageSize = 20)
+        {
+            var query = _context.AuctionTransactions.AsQueryable();
+            return await FetchTransactionsInternalAsync(query, page, pageSize);
+        }
+
+        private async Task<PagedResultDto<AuctionTransactionDto>> FetchTransactionsInternalAsync(IQueryable<AuctionTransaction> query, int page, int pageSize)
+        {
             var totalCount = await query.CountAsync();
             var txs = await query
                 .OrderByDescending(t => t.CreatedAt)
@@ -1148,10 +1165,13 @@ namespace eTPL.API.Services
                 .Take(pageSize)
                 .ToListAsync();
 
-            // Gather related player names
             var playerIds = txs.Where(t => t.RelatedPlayerId.HasValue).Select(t => t.RelatedPlayerId!.Value).Distinct().ToList();
             var players = await _context.PesPlayerTeams.Where(p => playerIds.Contains(p.IdPlayer)).ToListAsync();
             var playerMap = players.ToDictionary(p => p.IdPlayer, p => p.PlayerName);
+
+            var userIds = txs.Select(t => t.UserId).Distinct().ToList();
+            var users = await _context.Users.Where(u => userIds.Contains(u.Id)).ToListAsync();
+            var userMap = users.ToDictionary(u => u.Id, u => u.UserId);
 
             var items = txs.Select(t => new AuctionTransactionDto
             {
@@ -1163,6 +1183,7 @@ namespace eTPL.API.Services
                 BalanceAfter = t.BalanceAfter,
                 RelatedPlayerId = t.RelatedPlayerId,
                 PlayerName = t.RelatedPlayerId.HasValue && playerMap.ContainsKey(t.RelatedPlayerId.Value) ? playerMap[t.RelatedPlayerId.Value] : null,
+                UserName = userMap.ContainsKey(t.UserId) ? userMap[t.UserId] : "System",
                 CreatedAt = DateTime.SpecifyKind(t.CreatedAt, DateTimeKind.Utc)
             }).ToList();
 

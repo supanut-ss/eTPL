@@ -819,23 +819,19 @@ const TransferBoardPage = () => {
         PaperProps={{
           sx: {
             borderRadius: isMobile ? 0 : 5,
-            background: "rgba(255, 255, 255, 0.9)",
-            backdropFilter: "blur(20px)",
-            border: "1px solid rgba(255, 255, 255, 0.6)",
+            background: "#f1f5f9",
             boxShadow: "0 40px 120px -20px rgba(15,23,42,0.4)",
             overflow: "hidden"
           },
         }}
       >
         <Box sx={{ position: "relative" }}>
-            {/* Glossy Header Background */}
+            {/* Header Area */}
             <Box sx={{ 
-                position: "absolute", top: 0, left: 0, right: 0, height: 160, 
-                background: offerType === "Transfer" 
-                    ? "linear-gradient(135deg, #0f172a 0%, #334155 100%)" 
-                    : "linear-gradient(135deg, #92400e 0%, #d97706 100%)",
-                zIndex: 0,
-                transition: "all 0.6s cubic-bezier(0.16, 1, 0.3, 1)"
+                position: "absolute", top: 0, left: 0, right: 0, 
+                height: { xs: 200, sm: 140 }, 
+                background: "#1e293b",
+                zIndex: 0
             }} />
             
             <DialogTitle
@@ -844,36 +840,28 @@ const TransferBoardPage = () => {
                 justifyContent: "space-between",
                 alignItems: "center",
                 color: "white",
-                pt: 2.5, pb: 0,
+                pt: { xs: 2, sm: 3 }, pb: 0,
                 position: "relative",
                 zIndex: 1
               }}
             >
               <Box display="flex" alignItems="center" gap={1.2}>
-                <Box sx={{ 
-                    bgcolor: "rgba(255,255,255,0.15)", 
-                    p: 0.8, borderRadius: 2, 
-                    display: "flex", alignItems: "center",
-                    backdropFilter: "blur(4px)"
-                }}>
-                    {offerType === "Transfer" ? <LocalOffer fontSize="small" /> : <Handshake fontSize="small" />}
-                </Box>
-                <Typography variant="subtitle1" fontWeight="900" sx={{ letterSpacing: 0.5, textTransform: "uppercase", fontSize: "0.85rem" }}>
+                <LocalOffer fontSize="small" sx={{ opacity: 0.8 }} />
+                <Typography variant="subtitle2" fontWeight="900" sx={{ letterSpacing: 1.5, textTransform: "uppercase" }}>
                     {offerType === "Transfer" ? "Purchase Offer" : "Loan Negotiation"}
                 </Typography>
               </Box>
-              <IconButton onClick={handleCloseNegotiate} size="small" sx={{ color: "rgba(255,255,255,0.6)", "&:hover": { color: "white", bgcolor: "rgba(255,255,255,0.15)" } }}>
+              <IconButton onClick={handleCloseNegotiate} size="small" sx={{ color: "rgba(255,255,255,0.6)", "&:hover": { color: "white", bgcolor: "rgba(255,255,255,0.1)" } }}>
                 <Close fontSize="small" />
               </IconButton>
             </DialogTitle>
 
-            <DialogContent sx={{ position: "relative", zIndex: 1, px: { xs: 3, sm: 4 }, pt: 3, pb: 4, mt: 0.5 }}>
+            <DialogContent sx={{ position: "relative", zIndex: 1, px: { xs: 2, sm: 4 }, pt: { xs: 1, sm: 3 }, pb: 5, overflowX: 'hidden' }}>
               {selectedPlayer && (
-                <Grid container spacing={4} alignItems="center">
-                  {/* Left Column: Premium Card Viewer */}
-                  <Grid item xs={12} sm={5.2}>
+                <Grid container spacing={{ xs: 2, sm: 2 }} alignItems="center" justifyContent="center" sx={{ mt: { xs: 0, sm: 1 } }}>
+                  {/* Left Column: Card */}
+                  <Grid item xs={12} sm={5}>
                     <Box sx={{ 
-                        position: "relative", 
                         display: "flex", 
                         flexDirection: "column",
                         alignItems: "center",
@@ -882,13 +870,12 @@ const TransferBoardPage = () => {
                         <Box sx={{
                             position: "relative",
                             width: { xs: 150, sm: 165 },
-                            height: { xs: 215, sm: 235 },
-                            transition: "all 0.5s ease",
-                            filter: "drop-shadow(0 25px 50px rgba(0,0,0,0.45))",
-                            "&:hover": { transform: "translateY(-8px) scale(1.02)" }
+                            height: { xs: 200, sm: 220 },
+                            mb: { xs: 1, sm: 2 },
+                            filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.45))",
                         }}>
                              <Avatar
-                                src={selectedPlayer.imageUrl || getPlayerCardUrl(selectedPlayer.playerId || selectedPlayer.PlayerId)}
+                                src={selectedPlayer.imageUrl || getPlayerCardUrl(selectedPlayer.playerId)}
                                 variant="rounded"
                                 sx={{
                                   width: "100%",
@@ -897,85 +884,50 @@ const TransferBoardPage = () => {
                                   "& img": { objectFit: "contain" }
                                 }}
                               />
-                              
-                              {/* Glowing Accent behind image */}
-                              <Box sx={{ 
-                                  position: "absolute", inset: 20, 
-                                  bgcolor: offerType === "Transfer" ? "rgba(59,130,246,0.3)" : "rgba(245,158,11,0.3)",
-                                  filter: "blur(40px)",
-                                  zIndex: -1,
-                                  borderRadius: "50%"
-                              }} />
                         </Box>
                         
-                        {/* PESDB link badge */}
-                        {getPesdbLink(selectedPlayer.imageUrl) && (
-                          <Button 
-                            component="a" 
-                            href={getPesdbLink(selectedPlayer.imageUrl)} 
-                            target="_blank" 
-                            size="small"
-                            sx={{ mt: 1, color: "text.secondary", fontSize: "0.65rem", fontWeight: "bold", textTransform: "none" }}
-                          >
-                            View on pesdb.net
-                          </Button>
-                        )}
-
-                        <Box sx={{ mt: 2 }}>
-                            <Typography variant="h5" fontWeight="900" sx={{ color: "#0f172a", lineHeight: 1.2, mb: 0.5 }}>
+                        <Box sx={{ mt: { xs: 0, sm: 1 } }}>
+                            <Typography variant={isMobile ? "h6" : "subtitle1"} fontWeight="900" sx={{ color: isMobile ? "white" : "#0f172a", mb: 0.5, lineHeight: 1.1 }}>
                                 {selectedPlayer.playerName}
                             </Typography>
                             <Box display="flex" justifyContent="center" gap={1}>
-                                <Chip 
-                                    label={selectedPlayer.position || "-"} 
-                                    size="small" 
-                                    sx={{ fontWeight: "bold", bgcolor: "rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.05)" }} 
-                                />
-                                <Chip 
-                                    label={`${selectedPlayer.playerOvr || "-"} OVR`} 
-                                    size="small" 
-                                    sx={{ fontWeight: "900", bgcolor: "rgba(15,23,42,0.05)", color: "#0f172a" }} 
-                                />
+                                <Chip label={selectedPlayer.position} size="small" sx={{ fontWeight: "bold", bgcolor: isMobile ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)", color: isMobile ? "white" : "inherit" }} />
+                                <Chip label={`${selectedPlayer.playerOvr} OVR`} size="small" sx={{ fontWeight: "900", bgcolor: "#f1f5f9", fontSize: '0.7rem' }} />
                             </Box>
                         </Box>
                     </Box>
                   </Grid>
 
-                  {/* Right Column: Negotiation Controls */}
-                  <Grid item xs={12} sm={6.8}>
-                    <Box sx={{ 
-                        p: 3, 
+                  {/* Right Column: Interaction Card */}
+                  <Grid item xs={12} sm={7}>
+                    <Paper elevation={0} sx={{ 
+                        p: { xs: 2, sm: 3 }, 
                         borderRadius: 5, 
-                        bgcolor: "rgba(255,255,255,0.7)", 
-                        border: "1px solid rgba(255,255,255,1)",
-                        boxShadow: "0 10px 30px -10px rgba(0,0,0,0.05)"
+                        bgcolor: "white",
+                        boxShadow: "0 10px 30px rgba(0,0,0,0.02)",
+                        border: "1px solid #fff"
                     }}>
-                        <Box mb={2.5}>
-                            <Typography variant="caption" sx={{ fontWeight: 800, color: "text.secondary", mb: 1.2, display: "block", letterSpacing: 0.5 }}>
+                        <Box mb={2}>
+                            <Typography variant="caption" fontWeight="900" color="text.secondary" sx={{ mb: 1, display: "block", letterSpacing: 0.5 }}>
                                 AGREEMENT TYPE
                             </Typography>
                             <ToggleButtonGroup
-                                color="primary"
                                 value={offerType || "Transfer"}
                                 exclusive
-                                onChange={(e, val) => { if (val) setOfferType(val); }}
+                                onChange={(e, val) => val && setOfferType(val)}
                                 fullWidth
+                                size="small"
                                 sx={{ 
-                                    bgcolor: "#f1f5f9", 
-                                    borderRadius: 1,
-                                    p: 0.5,
+                                    p: 0.5, bgcolor: "#f1f5f9", borderRadius: 3,
                                     "& .MuiToggleButton-root": {
-                                        borderRadius: 2.5,
                                         border: "none",
+                                        borderRadius: 2.5,
                                         fontWeight: "800",
-                                        py: 1.2,
-                                        fontSize: "0.85rem",
-                                        textTransform: "none",
-                                        transition: "all 0.3s ease",
+                                        fontSize: '0.75rem',
                                         "&.Mui-selected": {
                                             bgcolor: "white",
-                                            boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                                            color: offerType === "Transfer" ? "#0f172a" : "#b45309",
+                                            boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                                            color: "primary.main",
                                             "&:hover": { bgcolor: "white" }
                                         }
                                     }
@@ -986,122 +938,62 @@ const TransferBoardPage = () => {
                             </ToggleButtonGroup>
                         </Box>
 
-                        <Box mb={3}>
-                            <Typography variant="caption" sx={{ fontWeight: 800, color: "text.secondary", mb: 1, display: "block", letterSpacing: 0.5 }}>
-                                {offerType === "Transfer" ? "PROPOSED FEE" : "LOAN FEE (1 SEASON)"}
+                        <Box mb={2.5}>
+                            <Typography variant="caption" fontWeight="900" color="text.secondary" sx={{ mb: 0.8, display: "block", letterSpacing: 0.5 }}>
+                                PROPOSED FEE
                             </Typography>
                             <TextField
                               fullWidth
-                              variant="outlined"
                               placeholder="Amount"
                               type="number"
+                              size="small"
                               value={offerAmount}
                               onChange={(e) => setOfferAmount(e.target.value)}
                               InputProps={{ 
-                                  startAdornment: <InputAdornment position="start"><Typography variant="body2" fontWeight="900" color="primary.main">TP</Typography></InputAdornment>,
-                                  sx: { 
-                                      borderRadius: 1, 
-                                      bgcolor: "white", 
-                                      fontWeight: "900", 
-                                      fontSize: "1.1rem",
-                                      "& .MuiOutlinedInput-notchedOutline": { border: "2px solid rgba(0,0,0,0.04)" }
-                                  }
+                                startAdornment: <InputAdornment position="start"><Typography variant="caption" fontWeight="900" color="primary.main">TP</Typography></InputAdornment>,
+                                sx: { 
+                                    borderRadius: 2, bgcolor: "white", fontWeight: "900", 
+                                    fontSize: "1rem",
+                                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(0,0,0,0.1)" }
+                                }
                               }}
                             />
-                            {selectedPlayer && selectedPlayer.listingPrice > 0 && (
-                                <Typography variant="caption" sx={{ mt: 1, display: "block", color: "text.secondary", fontWeight: "700", textAlign: "right" }}>
-                                    Target: {selectedPlayer.listingPrice.toLocaleString()} TP
-                                </Typography>
-                            )}
                         </Box>
 
-                        <Divider sx={{ my: 3, borderStyle: "dashed", opacity: 0.6 }} />
-
-                        {/* Premium Digital Wallet Card Display */}
                         <Box sx={{ 
-                            p: 2, 
-                            borderRadius: 3, 
-                            background: (userBalance < (parseInt(offerAmount || "0") + (marketSummary?.requiredReserve || 0))) 
-                                ? "linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%)" 
-                                : "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                            p: 2, borderRadius: 4, 
+                            bgcolor: "#0f172a",
+                            color: "white",
+                            mb: 2,
                             position: "relative",
-                            overflow: "hidden",
-                            boxShadow: "0 20px 40px -15px rgba(0,0,0,0.35)",
-                            border: "1px solid rgba(255,255,255,0.12)",
-                            mb: 3,
-                            transition: "all 0.5s cubic-bezier(0.16, 1, 0.3, 1)"
+                            overflow: "hidden"
                         }}>
-                            {/* Ambient Light Effect */}
-                            <Box sx={{ 
-                                position: "absolute", top: -40, right: -40, width: 140, height: 140, 
-                                borderRadius: "50%", background: "white", opacity: 0.04, 
-                                filter: "blur(20px)" 
-                            }} />
-                            
-                            <Box sx={{ position: "relative", zIndex: 1 }}>
-                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
-                                    <Box>
-                                        <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.5)", fontWeight: "900", letterSpacing: 1.8, textTransform: "uppercase", fontSize: "0.6rem" }}>
-                                            Available TP for Deal
-                                        </Typography>
-                                        <Box sx={{ display: "flex", alignItems: "baseline", gap: 0.8, mt: 0.3 }}>
-                                            <Typography variant="h5" sx={{ 
-                                                color: "white", 
-                                                fontWeight: "900", 
-                                                letterSpacing: -1,
-                                                textShadow: "0 2px 10px rgba(0,0,0,0.2)"
-                                            }}>
-                                                {(userBalance - (marketSummary?.requiredReserve || 0)).toLocaleString()}
-                                            </Typography>
-                                            <Typography variant="body1" sx={{ color: "rgba(255,255,255,0.4)", fontWeight: "800" }}>TP</Typography>
-                                        </Box>
-                                    </Box>
-                                    <Avatar sx={{ 
-                                        bgcolor: "rgba(255,255,255,0.12)", 
-                                        backdropFilter: "blur(8px)",
-                                        border: "1px solid rgba(255,255,255,0.1)",
-                                        width: 34, height: 34
-                                    }}>
-                                        <AccountBalanceWallet sx={{ color: "white", fontSize: 17 }} />
-                                    </Avatar>
+                             <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                                <Box>
+                                    <Typography variant="caption" sx={{ opacity: 0.5, fontWeight: "900", fontSize: "0.55rem", letterSpacing: 1 }}>AVAILABLE TP FOR DEAL</Typography>
+                                    <Typography variant={isMobile ? "h6" : "h5"} fontWeight="900">
+                                        {(userBalance - (marketSummary?.requiredReserve || 0)).toLocaleString()} <Typography component="span" variant="caption" sx={{ opacity: 0.5 }}>TP</Typography>
+                                    </Typography>
                                 </Box>
-
-                                <Divider sx={{ borderColor: "rgba(255,255,255,0.1)", mb: 1.2, mt: 1.2, borderStyle: "dashed" }} />
-
-                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                    <Box>
-                                        <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.4)", fontWeight: "800", display: "block", fontSize: "0.55rem", letterSpacing: 0.5 }}>
-                                            TRADING STATUS
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ 
-                                            color: (userBalance < (parseInt(offerAmount || "0") + (marketSummary?.requiredReserve || 0))) ? "#f87171" : "#4ade80", 
-                                            fontWeight: "900", 
-                                            display: "flex", 
-                                            alignItems: "center", 
-                                            gap: 0.8,
-                                            fontSize: "0.75rem"
-                                        }}>
-                                            <Box sx={{ 
-                                                width: 8, height: 8, borderRadius: "50%", 
-                                                bgcolor: "currentColor",
-                                                boxShadow: `0 0 10px currentColor`
-                                            }} />
-                                            {(userBalance < (parseInt(offerAmount || "0") + (marketSummary?.requiredReserve || 0))) ? "BUDGET LOCKED" : "READY TO OFFER"}
-                                        </Typography>
+                                <AccountBalanceWallet sx={{ opacity: 0.3, fontSize: 20 }} />
+                             </Box>
+                             <Divider sx={{ borderColor: "rgba(255,255,255,0.1)", my: 1, borderStyle: "dashed" }} />
+                             <Box display="flex" justifyContent="space-between" alignItems="center">
+                                <Typography variant="caption" sx={{ 
+                                    color: (userBalance < (parseInt(offerAmount || "0") + (marketSummary?.requiredReserve || 0))) ? "#f87171" : "#4ade80",
+                                    fontWeight: "900",
+                                    display: "flex", alignItems: "center", gap: 0.5,
+                                    fontSize: '0.65rem'
+                                }}>
+                                    ● {(userBalance < (parseInt(offerAmount || "0") + (marketSummary?.requiredReserve || 0))) ? "LOW BUDGET" : "READY TO OFFER"}
+                                </Typography>
+                                {marketSummary?.requiredReserve > 0 && (
+                                    <Box textAlign="right">
+                                        <Typography variant="caption" sx={{ opacity: 0.4, display: "block", fontSize: "0.5rem" }}>RESERVE LOCK</Typography>
+                                        <Typography variant="caption" fontWeight="900" sx={{ fontSize: '0.65rem' }}>{marketSummary.requiredReserve.toLocaleString()} TP</Typography>
                                     </Box>
-                                    
-                                    {marketSummary?.requiredReserve > 0 && (
-                                        <Box sx={{ textAlign: "right" }}>
-                                            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.4)", fontWeight: "800", display: "block", fontSize: "0.55rem", letterSpacing: 0.5 }}>
-                                                RESERVE LOCK
-                                            </Typography>
-                                            <Typography variant="subtitle1" sx={{ color: "white", fontWeight: "900", opacity: 0.9 }}>
-                                                {marketSummary.requiredReserve?.toLocaleString()} <Typography component="span" sx={{ fontSize: "0.65rem", opacity: 0.5, fontWeight: "700" }}>TP</Typography>
-                                            </Typography>
-                                        </Box>
-                                    )}
-                                </Box>
-                            </Box>
+                                )}
+                             </Box>
                         </Box>
 
                         <Button 
@@ -1111,32 +1003,26 @@ const TransferBoardPage = () => {
                             size="large"
                             disabled={!offerAmount || parseInt(offerAmount) <= 0}
                             sx={{ 
-                                borderRadius: 2, 
-                                fontWeight: "900", 
-                                height: 56,
-                                textTransform: "none",
-                                fontSize: "1rem",
-                                bgcolor: offerType === "Transfer" ? "#0f172a" : "#d97706",
-                                boxShadow: offerType === "Transfer" ? "0 10px 25px rgba(15,23,42,0.4)" : "0 10px 25px rgba(217,119,6,0.4)",
-                                "&:hover": { 
-                                    bgcolor: offerType === "Transfer" ? "#1e293b" : "#b45309",
-                                    transform: "translateY(-3px)",
-                                    boxShadow: 20
+                                borderRadius: 3, fontWeight: "900", height: 48, textTransform: "none",
+                                bgcolor: "#e2e8f0", color: "#94a3b8",
+                                boxShadow: "none",
+                                "&:not(:disabled)": {
+                                    bgcolor: "#e2e8f0",
+                                    color: "#475569",
+                                    "&:hover": { bgcolor: "#cbd5e1" }
                                 },
-                                "&.Mui-disabled": { bgcolor: "rgba(0,0,0,0.1)", color: "rgba(0,0,0,0.2)" },
-                                transition: "all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+                                "&.Mui-disabled": { opacity: 0.5 }
                             }}
                         >
                             Confirm {offerType} Offer
                         </Button>
-                    </Box>
+                    </Paper>
                   </Grid>
                 </Grid>
               )}
             </DialogContent>
         </Box>
       </Dialog>
-
       {/* Global Search Dialog */}
         <PlayerSearchDialog 
             open={searchModalOpen}

@@ -386,6 +386,21 @@ namespace eTPL.API.Controllers
             }
         }
 
+        [HttpGet("transactions/global")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetGlobalTransactions(int page = 1, int pageSize = 20)
+        {
+            try
+            {
+                var result = await _auctionService.GetGlobalTransactionsAsync(page, pageSize);
+                return Ok(ApiResponse<object>.Ok(result));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
         // ─── Squad Lifecycle ──────────────────────────────────────────────────────
 
         [HttpPost("bonus")]

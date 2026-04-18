@@ -23,6 +23,7 @@ namespace eTPL.API.Models.Auction
         public List<int> BidderUserIds { get; set; } = new();
         public int? CurrentUserFinalBid { get; set; }
         public int? WinnerId { get; set; }
+        public DateTime CurrentPhaseEndTime { get; set; }
     }
 
     public class PlaceBidRequest
@@ -160,6 +161,7 @@ namespace eTPL.API.Models.Auction
         public int? RelatedPlayerId { get; set; }
         public string? PlayerName { get; set; }
         public string? RelatedPlayerName { get; set; }
+        public string? UserName { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 
