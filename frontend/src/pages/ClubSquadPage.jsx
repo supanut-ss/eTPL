@@ -17,18 +17,40 @@ import {
   TableHead,
   TableRow,
   alpha,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  ToggleButton,
+  ToggleButtonGroup,
+  Slide,
+  useMediaQuery,
+  useTheme,
+  InputAdornment
 } from "@mui/material";
+import { useSearchParams } from "react-router-dom";
 import {
   Groups,
   AccountBalanceWallet,
   Diversity3,
   Search,
   People,
+  LocalOffer,
+  Close,
+  Handshake,
+  AccountBalance
 } from "@mui/icons-material";
+import { checkMarketOpen } from "../utils/marketUtils";
 import auctionService from "../services/auctionService";
 import { useSnackbar } from "notistack";
 import { useAuth } from "../store/AuthContext";
-import { getPlayerFaceUrl } from "../utils/imageUtils";
+import { getPlayerFaceUrl, getPesdbInfoUrl, getPlayerCardUrl } from "../utils/imageUtils";
+
+const Transition = React.forwardRef(function Transition(props, ref) {
+  return <Slide direction="up" ref={ref} {...props} />;
+});
 
 const GRADE_STYLE_MAP = {
   S: { color: "#ffb300", bg: "rgba(255,179,0,0.15)" },
@@ -106,34 +128,68 @@ const PlayerAvatar = ({ playerId }) => {
 };
 
 const ClubSquadPage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { enqueueSnackbar } = useSnackbar();
   const { user: currentUser } = useAuth();
+  const [searchParams] = useSearchParams();
   const [clubs, setClubs] = useState([]);
   const [selectedClub, setSelectedClub] = useState(null);
   const [squadData, setSquadData] = useState({ squad: [], quotas: [] });
   const [loading, setLoading] = useState(true);
   const [squadLoading, setSquadLoading] = useState(false);
+  const [summary, setSummary] = useState(null);
+
+  // Negotiation States
+  const [offerModalOpen, setOfferModalOpen] = useState(false);
+  const [selectedPlayer, setTargetPlayer] = useState(null);
+  const [offerAmount, setOfferAmount] = useState("");
+  const [offerType, setOfferType] = useState("Transfer");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [wallet, setWallet] = useState(null);
+  const [userBalance, setUserBalance] = useState(0);
 
   useEffect(() => {
-    fetchClubs();
+    if (currentUser) {
+      fetchClubs();
+    }
   }, [currentUser]);
 
   const fetchClubs = async () => {
     try {
       setLoading(true);
       const res = await auctionService.getClubs();
-      const rawList = res?.data || [];
+      const rawList = (res?.data || res) || [];
       
-      // Filter out current user from the list
-      const filteredList = rawList.filter(c => c.userId !== currentUser?.userId);
+      const filteredList = Array.isArray(rawList) ? rawList.filter(c => c.userId !== currentUser?.userId) : [];
       setClubs(filteredList);
+
+      // Fetch Market Summary & Wallet
+      const [sumRes, walletRes] = await Promise.all([
+        auctionService.getSummary(),
+        auctionService.getWallet()
+      ]);
+      setSummary(sumRes?.data || sumRes);
+      setWallet(walletRes?.data || walletRes);
+      setUserBalance((walletRes?.data?.availableBalance ?? walletRes?.availableBalance) || 0);
       
-      // Auto-select first club in filtered list if exists
-      if (filteredList.length > 0) {
+      // Handle auto-selection from URL parameter
+      const targetUserId = searchParams.get("userId");
+      if (targetUserId) {
+        const targetClub = filteredList.find(c => c.userId === targetUserId);
+        if (targetClub) {
+          setSelectedClub(targetClub);
+          fetchSquad(targetClub.userId);
+        } else if (filteredList.length > 0) {
+          setSelectedClub(filteredList[0]);
+          fetchSquad(filteredList[0].userId);
+        }
+      } else if (filteredList.length > 0) {
         setSelectedClub(filteredList[0]);
         fetchSquad(filteredList[0].userId);
       }
     } catch (err) {
+      console.error("Fetch clubs error:", err);
       enqueueSnackbar("Failed to fetch club list", { variant: "error" });
     } finally {
       setLoading(false);
@@ -144,9 +200,10 @@ const ClubSquadPage = () => {
     try {
       setSquadLoading(true);
       const res = await auctionService.getClubSquad(userStrId);
-      setSquadData(res?.data || null);
+      setSquadData(res?.data || res || { squad: [], quotas: [] });
     } catch (err) {
-      enqueueSnackbar("Failed to fetch squad details", { variant: "error" });
+      console.error("Fetch squad error:", err);
+      enqueueSnackbar("Failed to fetch squad data", { variant: "error" });
     } finally {
       setSquadLoading(false);
     }
@@ -160,6 +217,45 @@ const ClubSquadPage = () => {
       setSquadData(null);
     }
   };
+
+  const handleOpenNegotiate = (player) => {
+    // Market Hour Validation
+    const market = checkMarketOpen(summary);
+    if (!market.isOpen) {
+      enqueueSnackbar(market.message, { variant: "error" });
+      return;
+    }
+
+    setTargetPlayer(player);
+    setOfferAmount("");
+    setOfferType("Transfer");
+    setOfferModalOpen(true);
+  };
+
+  const handleCloseNegotiate = () => {
+    setOfferModalOpen(false);
+    setTargetPlayer(null);
+  };
+
+  const handleSubmitOffer = async () => {
+    if (!offerAmount || isNaN(offerAmount) || offerAmount <= 0) {
+      enqueueSnackbar("Please enter a valid amount", { variant: "warning" });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await auctionService.submitOffer(selectedPlayer.squadId, offerType, parseInt(offerAmount));
+      enqueueSnackbar("Offer submitted successfully", { variant: "success" });
+      handleCloseNegotiate();
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const marketStatus = checkMarketOpen(summary);
 
   const calculateTotalValue = () => {
     if (!squadData?.squad) return 0;
@@ -183,9 +279,9 @@ const ClubSquadPage = () => {
       <Box
         sx={{
           display: "flex",
+          flexDirection: isMobile ? "column" : "row",
           justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
+          alignItems: isMobile ? "flex-start" : "center",
           gap: 2,
           mb: 4,
         }}
@@ -249,12 +345,12 @@ const ClubSquadPage = () => {
 
       {squadLoading && <LinearProgress sx={{ mb: 2 }} />}
 
-      {squadData ? (
+      {squadData && squadData.squad ? (
         (() => {
           const positionSummary = getPositionDistribution();
-          const gradeSummary = squadData.quotas?.map(q => ({
+          const gradeSummary = (squadData.quotas || []).map(q => ({
             label: q.gradeName,
-            count: squadData.squad?.filter(p => p.playerOvr >= q.minOVR && p.playerOvr <= q.maxOVR).length || 0,
+            count: (squadData.squad || []).filter(p => (p.playerOvr || 0) >= q.minOVR && (p.playerOvr || 0) <= q.maxOVR).length || 0,
             gradient: GRADE_STYLE_MAP[q.gradeName]?.bg || GRADE_STYLE_MAP.DEFAULT.bg,
             color: GRADE_STYLE_MAP[q.gradeName]?.color || GRADE_STYLE_MAP.DEFAULT.color
           })) || [];
@@ -416,7 +512,10 @@ const ClubSquadPage = () => {
                       <TableCell sx={{ fontWeight: 1000, color: "text.secondary", fontSize: "0.75rem", textTransform: "uppercase", pl: 3 }}>Grade</TableCell>
                       <TableCell sx={{ fontWeight: 1000, color: "text.secondary", fontSize: "0.75rem", textTransform: "uppercase" }}>Player Information</TableCell>
                       <TableCell align="center" sx={{ fontWeight: 1000, color: "text.secondary", fontSize: "0.75rem", textTransform: "uppercase" }}>OVR</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 1000, color: "text.secondary", fontSize: "0.75rem", textTransform: "uppercase", pr: 3 }}>Market Value</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 1000, color: "text.secondary", fontSize: "0.75rem", textTransform: "uppercase" }}>Value</TableCell>
+                      {marketStatus.isOpen && (
+                        <TableCell align="right" sx={{ fontWeight: 1000, color: "text.secondary", fontSize: "0.75rem", textTransform: "uppercase", pr: 3 }}>Action</TableCell>
+                      )}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -428,7 +527,14 @@ const ClubSquadPage = () => {
                       const posStyle = POSITION_GROUP_STYLE[group];
 
                       return (
-                        <TableRow key={player.squadId} sx={{ "&:hover": { bgcolor: "rgba(0,0,0,0.01)" }, transition: "background 0.2s" }}>
+                        <TableRow 
+                          key={player.squadId} 
+                          sx={{ 
+                            "&:nth-of-type(even)": { bgcolor: "rgba(0,0,0,0.02)" },
+                            "&:hover": { bgcolor: "rgba(0,0,0,0.04)" }, 
+                            transition: "background 0.2s" 
+                          }}
+                        >
                           <TableCell sx={{ pl: 3 }}>
                             <Box sx={{ 
                               width: 38, 
@@ -447,10 +553,23 @@ const ClubSquadPage = () => {
                             </Box>
                           </TableCell>
                           <TableCell>
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                            <Box 
+                              component="a"
+                              href={getPesdbInfoUrl(player.playerId)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              sx={{ 
+                                display: "flex", 
+                                alignItems: "center", 
+                                gap: 2,
+                                textDecoration: "none",
+                                color: "inherit",
+                                "&:hover .player-name": { color: "primary.main" }
+                              }}
+                            >
                               <PlayerAvatar playerId={player.playerId} />
                               <Box>
-                                <Typography variant="body1" fontWeight={1000} sx={{ mb: 0.5 }}>
+                                <Typography variant="body1" fontWeight={1000} className="player-name" sx={{ mb: 0.5, transition: "color 0.2s" }}>
                                   {player.playerName}
                                 </Typography>
                                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center" }}>
@@ -475,17 +594,270 @@ const ClubSquadPage = () => {
                               {player.playerOvr}
                             </Typography>
                           </TableCell>
-                          <TableCell align="right" sx={{ pr: 3 }}>
+                           <TableCell align="center">
                             <Typography variant="body1" fontWeight={1000}>
                               {(player.pricePaid || 0).toLocaleString()} <Typography component="span" variant="caption" sx={{ opacity: 0.4 }}>TP</Typography>
                             </Typography>
                           </TableCell>
+                          {marketStatus.isOpen && (
+                            <TableCell align="right" sx={{ pr: 3 }}>
+                               <Button
+                                 variant="contained"
+                                 size="small"
+                                 startIcon={<LocalOffer sx={{ fontSize: '0.9rem !important' }} />}
+                                 onClick={() => handleOpenNegotiate(player)}
+                                 sx={{ 
+                                   borderRadius: "10px",
+                                   textTransform: "none",
+                                   fontWeight: 1000,
+                                   px: 2,
+                                   bgcolor: "primary.main",
+                                   "&:hover": { bgcolor: "primary.dark", boxShadow: "0 4px 12px rgba(0,0,0,0.15)" },
+                                   boxShadow: "none"
+                                 }}
+                               >
+                                 Offer
+                               </Button>
+                            </TableCell>
+                          )}
                         </TableRow>
                       );
                     })}
                   </TableBody>
                 </Table>
               </TableContainer>
+               {/* Negotiation Modal */}
+               <Dialog
+                open={offerModalOpen}
+                onClose={handleCloseNegotiate}
+                maxWidth="sm"
+                fullWidth
+                fullScreen={isMobile}
+                TransitionComponent={Transition}
+                PaperProps={{
+                  sx: {
+                    borderRadius: isMobile ? 0 : 5,
+                    bgcolor: "#f1f5f9",
+                    boxShadow: "0 40px 120px -20px rgba(15,23,42,0.4)",
+                    overflow: "hidden"
+                  },
+                }}
+              >
+                <Box sx={{ position: "relative" }}>
+                    {(() => {
+                        const isTransfer = offerType === "Transfer";
+                        const themeColor = isTransfer ? "#2563eb" : "#f97316";
+                        const headerBg = isTransfer ? "#1e293b" : "linear-gradient(135deg, #f97316 0%, #ea580c 100%)";
+                        
+                        return (
+                          <>
+                            {/* Header Area */}
+                            <Box sx={{ 
+                                position: "absolute", top: 0, left: 0, right: 0, 
+                                height: { xs: 200, sm: 140 }, 
+                                background: headerBg,
+                                zIndex: 0,
+                                transition: "background 0.3s"
+                            }} />
+                            
+                            <DialogTitle
+                              sx={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                color: "white",
+                                pt: { xs: 2, sm: 3 }, pb: 0,
+                                position: "relative",
+                                zIndex: 1
+                              }}
+                            >
+                              <Box display="flex" alignItems="center" gap={1.2}>
+                                <LocalOffer fontSize="small" sx={{ opacity: 0.8 }} />
+                                <Typography variant="subtitle2" fontWeight="900" sx={{ letterSpacing: 1.5, textTransform: "uppercase" }}>
+                                    {offerType === "Transfer" ? "Purchase Offer" : "Loan Negotiation"}
+                                </Typography>
+                              </Box>
+                              <IconButton onClick={handleCloseNegotiate} size="small" sx={{ color: "rgba(255,255,255,0.6)", "&:hover": { color: "white", bgcolor: "rgba(255,255,255,0.1)" } }}>
+                                <Close fontSize="small" />
+                              </IconButton>
+                            </DialogTitle>
+                
+                            <DialogContent sx={{ position: "relative", zIndex: 1, px: { xs: 2, sm: 4 }, pt: { xs: 1, sm: 3 }, pb: 5, overflowX: 'hidden' }}>
+                              {selectedPlayer && (
+                                <Grid container spacing={{ xs: 2, sm: 2 }} alignItems="center" justifyContent="center" sx={{ mt: { xs: 0, sm: 1 } }}>
+                                  {/* Left Column: Player Card Visual */}
+                                  <Grid item xs={12} sm={5}>
+                                     <Box sx={{ 
+                                        display: "flex", 
+                                        flexDirection: "column",
+                                        alignItems: "center",
+                                        textAlign: "center"
+                                     }}>
+                                       <Box 
+                                            sx={{
+                                                position: "relative",
+                                                width: { xs: 150, sm: 165 },
+                                                height: { xs: 200, sm: 230 },
+                                                mb: { xs: 1, sm: 2 },
+                                                filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.45))",
+                                                display: "block"
+                                            }}
+                                        >
+                                         <Avatar 
+                                            src={getPlayerCardUrl(selectedPlayer.playerId)} 
+                                            variant="rounded" 
+                                            sx={{ width: "100%", height: "100%", bgcolor: "transparent", "& img": { objectFit: "contain" } }} 
+                                          />
+                                       </Box>
+                                       <Box sx={{ mt: { xs: 0, sm: 1 } }}>
+                                           <Typography 
+                                                variant={isMobile ? "h6" : "subtitle1"} 
+                                                fontWeight="900" 
+                                                sx={{ 
+                                                    color: isMobile ? "white" : "#0f172a", 
+                                                    mb: 0.5, 
+                                                    lineHeight: 1.1
+                                                }}
+                                            >
+                                                {selectedPlayer.playerName}
+                                            </Typography>
+                                            <Box display="flex" justifyContent="center" gap={1}>
+                                                <Chip label={selectedPlayer.position} size="small" sx={{ fontWeight: "bold", bgcolor: isMobile ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)", color: isMobile ? "white" : "inherit" }} />
+                                                <Chip label={`${selectedPlayer.playerOvr} OVR`} size="small" sx={{ fontWeight: "900", bgcolor: "#f1f5f9", fontSize: '0.7rem' }} />
+                                            </Box>
+                                       </Box>
+                                     </Box>
+                                  </Grid>
+                                  
+                                  {/* Right Column: Interaction Paper */}
+                                  <Grid item xs={12} sm={7}>
+                                    <Paper elevation={0} sx={{ 
+                                        p: { xs: 2, sm: 3 }, 
+                                        borderRadius: 5, 
+                                        bgcolor: "white",
+                                        boxShadow: "0 10px 30px rgba(0,0,0,0.02)",
+                                        border: "1px solid #fff"
+                                    }}>
+                                        <Box mb={2}>
+                                            <Typography variant="caption" fontWeight="900" color="text.secondary" sx={{ mb: 1, display: "block", letterSpacing: 0.5 }}>AGREEMENT TYPE</Typography>
+                                            <ToggleButtonGroup
+                                                value={offerType}
+                                                exclusive
+                                                onChange={(e, val) => val && setOfferType(val)}
+                                                fullWidth
+                                                size="small"
+                                                sx={{ 
+                                                    p: 0.5, bgcolor: "#f1f5f9", borderRadius: 3,
+                                                    "& .MuiToggleButton-root": {
+                                                        border: "none",
+                                                        borderRadius: 2.5,
+                                                        fontWeight: "800",
+                                                        fontSize: '0.75rem',
+                                                        "&.Mui-selected": {
+                                                            bgcolor: "white",
+                                                            boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                                                            color: themeColor,
+                                                            "&:hover": { bgcolor: "white" }
+                                                        }
+                                                    }
+                                                }}
+                                            >
+                                                <ToggleButton value="Transfer">Transfer</ToggleButton>
+                                                <ToggleButton value="Loan">Loan</ToggleButton>
+                                            </ToggleButtonGroup>
+                                        </Box>
+                                        <Box mb={2.5}>
+                                            <Typography variant="caption" fontWeight="900" color="text.secondary" sx={{ mb: 0.8, display: "block", letterSpacing: 0.5 }}>PROPOSED FEE</Typography>
+                                            <TextField
+                                                fullWidth
+                                                placeholder="0"
+                                                type="number"
+                                                size="small"
+                                                value={offerAmount}
+                                                onChange={(e) => setOfferAmount(e.target.value)}
+                                                onFocus={(e) => e.target.select()}
+                                                InputProps={{ 
+                                                  startAdornment: <InputAdornment position="start"><Typography variant="caption" fontWeight="900" color={themeColor}>TP</Typography></InputAdornment>,
+                                                    sx: { 
+                                                        borderRadius: 2, bgcolor: "white", fontWeight: "900", 
+                                                        fontSize: "1.1rem",
+                                                        "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(0,0,0,0.12)" },
+                                                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: themeColor, borderWidth: 2 }
+                                                    }
+                                                }}
+                                            />
+                                        </Box>
+        
+                                        {/* Wallet Status Box - Exact Match */}
+                                        <Box sx={{ 
+                                            p: 2, borderRadius: 4, 
+                                            bgcolor: isTransfer ? "#0f172a" : "#431407", // Matching orange-brown tone for Loan
+                                            color: "white",
+                                            mb: 2,
+                                            position: "relative",
+                                            overflow: "hidden",
+                                            transition: "all 0.3s"
+                                        }}>
+                                             <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                                                <Box>
+                                                    <Typography variant="caption" sx={{ opacity: 0.5, fontWeight: "900", fontSize: "0.55rem", letterSpacing: 1 }}>AVAILABLE TP FOR DEAL</Typography>
+                                                    <Typography variant={isMobile ? "h6" : "h5"} fontWeight="900" sx={{ color: isTransfer ? "white" : "#fb923c" }}>
+                                                        {(userBalance - (summary?.requiredReserve || 0)).toLocaleString()} <Typography component="span" variant="caption" sx={{ opacity: 0.5 }}>TP</Typography>
+                                                    </Typography>
+                                                </Box>
+                                                <AccountBalanceWallet sx={{ opacity: 0.3, fontSize: 20, color: isTransfer ? "inherit" : "#fb923c" }} />
+                                             </Box>
+                                             <Divider sx={{ borderColor: isTransfer ? "rgba(255,255,255,0.1)" : "rgba(251,146,60,0.1)", my: 1, borderStyle: "dashed" }} />
+                                             <Box display="flex" justifyContent="space-between" alignItems="center">
+                                                <Typography variant="caption" sx={{ 
+                                                    color: (userBalance < (parseInt(offerAmount || "0") + (summary?.requiredReserve || 0))) ? "#f87171" : (isTransfer ? "#4ade80" : "#fb923c"),
+                                                    fontWeight: "900",
+                                                    display: "flex", alignItems: "center", gap: 0.5,
+                                                    fontSize: '0.65rem'
+                                                }}>
+                                                    ● {(userBalance < (parseInt(offerAmount || "0") + (summary?.requiredReserve || 0))) ? "LOW BUDGET" : "READY TO OFFER"}
+                                                </Typography>
+                                                {summary?.requiredReserve > 0 && (
+                                                    <Box textAlign="right">
+                                                        <Typography variant="caption" sx={{ opacity: 0.4, display: "block", fontSize: "0.5rem", color: isTransfer ? "white" : "#fb923c" }}>RESERVE LOCK</Typography>
+                                                        <Typography variant="caption" fontWeight="900" sx={{ fontSize: '0.65rem', color: isTransfer ? "white" : "#fb923c" }}>{summary.requiredReserve.toLocaleString()} TP</Typography>
+                                                    </Box>
+                                                )}
+                                             </Box>
+                                        </Box>
+        
+                                        <Button
+                                            fullWidth
+                                            variant="contained"
+                                            onClick={handleSubmitOffer}
+                                            disabled={!offerAmount || parseInt(offerAmount) <= 0 || (userBalance < (parseInt(offerAmount) + (summary?.requiredReserve || 0))) || isSubmitting}
+                                            sx={{ 
+                                                borderRadius: 3, fontWeight: "900", height: 48, textTransform: "none",
+                                                bgcolor: isTransfer ? "#e2e8f0" : "#fff7ed", 
+                                                color: isTransfer ? "#475569" : "#ea580c",
+                                                boxShadow: "none",
+                                                "&:not(:disabled)": {
+                                                    "&:hover": { 
+                                                        bgcolor: isTransfer ? "#cbd5e1" : "#ffedd5",
+                                                        transform: "translateY(-1px)"
+                                                    }
+                                                },
+                                                "&.Mui-disabled": { opacity: 0.5 },
+                                                transition: "all 0.2s"
+                                            }}
+                                        >
+                                            {isSubmitting ? "Sending..." : `Confirm ${offerType} Offer`}
+                                        </Button>
+                                    </Paper>
+                                  </Grid>
+                                </Grid>
+                              )}
+                            </DialogContent>
+                          </>
+                        );
+                    })()}
+                </Box>
+              </Dialog>
             </>
           );
         })()

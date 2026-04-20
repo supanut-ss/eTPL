@@ -41,6 +41,7 @@ namespace eTPL.API.Controllers
         }
 
         [HttpGet("players")]
+        [AllowAnonymous]
         public async Task<IActionResult> SearchPlayers(
             [FromQuery] string searchTerm = "", 
             [FromQuery] int page = 1, 

@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { getLogoUrl } from "../utils/imageUtils";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import React from "react";
+import { getLogoUrl, getPlayerFaceUrl, getPlayerCardUrl } from "../utils/imageUtils";
 import {
   Card,
   CardContent,
@@ -13,8 +14,14 @@ import {
   IconButton,
   Tooltip,
   SvgIcon,
+  Avatar,
+  useTheme,
+  useMediaQuery,
+  alpha,
+  keyframes,
 } from "@mui/material";
 import {
+  AccountCircle,
   SportsSoccer,
   Leaderboard,
   EmojiEvents,
@@ -252,6 +259,277 @@ const SectionHeader = ({ icon, title, color = "#0f172a" }) => (
   </Box>
 );
 
+const dealCard = keyframes`
+  0% { transform: translateY(120px) rotate(25deg) scale(0.2); opacity: 0; filter: blur(15px); }
+  60% { transform: translateY(-20px) rotate(-5deg) scale(1.05); opacity: 1; filter: blur(0); }
+  100% { transform: translateY(0) rotate(0) scale(1); opacity: 1; }
+`;
+
+const shine = keyframes`
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+`;
+
+const goldGlow = keyframes`
+  0% { filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.4)); }
+  50% { filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.8)); }
+  100% { filter: drop-shadow(0 0 5px rgba(251, 191, 36, 0.4)); }
+`;
+
+const TopPlayersBanner = React.memo(({ topPlayers, loading, chunkIndex, members = [], clubs = [] }) => {
+  const theme = useTheme();
+
+  if (topPlayers.length === 0 && !loading) return null;
+
+  return (
+    <Box
+      sx={{
+        position: "relative",
+        borderRadius: 6,
+        overflow: "hidden",
+        mb: 4,
+        minHeight: { xs: "auto", md: 240 },
+        display: "flex", 
+        flexDirection: { xs: "column", md: "row" },
+        background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+        boxShadow: "0 20px 40px -20px rgba(99, 102, 241, 0.15)",
+        border: "1px solid",
+        borderColor: "rgba(99, 102, 241, 0.1)",
+        transition: "all 0.5s ease-in-out",
+        "&::before": {
+          content: '"ELITE"',
+          position: "absolute",
+          bottom: -20,
+          left: 20,
+          fontSize: { xs: 60, md: 100 },
+          fontWeight: 900,
+          color: "rgba(99, 102, 241, 0.03)",
+          zIndex: 0,
+          pointerEvents: "none",
+        }
+      }}
+    >
+      <Box 
+        sx={{ 
+          p: { xs: 3, md: 4 }, 
+          display: "flex", 
+          flexDirection: { xs: "row", md: "column" },
+          alignItems: "center", 
+          justifyContent: "center",
+          gap: { xs: 2.5, md: 1 }, 
+          flex: { md: "0 0 240px" },
+          bgcolor: "rgba(99, 102, 241, 0.03)",
+          borderRight: { md: "1px solid rgba(99, 102, 241, 0.08)" },
+          borderBottom: { xs: "1px solid rgba(99, 102, 241, 0.08)", md: "none" },
+          textAlign: "center",
+          position: "relative",
+          zIndex: 1
+        }}
+      >
+        <Box
+          sx={{
+            width: { xs: 56, md: 80 },
+            height: { xs: 56, md: 80 },
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, #fbbf24 0%, #d97706 100%)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            mb: { xs: 0, md: 2 },
+            position: "relative",
+            "&::after": {
+              content: '""',
+              position: "absolute",
+              inset: -4,
+              borderRadius: "50%",
+              border: "2px solid #d97706",
+              opacity: 0.3,
+            }
+          }}
+        >
+          <EmojiEvents sx={{ fontSize: { xs: 28, md: 44 }, color: "white" }} />
+        </Box>
+        <Box sx={{ textAlign: { xs: "left", md: "center" } }}>
+          <Typography variant="h6" fontWeight={900} sx={{ 
+            letterSpacing: 1, 
+            lineHeight: 1.1, 
+            fontSize: { xs: 18, md: 24 },
+            background: "linear-gradient(to bottom, #4f46e5, #818cf8)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent"
+          }}>
+            ELITE
+          </Typography>
+          <Typography variant="caption" sx={{ 
+            color: "#d97706", 
+            fontWeight: 800, 
+            textTransform: "uppercase", 
+            letterSpacing: 3, 
+            fontSize: { xs: 9, md: 11 },
+            opacity: 0.8
+          }}>
+            Top 20 Showcase
+          </Typography>
+        </Box>
+        <Chip 
+          label={`RANK ${chunkIndex * 10 + 1} - ${chunkIndex * 10 + 10}`} 
+          size="small" 
+          sx={{ 
+            ml: { xs: "auto", md: 0 }, 
+            mt: { xs: 0, md: 2 }, 
+            height: 22, 
+            fontSize: 10, 
+            bgcolor: "primary.main", 
+            color: "white", 
+            fontWeight: 900,
+            boxShadow: "0 4px 12px rgba(79, 70, 229, 0.2)"
+          }} 
+        />
+      </Box>
+
+      {/* Top Players - PESDB Card Style */}
+      <Box 
+        sx={{ 
+          flex: 1, 
+          p: { xs: 2, sm: 3, md: 4 }, 
+          display: "flex", 
+          alignItems: "center", 
+          overflowX: "auto", 
+          gap: { xs: 3, md: 4 }, 
+          "&::-webkit-scrollbar": { display: "none" },
+          opacity: loading ? 0.6 : 1,
+          transition: "opacity 0.4s ease-in-out"
+        }}
+      >
+        {loading && topPlayers.length === 0 ? (
+           [...Array(10)].map((_, i) => (
+             <Skeleton key={i} variant="rounded" width={100} height={140} sx={{ borderRadius: 3 }} />
+           ))
+        ) : (
+          topPlayers.map((player, idx) => {
+            const pId = player.idPlayer || player.playerId || player.id || player.player_id;
+            const price = player.pricePaid || player.valuation || player.price || player.cost || 0;
+            
+            // Try to find handle in members list or clubs list
+            const idToMatch = player.user_id || player.userId || player.ownedByUserId || "";
+            const matchedMember = members.find(m => 
+              (m.userId && String(m.userId) === String(idToMatch)) || 
+              (m.id && String(m.id) === String(idToMatch))
+            ) || clubs.find(c => 
+              (c.userId && String(c.userId) === String(idToMatch)) ||
+              (c.userName && String(c.userName) === String(idToMatch))
+            );
+            
+            const owner = matchedMember?.userId || matchedMember?.userName || player.userName || player.ownerName || player.winnerName || idToMatch || "N/A";
+            
+            return (
+              <Box 
+                key={`${chunkIndex}-${idx}`}
+                sx={{ 
+                  minWidth: 100, 
+                  textAlign: "center",
+                  position: "relative",
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  animation: `${dealCard} 2.0s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
+                  animationDelay: `${idx * 0.25}s`,
+                  opacity: 0,
+                  "&:hover": {
+                    transform: "translateY(-8px)",
+                    "& .player-card": { filter: "drop-shadow(0 15px 30px rgba(0,0,0,0.2))" },
+                    "& .ranking": { color: "secondary.main", opacity: 0.15 }
+                  }
+                }}
+              >
+                {/* TP Badge */}
+                <Box 
+                  sx={{ 
+                    position: "absolute", 
+                    top: -10, 
+                    right: 0, 
+                    zIndex: 2,
+                    background: "linear-gradient(90deg, #fbbf24, #fff, #fbbf24)",
+                    backgroundSize: "200% auto",
+                    animation: `${shine} 3s linear infinite`,
+                    color: "#0f172a",
+                    px: 1,
+                    py: 0.3,
+                    borderRadius: 1.5,
+                    fontSize: 10,
+                    fontWeight: 950,
+                    boxShadow: "0 4px 15px rgba(217, 119, 6, 0.4)",
+                    border: "1px solid rgba(255,255,255,0.4)",
+                    pointerEvents: "none"
+                  }}
+                >
+                  {price.toLocaleString()} TP
+                </Box>
+
+                <Typography 
+                  className="ranking"
+                  sx={{ 
+                     position: "absolute", 
+                     top: -15, 
+                     left: 20, 
+                     fontSize: 64, 
+                     fontWeight: 900, 
+                     color: "rgba(99, 102, 241, 0.05)",
+                     WebkitTextStroke: "1px rgba(99, 102, 241, 0.1)",
+                     WebkitTextFillColor: "transparent",
+                     zIndex: 0,
+                     lineHeight: 1,
+                     transition: "all 0.3s ease"
+                  }}
+                >
+                  {chunkIndex * 10 + idx + 1}
+                </Typography>
+                
+                <Box sx={{ position: "relative", zIndex: 1 }}>
+                   <Box
+                     component="img"
+                     className="player-card"
+                     src={player.imageUrl || getPlayerCardUrl(pId)}
+                     alt={player.playerName}
+                     onError={(e) => { 
+                       e.target.onerror = null;
+                       e.target.src = getPlayerFaceUrl(pId);
+                       e.target.style.height="80px";
+                       e.target.style.width="80px";
+                       e.target.style.borderRadius="50%";
+                       e.target.style.marginTop="20px";
+                       e.target.style.objectFit="cover";
+                     }}
+                     sx={{ 
+                       width: "auto", 
+                       height: 120, 
+                       mx: "auto", 
+                       mb: 1,
+                       objectFit: "contain",
+                       animation: `${goldGlow} 3s ease-in-out infinite`,
+                       transition: "all 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
+                       "&:hover": {
+                         filter: "drop-shadow(0 0 20px rgba(251, 191, 36, 1))",
+                         transform: "scale(1.05)"
+                       }
+                     }}
+                   />
+                </Box>
+
+               <Typography variant="body2" fontWeight={800} color="text.primary" noWrap sx={{ fontSize: 13, maxWidth: 100 }}>
+                 {player.playerName}
+               </Typography>
+               <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                 {owner}
+               </Typography>
+             </Box>
+            );
+          })
+        )}
+      </Box>
+    </Box>
+  );
+});
+
 const panelSx = {
   borderRadius: 4,
   overflow: "hidden",
@@ -276,6 +554,10 @@ const MainPage = () => {
   const [memberBannerIndex, setMemberBannerIndex] = useState(0);
   const [marketActivity, setMarketActivity] = useState([]);
   const [marketIndex, setMarketIndex] = useState(0);
+  const [clubs, setClubs] = useState([]);
+  const [currentClubIndex, setCurrentClubIndex] = useState(0);
+  const [bannerSquad, setBannerSquad] = useState([]);
+  const [bannerLoading, setBannerLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -289,28 +571,33 @@ const MainPage = () => {
       fixtureRequest,
       getPublicLastFixtures(),
       getPublicAnnouncements(),
+      auctionService.getClubs().catch(() => ({ data: [] })),
     ])
-      .then(([sRes, fRes, lastRes, aRes]) => {
+      .then(([sRes, fRes, lastRes, aRes, cRes]) => {
         setStandings(sRes.data.data || []);
         setFixtures(fRes.data.data || []);
         setLastFixtures(lastRes.data.data || []);
         const sortedAnnouncements = (aRes.data.data || []).sort((a, b) => new Date(b.createDate) - new Date(a.createDate));
         setAnnouncements(sortedAnnouncements);
+        setClubs(cRes.data || cRes || []);
+
+        // Load users publicly for banner profile pics
+        getUsers()
+          .then(uRes => {
+            setMembers(uRes.data.data || []);
+          })
+          .catch(err => console.error("Public users load failed", err));
 
         if (!canLoadMembers) {
-          setMembers([]);
           setTransactions([]);
           return null;
         }
 
         return Promise.all([
-          getUsers(),
           auctionService.getGlobalTransactions(1, 100).catch(() => ({ data: [] })),
           auctionService.getTransferBoard().catch(() => ({ data: [] }))
         ])
-          .then(([uRes, tRes, bRes]) => {
-            setMembers(uRes.data.data || []);
-            
+          .then(([tRes, bRes]) => {
             // Format and Combine Activities
             const txs = tRes.data?.items || tRes.items || [];
             const listings = bRes.data || bRes || [];
@@ -335,15 +622,11 @@ const MainPage = () => {
                                     desc.includes("สัญญา");
               
               if (isSignificant) {
-                // Find Line Name from members list if possible
-                const member = uRes.data.data?.find(m => m.userId === tx.userName);
-                const displayName = member?.lineName || tx.userName || "System";
-
                 combined.push({
                   id: `tx-${tx.transactionId}`,
                   type: "DEAL",
                   title: tx.playerName || tx.relatedPlayerName || "Deal Confirmed",
-                  subtitle: `${displayName} ${tx.description}`,
+                  subtitle: `${tx.userName || "System"} ${tx.description}`,
                   amount: tx.amount,
                   date: tx.createdAt
                 });
@@ -406,6 +689,12 @@ const MainPage = () => {
     return () => clearInterval(timerId);
   }, [announcements]);
 
+  const activeManagerPic = useMemo(() => {
+    const currentClub = clubs[currentClubIndex];
+    if (!currentClub) return null;
+    return members.find(m => m.userId === currentClub.userId || m.lineName === currentClub.userId)?.lineProfilePic || currentClub.lineProfilePic;
+  }, [clubs, currentClubIndex, members]);
+
   const season = standings[0]?.season || "";
 
   const totalMatches = fixtures.length;
@@ -452,13 +741,59 @@ const MainPage = () => {
 
   useEffect(() => {
     if (marketActivity.length <= 1) return undefined;
-
     const timerId = setInterval(() => {
       setMarketIndex((prev) => (prev + 1) % marketActivity.length);
     }, 4500);
-
     return () => clearInterval(timerId);
   }, [marketActivity.length]);
+
+  // Fetch Top 20 League Players
+  const fetchBannerSquad = useCallback(async () => {
+    try {
+      if (bannerSquad.length === 0) setBannerLoading(true);
+      
+      // Fetch owned players from the whole league
+      const res = await auctionService.searchPlayers({ 
+        ownedOnly: true, 
+        pageSize: 100 // Get enough to find top 20
+      });
+      
+      const allPlayers = res.data?.items || res.items || [];
+      const top20 = allPlayers
+        .sort((a, b) => {
+          const priceA = a.pricePaid || 0;
+          const priceB = b.pricePaid || 0;
+          if (priceB !== priceA) return priceB - priceA;
+          if (b.playerOvr !== a.playerOvr) return b.playerOvr - a.playerOvr;
+          return (a.playerName || "").localeCompare(b.playerName || "");
+        })
+        .slice(0, 20);
+      
+      setBannerSquad(top20);
+    } catch (err) {
+      console.error("League Top 20 fetch error", err);
+    } finally {
+      setBannerLoading(false);
+    }
+  }, [bannerSquad.length]);
+
+  useEffect(() => {
+    fetchBannerSquad();
+  }, [fetchBannerSquad]);
+
+  // Rotate through Top 20 in chunks of 10
+  useEffect(() => {
+    if (bannerSquad.length <= 10) return undefined;
+    const timerId = setInterval(() => {
+      setCurrentClubIndex(prev => (prev + 1) % 2); // 2 chunks of 10
+    }, 12000); 
+    return () => clearInterval(timerId);
+  }, [bannerSquad.length]);
+
+  const visiblePlayers = useMemo(() => {
+    const start = currentClubIndex * 10;
+    return bannerSquad.slice(start, start + 10);
+  }, [bannerSquad, currentClubIndex]);
 
   return (
     <Box sx={{ width: "100%", pb: 4 }}>
@@ -520,10 +855,7 @@ const MainPage = () => {
           }}
         >
           <Box>
-     
-            
             <Typography variant="h3" fontWeight={900} letterSpacing={-1} lineHeight={1} color="primary.main" sx={{ fontSize: { xs: "2rem", md: "3rem" } }}>
-              
               <Box component="span" sx={{ color: "secondary.main" }}>eTPL</Box>
             </Typography>
             
@@ -648,39 +980,92 @@ const MainPage = () => {
             sx={{
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
-              gap: 2,
+              gap: { xs: 1.5, sm: 2.5 },
               p: 1,
             }}
           >
             {[
-              { label: "Active Manager", value: user?.userId || "Guest Access", highlight: !!user },
-              { label: "Total Clubs", value: totalTeams || 0 },
-              { label: "Matches Completed", value: playedMatches || 0 },
-              { label: "Market Status", value: "Active", dot: "#10b981" },
+              { label: "Active Manager", value: user?.userId || "Guest Access", icon: <AccountCircle />, color: "#4f46e5" },
+              { label: "Total Clubs", value: totalTeams || 0, icon: <Groups />, color: "#3b82f6" },
+              { label: "Matches Completed", value: `${playedMatches} / ${totalMatches}`, icon: <SportsSoccer />, color: "#10b981" },
+              { label: "Market Status", value: "Active", dot: "#10b981", icon: <Timeline />, color: "#f59e0b" },
             ].map((item) => (
               <Box
                 key={item.label}
                 sx={{
-                  p: { xs: 2, sm: 3 },
-                  borderRadius: 4,
-                  bgcolor: "white",
-                  border: "1px solid",
-                  borderColor: "divider",
-                  boxShadow: "0 4px 12px -5px rgba(0,0,0,0.05)",
+                  p: { xs: 2.5, sm: 3 },
+                  borderRadius: 6,
+                  bgcolor: "rgba(255, 255, 255, 0.7)",
+                  backdropFilter: "blur(12px)",
+                  border: "1px solid rgba(255, 255, 255, 0.6)",
+                  boxShadow: "0 10px 25px -10px rgba(0,0,0,0.05), inset 0 0 0 1px rgba(255,255,255,0.4)",
                   display: "flex",
-                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: { xs: 1.5, sm: 3 },
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  "&:hover": {
+                    transform: "translateY(-4px)",
+                    bgcolor: "rgba(255, 255, 255, 0.9)",
+                    boxShadow: `0 15px 30px -10px ${item.color}25`,
+                    borderColor: `${item.color}40`,
+                  },
                 }}
               >
-                <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-                  {item.label}
-                </Typography>
-                <Box display="flex" alignItems="center" gap={1} mt={1}>
-                  {item.dot && (
-                    <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: item.dot, boxShadow: `0 0 10px ${item.dot}44` }} />
-                  )}
-                  <Typography variant="h5" fontWeight={900} noWrap sx={{ color: item.highlight ? "secondary.main" : "primary.main", fontSize: { xs: "1.1rem", sm: "1.5rem" } }}>
-                    {item.value}
+                <Box
+                  sx={{
+                    width: { xs: 44, sm: 56 },
+                    height: { xs: 44, sm: 56 },
+                    borderRadius: 4,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    bgcolor: `${item.color}15`,
+                    color: item.color,
+                    flexShrink: 0
+                  }}
+                >
+                  {React.cloneElement(item.icon, { sx: { fontSize: { xs: 22, sm: 28 } } })}
+                </Box>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      color: "text.secondary", 
+                      fontWeight: 800, 
+                      textTransform: "uppercase", 
+                      letterSpacing: 1.5,
+                      fontSize: { xs: 9, sm: 11 },
+                      display: "block",
+                      mb: 0.5
+                    }}
+                  >
+                    {item.label}
                   </Typography>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    {item.dot && (
+                      <Box 
+                        sx={{ 
+                          width: 8, 
+                          height: 8, 
+                          borderRadius: "50%", 
+                          bgcolor: item.dot,
+                          boxShadow: `0 0 8px ${item.dot}` 
+                        }} 
+                      />
+                    )}
+                    <Typography 
+                      variant="h5" 
+                      fontWeight={900} 
+                      noWrap
+                      sx={{ 
+                        color: "text.primary", 
+                        fontSize: { xs: 18, sm: 24 },
+                        letterSpacing: -0.5
+                      }}
+                    >
+                      {item.value}
+                    </Typography>
+                  </Box>
                 </Box>
               </Box>
             ))}
@@ -688,54 +1073,21 @@ const MainPage = () => {
         </Box>
       </Paper>
 
+      {/* Top 20 Showcase Banner */}
+      <TopPlayersBanner 
+        topPlayers={visiblePlayers} 
+        loading={bannerLoading || (loading && bannerSquad.length === 0)}
+        chunkIndex={currentClubIndex}
+        members={members}
+        clubs={clubs}
+      />
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
         </Alert>
       )}
 
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "repeat(2, minmax(0, 1fr))",
-            md: "repeat(4, minmax(0, 1fr))",
-          },
-          gap: 2.25,
-          mb: 3,
-        }}
-      >
-        {[
-          {
-            title: "Total Matches",
-            value: totalMatches,
-            icon: <SportsSoccer fontSize="small" />,
-            color: "#6366f1",
-          },
-          {
-            title: "Played",
-            value: playedMatches,
-            icon: <CheckCircle fontSize="small" />,
-            color: "#22c55e",
-          },
-          {
-            title: "Pending",
-            value: pendingMatches,
-            icon: <HourglassBottom fontSize="small" />,
-            color: "#f59e0b",
-          },
-          {
-            title: "Clubs",
-            value: totalTeams,
-            icon: <Groups fontSize="small" />,
-            color: "#3b82f6",
-          },
-        ].map((item) => (
-          <Box key={item.title}>
-            <StatCard {...item} loading={loading} />
-          </Box>
-        ))}
-      </Box>
 
       <Box
         sx={{
@@ -778,13 +1130,13 @@ const MainPage = () => {
                       p: { xs: 2, sm: 3 },
                       borderRadius: 4,
                       bgcolor: "white",
-                      boxShadow: "0 4px 12px -5px rgba(0,0,0,0.05)",
+                      boxShadow: "0 4px 12px -5 rgba(0,0,0,0.05)",
                       border: "1px solid",
                       borderColor: "divider",
-                      display: "flex", // Added flex
+                      display: "flex",
                       alignItems: "center",
                       gap: { xs: 1.5, sm: 2.5 },
-                      minHeight: 120 // Set minHeight
+                      minHeight: 120
                     }}
                   >
                     <Box sx={{ 
@@ -877,7 +1229,7 @@ const MainPage = () => {
                       display: "flex",
                       alignItems: "center",
                       gap: { xs: 1.5, sm: 2.5 },
-                      minHeight: 120 // Set minHeight
+                      minHeight: 120
                     }}
                   >
                     <Box sx={{ 
@@ -1134,11 +1486,6 @@ const MainPage = () => {
                 const homeLogoName = fixture.homeTeamName || fixture.home || "";
                 const awayLogoName = fixture.awayTeamName || fixture.away || "";
                 
-                const homeWinner = homeScore > awayScore;
-                const awayWinner = awayScore > homeScore;
-                const isDraw = homeScore === awayScore;
-
-                // Height adjustment to match standings box
                 return (
                   <Box
                     key={fixture.fixtureId ?? idx}
@@ -1156,7 +1503,6 @@ const MainPage = () => {
                       minHeight: 70
                     }}
                   >
-                    {/* Home Team */}
                     <Box display="flex" alignItems="center" gap={1.5} flex={1} justifyContent="flex-end" minWidth={0}>
                       <Typography variant="body2" fontWeight={800} noWrap sx={{ color: "text.primary", textAlign: "right" }}>
                         {homePlayer}
@@ -1164,7 +1510,6 @@ const MainPage = () => {
                       <Box component="img" src={getLogoUrl(homeLogoName)} alt={homeLogoName} sx={{ width: 26, height: 26, objectFit: "contain" }} />
                     </Box>
 
-                    {/* Result & Date */}
                     <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: { xs: 60, sm: 70 } }}>
                       <Typography
                         sx={{
@@ -1181,7 +1526,6 @@ const MainPage = () => {
                       </Typography>
                     </Box>
 
-                    {/* Away Team */}
                     <Box display="flex" alignItems="center" gap={1.5} flex={1} justifyContent="flex-start" minWidth={0}>
                       <Box component="img" src={getLogoUrl(awayLogoName)} alt={awayLogoName} sx={{ width: 26, height: 26, objectFit: "contain" }} />
                       <Typography variant="body2" fontWeight={800} noWrap sx={{ color: "text.primary" }}>

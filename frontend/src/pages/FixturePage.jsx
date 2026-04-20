@@ -15,6 +15,8 @@ import {
   Alert,
   ToggleButton,
   ToggleButtonGroup,
+  useTheme,
+  useMediaQuery
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
@@ -111,6 +113,8 @@ const TeamCell = ({ player, teamName, isWinner, align = "left" }) => {
 };
 
 const FixturePage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { user } = useAuth();
   const isUserLevel = user?.userLevel !== "admin";
   const [rows, setRows] = useState([]);
@@ -348,8 +352,10 @@ const FixturePage = () => {
       {/* Header */}
       <Box sx={{ 
         display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
         justifyContent: 'space-between', 
-        alignItems: 'center', 
+        alignItems: isMobile ? 'flex-start' : 'center', 
+        gap: 1.5,
         mb: 3
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>

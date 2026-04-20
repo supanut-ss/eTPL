@@ -15,6 +15,8 @@ import {
   DialogContent,
   Divider,
   CircularProgress,
+  useTheme,
+  useMediaQuery
 } from "@mui/material";
 import {
   ChevronLeft,
@@ -474,6 +476,8 @@ const MatchCard = ({ fixture }) => {
 
 // ---- Main Page ----
 const PublicMatchesPage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [fixtures, setFixtures] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -533,7 +537,14 @@ const PublicMatchesPage = () => {
   if (loading)
     return (
       <Box>
-        <Box display="flex" alignItems="center" gap={1.5} mb={3}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between', 
+        alignItems: isMobile ? 'flex-start' : 'center', 
+        gap: 1.5,
+        mb: 3
+      }}>
           <CalendarMonth color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h5" fontWeight="bold">
@@ -562,7 +573,14 @@ const PublicMatchesPage = () => {
   return (
     <Box>
       {/* Header — same pattern as StandingPage */}
-      <Box display="flex" alignItems="center" gap={1.5} mb={3}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between', 
+        alignItems: isMobile ? 'flex-start' : 'center', 
+        gap: 1.5,
+        mb: 3
+      }}>
         <CalendarMonth color="primary" sx={{ fontSize: 32 }} />
         <Box>
           <Typography variant="h5" fontWeight="bold">

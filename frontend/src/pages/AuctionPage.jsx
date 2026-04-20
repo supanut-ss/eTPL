@@ -65,6 +65,8 @@ const AuctionPage = () => {
   const [filterPlayingStyle, setFilterPlayingStyle] = useState("");
   const [filterFoot, setFilterFoot] = useState("");
   const [filterNationality, setFilterNationality] = useState("");
+  const [filterMinAge, setFilterMinAge] = useState("");
+  const [filterMaxAge, setFilterMaxAge] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [searchPage, setSearchPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -181,10 +183,28 @@ const AuctionPage = () => {
     }
   };
 
+  const POSITION_ORDER = [
+    "GK", "CB", "LB", "RB", "DMF", "CMF", "LMF", "RMF", "AMF", "LWF", "RWF", "SS", "CF"
+  ];
+
   const fetchOptions = async (league = filterLeague) => {
     try {
       const optionsRes = await auctionService.getFilterOptions(league);
-      setFilterOptions(optionsRes.data || { leagues: [], teams: [], positions: [], playingStyles: [], feet: [], nationalities: [] });
+      const data = optionsRes.data || { leagues: [], teams: [], positions: [], playingStyles: [], feet: [], nationalities: [] };
+      
+      // Sort positions
+      if (data.positions) {
+        data.positions.sort((a, b) => {
+          const idxA = POSITION_ORDER.indexOf(a);
+          const idxB = POSITION_ORDER.indexOf(b);
+          if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+          if (idxA === -1) return 1;
+          if (idxB === -1) return -1;
+          return idxA - idxB;
+        });
+      }
+      
+      setFilterOptions(data);
     } catch (err) {
       console.error("Fetch options error:", err);
     }
@@ -227,6 +247,8 @@ const AuctionPage = () => {
         playingStyle: filterPlayingStyle,
         foot: filterFoot,
         nationality: filterNationality,
+        minAge: filterMinAge || null,
+        maxAge: filterMaxAge || null,
         page: nextPage,
         pageSize: 30
       };
@@ -358,8 +380,10 @@ const AuctionPage = () => {
       {/* Header */}
       <Box sx={{ 
         display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
         justifyContent: 'space-between', 
-        alignItems: 'center', 
+        alignItems: isMobile ? 'flex-start' : 'center', 
+        gap: 2,
         mb: 3
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
@@ -816,7 +840,22 @@ const AuctionPage = () => {
                         <Box sx={{ flexGrow: 1, width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: { xs: 2, sm: 0 } }}>
                                 <Box>
-                                    <Typography variant="subtitle2" fontWeight="bold" noWrap sx={{ maxWidth: 150 }}>
+                                    <Typography 
+                                        variant="subtitle2" 
+                                        fontWeight="bold" 
+                                        noWrap 
+                                        sx={{ 
+                                            maxWidth: 150,
+                                            color: "inherit",
+                                            textDecoration: "none",
+                                            display: "block",
+                                            "&:hover": { color: "primary.main", textDecoration: "underline" }
+                                        }}
+                                        component="a"
+                                        href={getPesdbLink(auction.imageUrl || getPlayerCardUrl(auction.playerId))}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
                                         {auction.playerName}
                                     </Typography>
                                     <Box display="flex" alignItems="center" gap={0.5} mb={0.5}>
@@ -994,7 +1033,7 @@ const AuctionPage = () => {
 
                   {/* Row 2: Nationality, Style, Position, Foot */}
                   <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                    <Box sx={{ flex: '2 1 200px', minWidth: 180 }}>
+                    <Box sx={{ flex: '1 1 45%', minWidth: 250 }}>
                       <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
                         <InputLabel>Nationality</InputLabel>
                         <Select value={filterNationality} label="Nationality" onChange={(e) => setFilterNationality(e.target.value)}>
@@ -1003,7 +1042,7 @@ const AuctionPage = () => {
                         </Select>
                       </FormControl>
                     </Box>
-                    <Box sx={{ flex: '2 1 200px', minWidth: 180 }}>
+                    <Box sx={{ flex: '1 1 45%', minWidth: 250 }}>
                       <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
                         <InputLabel>Playing Style</InputLabel>
                         <Select value={filterPlayingStyle} label="Playing Style" onChange={(e) => setFilterPlayingStyle(e.target.value)}>
@@ -1012,6 +1051,10 @@ const AuctionPage = () => {
                         </Select>
                       </FormControl>
                     </Box>
+                  </Box>
+
+                  {/* Row 3: Position, Foot, Age */}
+                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: '1 1 120px', minWidth: 100 }}>
                       <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
                         <InputLabel>Pos</InputLabel>
@@ -1029,6 +1072,30 @@ const AuctionPage = () => {
                           {filterOptions.feet?.map(opt => <MenuItem key={opt} value={opt}>{opt.replace(' foot', '')}</MenuItem>)}
                         </Select>
                       </FormControl>
+                    </Box>
+                    <Box sx={{ flex: '1 1 120px', minWidth: 100 }}>
+                      <TextField
+                        size="small"
+                        fullWidth
+                        label="Min Age"
+                        type="number"
+                        value={filterMinAge}
+                        onChange={(e) => setFilterMinAge(e.target.value)}
+                        sx={{ bgcolor: 'white' }}
+                        InputProps={{ inputProps: { min: 15, max: 50 } }}
+                      />
+                    </Box>
+                    <Box sx={{ flex: '1 1 120px', minWidth: 100 }}>
+                      <TextField
+                        size="small"
+                        fullWidth
+                        label="Max Age"
+                        type="number"
+                        value={filterMaxAge}
+                        onChange={(e) => setFilterMaxAge(e.target.value)}
+                        sx={{ bgcolor: 'white' }}
+                        InputProps={{ inputProps: { min: 15, max: 50 } }}
+                      />
                     </Box>
                   </Box>
               </Box>
@@ -1180,7 +1247,21 @@ const AuctionPage = () => {
 
                   {/* Player Info */}
                   <Box>
-                    <Typography variant="h6" fontWeight="800" sx={{ color: '#1d1d1f', mb: 0.2, lineHeight: 1.2 }}>
+                    <Typography 
+                      variant="h6" 
+                      fontWeight="800" 
+                      sx={{ 
+                        color: '#1d1d1f', 
+                        mb: 0.2, 
+                        lineHeight: 1.2,
+                        textDecoration: "none",
+                        "&:hover": { color: "primary.main", textDecoration: "underline" }
+                      }}
+                      component="a"
+                      href={getPesdbLink(p.imageUrl || getPlayerCardUrl(p.idPlayer))}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       {p.playerName}
                     </Typography>
                     <Box display="flex" flexWrap="wrap" gap={2} mb={1}>

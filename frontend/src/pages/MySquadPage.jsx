@@ -442,7 +442,10 @@ const MySquadPage = () => {
     return { label: name, ...style };
   };
 
-  const totalSpent = squad.reduce((sum, p) => sum + (p.pricePaid ?? 0), 0);
+  const activeSquad = squad.filter(p => p.status !== 'Loaned');
+  const loanInSquad = squad.filter(p => p.isLoan);
+  const loanOutSquad = squad.filter(p => p.status === 'Loaned');
+  const totalSpent = activeSquad.reduce((sum, p) => sum + (p.pricePaid ?? 0), 0);
 
   // Renewal cost per player: pricePaid × grade.renewalPercent / 100
   const renewalDetails = squad
@@ -472,7 +475,7 @@ const MySquadPage = () => {
     const style = GRADE_STYLE_MAP[q.gradeName] || GRADE_STYLE_MAP["DEFAULT"];
     return {
       label: q.gradeName,
-      count: squad.filter(
+      count: activeSquad.filter(
         (p) =>
           p.playerOvr >= (q.minOVR ?? q.MinOVR) &&
           p.playerOvr <= (q.maxOVR ?? q.MaxOVR),
@@ -481,7 +484,7 @@ const MySquadPage = () => {
     };
   });
 
-  const positionSummary = squad.reduce((summary, player) => {
+  const positionSummary = activeSquad.reduce((summary, player) => {
     const position =
       player.playerPosition ??
       player.position ??
@@ -543,8 +546,10 @@ const MySquadPage = () => {
       <Box
         sx={{
           display: "flex",
+          flexDirection: isMobile ? "column" : "row",
           justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: isMobile ? "flex-start" : "center",
+          gap: 2,
           mb: 3,
         }}
       >
@@ -560,7 +565,17 @@ const MySquadPage = () => {
           </Box>
         </Box>
 
-        <Box display="flex" alignItems="center" gap={1.5}>
+        <Box 
+          display="flex" 
+          alignItems="center" 
+          gap={1} 
+          sx={{ 
+            width: isMobile ? "100%" : "auto",
+            overflowX: isMobile ? "auto" : "visible",
+            pb: isMobile ? 1 : 0,
+            "&::-webkit-scrollbar": { display: "none" }
+          }}
+        >
           <Button
             variant="outlined"
             disableElevation
@@ -572,8 +587,9 @@ const MySquadPage = () => {
               color: "text.primary",
               textTransform: 'none',
               fontWeight: 700,
-              px: 2.5,
+              px: 2,
               height: 42,
+              whiteSpace: "nowrap",
               transition: 'all 0.2s',
               "&:hover": { 
                 bgcolor: "grey.50", 
@@ -582,47 +598,77 @@ const MySquadPage = () => {
               },
             }}
           >
-            TP Statement
+            Statement
           </Button>
-          <Box
-            sx={{
-              px: 2.5,
-              borderRadius: '12px',
-              display: "flex",
-              alignItems: "center",
-              gap: 1.5,
-              border: "1px solid",
-              borderColor: "divider",
-              color: "text.primary",
-              height: 42,
-              bgcolor: 'rgba(255,255,255,0.5)',
-            }}
-          >
-            <Groups sx={{ fontSize: "1.2rem", color: "primary.main" }} />
-            <Typography variant="body2" fontWeight="800" sx={{ letterSpacing: 0.5 }}>
-              {marketSummary?.currentSquadCount || squad.filter(p => p.status !== 'Loaned').length} / {marketSummary?.maxSquadSize || 23}
-            </Typography>
-          </Box>
+          
+          <Tooltip title="Squad Size (Excluding Loan Out)">
+            <Box
+              sx={{
+                px: 1.5,
+                borderRadius: '12px',
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                border: "1px solid",
+                borderColor: "divider",
+                color: "text.primary",
+                height: 42,
+                bgcolor: 'rgba(255,255,255,0.5)',
+                whiteSpace: "nowrap"
+              }}
+            >
+              <Groups sx={{ fontSize: "1.1rem", color: "primary.main" }} />
+              <Typography variant="body2" fontWeight="800">
+                {activeSquad.length} / {marketSummary?.maxSquadSize || 23}
+              </Typography>
+            </Box>
+          </Tooltip>
 
-          <Box
-            sx={{
-              px: 2.5,
-              borderRadius: '12px',
-              display: "flex",
-              alignItems: "center",
-              gap: 1.5,
-              border: "1px solid",
-              borderColor: "divider",
-              color: "text.primary",
-              height: 42,
-              bgcolor: 'rgba(255,255,255,0.5)',
-            }}
-          >
-            <Handshake sx={{ fontSize: "1.2rem", color: "warning.main" }} />
-            <Typography variant="body2" fontWeight="800" sx={{ letterSpacing: 0.5 }}>
-              Loans: {squad.filter(p => p.status === 'Loaned').length} / 2
-            </Typography>
-          </Box>
+          <Tooltip title="Loaned In Players">
+            <Box
+              sx={{
+                px: 1.5,
+                borderRadius: '12px',
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                border: "1px solid",
+                borderColor: "divider",
+                color: "text.primary",
+                height: 42,
+                bgcolor: 'rgba(255,255,255,0.5)',
+                whiteSpace: "nowrap"
+              }}
+            >
+              <Handshake sx={{ fontSize: "1.1rem", color: "warning.main" }} />
+              <Typography variant="body2" fontWeight="800">
+                Loan In: {loanInSquad.length}
+              </Typography>
+            </Box>
+          </Tooltip>
+
+          <Tooltip title="Loaned Out Players">
+            <Box
+              sx={{
+                px: 1.5,
+                borderRadius: '12px',
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                border: "1px solid",
+                borderColor: "divider",
+                color: "text.primary",
+                height: 42,
+                bgcolor: 'rgba(255,255,255,0.5)',
+                whiteSpace: "nowrap"
+              }}
+            >
+              <CompareArrows sx={{ fontSize: "1.1rem", color: "error.main" }} />
+              <Typography variant="body2" fontWeight="800">
+               Loan Out: {loanOutSquad.length} / 2
+              </Typography>
+            </Box>
+          </Tooltip>
         </Box>
       </Box>
 
@@ -1319,25 +1365,31 @@ const MySquadPage = () => {
                   
                   {/* 3-Dots Action Button */}
                   <Box sx={{ position: "absolute", top: 10, right: 10, zIndex: 10 }}>
-                    <IconButton 
-                      size="small" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenMenu(e, player);
-                      }} 
-                      sx={{ 
-                        color: "rgba(0,0,0,0.35)",
-                        "&:hover": { 
-                          bgcolor: "rgba(255,202,40,0.15)",
-                          transform: "scale(1.3) rotate(360deg)",
-                          color: "#ffa000",
-                          filter: "drop-shadow(0 0 10px rgba(255,160,0,0.5))"
-                        },
-                        transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
-                      }}
-                    >
-                      <MonetizationOn fontSize="small" />
-                    </IconButton>
+                      <IconButton 
+                        size="small" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenMenu(e, player);
+                        }} 
+                        sx={{ 
+                          width: 26, // ลดขนาดความกว้าง
+                          height: 26, // ลดขนาดความสูง
+                          p: 0, // เอา padding ออกเพื่อให้พื้นหลังกระชับกับไอคอน
+                          color: "rgba(0,0,0,0.6)",
+                          bgcolor: "rgba(255,255,255,0.9)", 
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                          border: "1px solid rgba(0,0,0,0.08)",
+                          "&:hover": { 
+                            bgcolor: "rgba(255,255,255,1)",
+                            transform: "scale(1.2) rotate(360deg)", // ลด scale ลงเล็กน้อยตอน hover
+                            color: "#ffa000",
+                            filter: "drop-shadow(0 0 10px rgba(255,160,0,0.5))"
+                          },
+                          transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)"
+                        }}
+                      >
+                        <MonetizationOn sx={{ fontSize: 18 }} /> 
+                      </IconButton>
                   </Box>
                 </Card>
               </Grid>

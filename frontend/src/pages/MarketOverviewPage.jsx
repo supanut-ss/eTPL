@@ -636,7 +636,23 @@ const MarketOverviewPage = () => {
 
                                             <Box>
 
-                                                <Typography variant="subtitle2" fontWeight="bold" noWrap>{offer.playerName}</Typography>
+                                                <Typography 
+                                                  variant="subtitle2" 
+                                                  fontWeight="bold" 
+                                                  noWrap 
+                                                  component="a"
+                                                  href={getPesdbLink(offer.imageUrl)}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  sx={{ 
+                                                    color: "inherit",
+                                                    textDecoration: "none",
+                                                    display: "block",
+                                                    "&:hover": { color: "primary.main", textDecoration: "underline" }
+                                                  }}
+                                                >
+                                                  {offer.playerName}
+                                                </Typography>
 
                                                 <Typography variant="caption" display="block" color="text.secondary">From: <b>{offer.fromUserName}</b></Typography>
 
@@ -808,7 +824,23 @@ const MarketOverviewPage = () => {
 
                                             <Box>
 
-                                                <Typography variant="subtitle2" fontWeight="bold" noWrap>{offer.playerName}</Typography>
+                                                <Typography 
+                                                  variant="subtitle2" 
+                                                  fontWeight="bold" 
+                                                  noWrap 
+                                                  component="a"
+                                                  href={getPesdbLink(offer.imageUrl)}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  sx={{ 
+                                                    color: "inherit",
+                                                    textDecoration: "none",
+                                                    display: "block",
+                                                    "&:hover": { color: "primary.main", textDecoration: "underline" }
+                                                  }}
+                                                >
+                                                  {offer.playerName}
+                                                </Typography>
 
                                                 <Typography variant="caption" display="block" color="text.secondary">Target: <b>{offer.toUserName}</b></Typography>
 
@@ -978,7 +1010,23 @@ const MarketOverviewPage = () => {
 
                                             <Box>
 
-                                                <Typography variant="subtitle2" fontWeight="bold" noWrap>{p.playerName}</Typography>
+                                                <Typography 
+                                                  variant="subtitle2" 
+                                                  fontWeight="bold" 
+                                                  noWrap 
+                                                  component="a"
+                                                  href={getPesdbLink(p.imageUrl)}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  sx={{ 
+                                                    color: "inherit",
+                                                    textDecoration: "none",
+                                                    display: "block",
+                                                    "&:hover": { color: "primary.main", textDecoration: "underline" }
+                                                  }}
+                                                >
+                                                  {p.playerName}
+                                                </Typography>
 
                                                 <Typography variant="caption" display="block" color="text.secondary">OVR: <b>{p.playerOvr}</b></Typography>
 

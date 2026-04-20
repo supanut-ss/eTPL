@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { getLogoUrl } from "../utils/imageUtils";
-import { Box, Paper, Typography, Alert, CircularProgress } from "@mui/material";
+import { Box, Paper, Typography, Alert, CircularProgress, useTheme, useMediaQuery } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import { Leaderboard, SquareRounded } from "@mui/icons-material";
 import { getStandings } from "../api/standingApi";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../store/AuthContext";
 
 
 
@@ -80,196 +82,226 @@ const RankBadge = ({ rank }) => {
   );
 };
 
-const columns = [
-  {
-    field: "rank",
-    headerName: "#",
-    width: 52,
-    sortable: false,
-    align: "center",
-    headerAlign: "center",
-    renderCell: ({ row }) => <RankBadge rank={row.rank} />,
-  },
-  {
-    field: "teamName",
-    headerName: "Team",
-    flex: 1,
-    minWidth: 130,
-    sortable: false,
-    renderCell: ({ row }) => (
-      <Box display="flex" alignItems="center" gap={1.5} sx={{ minWidth: 0 }}>
-        <Box
-          component="img"
-          src={getLogoUrl(row.teamName)}
-          alt={row.teamName}
-          onError={(e) => {
-            e.target.style.display = "none";
-          }}
-          sx={{ width: 34, height: 34, objectFit: "contain", flexShrink: 0 }}
-        />
-        <Box sx={{ minWidth: 0 }}>
-          <Typography fontSize={16} fontWeight={600} noWrap>
-            {extractPlayer(row.team)}
-          </Typography>
-        </Box>
-      </Box>
-    ),
-  },
-  {
-    field: "pl",
-    headerName: "P",
-    width: 64,
-    align: "center",
-    headerAlign: "center",
-    sortable: false,
-    renderCell: ({ value }) => (
-      <Typography fontSize={16}>{value ?? 0}</Typography>
-    ),
-  },
-  {
-    field: "w",
-    headerName: "W",
-    width: 64,
-    align: "center",
-    headerAlign: "center",
-    sortable: false,
-    renderCell: ({ value }) => (
-      <Typography fontSize={16} color="success.main" fontWeight={600}>
-        {value ?? 0}
-      </Typography>
-    ),
-  },
-  {
-    field: "d",
-    headerName: "D",
-    width: 64,
-    align: "center",
-    headerAlign: "center",
-    sortable: false,
-    renderCell: ({ value }) => (
-      <Typography fontSize={16} color="text.secondary">
-        {value ?? 0}
-      </Typography>
-    ),
-  },
-  {
-    field: "l",
-    headerName: "L",
-    width: 64,
-    align: "center",
-    headerAlign: "center",
-    sortable: false,
-    renderCell: ({ value }) => (
-      <Typography fontSize={16} color="error.main" fontWeight={600}>
-        {value ?? 0}
-      </Typography>
-    ),
-  },
-  {
-    field: "gf",
-    headerName: "GF",
-    width: 68,
-    align: "center",
-    headerAlign: "center",
-    sortable: false,
-    renderCell: ({ value }) => (
-      <Typography fontSize={16}>{value ?? 0}</Typography>
-    ),
-  },
-  {
-    field: "ga",
-    headerName: "GA",
-    width: 68,
-    align: "center",
-    headerAlign: "center",
-    sortable: false,
-    renderCell: ({ value }) => (
-      <Typography fontSize={16}>{value ?? 0}</Typography>
-    ),
-  },
-  {
-    field: "gd",
-    headerName: "GD",
-    width: 72,
-    align: "center",
-    headerAlign: "center",
-    sortable: false,
-    renderCell: ({ value }) => {
-      const num = value ?? 0;
-      return (
-        <Typography
-          fontSize={16}
-          fontWeight={600}
-          color={
-            num > 0 ? "success.main" : num < 0 ? "error.main" : "text.secondary"
-          }
-        >
-          {num}
-        </Typography>
-      );
-    },
-  },
-  {
-    field: "pts",
-    headerName: "Pts",
-    width: 72,
-    align: "center",
-    headerAlign: "center",
-    sortable: false,
-    renderCell: ({ value }) => (
-      <Typography fontSize={16} fontWeight={700} color="secondary.main">
-        {value ?? 0}
-      </Typography>
-    ),
-  },
-  {
-    field: "last",
-    headerName: "Form",
-    width: 150,
-    sortable: false,
-    align: "center",
-    headerAlign: "center",
-    renderCell: ({ value }) => <FormBadges last={value} />,
-  },
-  {
-    field: "totalYellow",
-    headerName: "YC",
-    width: 60,
-    sortable: false,
-    align: "center",
-    headerAlign: "center",
-    renderCell: ({ value }) => (
-      <Box display="flex" alignItems="center" gap={0.5}>
-        <SquareRounded sx={{ color: "#f59e0b", fontSize: 14 }} />
-        <Typography fontSize={15} fontWeight={600}>
-          {value ?? 0}
-        </Typography>
-      </Box>
-    ),
-  },
-  {
-    field: "totalRed",
-    headerName: "RC",
-    width: 60,
-    sortable: false,
-    align: "center",
-    headerAlign: "center",
-    renderCell: ({ value }) => (
-      <Box display="flex" alignItems="center" gap={0.5}>
-        <SquareRounded sx={{ color: "#ef4444", fontSize: 14 }} />
-        <Typography fontSize={15} fontWeight={600}>
-          {value ?? 0}
-        </Typography>
-      </Box>
-    ),
-  },
-];
 
 const StandingPage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [season, setSeason] = useState("");
+
+  const columns = [
+    {
+      field: "rank",
+      headerName: "#",
+      width: 52,
+      sortable: false,
+      align: "center",
+      headerAlign: "center",
+      renderCell: ({ row }) => <RankBadge rank={row.rank} />,
+    },
+    {
+      field: "teamName",
+      headerName: "Team",
+      flex: 1,
+      minWidth: 130,
+      sortable: false,
+      renderCell: ({ row }) => {
+        const playerName = extractPlayer(row.team);
+        const canClick = !!user;
+        const isSelf = user?.userId === playerName;
+
+        const handleClick = () => {
+          if (!canClick) return;
+          if (isSelf) {
+            navigate("/my-squad");
+          } else {
+            navigate(`/clubs-squad?userId=${playerName}`);
+          }
+        };
+
+        return (
+          <Box display="flex" alignItems="center" gap={1.5} sx={{ minWidth: 0 }}>
+            <Box
+              component="img"
+              src={getLogoUrl(row.teamName)}
+              alt={row.teamName}
+              onError={(e) => {
+                e.target.style.display = "none";
+              }}
+              sx={{ width: 34, height: 34, objectFit: "contain", flexShrink: 0 }}
+            />
+            <Box sx={{ minWidth: 0 }}>
+              <Typography 
+                fontSize={16} 
+                fontWeight={600} 
+                noWrap
+                onClick={handleClick}
+                sx={{ 
+                  cursor: canClick ? "pointer" : "default",
+                  "&:hover": { color: canClick ? "primary.main" : "inherit" },
+                  transition: "color 0.2s"
+                }}
+              >
+                {playerName}
+              </Typography>
+            </Box>
+          </Box>
+        );
+      },
+    },
+    {
+      field: "pl",
+      headerName: "P",
+      width: 64,
+      align: "center",
+      headerAlign: "center",
+      sortable: false,
+      renderCell: ({ value }) => (
+        <Typography fontSize={16}>{value ?? 0}</Typography>
+      ),
+    },
+    {
+      field: "w",
+      headerName: "W",
+      width: 64,
+      align: "center",
+      headerAlign: "center",
+      sortable: false,
+      renderCell: ({ value }) => (
+        <Typography fontSize={16} color="success.main" fontWeight={600}>
+          {value ?? 0}
+        </Typography>
+      ),
+    },
+    {
+      field: "d",
+      headerName: "D",
+      width: 64,
+      align: "center",
+      headerAlign: "center",
+      sortable: false,
+      renderCell: ({ value }) => (
+        <Typography fontSize={16} color="text.secondary">
+          {value ?? 0}
+        </Typography>
+      ),
+    },
+    {
+      field: "l",
+      headerName: "L",
+      width: 64,
+      align: "center",
+      headerAlign: "center",
+      sortable: false,
+      renderCell: ({ value }) => (
+        <Typography fontSize={16} color="error.main" fontWeight={600}>
+          {value ?? 0}
+        </Typography>
+      ),
+    },
+    {
+      field: "gf",
+      headerName: "GF",
+      width: 68,
+      align: "center",
+      headerAlign: "center",
+      sortable: false,
+      renderCell: ({ value }) => (
+        <Typography fontSize={16}>{value ?? 0}</Typography>
+      ),
+    },
+    {
+      field: "ga",
+      headerName: "GA",
+      width: 68,
+      align: "center",
+      headerAlign: "center",
+      sortable: false,
+      renderCell: ({ value }) => (
+        <Typography fontSize={16}>{value ?? 0}</Typography>
+      ),
+    },
+    {
+      field: "gd",
+      headerName: "GD",
+      width: 72,
+      align: "center",
+      headerAlign: "center",
+      sortable: false,
+      renderCell: ({ value }) => {
+        const num = value ?? 0;
+        return (
+          <Typography
+            fontSize={16}
+            fontWeight={600}
+            color={
+              num > 0 ? "success.main" : num < 0 ? "error.main" : "text.secondary"
+            }
+          >
+            {num}
+          </Typography>
+        );
+      },
+    },
+    {
+      field: "pts",
+      headerName: "Pts",
+      width: 72,
+      align: "center",
+      headerAlign: "center",
+      sortable: false,
+      renderCell: ({ value }) => (
+        <Typography fontSize={16} fontWeight={700} color="secondary.main">
+          {value ?? 0}
+        </Typography>
+      ),
+    },
+    {
+      field: "last",
+      headerName: "Form",
+      width: 150,
+      sortable: false,
+      align: "center",
+      headerAlign: "center",
+      renderCell: ({ value }) => <FormBadges last={value} />,
+    },
+    {
+      field: "totalYellow",
+      headerName: "YC",
+      width: 60,
+      sortable: false,
+      align: "center",
+      headerAlign: "center",
+      renderCell: ({ value }) => (
+        <Box display="flex" alignItems="center" gap={0.5}>
+          <SquareRounded sx={{ color: "#f59e0b", fontSize: 14 }} />
+          <Typography fontSize={15} fontWeight={600}>
+            {value ?? 0}
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      field: "totalRed",
+      headerName: "RC",
+      width: 60,
+      sortable: false,
+      align: "center",
+      headerAlign: "center",
+      renderCell: ({ value }) => (
+        <Box display="flex" alignItems="center" gap={0.5}>
+          <SquareRounded sx={{ color: "#ef4444", fontSize: 14 }} />
+          <Typography fontSize={15} fontWeight={600}>
+            {value ?? 0}
+          </Typography>
+        </Box>
+      ),
+    },
+  ];
 
   useEffect(() => {
     setLoading(true);
@@ -292,7 +324,13 @@ const StandingPage = () => {
   return (
     <Box>
       {/* Header */}
-      <Box display="flex" alignItems="center" gap={1.5} mb={3}>
+      <Box sx={{ 
+        display: "flex", 
+        flexDirection: isMobile ? "column" : "row",
+        alignItems: isMobile ? "flex-start" : "center", 
+        gap: 1.5, 
+        mb: 3 
+      }}>
         <Leaderboard color="primary" sx={{ fontSize: 32 }} />
         <Box>
           <Typography variant="h5" fontWeight="bold">

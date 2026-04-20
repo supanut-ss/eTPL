@@ -14,12 +14,9 @@ const resolvePublicApiBaseUrl = () => {
 
   if (typeof window !== "undefined") {
     const { hostname } = window.location;
-    if (
-      hostname === "thaipesleague.com" ||
-      hostname === "www.thaipesleague.com"
-    ) {
-      // Always use HTTPS for API subdomain
-      return "https://apicore.thaipesleague.com";
+    if (hostname.includes("thaipesleague.com")) {
+      // Use relative paths (same origin)
+      return "";
     }
   }
 

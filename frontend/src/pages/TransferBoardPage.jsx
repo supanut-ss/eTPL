@@ -264,7 +264,21 @@ const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results,
                                 }}>
                                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                                         <Box sx={{ flexGrow: 1 }}>
-                                            <Typography variant="subtitle1" fontWeight="800" sx={{ color: "text.primary", lineHeight: 1.1, mb: 0.5 }}>
+                                            <Typography 
+                                                variant="subtitle1" 
+                                                fontWeight="800" 
+                                                sx={{ 
+                                                    color: "text.primary", 
+                                                    lineHeight: 1.1, 
+                                                    mb: 0.5,
+                                                    textDecoration: "none",
+                                                    "&:hover": { color: "primary.main", textDecoration: "underline" }
+                                                }}
+                                                component="a"
+                                                href={getPesdbLink(p.imageUrl || getPlayerCardUrl(p.idPlayer || p.IdPlayer))}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
                                                 {p.playerName}
                                             </Typography>
                                             <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
@@ -346,6 +360,7 @@ const TransferBoardPage = () => {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [offerAmount, setOfferAmount] = useState("");
   const [offerType, setOfferType] = useState("Transfer");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Search Modal State
   const [searchModalOpen, setSearchModalOpen] = useState(false);
@@ -466,12 +481,15 @@ const TransferBoardPage = () => {
     if (!window.confirm(confirmMsg)) return;
 
     try {
+      setIsSubmitting(true);
       await auctionService.submitOffer(selectedPlayer.squadId, offerType, amountInt);
       enqueueSnackbar(`Offer for ${selectedPlayer.playerName} for ${offerAmount} TP submitted successfully`, { variant: "success" });
       handleCloseNegotiate();
       fetchData(true);
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -553,7 +571,14 @@ const TransferBoardPage = () => {
 
   return (
     <Box sx={{ pb: 6 }}>
-      <Box sx={{ display: "flex", alignItems: "center", mb: 3, gap: 1.5 }}>
+      <Box sx={{ 
+        display: "flex", 
+        flexDirection: isMobile ? "column" : "row",
+        justifyContent: "space-between",
+        alignItems: isMobile ? "flex-start" : "center", 
+        mb: 3, 
+        gap: 1.5 
+      }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <Storefront color="primary" sx={{ fontSize: 32 }} />
           <Box>
@@ -562,9 +587,9 @@ const TransferBoardPage = () => {
           </Box>
         </Box>
         
-        <Box sx={{ flexGrow: 1 }} />
-        
-        <Button 
+        <Box sx={{ width: isMobile ? "100%" : "auto" }}>
+          <Button 
+            fullWidth={isMobile}
             variant="contained" 
             disableElevation
             startIcon={<Search />} 
@@ -587,6 +612,7 @@ const TransferBoardPage = () => {
         >
             Offer Search
         </Button>
+        </Box>
       </Box>
 
       {marketSummary && !checkMarketOpen(marketSummary).isOpen && (
@@ -742,7 +768,21 @@ const TransferBoardPage = () => {
                         }}>
                             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                                 <Box sx={{ flexGrow: 1 }}>
-                                    <Typography variant="subtitle2" fontWeight="800" sx={{ color: "text.primary", lineHeight: 1.1, mb: 0.2 }}>
+                                    <Typography 
+                                        variant="subtitle2" 
+                                        fontWeight="800" 
+                                        sx={{ 
+                                            color: "text.primary", 
+                                            lineHeight: 1.1, 
+                                            mb: 0.2,
+                                            textDecoration: "none",
+                                            "&:hover": { color: "primary.main", textDecoration: "underline" }
+                                        }}
+                                        component="a"
+                                        href={getPesdbLink(p.imageUrl)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
                                         {p.playerName}
                                     </Typography>
                                     <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }}>
@@ -826,35 +866,43 @@ const TransferBoardPage = () => {
         }}
       >
         <Box sx={{ position: "relative" }}>
-            {/* Header Area */}
-            <Box sx={{ 
-                position: "absolute", top: 0, left: 0, right: 0, 
-                height: { xs: 200, sm: 140 }, 
-                background: "#1e293b",
-                zIndex: 0
-            }} />
-            
-            <DialogTitle
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                color: "white",
-                pt: { xs: 2, sm: 3 }, pb: 0,
-                position: "relative",
-                zIndex: 1
-              }}
-            >
-              <Box display="flex" alignItems="center" gap={1.2}>
-                <LocalOffer fontSize="small" sx={{ opacity: 0.8 }} />
-                <Typography variant="subtitle2" fontWeight="900" sx={{ letterSpacing: 1.5, textTransform: "uppercase" }}>
-                    {offerType === "Transfer" ? "Purchase Offer" : "Loan Negotiation"}
-                </Typography>
-              </Box>
-              <IconButton onClick={handleCloseNegotiate} size="small" sx={{ color: "rgba(255,255,255,0.6)", "&:hover": { color: "white", bgcolor: "rgba(255,255,255,0.1)" } }}>
-                <Close fontSize="small" />
-              </IconButton>
-            </DialogTitle>
+            {(() => {
+                const isTransfer = offerType === "Transfer";
+                const themeColor = isTransfer ? "#2563eb" : "#f97316";
+                const headerBg = isTransfer ? "#1e293b" : "linear-gradient(135deg, #f97316 0%, #ea580c 100%)";
+                
+                return (
+                  <>
+                    {/* Header Area */}
+                    <Box sx={{ 
+                        position: "absolute", top: 0, left: 0, right: 0, 
+                        height: { xs: 200, sm: 140 }, 
+                        background: headerBg,
+                        zIndex: 0,
+                        transition: "background 0.3s"
+                    }} />
+                    
+                    <DialogTitle
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        color: "white",
+                        pt: { xs: 2, sm: 3 }, pb: 0,
+                        position: "relative",
+                        zIndex: 1
+                      }}
+                    >
+                      <Box display="flex" alignItems="center" gap={1.2}>
+                        <LocalOffer fontSize="small" sx={{ opacity: 0.8 }} />
+                        <Typography variant="subtitle2" fontWeight="900" sx={{ letterSpacing: 1.5, textTransform: "uppercase" }}>
+                            {offerType === "Transfer" ? "Purchase Offer" : "Loan Negotiation"}
+                        </Typography>
+                      </Box>
+                      <IconButton onClick={handleCloseNegotiate} size="small" sx={{ color: "rgba(255,255,255,0.6)", "&:hover": { color: "white", bgcolor: "rgba(255,255,255,0.1)" } }}>
+                        <Close fontSize="small" />
+                      </IconButton>
+                    </DialogTitle>
 
             <DialogContent sx={{ position: "relative", zIndex: 1, px: { xs: 2, sm: 4 }, pt: { xs: 1, sm: 3 }, pb: 5, overflowX: 'hidden' }}>
               {selectedPlayer && (
@@ -867,13 +915,23 @@ const TransferBoardPage = () => {
                         alignItems: "center",
                         textAlign: "center"
                     }}>
-                        <Box sx={{
-                            position: "relative",
-                            width: { xs: 150, sm: 165 },
-                            height: { xs: 200, sm: 220 },
-                            mb: { xs: 1, sm: 2 },
-                            filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.45))",
-                        }}>
+                        <Box 
+                            component="a"
+                            href={getPesdbLink(selectedPlayer.imageUrl || getPlayerCardUrl(selectedPlayer.playerId))}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{
+                                position: "relative",
+                                width: { xs: 150, sm: 165 },
+                                height: { xs: 200, sm: 220 },
+                                mb: { xs: 1, sm: 2 },
+                                filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.45))",
+                                display: "block",
+                                cursor: "pointer",
+                                transition: "transform 0.2s",
+                                "&:hover": { transform: "scale(1.05)" }
+                            }}
+                        >
                              <Avatar
                                 src={selectedPlayer.imageUrl || getPlayerCardUrl(selectedPlayer.playerId)}
                                 variant="rounded"
@@ -887,7 +945,21 @@ const TransferBoardPage = () => {
                         </Box>
                         
                         <Box sx={{ mt: { xs: 0, sm: 1 } }}>
-                            <Typography variant={isMobile ? "h6" : "subtitle1"} fontWeight="900" sx={{ color: isMobile ? "white" : "#0f172a", mb: 0.5, lineHeight: 1.1 }}>
+                            <Typography 
+                                variant={isMobile ? "h6" : "subtitle1"} 
+                                fontWeight="900" 
+                                sx={{ 
+                                    color: isMobile ? "white" : "#0f172a", 
+                                    mb: 0.5, 
+                                    lineHeight: 1.1,
+                                    textDecoration: "none",
+                                    "&:hover": { color: "primary.main", textDecoration: "underline" }
+                                }}
+                                component="a"
+                                href={getPesdbLink(selectedPlayer.imageUrl || getPlayerCardUrl(selectedPlayer.playerId))}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
                                 {selectedPlayer.playerName}
                             </Typography>
                             <Box display="flex" justifyContent="center" gap={1}>
@@ -927,7 +999,7 @@ const TransferBoardPage = () => {
                                         "&.Mui-selected": {
                                             bgcolor: "white",
                                             boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-                                            color: "primary.main",
+                                            color: themeColor,
                                             "&:hover": { bgcolor: "white" }
                                         }
                                     }
@@ -950,11 +1022,12 @@ const TransferBoardPage = () => {
                               value={offerAmount}
                               onChange={(e) => setOfferAmount(e.target.value)}
                               InputProps={{ 
-                                startAdornment: <InputAdornment position="start"><Typography variant="caption" fontWeight="900" color="primary.main">TP</Typography></InputAdornment>,
+                                startAdornment: <InputAdornment position="start"><Typography variant="caption" fontWeight="900" color={themeColor}>TP</Typography></InputAdornment>,
                                 sx: { 
                                     borderRadius: 2, bgcolor: "white", fontWeight: "900", 
                                     fontSize: "1rem",
-                                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(0,0,0,0.1)" }
+                                    "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(0,0,0,0.1)" },
+                                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: themeColor, borderWidth: 2 }
                                 }
                               }}
                             />
@@ -962,25 +1035,26 @@ const TransferBoardPage = () => {
 
                         <Box sx={{ 
                             p: 2, borderRadius: 4, 
-                            bgcolor: "#0f172a",
+                            bgcolor: isTransfer ? "#0f172a" : "#431407",
                             color: "white",
                             mb: 2,
                             position: "relative",
-                            overflow: "hidden"
+                            overflow: "hidden",
+                            transition: "all 0.3s"
                         }}>
                              <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
                                 <Box>
                                     <Typography variant="caption" sx={{ opacity: 0.5, fontWeight: "900", fontSize: "0.55rem", letterSpacing: 1 }}>AVAILABLE TP FOR DEAL</Typography>
-                                    <Typography variant={isMobile ? "h6" : "h5"} fontWeight="900">
+                                    <Typography variant={isMobile ? "h6" : "h5"} fontWeight="900" sx={{ color: isTransfer ? "white" : "#fb923c" }}>
                                         {(userBalance - (marketSummary?.requiredReserve || 0)).toLocaleString()} <Typography component="span" variant="caption" sx={{ opacity: 0.5 }}>TP</Typography>
                                     </Typography>
                                 </Box>
-                                <AccountBalanceWallet sx={{ opacity: 0.3, fontSize: 20 }} />
+                                <AccountBalanceWallet sx={{ opacity: 0.3, fontSize: 20, color: isTransfer ? "inherit" : "#fb923c" }} />
                              </Box>
-                             <Divider sx={{ borderColor: "rgba(255,255,255,0.1)", my: 1, borderStyle: "dashed" }} />
+                             <Divider sx={{ borderColor: isTransfer ? "rgba(255,255,255,0.1)" : "rgba(251,146,60,0.1)", my: 1, borderStyle: "dashed" }} />
                              <Box display="flex" justifyContent="space-between" alignItems="center">
                                 <Typography variant="caption" sx={{ 
-                                    color: (userBalance < (parseInt(offerAmount || "0") + (marketSummary?.requiredReserve || 0))) ? "#f87171" : "#4ade80",
+                                    color: (userBalance < (parseInt(offerAmount || "0") + (marketSummary?.requiredReserve || 0))) ? "#f87171" : (isTransfer ? "#4ade80" : "#fb923c"),
                                     fontWeight: "900",
                                     display: "flex", alignItems: "center", gap: 0.5,
                                     fontSize: '0.65rem'
@@ -989,8 +1063,8 @@ const TransferBoardPage = () => {
                                 </Typography>
                                 {marketSummary?.requiredReserve > 0 && (
                                     <Box textAlign="right">
-                                        <Typography variant="caption" sx={{ opacity: 0.4, display: "block", fontSize: "0.5rem" }}>RESERVE LOCK</Typography>
-                                        <Typography variant="caption" fontWeight="900" sx={{ fontSize: '0.65rem' }}>{marketSummary.requiredReserve.toLocaleString()} TP</Typography>
+                                        <Typography variant="caption" sx={{ opacity: 0.4, display: "block", fontSize: "0.5rem", color: isTransfer ? "white" : "#fb923c" }}>RESERVE LOCK</Typography>
+                                        <Typography variant="caption" fontWeight="900" sx={{ fontSize: '0.65rem', color: isTransfer ? "white" : "#fb923c" }}>{marketSummary.requiredReserve.toLocaleString()} TP</Typography>
                                     </Box>
                                 )}
                              </Box>
@@ -1001,26 +1075,32 @@ const TransferBoardPage = () => {
                             variant="contained" 
                             fullWidth
                             size="large"
-                            disabled={!offerAmount || parseInt(offerAmount) <= 0}
+                            disabled={!offerAmount || parseInt(offerAmount) <= 0 || (userBalance < (parseInt(offerAmount) + (marketSummary?.requiredReserve || 0))) || isSubmitting}
                             sx={{ 
                                 borderRadius: 3, fontWeight: "900", height: 48, textTransform: "none",
-                                bgcolor: "#e2e8f0", color: "#94a3b8",
+                                bgcolor: isTransfer ? "#e2e8f0" : "#fff7ed", 
+                                color: isTransfer ? "#475569" : "#ea580c",
                                 boxShadow: "none",
                                 "&:not(:disabled)": {
-                                    bgcolor: "#e2e8f0",
-                                    color: "#475569",
-                                    "&:hover": { bgcolor: "#cbd5e1" }
+                                    "&:hover": { 
+                                        bgcolor: isTransfer ? "#cbd5e1" : "#ffedd5",
+                                        transform: "translateY(-1px)"
+                                    }
                                 },
-                                "&.Mui-disabled": { opacity: 0.5 }
+                                "&.Mui-disabled": { opacity: 0.5 },
+                                transition: "all 0.2s"
                             }}
                         >
-                            Confirm {offerType} Offer
+                            {isSubmitting ? "Sending..." : `Confirm ${offerType} Offer`}
                         </Button>
                     </Paper>
                   </Grid>
                 </Grid>
               )}
             </DialogContent>
+          </>
+        );
+    })()}
         </Box>
       </Dialog>
       {/* Global Search Dialog */}

@@ -9,7 +9,7 @@ export const IMAGE_BASE_URLS = {
   FACE_WEBP: "https://www.pesmaster.com/efootball-2022/graphics/players/{id}_.webp",
   
   // Player Card Images (PESDB)
-  CARD: "https://pesdb.net/assets/img/card/b{id}.png",
+  CARD: "https://pesdb.net/assets/img/card/{id}.png",
   
   // Link to PESDB database
   PESDB_INFO: "https://pesdb.net/efootball/?id={id}"

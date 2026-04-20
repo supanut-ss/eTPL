@@ -3,18 +3,26 @@ import axios from "axios";
 // Resolve the API base URL at runtime.
 // Priority: explicit env var → host-based detection → same-origin fallback.
 const resolveApiBaseUrl = () => {
+  // 1. Check for manual override from environment
   if (import.meta.env.VITE_API_BASE_URL)
     return import.meta.env.VITE_API_BASE_URL;
 
+  // 2. Browser logic for dynamic origin detection
   if (typeof window !== "undefined") {
-    const { hostname } = window.location;
-    // For any subdomain of thaipesleague.com, point to the apicore subdomain.
+    const { hostname, origin } = window.location;
+    
+    // If we are already running on the same host (same origin), return empty string
+    // to use relative paths. This is the goal for "Single Host" deployment.
+    // We check if this is the target domain.
     if (hostname.includes("thaipesleague.com")) {
-      return "https://apicore.thaipesleague.com";
+      // If the user wants to keep them separate, they can define VITE_API_BASE_URL.
+      // Otherwise, assume they are now hosted together.
+      return ""; 
     }
-    // If we're not on localhost and not on the main domain, still try to use the API subdomain as a fallback for production
-    if (hostname !== "localhost" && hostname !== "127.0.0.1") {
-      return "https://apicore.thaipesleague.com";
+    
+    // Localhost development fallback (if not defined in ENV)
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return "";
     }
   }
 
