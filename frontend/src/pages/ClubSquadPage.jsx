@@ -115,15 +115,82 @@ const PlayerAvatar = ({ playerId }) => {
     <Avatar
       src={src}
       variant="rounded"
+      imgProps={{ referrerPolicy: "no-referrer" }}
       sx={{ 
         width: 64, 
         height: 64, 
         bgcolor: "transparent"
       }}
       imgProps={{
-        onError: handleError
+        onError: handleError,
+        referrerPolicy: "no-referrer"
       }}
     />
+  );
+};
+
+// New Component for Player Cards with Fallback
+const PlayerCard = ({ playerId, playerName, sx = {} }) => {
+  const [src, setSrc] = useState(getPlayerCardUrl(playerId));
+  const [status, setStatus] = useState("loading"); // loading, success, fallback
+
+  const handleCardError = () => {
+    // We stay true to the Card request, no face fallback
+    setStatus("error");
+  };
+
+  return (
+    <Box sx={{ 
+      position: "relative", 
+      width: "100%", 
+      height: "100%", 
+      display: "flex", 
+      flexDirection: "column", 
+      alignItems: "center", 
+      justifyContent: "center",
+      overflow: 'visible',
+      ...sx 
+    }}>
+      <Avatar
+        src={src}
+        variant="rounded"
+        imgProps={{
+          onError: handleCardError,
+          referrerPolicy: "no-referrer",
+          style: { 
+            objectFit: "contain",
+            width: "100%",
+            height: "100%",
+            filter: status === "error" ? "grayscale(1) opacity(0.3)" : "none"
+          }
+        }}
+        sx={{
+          width: "100%",
+          height: "100%",
+          bgcolor: "transparent",
+          borderRadius: 0,
+          overflow: "visible",
+          "& .MuiAvatar-img": {
+             transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+             opacity: status === "loading" && !src ? 0 : 1,
+             objectFit: "contain"
+          }
+        }}
+      >
+         {!src && <People sx={{ fontSize: 60, opacity: 0.1 }} />}
+      </Avatar>
+      
+      {/* Decorative Card Glow for premium feel */}
+      {status !== "fallback" && (
+          <Box sx={{
+              position: 'absolute',
+              inset: -10,
+              background: 'radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%)',
+              zIndex: -1,
+              pointerEvents: 'none'
+          }} />
+      )}
+    </Box>
   );
 };
 
@@ -686,51 +753,58 @@ const ClubSquadPage = () => {
                               {selectedPlayer && (
                                 <Grid container spacing={{ xs: 2, sm: 2 }} alignItems="center" justifyContent="center" sx={{ mt: { xs: 0, sm: 1 } }}>
                                   {/* Left Column: Player Card Visual */}
-                                  <Grid item xs={12} sm={5}>
+                                  <Grid item xs={12} sm={5.5}>
                                      <Box sx={{ 
                                         display: "flex", 
                                         flexDirection: "column",
                                         alignItems: "center",
-                                        textAlign: "center"
+                                        textAlign: "center",
+                                        height: "100%"
                                      }}>
                                        <Box 
                                             sx={{
                                                 position: "relative",
-                                                width: { xs: 150, sm: 165 },
-                                                height: { xs: 200, sm: 230 },
-                                                mb: { xs: 1, sm: 2 },
-                                                filter: "drop-shadow(0 20px 40px rgba(0,0,0,0.45))",
-                                                display: "block"
+                                                width: { xs: 160, sm: 180 },
+                                                height: { xs: 220, sm: 250 },
+                                                mb: 2,
+                                                filter: "drop-shadow(0 15px 35px rgba(0,0,0,0.4))",
+                                                display: "block",
+                                                transition: "transform 0.3s ease",
+                                                "&:hover": { transform: "translateY(-5px) scale(1.02)" }
                                             }}
                                         >
-                                         <Avatar 
-                                            src={getPlayerCardUrl(selectedPlayer.playerId)} 
-                                            variant="rounded" 
-                                            sx={{ width: "100%", height: "100%", bgcolor: "transparent", "& img": { objectFit: "contain" } }} 
+                                         <PlayerCard 
+                                            playerId={selectedPlayer.playerId} 
+                                            playerName={selectedPlayer.playerName}
                                           />
                                        </Box>
-                                       <Box sx={{ mt: { xs: 0, sm: 1 } }}>
+                                       <Box sx={{ mt: 0.5 }}>
                                            <Typography 
-                                                variant={isMobile ? "h6" : "subtitle1"} 
-                                                fontWeight="900" 
+                                                variant="h6" 
+                                                fontWeight="1000" 
                                                 sx={{ 
-                                                    color: isMobile ? "white" : "#0f172a", 
-                                                    mb: 0.5, 
-                                                    lineHeight: 1.1
+                                                    color: "#0f172a", 
+                                                    mb: 1, 
+                                                    lineHeight: 1.1,
+                                                    fontSize: "1.25rem"
                                                 }}
                                             >
                                                 {selectedPlayer.playerName}
                                             </Typography>
                                             <Box display="flex" justifyContent="center" gap={1}>
-                                                <Chip label={selectedPlayer.position} size="small" sx={{ fontWeight: "bold", bgcolor: isMobile ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)", color: isMobile ? "white" : "inherit" }} />
-                                                <Chip label={`${selectedPlayer.playerOvr} OVR`} size="small" sx={{ fontWeight: "900", bgcolor: "#f1f5f9", fontSize: '0.7rem' }} />
+                                                <Box sx={{ px: 2, py: 0.5, borderRadius: 2, bgcolor: "#f1f5f9", fontWeight: 1000, color: "#64748b", fontSize: "0.75rem" }}>
+                                                  {selectedPlayer.position}
+                                                </Box>
+                                                <Box sx={{ px: 2, py: 0.5, borderRadius: 2, bgcolor: "#f1f5f9", fontWeight: 1000, color: "#1e293b", fontSize: "0.75rem" }}>
+                                                  {selectedPlayer.playerOvr} OVR
+                                                </Box>
                                             </Box>
                                        </Box>
                                      </Box>
                                   </Grid>
                                   
                                   {/* Right Column: Interaction Paper */}
-                                  <Grid item xs={12} sm={7}>
+                                  <Grid item xs={12} sm={6.5}>
                                     <Paper elevation={0} sx={{ 
                                         p: { xs: 2, sm: 3 }, 
                                         borderRadius: 5, 

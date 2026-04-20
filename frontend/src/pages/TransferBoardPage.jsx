@@ -223,6 +223,7 @@ const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results,
                                     <Avatar 
                                         src={p.imageUrl || getPlayerCardUrl(p.idPlayer || p.IdPlayer)}
                                         variant="rounded"
+                                        imgProps={{ referrerPolicy: "no-referrer" }}
                                         sx={{ 
                                             width: "100%", 
                                             height: "100%", 
@@ -935,6 +936,7 @@ const TransferBoardPage = () => {
                              <Avatar
                                 src={selectedPlayer.imageUrl || getPlayerCardUrl(selectedPlayer.playerId)}
                                 variant="rounded"
+                                imgProps={{ referrerPolicy: "no-referrer" }}
                                 sx={{
                                   width: "100%",
                                   height: "100%",

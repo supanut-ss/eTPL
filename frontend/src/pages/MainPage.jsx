@@ -489,6 +489,7 @@ const TopPlayersBanner = React.memo(({ topPlayers, loading, chunkIndex, members 
                      component="img"
                      className="player-card"
                      src={player.imageUrl || getPlayerCardUrl(pId)}
+                     referrerPolicy="no-referrer"
                      alt={player.playerName}
                      onError={(e) => { 
                        e.target.onerror = null;
