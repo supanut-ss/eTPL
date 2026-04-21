@@ -5,14 +5,16 @@ import { API_BASE_URL } from "../api/axiosInstance";
  */
 export const IMAGE_BASE_URLS = {
   // Player Face Images (PESMaster)
-  FACE_PNG: "https://www.pesmaster.com/pes-2021/graphics/players/player_{id}.png",
-  FACE_WEBP: "https://www.pesmaster.com/efootball-2022/graphics/players/{id}_.webp",
-  
-  // Player Card Images (PESDB - Standard path)
-  CARD: "https://pesdb.net/efootball/common/img/player/{id}.png",
-  
+  FACE_PNG:
+    "https://www.pesmaster.com/pes-2021/graphics/players/player_{id}.png",
+  FACE_WEBP:
+    "https://www.pesmaster.com/efootball-2022/graphics/players/{id}_.webp",
+
+  // Player Card Images (PESDB)
+  CARD: "https://pesdb.net/assets/img/card/b{id}.png",
+
   // Link to PESDB database (Updated for eFootball)
-  PESDB_INFO: "https://pesdb.net/efootball/?id={id}"
+  PESDB_INFO: "https://pesdb.net/efootball/?id={id}",
 };
 
 /**
@@ -35,7 +37,7 @@ export const getLogoUrl = (teamName) => {
  */
 export const getPlayerFaceUrl = (playerId, format = "png") => {
   if (format === "webp") {
-      return IMAGE_BASE_URLS.FACE_WEBP.replace("{id}", playerId);
+    return IMAGE_BASE_URLS.FACE_WEBP.replace("{id}", playerId);
   }
   return IMAGE_BASE_URLS.FACE_PNG.replace("{id}", playerId);
 };
@@ -62,11 +64,11 @@ export const getPesdbInfoUrl = (playerId) => {
 
 /**
  * Extends the existing logic to extract playerId from an image URL and return PESDB link
- * @param {string} imageUrl 
+ * @param {string} imageUrl
  * @returns {string|null}
  */
 export const getPesdbLinkFromUrl = (imageUrl) => {
   if (!imageUrl) return null;
-  const match = imageUrl.match(/(\d+)\.png/);
+  const match = imageUrl.match(/(?:b)?(\d+)\.(?:png|webp)(?:\?.*)?$/i);
   return match ? getPesdbInfoUrl(match[1]) : null;
 };
