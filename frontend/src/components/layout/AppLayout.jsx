@@ -38,6 +38,7 @@ import {
   Gavel,
   Settings,
   HotelClass,
+  MilitaryTech,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -48,6 +49,7 @@ const navItems = [
   { label: "Dashboard", path: "/main", icon: <Dashboard /> },
   { label: "Standings", path: "/standings", icon: <Leaderboard /> },
   { label: "Matches", path: "/matches", icon: <CalendarMonth /> },
+  { label: "Hall of Fame", path: "/hall-of-fame", icon: <MilitaryTech /> },
   { label: "Auction Board", path: "/auction-results", icon: <HotelClass /> },
   {
     label: "My Fixtures",
