@@ -420,6 +420,32 @@ const TransferBoardPage = () => {
     return { label: name, ...getGradeStyle(name) };
   };
 
+  const checkSquadQuota = (playerOvr) => {
+    if (!marketSummary?.squad || !quotas) return null;
+    
+    // 1. Total squad limit (23)
+    const activeSquad = marketSummary.squad.filter(p => p.status !== 'Loaned');
+    if (activeSquad.length >= 23) {
+      return "Warning: Your squad already has 23 players. You must release someone before this transfer can be finalized.";
+    }
+    
+    // 2. Grade specific limit
+    const pGrade = quotas.find(q => playerOvr >= (q.minOvr ?? q.minOVR) && playerOvr <= (q.maxOvr ?? q.maxOVR));
+    if (pGrade) {
+      const currentGradeCount = activeSquad.filter(p => 
+        (p.playerOvr || 0) >= (pGrade.minOvr ?? pGrade.minOVR) && 
+        (p.playerOvr || 0) <= (pGrade.maxOvr ?? pGrade.maxOVR)
+      ).length;
+      
+      const maxAllowed = pGrade.maxAllowedPerUser || 0;
+      if (maxAllowed > 0 && currentGradeCount >= maxAllowed) {
+        return `Warning: You have reached the limit for Grade ${pGrade.gradeName} (${maxAllowed}/${maxAllowed}). You need to clear a slot in this grade before the seller accepts.`;
+      }
+    }
+    
+    return null;
+  };
+
   const handleBuyOut = async (player) => {
     const market = checkMarketOpen(marketSummary);
     if (!market.isOpen) {
@@ -427,7 +453,8 @@ const TransferBoardPage = () => {
       return;
     }
 
-    const confirmBuy = window.confirm(`Confirm Buy Out ${player.playerName} for ${player.listingPrice} TP?`);
+    const quotaWarning = checkSquadQuota(player.playerOvr);
+    const confirmBuy = window.confirm((quotaWarning ? `${quotaWarning}\n\n` : "") + `Confirm Buy Out ${player.playerName} for ${player.listingPrice} TP?`);
     if (!confirmBuy) return;
 
     if (userBalance < player.listingPrice) {
@@ -477,7 +504,10 @@ const TransferBoardPage = () => {
     }
 
     const remainingPower = purchasingPower - amountInt;
-    const confirmMsg = `Confirm submitting ${offerType === "Transfer" ? "Buy" : "Loan"} offer for ${selectedPlayer.playerName} at ${amountInt.toLocaleString()} TP?\n\nYour remaining purchasing power will be: ${remainingPower.toLocaleString()} TP`;
+    
+    const quotaWarning = checkSquadQuota(selectedPlayer.playerOvr);
+    const confirmMsg = (quotaWarning ? `${quotaWarning}\n\n` : "") + 
+      `Confirm submitting ${offerType === "Transfer" ? "Buy" : "Loan"} offer for ${selectedPlayer.playerName} at ${amountInt.toLocaleString()} TP?\n\nYour remaining purchasing power will be: ${remainingPower.toLocaleString()} TP`;
     
     if (!window.confirm(confirmMsg)) return;
 
@@ -862,7 +892,6 @@ const TransferBoardPage = () => {
             borderRadius: isMobile ? 0 : 5,
             background: "#f1f5f9",
             boxShadow: "0 40px 120px -20px rgba(15,23,42,0.4)",
-            overflow: "hidden"
           },
         }}
       >
@@ -877,7 +906,7 @@ const TransferBoardPage = () => {
                     {/* Header Area */}
                     <Box sx={{ 
                         position: "absolute", top: 0, left: 0, right: 0, 
-                        height: { xs: 200, sm: 140 }, 
+                        height: { xs: 120, sm: 140 }, 
                         background: headerBg,
                         zIndex: 0,
                         transition: "background 0.3s"
@@ -905,7 +934,7 @@ const TransferBoardPage = () => {
                       </IconButton>
                     </DialogTitle>
 
-            <DialogContent sx={{ position: "relative", zIndex: 1, px: { xs: 2, sm: 4 }, pt: { xs: 1, sm: 3 }, pb: 5, overflowX: 'hidden' }}>
+            <DialogContent sx={{ position: "relative", zIndex: 1, px: { xs: 2, sm: 4 }, pt: { xs: 1, sm: 3 }, pb: { xs: 10, sm: 5 }, overflowY: 'auto' }}>
               {selectedPlayer && (
                 <Grid container spacing={{ xs: 2, sm: 2 }} alignItems="center" justifyContent="center" sx={{ mt: { xs: 0, sm: 1 } }}>
                   {/* Left Column: Card */}
@@ -1041,8 +1070,6 @@ const TransferBoardPage = () => {
                             color: "white",
                             mb: 2,
                             position: "relative",
-                            overflow: "hidden",
-                            transition: "all 0.3s"
                         }}>
                              <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
                                 <Box>

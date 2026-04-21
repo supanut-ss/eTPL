@@ -274,8 +274,10 @@ const AuctionPage = () => {
   };
 
   const handleBidFromSearch = async (auctionId, currentPrice) => {
+    const amount = currentPrice + 1;
+    if (!window.confirm(`Confirm bid ${amount.toLocaleString()} TP?`)) return;
     try {
-      await auctionService.placeNormalBid(auctionId, currentPrice + 1);
+      await auctionService.placeNormalBid(auctionId, amount);
       enqueueSnackbar("Bid placed successfully", { variant: "success" });
       handleSearch(); // Refresh results to update player status
       fetchData();
@@ -313,6 +315,8 @@ const AuctionPage = () => {
       }
     }
 
+    if (!window.confirm("Confirm starting auction for this player?")) return;
+
     try {
       await auctionService.startAuction(playerId);
       enqueueSnackbar("Auction started successfully", { variant: "success" });
@@ -339,6 +343,7 @@ const AuctionPage = () => {
     
     if (type === "normal") {
       amount = currentPrice + 1;
+      if (!window.confirm(`Confirm normal bid ${amount.toLocaleString()} TP?`)) return;
     } else {
       const userVal = window.prompt(`Enter your sealed Final Bid amount (must be > ${currentPrice} TP):`, currentPrice + 1);
       if (!userVal) return;
@@ -347,6 +352,7 @@ const AuctionPage = () => {
         enqueueSnackbar("Bid amount must be a number greater than the current price", { variant: "error" });
         return;
       }
+      if (!window.confirm(`Confirm sealed bid ${amount.toLocaleString()} TP?`)) return;
     }
 
     try {

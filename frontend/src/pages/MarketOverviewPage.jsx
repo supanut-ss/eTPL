@@ -275,11 +275,10 @@ const MarketOverviewPage = () => {
 
 
   const isOfferActive = (offer) => {
+    if (offer.status === "Cancelled") return false;
 
     // These statuses should be removed after 24 hours
-
-    const terminalStatuses = ["Rejected", "Collapsed", "Cancelled"];
-
+    const terminalStatuses = ["Rejected", "Collapsed"];
     if (!terminalStatuses.includes(offer.status)) return true;
 
     
@@ -299,13 +298,9 @@ const MarketOverviewPage = () => {
   const handleRespondOffer = async (offerId, accept) => {
 
     try {
-
       await auctionService.respondOffer(offerId, accept);
-
       enqueueSnackbar(accept ? "Sale confirmed!" : "Offer rejected", { variant: accept ? "success" : "info" });
-
-      fetchData();
-
+      await fetchData(true);
     } catch (err) {
 
       enqueueSnackbar(err.response?.data?.message || "Action failed", { variant: "error" });
@@ -321,10 +316,8 @@ const MarketOverviewPage = () => {
     try {
 
       await auctionService.cancelOffer(offerId);
-
       enqueueSnackbar("Offer cancelled", { variant: "info" });
-
-      fetchData();
+      await fetchData(true);
 
     } catch (err) {
 
@@ -341,10 +334,8 @@ const MarketOverviewPage = () => {
     try {
 
       await auctionService.delistPlayer(player.squadId);
-
       enqueueSnackbar(`Delisted ${player.playerName}`, { variant: "success" });
-
-      fetchData();
+      await fetchData(true);
 
     } catch (err) {
 
