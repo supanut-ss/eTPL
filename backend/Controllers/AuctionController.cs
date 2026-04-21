@@ -141,6 +141,21 @@ namespace eTPL.API.Controllers
             }
         }
 
+        [HttpGet("completed")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetCompletedAuctions()
+        {
+            try
+            {
+                var result = await _auctionService.GetCompletedAuctionsAsync();
+                return Ok(ApiResponse<object>.Ok(result));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
         [HttpPost("{auctionId}/bid/normal")]
         public async Task<IActionResult> PlaceNormalBid(int auctionId, [FromBody] PlaceBidRequest request)
         {

@@ -537,14 +537,7 @@ const PublicMatchesPage = () => {
   if (loading)
     return (
       <Box>
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between', 
-        alignItems: isMobile ? 'flex-start' : 'center', 
-        gap: 1.5,
-        mb: 3
-      }}>
+        <Box display="flex" alignItems="center" gap={1.5}>
           <CalendarMonth color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h5" fontWeight="bold">
@@ -581,14 +574,16 @@ const PublicMatchesPage = () => {
         gap: 1.5,
         mb: 3
       }}>
-        <CalendarMonth color="primary" sx={{ fontSize: 32 }} />
-        <Box>
-          <Typography variant="h5" fontWeight="bold">
-            Matches
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            eFootball · D1
-          </Typography>
+        <Box display="flex" alignItems="center" gap={1.5}>
+          <CalendarMonth color="primary" sx={{ fontSize: 32 }} />
+          <Box>
+            <Typography variant="h5" fontWeight="bold">
+              Matches
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              eFootball · D1
+            </Typography>
+          </Box>
         </Box>
       </Box>
 

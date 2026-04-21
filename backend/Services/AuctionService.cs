@@ -177,7 +177,7 @@ namespace eTPL.API.Services
                 PlayerOvr = board.Player?.PlayerOvr ?? 0,
                 CurrentPrice = winPrice ?? board.CurrentPrice,
                 HighestBidderId = board.HighestBidderId,
-                HighestBidderName = board.HighestBidder?.UserId, // The string username from User table
+                HighestBidderName = board.HighestBidder?.UserId,
                 NormalEndTime = DateTime.SpecifyKind(board.NormalEndTime, DateTimeKind.Utc),
                 FinalEndTime = DateTime.SpecifyKind(board.FinalEndTime, DateTimeKind.Utc),
                 DbStatus = board.DbStatus,
@@ -1461,6 +1461,19 @@ namespace eTPL.API.Services
             squad.Status = "Active";
             squad.ListingPrice = null;
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<List<AuctionBoardDto>> GetCompletedAuctionsAsync()
+        {
+            var boards = await _context.AuctionBoards
+                .Include(b => b.Player)
+                .Include(b => b.HighestBidder)
+                .Where(b => b.DbStatus == "Sold")
+                .OrderByDescending(b => b.CurrentPrice)
+                .ThenByDescending(b => b.Player!.PlayerOvr)
+                .ToListAsync();
+
+            return boards.Select(b => MapToDto(b)).ToList();
         }
 
         public async Task<List<AuctionSquadDto>> GetTransferBoardAsync()

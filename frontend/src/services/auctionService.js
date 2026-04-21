@@ -43,6 +43,11 @@ const auctionService = {
     return res.data;
   },
 
+  getCompletedAuctions: async () => {
+    const res = await api.get("/api/auction/completed");
+    return res.data;
+  },
+
   startAuction: async (playerId) => {
     const res = await api.post(`/api/auction/start/${playerId}`);
     return res.data;

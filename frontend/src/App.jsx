@@ -20,6 +20,7 @@ import MySquadPage from "./pages/MySquadPage";
 import ClubSquadPage from "./pages/ClubSquadPage";
 import TransferBoardPage from "./pages/TransferBoardPage";
 import MarketOverviewPage from "./pages/MarketOverviewPage";
+import CompletedAuctionPage from "./pages/CompletedAuctionPage";
 
 import LineCallbackPage from "./pages/LineCallbackPage";
 
@@ -42,6 +43,7 @@ function App() {
               <Route path="main" element={<MainPage />} />
               <Route path="standings" element={<StandingPage />} />
               <Route path="matches" element={<PublicMatchesPage />} />
+              <Route path="auction-results" element={<CompletedAuctionPage />} />
 
               {/* Login required */}
               <Route

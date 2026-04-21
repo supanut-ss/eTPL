@@ -1602,7 +1602,7 @@ const MainPage = () => {
                       {member.lineName || "Manager"}
                     </Typography>
                     <Typography fontSize={11} color="text.secondary" noWrap>
-                      @{member.userId}
+                      {member.userId}
                     </Typography>
                   </Box>
                   <Box
