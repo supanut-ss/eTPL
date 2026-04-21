@@ -458,14 +458,24 @@ const MySquadPage = () => {
       });
       const renewalPercent = quota?.renewalPercent ?? quota?.RenewalPercent ?? 0;
       const gradeName = quota?.gradeName ?? quota?.GradeName ?? '-';
-      const cost = Math.round((p.pricePaid ?? 0) * renewalPercent / 100);
+      const maxSeason = quota?.maxSeasonsPerTeam ?? quota?.MaxSeasonsPerTeam ?? 0;
+      const seasonsWithTeam = p.seasonsWithTeam ?? 0;
+      const remainContract = Math.max(0, maxSeason - seasonsWithTeam);
+
+      // If remainContract is 0, cost is 0 (end of contract)
+      const cost = remainContract > 0 
+        ? Math.round((p.pricePaid ?? 0) * renewalPercent / 100)
+        : 0;
+
       return { 
         name: p.playerName, 
         gradeName, 
         pricePaid: p.pricePaid ?? 0, 
         renewalPercent, 
         cost,
-        seasonsWithTeam: p.seasonsWithTeam ?? 0
+        seasonsWithTeam,
+        maxSeason,
+        remainContract
       };
     })
     .sort((a, b) => b.cost - a.cost);
@@ -1595,9 +1605,15 @@ const MySquadPage = () => {
                       <Typography variant="body2" fontWeight="700">
                         {r.name}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem" }}>
-                        In Squad: {r.seasonsWithTeam} {r.seasonsWithTeam > 1 ? 'Seasons' : 'Season'}
-                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.65rem" }}>
+                          In: {r.seasonsWithTeam}
+                        </Typography>
+                        <Divider orientation="vertical" flexItem sx={{ height: 10, my: 0.5 }} />
+                        <Typography variant="caption" sx={{ color: r.remainContract === 0 ? "error.main" : "text.secondary", fontSize: "0.65rem", fontWeight: r.remainContract === 0 ? 800 : 400 }}>
+                          Remain: {r.remainContract}
+                        </Typography>
+                      </Box>
                     </Box>
 
                     {/* Price paid */}
@@ -1613,8 +1629,17 @@ const MySquadPage = () => {
                     </Box>
 
                     {/* Cost */}
-                    <Typography variant="body2" fontWeight="900" sx={{ color: r.cost > 0 ? "#7c3aed" : "text.disabled", minWidth: 64, textAlign: "right" }}>
-                      {r.cost.toLocaleString()} TP
+                    <Typography 
+                      variant="body2" 
+                      fontWeight="900" 
+                      sx={{ 
+                        color: r.remainContract === 0 ? "error.main" : (r.cost > 0 ? "#7c3aed" : "text.disabled"), 
+                        minWidth: 100, 
+                        textAlign: "right",
+                        fontSize: r.remainContract === 0 ? '0.7rem' : 'inherit'
+                      }}
+                    >
+                      {r.remainContract === 0 ? "END OF CONTRACT" : `${r.cost.toLocaleString()} TP`}
                     </Typography>
                   </Box>
                 );

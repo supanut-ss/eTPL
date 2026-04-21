@@ -9,11 +9,12 @@ $ErrorActionPreference = "Stop"
 $repoRoot = $PSScriptRoot
 
 # 0. Preparation
-if (!(Test-Path "$repoRoot\deploy")) { New-Item -Path "$repoRoot\deploy" -ItemType Directory }
-if (Test-Path "$repoRoot\deploy\backend") { Remove-Item -Path "$repoRoot\deploy\backend" -Recurse -Force }
+if (Test-Path "$repoRoot\deploy") { Remove-Item -Path "$repoRoot\deploy" -Recurse -Force }
+New-Item -Path "$repoRoot\deploy" -ItemType Directory
 
 # 1. Build Frontend
-Write-Host "1. Building Frontend..." -ForegroundColor Yellow
+# Note: vite.config.js is configured to build directly into ../backend/wwwroot
+Write-Host "1. Building Frontend (into backend/wwwroot)..." -ForegroundColor Yellow
 Set-Location "$repoRoot\frontend"
 npm run build
 if ($LASTEXITCODE -ne 0) { throw "Frontend build failed" }
@@ -24,14 +25,8 @@ Set-Location "$repoRoot\backend"
 dotnet publish -c Release -r win-x86 --self-contained true -o "$repoRoot\deploy\backend"
 if ($LASTEXITCODE -ne 0) { throw "Backend publish failed" }
 
-# 3. Copy Frontend to Backend's wwwroot (Single Host Integration)
-# This ensures static files are part of the published app
-Write-Host "3. Integrating Frontend into Backend wwwroot..." -ForegroundColor Yellow
-if (!(Test-Path "$repoRoot\deploy\backend\wwwroot")) { New-Item -Path "$repoRoot\deploy\backend\wwwroot" -ItemType Directory }
-Copy-Item -Path "$repoRoot\frontend\dist\*" -Destination "$repoRoot\deploy\backend\wwwroot" -Recurse -Force
-
-# 4. Create maintenance page
-Write-Host "4. Creating maintenance page..." -ForegroundColor Yellow
+# 3. Create maintenance page
+Write-Host "3. Creating maintenance page..." -ForegroundColor Yellow
 $appOfflineContent = @"
 <!DOCTYPE html>
 <html lang="th-TH">
@@ -58,24 +53,24 @@ $appOfflineContent = @"
 $tempAppOfflinePath = "$repoRoot\deploy\app_offline.htm"
 Set-Content -Path $tempAppOfflinePath -Value $appOfflineContent -Force
 
-# 5. Uploading...
+# 4. Uploading...
 $pwsh = if (Get-Command powershell -ErrorAction SilentlyContinue) { "powershell" } else { "pwsh" }
 
-Write-Host "5. Taking app offline..." -ForegroundColor Yellow
-& $pwsh -ExecutionPolicy Bypass -File "$repoRoot\deploy\upload-ftp.ps1" `
+Write-Host "4. Taking app offline (Uploading app_offline.htm)..." -ForegroundColor Yellow
+& $pwsh -ExecutionPolicy Bypass -File "$repoRoot\upload-ftp.ps1" `
     -Server $Server -Username $Username -Password $Password `
-    -LocalPath "$repoRoot\deploy\app_offline.htm" -RemotePath "$RemotePath/app_offline.htm"
+    -LocalPath "$repoRoot\deploy" -RemotePath $RemotePath -ExcludePaths @("backend")
 
-Write-Host "App is offline. Waiting 5 seconds..."
-Start-Sleep -Seconds 5
+Write-Host "App is offline. Waiting 15 seconds for app pool to release files..."
+Start-Sleep -Seconds 15
 
-Write-Host "6. Uploading application files..." -ForegroundColor Yellow
-& $pwsh -ExecutionPolicy Bypass -File "$repoRoot\deploy\upload-ftp.ps1" `
+Write-Host "5. Uploading application files (Integrated Frontend + Backend)..." -ForegroundColor Yellow
+& $pwsh -ExecutionPolicy Bypass -File "$repoRoot\upload-ftp.ps1" `
     -Server $Server -Username $Username -Password $Password `
     -LocalPath "$repoRoot\deploy\backend" -RemotePath $RemotePath
 
-# 7. Bring App Online
-Write-Host "7. Bringing app back online..." -ForegroundColor Yellow
+# 6. Bring App Online
+Write-Host "6. Bringing app back online..." -ForegroundColor Yellow
 $delReq = [System.Net.FtpWebRequest]::Create("ftp://$Server/$RemotePath/app_offline.htm")
 $delReq.Method = [System.Net.WebRequestMethods+Ftp]::DeleteFile
 $delReq.Credentials = New-Object System.Net.NetworkCredential($Username, $Password)

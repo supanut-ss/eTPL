@@ -1080,7 +1080,8 @@ namespace eTPL.API.Services
                     MaxAllowed = q.MaxAllowedPerUser,
                     CurrentCount = allOVRs.Count(o => o >= q.MinOVR && o <= q.MaxOVR),
                     RenewalPercent = q.RenewalPercent,
-                    ReleasePercent = q.ReleasePercent
+                    ReleasePercent = q.ReleasePercent,
+                    MaxSeasonsPerTeam = q.MaxSeasonsPerTeam
                 });
             }
 

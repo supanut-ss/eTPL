@@ -10,17 +10,13 @@ import {
 
   Tab, Tabs, Badge,
   useMediaQuery, useTheme
-
 } from "@mui/material";
 
 import { 
-
   Handshake, LocalOffer, Cancel, CheckCircle, 
-
   AccountBalanceWallet, History, Campaign, Storefront,
-
-  ArrowForward, ArrowBack, SwapHoriz, DeleteSweep
-
+  ArrowForward, ArrowBack, SwapHoriz, DeleteSweep,
+  Inbox as InboxIcon, Outbox as OutboxIcon
 } from "@mui/icons-material";
 
 import { useSnackbar } from "notistack";
@@ -505,9 +501,9 @@ const MarketOverviewPage = () => {
 
           >
 
-            <Tab icon={<Badge badgeContent={incomingOffers.length} color="error" sx={{ "& .MuiBadge-badge": { right: -8, top: 4 } }}><ArrowBack sx={{ fontSize: 20 }} /></Badge>} iconPosition="start" label="Incoming Offers" />
+            <Tab icon={<Badge badgeContent={incomingOffers.length} color="error" sx={{ "& .MuiBadge-badge": { right: -8, top: 4 } }}><InboxIcon sx={{ fontSize: 20 }} /></Badge>} iconPosition="start" label="Incoming Offers" />
 
-            <Tab icon={<ArrowForward sx={{ fontSize: 20 }} />} iconPosition="start" label="My Offers" />
+            <Tab icon={<OutboxIcon sx={{ fontSize: 20 }} />} iconPosition="start" label="My Offers" />
 
             <Tab icon={<Storefront sx={{ fontSize: 20 }} />} iconPosition="start" label="Market Listings" />
 

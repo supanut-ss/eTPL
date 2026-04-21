@@ -130,14 +130,24 @@ namespace eTPL.API.Models.Auction
 
     public class GradeQuotaUsageDto
     {
+        [System.Text.Json.Serialization.JsonPropertyName("gradeId")]
         public int GradeId { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("gradeName")]
         public string GradeName { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("minOvr")]
         public int MinOVR { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("maxOvr")]
         public int MaxOVR { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("maxAllowed")]
         public int MaxAllowed { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("currentCount")]
         public int CurrentCount { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("renewalPercent")]
         public int RenewalPercent { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("releasePercent")]
         public int ReleasePercent { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("maxSeasonsPerTeam")]
+        public int MaxSeasonsPerTeam { get; set; }
     }
 
     public class PagedResultDto<T>
