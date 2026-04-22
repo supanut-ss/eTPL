@@ -22,6 +22,7 @@ import TransferBoardPage from "./pages/TransferBoardPage";
 import MarketOverviewPage from "./pages/MarketOverviewPage";
 import CompletedAuctionPage from "./pages/CompletedAuctionPage";
 import HallOfFamePage from "./pages/HallOfFamePage";
+import AdminDataPage from "./pages/AdminDataPage";
 
 import LineCallbackPage from "./pages/LineCallbackPage";
 
@@ -127,6 +128,14 @@ function App() {
                 element={
                   <ProtectedRoute requiredRole="admin">
                     <AdminAuctionPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/manage-data"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminDataPage />
                   </ProtectedRoute>
                 }
               />

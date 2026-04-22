@@ -39,6 +39,7 @@ import {
   Settings,
   HotelClass,
   MilitaryTech,
+  Storage,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -98,6 +99,12 @@ const navItems = [
     label: "Auction Settings",
     path: "/admin/auction",
     icon: <Settings />,
+    adminOnly: true,
+  },
+  {
+    label: "Data Management",
+    path: "/admin/manage-data",
+    icon: <Storage />,
     adminOnly: true,
   },
   {
