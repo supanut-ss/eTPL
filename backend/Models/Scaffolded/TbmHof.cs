@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace eTPL.API.Models.Scaffolded;
@@ -9,15 +9,19 @@ public partial class TbmHof
 
     public string? Platform { get; set; }
 
-    public double? Season { get; set; }
+    public string? Season { get; set; }
 
-    public string? D1 { get; set; }
+    public string? TournamentTitle { get; set; }
 
-    public string? D2 { get; set; }
+    public string? TournamentSubtitle { get; set; }
 
-    public string? LeagueCup { get; set; }
+    public string? WinnerName { get; set; }
 
-    public string? FaCup { get; set; }
+    public string? WinnerTeam { get; set; }
 
-    public string? ThaiClubCup { get; set; }
+    public string? RunnerUpName { get; set; }
+
+    public string? WinnerImage { get; set; }
+
+    public string? DisplayColor { get; set; }
 }

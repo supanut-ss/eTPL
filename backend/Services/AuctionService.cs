@@ -1536,7 +1536,7 @@ namespace eTPL.API.Services
             await _context.SaveChangesAsync();
 
             offer = await _context.TransferOffers
-                .Include(o => o.FromUser).Include(o => o.ToUser).Include(o => o.Squad).ThenInclude(s => s.Player)
+                .Include(o => o.FromUser).Include(o => o.ToUser).Include(o => o.Squad).ThenInclude(s => s!.Player)
                 .FirstOrDefaultAsync(o => o.OfferId == offer.OfferId);
 
             return MapOfferDto(offer!);
@@ -1552,7 +1552,7 @@ namespace eTPL.API.Services
                 {
                 var offer = await _context.TransferOffers
                     .Include(o => o.FromUser)
-                    .Include(o => o.Squad).ThenInclude(s => s.Player)
+                    .Include(o => o.Squad).ThenInclude(s => s!.Player)
                     .FirstOrDefaultAsync(o => o.OfferId == offerId && o.ToUserId == sellerUserId && o.Status == "Pending");
 
                 if (offer == null) throw new Exception("ไม่พบข้อเสนอ หรือ ข้อเสนอถูกจัดการไปแล้ว");
@@ -1620,7 +1620,7 @@ namespace eTPL.API.Services
                 int remainingSlotsAfterThis = settings.MaxSquadSize - futureSquadCount;
                 int requiredReserve = remainingSlotsAfterThis > 0 ? remainingSlotsAfterThis * reservePricePerSlot : 0;
 
-                if (buyerWallet.AvailableBalance - offer.Amount < requiredReserve)
+                if (buyerWallet!.AvailableBalance - offer.Amount < requiredReserve)
                 {
                     offer.Status = "Collapsed";
                     offer.UpdatedAt = DateTime.UtcNow;
@@ -1755,7 +1755,7 @@ namespace eTPL.API.Services
         public async Task<List<TransferOfferDto>> GetIncomingOffersAsync(int userId)
         {
             var offers = await _context.TransferOffers
-                .Include(o => o.FromUser).Include(o => o.ToUser).Include(o => o.Squad).ThenInclude(s => s.Player)
+                .Include(o => o.FromUser).Include(o => o.ToUser).Include(o => o.Squad).ThenInclude(s => s!.Player)
                 .Where(o => o.ToUserId == userId && o.Status == "Pending")
                 .OrderByDescending(o => o.CreatedAt)
                 .ToListAsync();
@@ -1767,7 +1767,7 @@ namespace eTPL.API.Services
         {
             var yesterday = DateTime.UtcNow.AddDays(-1);
             var offers = await _context.TransferOffers
-                .Include(o => o.FromUser).Include(o => o.ToUser).Include(o => o.Squad).ThenInclude(s => s.Player)
+                .Include(o => o.FromUser).Include(o => o.ToUser).Include(o => o.Squad).ThenInclude(s => s!.Player)
                 .Where(o => o.FromUserId == userId && (
                     o.Status == "Pending" || 
                     ((o.Status == "Rejected" || o.Status == "Collapsed" || o.Status == "Cancelled") && (o.UpdatedAt ?? o.CreatedAt) > yesterday)

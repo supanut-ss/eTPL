@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -14,6 +14,7 @@ import {
   Fade,
   Chip,
   Tooltip,
+  CircularProgress,
 } from "@mui/material";
 import {
   EmojiEvents as TrophyIcon,
@@ -25,49 +26,8 @@ import {
   Stars,
 } from "@mui/icons-material";
 import { getLogoUrl } from "../utils/imageUtils";
+import { hofApi } from "../api/hofApi";
 
-// Extended Mock Data for better grouping demonstration
-const MOCK_HALL_OF_FAME = [
-  {
-    id: "league-d1",
-    title: "League Champions",
-    subtitle: "D1 Division · Top Tier",
-    icon: <TrophyIcon sx={{ fontSize: 24, color: "#FFD700" }} />,
-    color: "#fbbf24",
-    winners: [
-      { season: "Season 5", winner: "RREEF", team: "AZ ALKMAAR", runnerUp: "Viper" },
-      { season: "Season 4", winner: "Alice", team: "FC Porto", runnerUp: "Bob" },
-      { season: "Season 3", winner: "Zlatan", team: "Milan", runnerUp: "Rooney" },
-      { season: "Season 2", winner: "Messi", team: "Barcelona", runnerUp: "CR7" },
-      { season: "Season 1", winner: "RREEF", team: "Santos", runnerUp: "Pele" },
-    ],
-  },
-  {
-    id: "cup-tpl",
-    title: "eTPL Cup",
-    subtitle: "Major Domestic Cup",
-    icon: <MedalIcon sx={{ fontSize: 24, color: "#6366f1" }} />,
-    color: "#6366f1",
-    winners: [
-      { season: "Season 5", winner: "Viper", team: "Man City", runnerUp: "RREEF" },
-      { season: "Season 4", winner: "Charlie", team: "Inter", runnerUp: "Alice" },
-      { season: "Season 3", winner: "Rooney", team: "Man Utd", runnerUp: "Zlatan" },
-      { season: "Season 2", winner: "TPL_HZ1", team: "Bayern", runnerUp: "RREEF" },
-      { season: "Season 1", winner: "RREEF", team: "Palmeiras", runnerUp: "Viper" },
-    ],
-  },
-  {
-    id: "euro-elite",
-    title: "Elite Champions",
-    subtitle: "Cross-platform Tournament",
-    icon: <AutoAwesome sx={{ fontSize: 24, color: "#818cf8" }} />,
-    color: "#818cf8",
-    winners: [
-      { season: "Season 5", winner: "RREEF", team: "AZ ALKMAAR", runnerUp: "Alice" },
-      { season: "Season 4", winner: "Zlatan", team: "Milan", runnerUp: "Viper" },
-    ],
-  },
-];
 const LegendCard = ({ legend }) => {
   const theme = useTheme();
   
@@ -81,11 +41,10 @@ const LegendCard = ({ legend }) => {
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
-        // Royal Indigo Frost Gradient (Rich but not dark)
         background: `linear-gradient(165deg, #fff 0%, #f1f5f9 40%, #e2e8f0 100%)`, 
-        border: "1.5px solid #d4af37", // Solid Champagne Gold Border
+        border: "1.5px solid #d4af37",
         transition: "all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-        "&::before": { // Golden Shimmer Ray (เงาวิ่งสีทอง)
+        "&::before": { 
             content: '""',
             position: "absolute",
             top: 0,
@@ -111,7 +70,6 @@ const LegendCard = ({ legend }) => {
         },
       }}
     >
-      {/* Trophy Count Badge (Elevated Gold) */}
       <Box
         className="total-badge"
         sx={{
@@ -139,7 +97,6 @@ const LegendCard = ({ legend }) => {
       </Box>
 
       <CardContent sx={{ p: 2.5, pt: 4, flexGrow: 1, display: "flex", flexDirection: "column", position: "relative", zIndex: 2 }}>
-        {/* Avatar Section */}
         <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", mb: 2.5 }}>
           <Box sx={{ position: "relative", mb: 1.5 }}>
             <Box 
@@ -158,16 +115,21 @@ const LegendCard = ({ legend }) => {
               }} 
             />
             <Avatar
-              src={getLogoUrl(legend.latestTeam)}
+              src={legend.winnerImage || getLogoUrl(legend.latestTeam)}
               sx={{
                 width: 80,
                 height: 80,
-                bgcolor: "white",
-                p: 1.2,
+                bgcolor: legend.winnerImage ? "transparent" : "white", // No bg if there's an image
+                p: legend.winnerImage ? 0 : 1.2, 
                 border: "3px solid #d4af37",
                 boxShadow: "0 15px 30px rgba(0,0,0,0.1)",
                 position: "relative",
                 zIndex: 2,
+                "& img": {
+                  objectFit: "cover",
+                  width: "100%",
+                  height: "100%",
+                }
               }}
             />
             {legend.totalTitles >= 3 && (
@@ -201,13 +163,21 @@ const LegendCard = ({ legend }) => {
         <Divider sx={{ mb: 2.5, borderColor: alpha("#000", 0.05) }} />
 
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-          {Object.entries(legend.groups).map(([type, data], idx) => (
+          {Object.entries(legend.groups)
+            .sort(([typeA], [typeB]) => {
+              const aIsLeague = typeA.toLowerCase().includes('league');
+              const bIsLeague = typeB.toLowerCase().includes('league');
+              if (aIsLeague && !bIsLeague) return -1;
+              if (!aIsLeague && bIsLeague) return 1;
+              return typeA.localeCompare(typeB);
+            })
+            .map(([type, data], idx) => (
             <Box 
               key={idx}
               sx={{ 
                 p: 1.8,
-                borderRadius: 4,
-                background: `linear-gradient(135deg, #ffffff 0%, ${alpha(data.color, 0.03)} 100%)`,
+                borderRadius: 2,
+                background: `linear-gradient(135deg, #ffffff 0%, ${alpha(data.color || "#6366f1", 0.03)} 100%)`,
                 border: "1px solid",
                 borderColor: alpha("#000", 0.04),
                 position: "relative",
@@ -215,57 +185,63 @@ const LegendCard = ({ legend }) => {
                 boxShadow: "0 4px 12px rgba(0,0,0,0.02)",
                 "&:hover": {
                     transform: "translateY(-3px)",
-                    borderColor: alpha(data.color, 0.2),
-                    boxShadow: `0 12px 24px ${alpha(data.color, 0.08)}`,
-                    "& .medallion": { transform: "scale(1.1) rotate(5deg)", bgcolor: "#1e293b", color: data.color }
+                    borderColor: alpha(data.color || "#6366f1", 0.2),
+                    boxShadow: `0 12px 24px ${alpha(data.color || "#6366f1", 0.08)}`,
+                    "& .medallion": { transform: "scale(1.1) rotate(5deg)", bgcolor: "#1e293b", color: data.color || "#6366f1" }
                 }
               }}
             >
               <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.2 }}>
-                {/* Medallion Icon */}
                 <Box 
                   className="medallion"
                   sx={{ 
                     width: 34,
                     height: 34,
                     borderRadius: "10px", 
-                    bgcolor: alpha(data.color, 0.1), 
-                    color: data.color,
+                    bgcolor: alpha(data.color || "#6366f1", 0.1), 
+                    color: data.color || "#6366f1",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     transition: "all 0.4s ease",
-                    border: `1px solid ${alpha(data.color, 0.2)}`
+                    border: `1px solid ${alpha(data.color || "#6366f1", 0.2)}`
                   }}
                 >
-                  {type.includes("League") ? <TrophyIcon sx={{ fontSize: 18 }} /> : <MedalIcon sx={{ fontSize: 18 }} />}
+                  {(type || "").includes("League") ? <TrophyIcon sx={{ fontSize: 18 }} /> : <MedalIcon sx={{ fontSize: 18 }} />}
                 </Box>
                 <Typography variant="caption" fontWeight={950} color="text.primary" sx={{ fontSize: 12.5, letterSpacing: 0.2, color: "#1e293b" }}>
                   {type}
                 </Typography>
               </Box>
               
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.8 }}>
-                {data.seasons.map((season) => (
-                  <Chip
-                    key={season}
-                    label={season}
-                    size="small"
-                    sx={{
-                      height: 22,
-                      fontSize: 10,
-                      fontWeight: 900,
-                      bgcolor: "white",
-                      border: "1px solid",
-                      borderColor: alpha("#000", 0.06),
-                      color: "#1e293b",
-                      borderRadius: "6px",
-                      "& .MuiChip-label": { px: 1.5 },
-                      "&:hover": { borderColor: data.color, color: data.color }
-                    }}
-                  />
-                ))}
-              </Box>
+              <Box sx={{ 
+                  display: "grid", 
+                  gridTemplateColumns: "repeat(3, 1fr)", 
+                  gap: 0.8 
+                }}>
+                  {data.seasons.map((season, sIdx) => (
+                    <Box 
+                      key={sIdx}
+                      sx={{ 
+                        px: 0.5, 
+                        py: 0.6, 
+                        bgcolor: alpha(data.color || "#6366f1", 0.08),
+                        color: data.color || "#6366f1",
+                        borderRadius: "6px",
+                        fontSize: 10,
+                        fontWeight: 1000,
+                        border: `1px solid ${alpha(data.color || "#6366f1", 0.15)}`,
+                        textAlign: 'center',
+                        minWidth: 0, // Allow shrinking to fit grid
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
+                      {season}
+                    </Box>
+                  ))}
+                </Box>
             </Box>
           ))}
         </Box>
@@ -274,69 +250,94 @@ const LegendCard = ({ legend }) => {
   );
 };
 
-
 const HallOfFamePage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedLegend, setSelectedLegend] = useState(null);
+  const [hofData, setHofData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await hofApi.getHof();
+        setHofData(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Failed to fetch Hall of Fame:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   // Statistics calculation for Stats Bar
   const stats = useMemo(() => {
-    let totalWinners = 0;
-    let totalSeasons = 0;
-    const uniqueChampions = new Set();
+    if (!hofData.length) return { totalSeasons: 0, totalTitles: 0, uniqueLegends: 0 };
     
-    MOCK_HALL_OF_FAME.forEach(cat => {
-      totalWinners += cat.winners.length;
-      totalSeasons = Math.max(totalSeasons, cat.winners.length);
-      cat.winners.forEach(w => uniqueChampions.add(w.winner));
+    const uniqueChampions = new Set();
+    const uniqueSeasons = new Set();
+    
+    hofData.forEach(item => {
+      uniqueChampions.add(item.winnerName);
+      uniqueSeasons.add(item.season);
     });
 
     return {
-      totalSeasons,
-      totalTitles: totalWinners,
+      totalSeasons: uniqueSeasons.size,
+      totalTitles: hofData.length,
       uniqueLegends: uniqueChampions.size
     };
-  }, []);
+  }, [hofData]);
 
   // Pivot Data to Legend-centric (Manager view)
   const legendsData = useMemo(() => {
+    if (!hofData.length) return [];
+
     const legends = {};
     
-    MOCK_HALL_OF_FAME.forEach(cat => {
-      cat.winners.forEach(w => {
-        if (!legends[w.winner]) {
-          legends[w.winner] = { 
-            name: w.winner, 
-            latestTeam: w.team, 
-            totalTitles: 0,
-            groups: {} 
-          };
-        }
-        
-        const legend = legends[w.winner];
-        legend.totalTitles += 1;
-        
-        if (!legend.groups[cat.title]) {
-          legend.groups[cat.title] = {
-            color: cat.color,
-            seasons: []
-          };
-        }
-        legend.groups[cat.title].seasons.push(w.season);
-      });
+    // Sort data by season descending to get the "latest team" correctly
+    const sortedRaw = [...hofData].sort((a, b) => {
+        const sA = parseInt(String(a.season || '').replace(/\D/g, '') || '0');
+        const sB = parseInt(String(b.season || '').replace(/\D/g, '') || '0');
+        return sB - sA;
+    });
+
+    sortedRaw.forEach(item => {
+      if (!legends[item.winnerName]) {
+        legends[item.winnerName] = { 
+          name: item.winnerName, 
+          latestTeam: item.winnerTeam, 
+          winnerImage: item.winnerImage,
+          totalTitles: 0,
+          groups: {} 
+        };
+      }
+      
+      const legend = legends[item.winnerName];
+      legend.totalTitles += 1;
+      
+      const tournamentType = item.tournamentTitle || "Tournament";
+      if (!legend.groups[tournamentType]) {
+        legend.groups[tournamentType] = {
+          color: item.displayColor,
+          seasons: []
+        };
+      }
+      legend.groups[tournamentType].seasons.push(item.season);
     });
 
     // Convert to array and sort by total titles
-    const sortedLegends = Object.values(legends).sort((a, b) => b.totalTitles - a.totalTitles);
-    
-    if (!searchTerm) return sortedLegends;
+    return Object.values(legends).sort((a, b) => b.totalTitles - a.totalTitles);
+  }, [hofData]);
 
-    return sortedLegends.filter(l => 
-      l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      Object.keys(l.groups).some(type => type.toLowerCase().includes(searchTerm.toLowerCase()))
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+        <CircularProgress color="primary" />
+      </Box>
     );
-  }, [searchTerm]);
+  }
 
   return (
     <Box sx={{ 
@@ -346,7 +347,6 @@ const HallOfFamePage = () => {
       overflow: 'hidden',
       pb: 10 
     }}>
-      {/* Mesh Gradient Background Elements */}
       <Box sx={{ 
           position: 'absolute', 
           top: -150, 
@@ -372,7 +372,6 @@ const HallOfFamePage = () => {
 
       <Fade in={true} timeout={600}>
         <Box sx={{ position: 'relative', zIndex: 1, px: { xs: 1, md: 2 } }}>
-          {/* Top Header Section */}
           <Box sx={{ 
             display: "flex", 
             flexDirection: isMobile ? "column" : "row",
@@ -390,9 +389,9 @@ const HallOfFamePage = () => {
                 </Typography>
               </Box>
             </Box>
+
           </Box>
 
-          {/* Luxury Prestige Sub-Header (Theme Based) */}
           <Fade in={true} timeout={1200}>
             <Box 
               sx={{ 
@@ -403,7 +402,7 @@ const HallOfFamePage = () => {
                 background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
                 boxShadow: '0 30px 100px rgba(15, 23, 42, 0.4)',
                 border: '2px solid',
-                borderColor: '#fbbf24', // Strong Gold Border
+                borderColor: '#fbbf24',
                 overflow: 'hidden',
                 textAlign: 'center',
                 '&::before': {
@@ -483,7 +482,6 @@ const HallOfFamePage = () => {
             </Box>
           </Fade>
 
-          {/* Legends Grid */}
           <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Stars sx={{ color: '#fbbf24' }} />
             <Typography variant="h6" fontWeight="950" sx={{ letterSpacing: -0.5 }}>ACTIVE LEGENDS</Typography>

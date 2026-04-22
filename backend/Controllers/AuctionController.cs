@@ -269,7 +269,7 @@ namespace eTPL.API.Controllers
                 } catch { /* Silent */ }
 
                 var settings = await _db.AuctionSettings.FirstOrDefaultAsync();
-                return Ok(ApiResponse<object>.Ok(settings));
+                return Ok(ApiResponse<object>.Ok(settings!));
             }
             catch (Exception ex)
             {
@@ -688,7 +688,7 @@ namespace eTPL.API.Controllers
                 if (user.Password != req.Password) throw new UnauthorizedAccessException("รหัสผ่านสำหรับยืนยันการ Reset ไม่ถูกต้อง");
 
                 await _auctionService.ResetMarketAsync();
-                return Ok(ApiResponse<object>.Ok(null, "ล้างข้อมูลตลาดเทรดทั้งหมดเรียบร้อยแล้ว"));
+                return Ok(ApiResponse<object>.Ok(new object(), "ล้างข้อมูลตลาดเทรดทั้งหมดเรียบร้อยแล้ว"));
             }
             catch (Exception ex)
             {

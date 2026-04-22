@@ -8,6 +8,7 @@ using eTPL.API.Middleware;
 using eTPL.API.Services;
 using eTPL.API.Services.Interfaces;
 using eTPL.API.Hubs;
+using eTPL.API.Models.Scaffolded;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -118,6 +119,50 @@ app.MapHub<AuctionHub>("/hubs/auction");
 
 // SPA fallback — ทุก route ที่ไม่ใช่ /api/ ให้ return index.html
 app.MapFallbackToFile("index.html");
+
+// ── Auto-Initialize HOF Table (Ensure schema exists)
+try
+{
+    using var scope = app.Services.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<ScaffoldedDbContext>();
+    var conn = context.Database.GetDbConnection();
+    if (conn.State != System.Data.ConnectionState.Open) conn.Open();
+    
+    var checkSql = "SELECT COUNT(*) FROM sys.columns WHERE Name = 'TournamentTitle' AND Object_ID = OBJECT_ID(N'[dbo].[tbs_hof]')";
+    int count = 0;
+    using (var cmd = conn.CreateCommand())
+    {
+        cmd.CommandText = checkSql;
+        count = Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
+    if (count == 0)
+    {
+        Console.WriteLine("Ensuring HOF table exists...");
+        var dropSql = "IF OBJECT_ID(N'[dbo].[tbs_hof]', 'U') IS NOT NULL DROP TABLE [dbo].[tbs_hof]";
+        context.Database.ExecuteSqlRaw(dropSql);
+
+        var createSql = @"
+        CREATE TABLE [dbo].[tbs_hof](
+            [hof_id] [varchar](50) NOT NULL DEFAULT (newid()),
+            [Platform] [nvarchar](50) NULL,
+            [Season] [nvarchar](50) NULL,
+            [TournamentTitle] [nvarchar](255) NULL,
+            [TournamentSubtitle] [nvarchar](255) NULL,
+            [WinnerName] [nvarchar](255) NULL,
+            [WinnerTeam] [nvarchar](255) NULL,
+            [WinnerImage] [nvarchar](500) NULL,
+            [RunnerUpName] [nvarchar](255) NULL,
+            [DisplayColor] [nvarchar](50) NULL,
+            PRIMARY KEY CLUSTERED ([hof_id] ASC)
+        )";
+        context.Database.ExecuteSqlRaw(createSql);
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine("Startup HOF Check Error: " + ex.Message);
+}
 
 app.Run();
 

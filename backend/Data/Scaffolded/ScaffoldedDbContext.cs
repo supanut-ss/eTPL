@@ -357,27 +357,22 @@ public partial class ScaffoldedDbContext : DbContext
         {
             entity.HasKey(e => e.HofId);
 
-            entity.ToTable("tbm_hof", "dbo");
+            entity.ToTable("tbs_hof", "dbo");
 
             entity.Property(e => e.HofId)
                 .HasMaxLength(50)
                 .HasDefaultValueSql("(newid())")
                 .HasColumnName("hof_id");
-            entity.Property(e => e.D1).HasMaxLength(255);
-            entity.Property(e => e.D2).HasMaxLength(255);
-            entity.Property(e => e.FaCup)
-                .HasMaxLength(255)
-                .HasColumnName("FA CUP");
-            entity.Property(e => e.LeagueCup)
-                .HasMaxLength(255)
-                .HasColumnName("LEAGUE CUP");
-            entity.Property(e => e.Platform)
-                .HasMaxLength(255)
-                .HasColumnName("PLATFORM");
-            entity.Property(e => e.Season).HasColumnName("SEASON");
-            entity.Property(e => e.ThaiClubCup)
-                .HasMaxLength(255)
-                .HasColumnName("THAI CLUB CUP");
+
+            entity.Property(e => e.Platform).HasMaxLength(50);
+            entity.Property(e => e.Season).HasMaxLength(50);
+            entity.Property(e => e.TournamentTitle).HasMaxLength(255);
+            entity.Property(e => e.TournamentSubtitle).HasMaxLength(255);
+            entity.Property(e => e.WinnerName).HasMaxLength(255);
+            entity.Property(e => e.WinnerTeam).HasMaxLength(255);
+            entity.Property(e => e.RunnerUpName).HasMaxLength(255);
+            entity.Property(e => e.WinnerImage).HasMaxLength(500);
+            entity.Property(e => e.DisplayColor).HasMaxLength(50);
         });
 
         modelBuilder.Entity<TbmNewMember>(entity =>

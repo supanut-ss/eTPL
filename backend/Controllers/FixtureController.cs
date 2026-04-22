@@ -446,8 +446,8 @@ namespace eTPL.API.Controllers
                 var reportUser = await _db.TbmUsers.FirstOrDefaultAsync(u => u.UserId == userId);
                 var reportUserName = reportUser?.LineName ?? userId;
 
-                string homeName = vFixture?.HomeTeamName ?? fixture.Home;
-                string awayName = vFixture?.AwayTeamName ?? fixture.Away;
+                string? homeName = vFixture?.HomeTeamName ?? fixture.Home;
+                string? awayName = vFixture?.AwayTeamName ?? fixture.Away;
 
                 string resultMsg = "แจ้งผลการแข่งขัน " + fixture.Division + " : " + homeName + " " + dto.HomeScore.ToString() + " - " + dto.AwayScore.ToString() + " " + awayName + " \n\nREPORT BY " + reportUserName;
                 _ = SendDiscordEmbed(resultMsg);
