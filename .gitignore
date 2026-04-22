@@ -65,6 +65,7 @@ appsettings.Development.json
 appsettings.Local.json
 appsettings.json
 launchSettings.json
+backend/publish/
 
 # ========================
 # Frontend (Vite / Node)
@@ -130,3 +131,5 @@ deploy/
 # Club logos
 # ========================
 club_logo/
+public/
+backend/publish/

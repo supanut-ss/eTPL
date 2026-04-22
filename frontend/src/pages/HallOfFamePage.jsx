@@ -156,7 +156,7 @@ const LegendCard = ({ legend }) => {
             {legend.name}
           </Typography>
           <Typography variant="caption" sx={{ letterSpacing: 2, color: "#b45309", fontWeight: 1000, textTransform: "uppercase", fontSize: 10 }}>
-             Royal Legend
+             ICONIC LEGEND
           </Typography>
         </Box>
 
@@ -283,8 +283,12 @@ const HallOfFamePage = () => {
       uniqueSeasons.add(item.season);
     });
 
+    const currentYear = new Date().getFullYear();
+    const startYear = 2019;
+    const yearsOfGlory = currentYear - startYear; // Or +1 if you want to count 2019 as year 1
+
     return {
-      totalSeasons: uniqueSeasons.size,
+      totalSeasons: yearsOfGlory,
       totalTitles: hofData.length,
       uniqueLegends: uniqueChampions.size
     };
@@ -475,7 +479,7 @@ const HallOfFamePage = () => {
                   <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(251, 191, 36, 0.2)', borderStyle: 'solid', display: { xs: 'none', md: 'block' } }} />
                   <Box>
                     <Typography variant="h3" fontWeight={950} sx={{ color: 'white', mb: 0.5 }}>{stats.uniqueLegends}</Typography>
-                    <Typography variant="caption" color="rgba(255,255,255,0.5)" fontWeight={800} sx={{ letterSpacing: 2 }}>ETERNAL LEGENDS</Typography>
+                    <Typography variant="caption" color="rgba(255,255,255,0.5)" fontWeight={800} sx={{ letterSpacing: 2 }}>TOTAL LEGENDS</Typography>
                   </Box>
                 </Box>
               </Box>
@@ -484,7 +488,7 @@ const HallOfFamePage = () => {
 
           <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Stars sx={{ color: '#fbbf24' }} />
-            <Typography variant="h6" fontWeight="950" sx={{ letterSpacing: -0.5 }}>ACTIVE LEGENDS</Typography>
+            <Typography variant="h6" fontWeight="950" sx={{ letterSpacing: -0.5 }}>ICONIC LEGENDS</Typography>
           </Box>
 
           <Box

@@ -2,7 +2,7 @@ param(
     [string]$Server = "ftp.thaipesleague.com",
     [string]$Username = "thaipes",
     [string]$Password = "Ws7#3es2",
-    [string]$RemotePath = "thaipesleague.com" 
+    [string]$RemotePath = "httpdocs" 
 )
 
 $ErrorActionPreference = "Stop"

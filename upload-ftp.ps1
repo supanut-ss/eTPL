@@ -11,8 +11,8 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$LocalPath,
 
-    [Parameter(Mandatory = $true)]
-    [string]$RemotePath,
+    [Parameter(Mandatory = $false)]
+    [string]$RemotePath = "",
 
     [string[]]$ExcludePaths = @(),
 
@@ -125,7 +125,10 @@ function Upload-File {
         [string]$RelativePath
     )
 
-    $remoteFilePath = "$($RemotePath.Trim('/'))/$RelativePath".Replace('\', '/')
+    $remoteFilePath = "$RemotePath/$RelativePath".Replace('\', '/')
+    while ($remoteFilePath.Contains("//")) { $remoteFilePath = $remoteFilePath.Replace("//", "/") }
+    $remoteFilePath = $remoteFilePath.TrimStart('/')
+    
     $remoteDirectory = (Split-Path $remoteFilePath -Parent).Replace('\', '/')
     $remoteUri = "ftp://$Server/$remoteFilePath"
 
