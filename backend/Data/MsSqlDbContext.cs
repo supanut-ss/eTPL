@@ -21,10 +21,25 @@ namespace eTPL.API.Data
         public DbSet<AuctionBidLog> AuctionBidLogs { get; set; }
         public DbSet<AuctionTransaction> AuctionTransactions { get; set; }
         public DbSet<TransferOffer> TransferOffers { get; set; }
+        public DbSet<SpecialBonus> SpecialBonuses { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.HasDefaultSchema("dbo");
+
+            modelBuilder.Entity<SpecialBonus>(entity =>
+            {
+                entity.ToTable("tbs_special_bonus", "dbo");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("Pending");
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .HasPrincipalKey(e => e.Id)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
 
             modelBuilder.Entity<User>(entity =>
             {

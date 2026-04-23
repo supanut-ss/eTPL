@@ -5,7 +5,7 @@ namespace eTPL.API.Models.Scaffolded;
 
 public partial class TbmHof
 {
-    public string HofId { get; set; } = null!;
+    public string? HofId { get; set; }
 
     public string? Platform { get; set; }
 
