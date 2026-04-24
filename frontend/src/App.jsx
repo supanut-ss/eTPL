@@ -119,7 +119,7 @@ function App() {
               <Route
                 path="announcements"
                 element={
-                  <ProtectedRoute requiredRole="admin">
+                  <ProtectedRoute requiredRole={["admin", "moderator"]}>
                     <AnnouncementPage />
                   </ProtectedRoute>
                 }
@@ -135,7 +135,7 @@ function App() {
               <Route
                 path="admin/manage-data"
                 element={
-                  <ProtectedRoute requiredRole="admin">
+                  <ProtectedRoute requiredRole={["admin", "moderator"]}>
                     <AdminDataPage />
                   </ProtectedRoute>
                 }

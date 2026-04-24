@@ -32,6 +32,8 @@ public partial class ScaffoldedDbContext : DbContext
 
     public virtual DbSet<TbmFixtureAll> TbmFixtureAlls { get; set; }
 
+    public virtual DbSet<TbmFixtureAllTest> TbmFixtureAllTests { get; set; }
+
     public virtual DbSet<TbmHof> TbmHofs { get; set; }
 
     public virtual DbSet<TbmNewMember> TbmNewMembers { get; set; }
@@ -353,6 +355,33 @@ public partial class ScaffoldedDbContext : DbContext
             entity.Property(e => e.AwayRed).HasColumnName("away_red");
         });
 
+        modelBuilder.Entity<TbmFixtureAllTest>(entity =>
+        {
+            entity.HasKey(e => e.FixtureId).HasName("PK_tbm_fixture_all_test");
+
+            entity.ToTable("tbm_fixture_all_test", "dbo");
+
+            entity.Property(e => e.FixtureId)
+                .HasMaxLength(50)
+                .HasDefaultValueSql("(newid())")
+                .HasColumnName("fixture_id");
+            entity.Property(e => e.Active).HasMaxLength(3).HasColumnName("ACTIVE");
+            entity.Property(e => e.Away).HasMaxLength(50).HasColumnName("AWAY");
+            entity.Property(e => e.AwayScore).HasColumnName("AWAY_SCORE");
+            entity.Property(e => e.Division).HasMaxLength(2).HasColumnName("DIVISION");
+            entity.Property(e => e.Home).HasMaxLength(50).HasColumnName("HOME");
+            entity.Property(e => e.HomeScore).HasColumnName("HOME_SCORE");
+            entity.Property(e => e.Leg).HasColumnName("LEG");
+            entity.Property(e => e.Match).HasColumnName("MATCH");
+            entity.Property(e => e.MatchDate).HasColumnType("datetime").HasColumnName("MATCH_DATE");
+            entity.Property(e => e.Platform).HasMaxLength(10).HasColumnName("PLATFORM");
+            entity.Property(e => e.Season).HasColumnName("SEASON");
+            entity.Property(e => e.HomeYellow).HasColumnName("home_yellow");
+            entity.Property(e => e.HomeRed).HasColumnName("home_red");
+            entity.Property(e => e.AwayYellow).HasColumnName("away_yellow");
+            entity.Property(e => e.AwayRed).HasColumnName("away_red");
+        });
+
         modelBuilder.Entity<TbmHof>(entity =>
         {
             entity.HasKey(e => e.HofId);
@@ -472,6 +501,9 @@ public partial class ScaffoldedDbContext : DbContext
                 .HasMaxLength(20)
                 .HasDefaultValue("user")
                 .HasColumnName("user_level");
+            entity.Property(e => e.CurrentTeam)
+                .HasMaxLength(200)
+                .HasColumnName("current_team");
         });
 
         modelBuilder.Entity<TbtResult>(entity =>

@@ -9,9 +9,8 @@ using eTPL.API.Models.Scaffolded;
 
 namespace eTPL.API.Controllers
 {
-    [ApiController]
     [Route("api/fixtures")]
-    [Authorize]
+    [ApiController]
     public class FixtureController : ControllerBase
     {
         private readonly ScaffoldedDbContext _db;
@@ -21,8 +20,15 @@ namespace eTPL.API.Controllers
             _db = db;
         }
 
+        public class ResetRequest
+        {
+            public bool ResetFixtures { get; set; }
+            public bool ResetTeams { get; set; }
+        }
+
         // GET api/fixtures?search=teamA
         [HttpGet]
+        [Authorize]
         public async Task<IActionResult> GetAll([FromQuery] string? search)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -655,17 +661,301 @@ namespace eTPL.API.Controllers
                 using (var client = new HttpClient())
                 {
                     var response = await client.PostAsync(webhookUrl, content);
-
                     if (!response.IsSuccessStatusCode)
-                    {
                         System.Diagnostics.Debug.WriteLine("ส่งไม่สำเร็จ: " + response.StatusCode);
-                    }
                 }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("ข้อผิดพลาด: " + ex.Message);
             }
+        }
+
+        // ─────────────────────────────────────────────
+        // GET api/fixtures/generate-preview  (Admin only)
+        // ─────────────────────────────────────────────
+        [HttpGet("generate-preview")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> GetGeneratePreview()
+        {
+            var season = await _db.TbmCurrentSeasons
+                .Where(s => s.Platform == "PC")
+                .Select(s => s.Season)
+                .FirstOrDefaultAsync();
+
+            if (!season.HasValue)
+                return BadRequest(ApiResponse<object>.Fail("ไม่พบ Season ปัจจุบัน"));
+
+            var players = await _db.TbmUsers
+                .Where(u => u.UserLevel != "admin")
+                .ToListAsync();
+
+            int n = players.Count;
+            bool isEven = n % 2 == 0;
+            int rounds = isEven ? n - 1 : n;
+            int perRound = isEven ? n / 2 : (n - 1) / 2;
+            int leg1Matches = rounds * perRound;
+
+            var existingCount = 0;
+            var tableReady = false;
+            try
+            {
+                existingCount = await _db.TbmFixtureAllTests
+                    .CountAsync(f => f.Season == season && f.Platform == "PC" && f.Division == "D1");
+                tableReady = true;
+            }
+            catch
+            {
+                // tbm_fixture_all_test ยังไม่ได้สร้าง — ให้ผ่านไปก่อน
+                tableReady = false;
+            }
+
+            return Ok(ApiResponse<object>.Ok(new
+            {
+                season = season.Value,
+                playerCount = n,
+                leg1MatchCount = leg1Matches,
+                totalMatchCount = leg1Matches * 2,
+                existingFixtureCount = existingCount,
+                tableReady,
+                players = players.Select(p => new
+                {
+                    userId = p.UserId,
+                    lineName = p.LineName ?? p.UserId,
+                    currentTeam = p.CurrentTeam ?? p.LineName ?? p.UserId
+                })
+            }));
+        }
+
+        // ─────────────────────────────────────────────
+        // POST api/fixtures/generate  (Admin only)
+        // ─────────────────────────────────────────────
+        [HttpPost("generate")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> GenerateFixture()
+        {
+            var season = await _db.TbmCurrentSeasons
+                .Where(s => s.Platform == "PC")
+                .Select(s => s.Season)
+                .FirstOrDefaultAsync();
+
+            if (!season.HasValue)
+                return BadRequest(ApiResponse<object>.Fail("ไม่พบ Season ปัจจุบัน"));
+
+            // Block if fixtures already exist in test table
+            var existingCount = await _db.TbmFixtureAllTests
+                .CountAsync(f => f.Season == season && f.Platform == "PC" && f.Division == "D1");
+
+            if (existingCount > 0)
+                return BadRequest(ApiResponse<object>.Fail($"Season {season.Value} มี Fixture อยู่แล้ว {existingCount} รายการ ไม่สามารถ Generate ซ้ำได้"));
+
+            // ดึงผู้เล่นทั้งหมดที่ไม่ใช่ admin พร้อมข้อมูลทีม
+            var users = await _db.TbmUsers
+                .Where(u => u.UserLevel != "admin")
+                .ToListAsync();
+
+            if (users.Count < 2)
+                return BadRequest(ApiResponse<object>.Fail("ต้องมีผู้เล่นอย่างน้อย 2 คน"));
+
+            var userIds = users.Select(u => u.UserId).ToList();
+            var fixtures = GenerateRoundRobin(userIds);
+            
+            var fixtureInsert = new List<TbmFixtureAllTest>();
+            var teamInsert = new List<TbmTeam>();
+
+            // 1. เตรียมข้อมูล Fixtures (ใช้ UserId สำหรับ Home/Away)
+            // Leg 1 — ACTIVE='YES'
+            foreach (var (home, away, matchday) in fixtures)
+            {
+                fixtureInsert.Add(new TbmFixtureAllTest
+                {
+                    FixtureId = Guid.NewGuid().ToString(),
+                    Division = "D1",
+                    Match = matchday,
+                    Home = home, // UserId
+                    Away = away, // UserId
+                    Active = "YES",
+                    Season = season.Value,
+                    Platform = "PC",
+                    Leg = 1
+                });
+            }
+
+            // Leg 2 — ACTIVE='NO', Home/Away สลับ
+            foreach (var (home, away, matchday) in fixtures)
+            {
+                fixtureInsert.Add(new TbmFixtureAllTest
+                {
+                    FixtureId = Guid.NewGuid().ToString(),
+                    Division = "D1",
+                    Match = matchday,
+                    Home = away, // UserId สลับ
+                    Away = home, // UserId สลับ
+                    Active = "NO",
+                    Season = season.Value,
+                    Platform = "PC",
+                    Leg = 2
+                });
+            }
+
+            // 2. เตรียมข้อมูล Team Entry (ตาราง tbm_team)
+            foreach (var u in users)
+            {
+                // ตรวจสอบก่อนว่ามี team entry อยู่แล้วหรือไม่ (กันเหนียว)
+                var exists = await _db.TbmTeams.AnyAsync(t => 
+                    t.Player == u.UserId && 
+                    t.Season == season.Value && 
+                    t.Platform == "PC");
+
+                if (!exists)
+                {
+                    teamInsert.Add(new TbmTeam
+                    {
+                        Player = u.UserId,
+                        Division = "D1",
+                        Season = season.Value,
+                        Platform = "PC",
+                        TeamName = !string.IsNullOrEmpty(u.CurrentTeam) ? u.CurrentTeam : (u.LineName ?? u.UserId)
+                    });
+                }
+            }
+
+            // บันทึกข้อมูลทั้งหมด
+            using (var transaction = await _db.Database.BeginTransactionAsync())
+            {
+                try
+                {
+                    await _db.TbmFixtureAllTests.AddRangeAsync(fixtureInsert);
+                    await _db.TbmTeams.AddRangeAsync(teamInsert);
+                    await _db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest(ApiResponse<object>.Fail("เกิดข้อผิดพลาดในการบันทึกข้อมูล: " + ex.Message));
+                }
+            }
+
+            return Ok(ApiResponse<object>.Ok(new
+            {
+                message = $"Generate สำเร็จ! สร้าง {fixtureInsert.Count} fixtures และ {teamInsert.Count} team entries (Season {season.Value})",
+                matchCount = fixtureInsert.Count,
+                teamCount = teamInsert.Count,
+                season = season.Value
+            }));
+        }
+
+        // ─────────────────────────────────────────────
+        // POST api/fixtures/reset  (Admin only)
+        // ─────────────────────────────────────────────
+        [HttpPost("reset")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> ResetFixture([FromBody] ResetRequest? request)
+        {
+            if (request == null) return BadRequest(ApiResponse<object>.Fail("Invalid Request Payload"));
+
+            var season = await _db.TbmCurrentSeasons
+                .Where(s => s.Platform == "PC")
+                .Select(s => s.Season)
+                .FirstOrDefaultAsync();
+
+            if (!season.HasValue)
+                return BadRequest(ApiResponse<object>.Fail("ไม่พบข้อมูล Season ปัจจุบันในระบบ"));
+
+            var strategy = _db.Database.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync<IActionResult>(async () =>
+            {
+                using (var transaction = await _db.Database.BeginTransactionAsync())
+                {
+                    try
+                    {
+                        int fixtureCount = 0;
+                        int teamCount = 0;
+
+                        if (request.ResetFixtures)
+                        {
+                            var fixturesToDelete = await _db.TbmFixtureAllTests
+                                .Where(f => f.Season == season.Value && f.Platform == "PC")
+                                .ToListAsync();
+                            
+                            fixtureCount = fixturesToDelete.Count;
+                            if (fixtureCount > 0)
+                            {
+                                _db.TbmFixtureAllTests.RemoveRange(fixturesToDelete);
+                                await _db.SaveChangesAsync();
+                            }
+                        }
+
+                        if (request.ResetTeams)
+                        {
+                            var teamsToDelete = await _db.TbmTeams
+                                .Where(t => t.Season == season.Value && t.Platform == "PC")
+                                .ToListAsync();
+                            
+                            teamCount = teamsToDelete.Count;
+                            if (teamCount > 0)
+                            {
+                                _db.TbmTeams.RemoveRange(teamsToDelete);
+                                await _db.SaveChangesAsync();
+                            }
+                        }
+
+                        await transaction.CommitAsync();
+
+                        return (IActionResult)Ok(ApiResponse<object>.Ok(new { 
+                            message = $"ล้างข้อมูลสำเร็จ (ลบ {fixtureCount} fixtures, {teamCount} teams)",
+                            fixtureCount,
+                            teamCount
+                        }));
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        var errorMsg = ex.InnerException?.Message ?? ex.Message;
+                        return (IActionResult)BadRequest(ApiResponse<object>.Fail($"Reset ไม่สำเร็จ: {errorMsg}"));
+                    }
+                }
+            });
+        }
+
+        // ─────────────────────────────────────────────
+        // Round Robin (Berger Table rotation algorithm)
+        // Returns: list of (home, away, matchday)
+        // ─────────────────────────────────────────────
+        private static List<(string Home, string Away, int Matchday)> GenerateRoundRobin(List<string> players)
+        {
+            var arr = new List<string>(players);
+            if (arr.Count % 2 != 0) arr.Add("BYE");
+
+            int total = arr.Count;
+            int rounds = total - 1;
+            int perRound = total / 2;
+            var result = new List<(string, string, int)>();
+
+            for (int r = 0; r < rounds; r++)
+            {
+                for (int i = 0; i < perRound; i++)
+                {
+                    string a = arr[i];
+                    string b = arr[total - 1 - i];
+                    if (a != "BYE" && b != "BYE")
+                    {
+                        // สลับ Home/Away ให้สมดุล
+                        if ((r + i) % 2 == 0)
+                            result.Add((a, b, r + 1));
+                        else
+                            result.Add((b, a, r + 1));
+                    }
+                }
+                // Rotate: fix arr[0], rotate arr[1..total-1]
+                string last = arr[total - 1];
+                for (int i = total - 1; i > 1; i--)
+                    arr[i] = arr[i - 1];
+                arr[1] = last;
+            }
+            return result;
         }
     }
 }

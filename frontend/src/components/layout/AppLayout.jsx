@@ -43,6 +43,7 @@ import {
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
+import NotificationMenu from "../NotificationMenu";
 
 const DRAWER_WIDTH = 240;
 
@@ -162,7 +163,7 @@ const AppLayout = () => {
     // Admin always sees everything (or we rely on the backend/seed to give admin all keys)
     if (user?.userLevel === "admin") return true;
     
-    return (accessibleMenus || []).includes(item.key);
+    return Array.isArray(accessibleMenus) && accessibleMenus.includes(item.key);
   });
 
 
@@ -212,6 +213,8 @@ const AppLayout = () => {
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             eTPL
           </Typography>
+
+          {user && <NotificationMenu />}
 
           <>
             <Tooltip title={user?.userId || "Profile"}>

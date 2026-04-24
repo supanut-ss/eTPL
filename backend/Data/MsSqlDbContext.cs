@@ -22,6 +22,7 @@ namespace eTPL.API.Data
         public DbSet<AuctionTransaction> AuctionTransactions { get; set; }
         public DbSet<TransferOffer> TransferOffers { get; set; }
         public DbSet<SpecialBonus> SpecialBonuses { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -238,6 +239,19 @@ namespace eTPL.API.Data
                       .HasForeignKey(e => e.ToUserId)
                       .HasPrincipalKey(e => e.Id)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Notification>(entity =>
+            {
+                entity.ToTable("tbs_notifications", "dbo");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .HasPrincipalKey(e => e.Id)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Permission>(entity =>

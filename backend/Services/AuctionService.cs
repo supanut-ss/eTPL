@@ -14,6 +14,7 @@ namespace eTPL.API.Services
     public class AuctionService : IAuctionService
     {
         private readonly MsSqlDbContext _context;
+        private readonly INotificationService _notificationService;
 
         public async Task<PlayerFilterOptionsDto> GetPlayerFilterOptionsAsync(string? league = null)
         {
@@ -40,9 +41,10 @@ namespace eTPL.API.Services
             return result;
         }
 
-        public AuctionService(MsSqlDbContext context)
+        public AuctionService(MsSqlDbContext context, INotificationService notificationService)
         {
             _context = context;
+            _notificationService = notificationService;
         }
 
         private DateTime GetThaiTime() => DateTime.UtcNow.AddHours(7);
@@ -1534,6 +1536,14 @@ namespace eTPL.API.Services
 
             _context.TransferOffers.Add(offer);
             await _context.SaveChangesAsync();
+            
+            // Add notification for the receiver (seller)
+            await _notificationService.CreateNotificationAsync(
+                offer.ToUserId, 
+                "New Offer Received", 
+                $"You received a {offer.OfferType} offer for {squad.Player?.PlayerName} ({offer.Amount} TP)", 
+                "/deal-center?tab=incoming"
+            );
 
             offer = await _context.TransferOffers
                 .Include(o => o.FromUser).Include(o => o.ToUser).Include(o => o.Squad).ThenInclude(s => s!.Player)
@@ -1560,8 +1570,16 @@ namespace eTPL.API.Services
                 if (!request.Accept)
                 {
                     offer.Status = "Rejected";
-                    offer.UpdatedAt = DateTime.UtcNow;
                     await _context.SaveChangesAsync();
+                    
+                    // Add notification for the buyer
+                    await _notificationService.CreateNotificationAsync(
+                        offer.FromUserId,
+                        "Offer Rejected",
+                        $"Your offer for {offer.Squad?.Player?.PlayerName} was rejected.",
+                        "/deal-center?tab=outgoing"
+                    );
+
                     await transaction.CommitAsync();
                     return;
                 }
@@ -1688,6 +1706,14 @@ namespace eTPL.API.Services
 
                     await RecordTransactionAsync(offer.FromUserId, offer.Amount, "DEBIT", "MARKET_BUY", $"ซื้อ {playerName} จากตลาด (Private) {offer.Amount} TP", buyerWallet.AvailableBalance, null, offer.Squad.PlayerId);
                     await RecordTransactionAsync(sellerUserId, offer.Amount, "CREDIT", "MARKET_SELL", $"ขาย {playerName} {offer.Amount} TP", sellerWallet.AvailableBalance, null, offer.Squad.PlayerId);
+
+                    // Add notification for the buyer
+                    await _notificationService.CreateNotificationAsync(
+                        offer.FromUserId,
+                        "Offer Accepted!",
+                        $"Your offer for {playerName} was accepted! {playerName} has joined your squad.",
+                        "/my-squad"
+                    );
                 }
                 else if (offer.OfferType == "Loan")
                 {
@@ -1714,8 +1740,15 @@ namespace eTPL.API.Services
                         AcquiredAt = DateTime.UtcNow
                     });
 
-                    await RecordTransactionAsync(offer.FromUserId, offer.Amount, "DEBIT", "LOAN_FEE", $"ค่ายืมตัว {playerName} 1 ฤดูกาล", buyerWallet.AvailableBalance, null, offer.Squad.PlayerId);
                     await RecordTransactionAsync(sellerUserId, offer.Amount, "CREDIT", "LOAN_INCOME", $"รายได้ให้ยืม {playerName} 1 ฤดูกาล", sellerWallet.AvailableBalance, null, offer.Squad.PlayerId);
+
+                    // Add notification for the borrower
+                    await _notificationService.CreateNotificationAsync(
+                        offer.FromUserId,
+                        "Loan Offer Accepted!",
+                        $"Your loan offer for {playerName} was accepted! {playerName} has joined your squad on loan.",
+                        "/my-squad"
+                    );
                 }
 
                 offer.Status = "Accepted";

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace eTPL.API.Models.Scaffolded;
@@ -16,4 +16,6 @@ public partial class TbmUser
     public string? LinePic { get; set; }
 
     public string? LineName { get; set; }
+
+    public string? CurrentTeam { get; set; }
 }

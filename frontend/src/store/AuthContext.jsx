@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
   const fetchMenus = useCallback(async () => {
     try {
       const res = await getMyMenus();
-      setAccessibleMenus(res.data || []);
+      setAccessibleMenus(res.data.data || []);
     } catch (err) {
       console.error("Failed to fetch user menus", err);
       setAccessibleMenus([]);

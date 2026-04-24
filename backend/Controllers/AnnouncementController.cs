@@ -46,7 +46,7 @@ namespace eTPL.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "admin,moderator")]
         public async Task<IActionResult> GetAll()
         {
             var data = await _db.TbmAnnouces
@@ -67,7 +67,7 @@ namespace eTPL.API.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "admin,moderator")]
         public async Task<IActionResult> Create([FromBody] CreateAnnouncementRequest request)
         {
             var text = request.Announcement?.Trim();
@@ -100,7 +100,7 @@ namespace eTPL.API.Controllers
 
         [HttpPut("{id:guid}")]
         [HttpPost("{id:guid}/update")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "admin,moderator")]
         public async Task<IActionResult> Update(Guid id, [FromBody] UpdateAnnouncementRequest request)
         {
             var entity = await _db.TbmAnnouces.FirstOrDefaultAsync(a => a.Id == id);
@@ -123,7 +123,7 @@ namespace eTPL.API.Controllers
 
         [HttpPatch("{id:guid}/toggle")]
         [HttpPost("{id:guid}/toggle")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "admin,moderator")]
         public async Task<IActionResult> Toggle(Guid id, [FromBody] ToggleAnnouncementRequest request)
         {
             var entity = await _db.TbmAnnouces.FirstOrDefaultAsync(a => a.Id == id);
@@ -138,7 +138,7 @@ namespace eTPL.API.Controllers
 
         [HttpDelete("{id:guid}")]
         [HttpPost("{id:guid}/delete")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "admin,moderator")]
         public async Task<IActionResult> Delete(Guid id)
         {
             var entity = await _db.TbmAnnouces.FirstOrDefaultAsync(a => a.Id == id);

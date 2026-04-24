@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import {
 
@@ -139,6 +140,7 @@ const MarketOverviewPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
 
   const { enqueueSnackbar } = useSnackbar();
 
@@ -155,6 +157,13 @@ const MarketOverviewPage = () => {
   const [wallet, setWallet] = useState(null);
 
   const [tabValue, setTabValue] = useState(0);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'incoming') setTabValue(0);
+    else if (tab === 'outgoing') setTabValue(1);
+    else if (tab === 'history') setTabValue(2);
+  }, [searchParams]);
 
   const [quotas, setQuotas] = useState([]);
 

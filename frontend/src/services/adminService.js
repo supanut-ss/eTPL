@@ -9,7 +9,12 @@ const adminService = {
   getQuotaSummary: () => api.get("/api/admin/quota-summary"),
   getPrizes: () => api.get("/api/admin/prizes"),
   savePrizes: (data) => api.post("/api/admin/prizes", data),
-  
+
+  // Fixture Generator
+  getFixtureGeneratePreview: () => api.get("/api/fixtures/generate-preview"),
+  generateFixture: () => api.post("/api/fixtures/generate", {}),
+  resetFixtures: (data) => api.post("/api/fixtures/reset", data),
+
   // Special Bonus
   getBonuses: () => api.get("/api/bonus"),
   requestBonus: (data) => api.post("/api/bonus/request", data),

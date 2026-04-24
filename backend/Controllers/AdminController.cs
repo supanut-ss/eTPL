@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using eTPL.API.Data;
@@ -11,6 +12,7 @@ namespace eTPL.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "admin,moderator")]
     public class AdminController : ControllerBase
     {
         private readonly MsSqlDbContext _context;
