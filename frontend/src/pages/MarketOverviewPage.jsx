@@ -359,32 +359,22 @@ const MarketOverviewPage = () => {
 
     <Box sx={{ pb: 8 }}>
 
+      {/* Header */}
       <Box sx={{ 
-        display: "flex", 
-        justifyContent: "space-between", 
-        alignItems: { xs: "flex-start", sm: "flex-end" }, 
-        mb: 4, 
-        flexDirection: { xs: "column", sm: "row" }, 
-        gap: { xs: 3, sm: 0 } 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 4,
+        px: { xs: 1, sm: 0 }
       }}>
-
-        <Box>
-
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-
-                <Handshake color="primary" sx={{ fontSize: 36 }} />
-
-                <Box>
-
-                    <Typography variant="h4" fontWeight="bold">Transfer Center</Typography>
-
-                    <Typography variant="body1" color="text.secondary">Manage your trades and offers</Typography>
-
-                </Box>
-
-            </Box>
-
+        <Box display="flex" alignItems="center" gap={1.5}>
+          <Handshake color="primary" sx={{ fontSize: 32 }} />
+          <Box>
+            <Typography variant="h5" fontWeight="bold">Transfer Center</Typography>
+            <Typography variant="body2" color="text.secondary">MANAGE YOUR TRADES AND OFFERS</Typography>
+          </Box>
         </Box>
+
 
         <Box sx={{ 
 

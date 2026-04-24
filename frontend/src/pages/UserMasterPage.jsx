@@ -22,11 +22,12 @@ import {
   useTheme,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
-import { Add, Edit, Delete, Refresh, Person, ManageAccounts } from "@mui/icons-material";
+import { Add, Edit, Delete, Refresh, Person, ManageAccounts, Badge } from "@mui/icons-material";
 import { getUsers, createUser, updateUser, deleteUser } from "../api/userApi";
 import { useAuth } from "../store/AuthContext";
+import auctionService from "../services/auctionService";
 
-const LEVELS = ["admin", "user"];
+const LEVELS = ["admin", "moderator", "user"];
 const defaultForm = {
   userId: "",
   password: "",
@@ -34,6 +35,7 @@ const defaultForm = {
   lineId: "",
   linePic: "",
   lineName: "",
+  currentTeam: "",
 };
 
 const UserMasterPage = () => {
@@ -99,6 +101,7 @@ const UserMasterPage = () => {
       lineId: row.lineId || "",
       linePic: row.linePic || "",
       lineName: row.lineName || "",
+      currentTeam: row.currentTeam || "",
     });
     setErrors({});
     setDialogOpen(true);
@@ -141,53 +144,121 @@ const UserMasterPage = () => {
   const columns = [
     {
       field: "userId",
-      headerName: "User ID",
-      flex: 1,
+      headerName: "User Identity",
+      flex: 1.5,
+      minWidth: 200,
       renderCell: (params) => (
-        <Box display="flex" alignItems="center" gap={1}>
+        <Box display="flex" alignItems="center" gap={2} sx={{ py: 1 }}>
           <Avatar
+            src={params.row.linePic}
             sx={{
-              width: 28,
-              height: 28,
-              bgcolor: "primary.main",
-              fontSize: 12,
+              width: 40,
+              height: 40,
+              bgcolor: "primary.soft",
+              color: "primary.main",
+              fontWeight: "bold",
+              fontSize: 16,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "2px solid #fff"
             }}
           >
             {params.value?.[0]?.toUpperCase()}
           </Avatar>
-          {params.value}
+          <Box>
+            <Typography variant="body2" fontWeight={700} color="text.primary">
+              {params.value}
+            </Typography>
+            {params.row.lineName && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -0.5 }}>
+                {params.row.lineName}
+              </Typography>
+            )}
+          </Box>
         </Box>
       ),
     },
     {
       field: "userLevel",
-      headerName: "Level",
-      width: 110,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          color={params.value === "admin" ? "primary" : "default"}
-          size="small"
-          sx={{ fontWeight: 600 }}
-        />
-      ),
+      headerName: "Access Role",
+      width: 140,
+      renderCell: (params) => {
+        const level = params.value?.toLowerCase();
+        let color = "default";
+        let bgColor = "rgba(0,0,0,0.05)";
+        let textColor = "#666";
+
+        if (level === "admin") {
+          bgColor = "rgba(25, 118, 210, 0.12)";
+          textColor = "#1976d2";
+        } else if (level === "moderator") {
+          bgColor = "rgba(237, 108, 2, 0.12)";
+          textColor = "#ed6c02";
+        }
+
+        return (
+          <Chip
+            label={level?.toUpperCase()}
+            size="small"
+            sx={{ 
+              fontWeight: 800, 
+              fontSize: '0.65rem',
+              letterSpacing: '0.05em',
+              bgcolor: bgColor,
+              color: textColor,
+              border: "1px solid",
+              borderColor: "transparent",
+              borderRadius: "6px",
+              height: 24
+            }}
+          />
+        );
+      },
     },
-    { field: "lineName", headerName: "LINE Name", flex: 1 },
-    { field: "lineId", headerName: "LINE ID", flex: 1 },
+    { 
+      field: "lineId", 
+      headerName: "LINE Connection", 
+      flex: 1,
+      renderCell: (params) => (
+        <Typography variant="body2" color={params.value ? "text.primary" : "text.disabled"}>
+          {params.value || "—"}
+        </Typography>
+      )
+    },
+    {
+      field: "currentTeam",
+      headerName: "Current Team",
+      width: 180,
+      renderCell: (params) => (
+        <Box display="flex" alignItems="center" gap={1}>
+          <Badge fontSize="small" sx={{ color: params.value ? 'primary.main' : 'text.disabled', fontSize: 18 }} />
+          <Typography variant="body2" fontWeight={600}>
+            {params.value || "No Team"}
+          </Typography>
+        </Box>
+      )
+    },
     {
       field: "actions",
-      headerName: "Actions",
-      width: 100,
+      headerName: "Options",
+      width: 120,
       sortable: false,
-      align: "center",
-      headerAlign: "center",
+      align: "right",
+      headerAlign: "right",
       renderCell: (params) => (
-        <Box display="flex" gap={0.5}>
-          <Tooltip title="Edit">
+        <Box display="flex" gap={1} justifyContent="flex-end">
+          <Tooltip title="Edit Profile">
             <IconButton
               size="small"
-              color="primary"
               onClick={() => handleOpenEdit(params.row)}
+              sx={{ 
+                color: "primary.main",
+                transition: 'all 0.2s ease',
+                "&:hover": { 
+                  bgcolor: "transparent",
+                  color: "primary.dark",
+                  transform: 'scale(1.2)',
+                }
+              }}
             >
               <Edit fontSize="small" />
             </IconButton>
@@ -195,19 +266,27 @@ const UserMasterPage = () => {
           <Tooltip
             title={
               params.row.userId === currentUser?.userId
-                ? "Cannot delete yourself"
-                : "Delete"
+                ? "Self-deletion restricted"
+                : "Remove User"
             }
           >
             <span>
               <IconButton
                 size="small"
-                color="error"
                 onClick={() => {
                   setDeleteTarget(params.row);
                   setDeleteDialogOpen(true);
                 }}
                 disabled={params.row.userId === currentUser?.userId}
+                sx={{ 
+                  color: "error.main",
+                  transition: 'all 0.2s ease',
+                  "&:hover": { 
+                    bgcolor: "transparent",
+                    color: "error.dark",
+                    transform: 'scale(1.2)',
+                  }
+                }}
               >
                 <Delete fontSize="small" />
               </IconButton>
@@ -219,75 +298,99 @@ const UserMasterPage = () => {
   ];
 
   return (
-    <Box>
-      {/* Header */}
+    <Box sx={{ pb: 4 }}>
+      {/* Header Section */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
-        alignItems: { xs: 'flex-start', sm: 'center' }, 
-        mb: 3,
-        flexDirection: { xs: 'column', sm: 'row' },
-        gap: { xs: 2, sm: 0 }
+        alignItems: 'center', 
+        mb: 4,
+        px: { xs: 1, sm: 0 }
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <ManageAccounts color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h5" fontWeight="bold">
-              Manage Users
+              Member Control
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              MEMBER DATABASE • {rows.length} users
+              MANAGE USER ACCOUNTS AND ACCESS LEVELS • {rows.length} TOTAL
             </Typography>
           </Box>
         </Box>
-        <Box display="flex" gap={1}>
 
-          <Button
-            variant="contained"
-            disableElevation
-            startIcon={<Add />}
-            onClick={handleOpenAdd}
-            fullWidth={isMobile}
-            sx={{
-              borderRadius: '12px',
-              textTransform: 'none',
-              fontWeight: 700,
-              px: 3,
-              height: 42,
-              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
-              transition: 'all 0.2s',
-              "&:hover": { 
-                transform: 'translateY(-1px)',
-                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.3)',
-              },
-            }}
-          >
-            Add User
-          </Button>
-        </Box>
+        
+        <Button
+          variant="contained"
+          disableElevation
+          startIcon={<Add />}
+          onClick={handleOpenAdd}
+          sx={{
+            borderRadius: '14px',
+            textTransform: 'none',
+            fontWeight: 800,
+            px: 4,
+            height: 48,
+            fontSize: '0.95rem',
+            boxShadow: '0 4px 14px rgba(25, 118, 210, 0.25)',
+            "&:hover": { 
+              transform: 'translateY(-2px)',
+              boxShadow: '0 6px 20px rgba(25, 118, 210, 0.35)',
+            },
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
+        >
+          Add New Member
+        </Button>
       </Box>
 
-      {/* DataGrid */}
-      <Paper elevation={2} sx={{ borderRadius: 2, overflow: "hidden" }}>
+      {/* DataGrid Section */}
+      <Paper elevation={0} sx={{ 
+        borderRadius: 4, 
+        overflow: "hidden", 
+        border: "1px solid", 
+        borderColor: "divider",
+        bgcolor: "background.paper",
+        boxShadow: '0 12px 24px rgba(0,0,0,0.03)'
+      }}>
         <DataGrid
           rows={rows}
           columns={columns}
           loading={loading}
           autoHeight
           getRowId={(row) => row.userId}
+          rowHeight={72}
           pageSizeOptions={[10, 25, 50]}
           initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
           disableRowSelectionOnClick
           sx={{
             border: "none",
             "& .MuiDataGrid-columnHeaders": {
-              bgcolor: "grey.50",
-              fontWeight: 700,
+              bgcolor: "rgba(0,0,0,0.02)",
+              borderBottom: "1px solid",
+              borderColor: "divider",
+              color: "text.secondary",
+              textTransform: "uppercase",
+              fontSize: "0.75rem",
+              fontWeight: 800,
+              letterSpacing: "0.05em",
             },
-            "& .MuiDataGrid-row:hover": { bgcolor: "primary.50" },
+            "& .MuiDataGrid-cell": {
+              borderBottom: "1px solid rgba(0,0,0,0.04)",
+              "&:focus": { outline: "none" }
+            },
+            "& .MuiDataGrid-row:hover": { 
+              bgcolor: "rgba(25, 118, 210, 0.02)",
+              cursor: 'pointer'
+            },
+            "& .MuiDataGrid-footerContainer": {
+              borderTop: "1px solid",
+              borderColor: "divider",
+            }
           }}
         />
       </Paper>
+
 
       {/* Add/Edit Dialog */}
       <Dialog
@@ -341,6 +444,13 @@ const UserMasterPage = () => {
                 </MenuItem>
               ))}
             </TextField>
+            <TextField
+              label="Current Team"
+              value={form.currentTeam}
+              onChange={(e) => setForm({ ...form, currentTeam: e.target.value })}
+              fullWidth
+              helperText="Assign user to a club"
+            />
             <Divider textAlign="left">
               <Typography variant="caption" color="text.secondary">
                 LINE Information (optional)

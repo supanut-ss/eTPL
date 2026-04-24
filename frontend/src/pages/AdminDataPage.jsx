@@ -40,22 +40,19 @@ import {
   CheckCircle,
   Error as ErrorIcon,
   Search,
-  MilitaryTech,
   AutoAwesome,
   Shield,
   Public,
   Code,
   Input,
   ManageHistory,
-  Save,
   Refresh,
   Storage,
   Payments,
   ThumbUp,
   ThumbDown,
-  Lock,
-  KeyboardArrowDown,
-  KeyboardArrowUp
+  Lock
+
 } from "@mui/icons-material";
 import adminService from "../services/adminService";
 import { useSnackbar } from "notistack";
@@ -91,28 +88,12 @@ const AdminDataPage = () => {
   const [selectedBonusId, setSelectedBonusId] = useState(null);
   const [modalMode, setModalMode] = useState("bonus"); // "bonus" | "prizes"
   const [adminPassword, setAdminPassword] = useState("");
-  const [pendingPrizes, setPendingPrizes] = useState(null);
   const [submittingBonus, setSubmittingBonus] = useState(false);
 
-  const [prizeGroups, setPrizeGroups] = useState([
-    { rank: "1st", amount: "600" },
-    { rank: "2nd", amount: "500" },
-    { rank: "3rd", amount: "450" },
-    { rank: "4th", amount: "410" },
-    { rank: "5th", amount: "380" },
-    { rank: "6th", amount: "350" },
-    { rank: "7-8th", amount: "330" },
-    { rank: "9-12th", amount: "310" },
-    { rank: "13-16th", amount: "290" },
-    { rank: "17th +", amount: "270" },
-  ]);
-  const [showPrizeSettings, setShowPrizeSettings] = useState(true);
-  const [savingPrizes, setSavingPrizes] = useState(false);
 
   // --- Effects ---
   useEffect(() => {
     fetchUsers();
-    fetchPrizes();
     fetchBonuses();
   }, []);
 
@@ -144,19 +125,6 @@ const AdminDataPage = () => {
     }
   };
 
-  const fetchPrizes = async () => {
-    try {
-      const res = await adminService.getPrizes();
-      if (res.data && Array.isArray(res.data)) {
-        setPrizeGroups(res.data.map(p => ({
-          rank: p.rankLabel || "",
-          amount: (p.amount || 0).toString()
-        })));
-      }
-    } catch (err) {
-      console.error("Failed to fetch prizes", err);
-    }
-  };
 
   const fetchBonuses = async () => {
     try {
@@ -196,9 +164,6 @@ const AdminDataPage = () => {
         await adminService.approveBonus({ bonusId: selectedBonusId, password: adminPassword });
         enqueueSnackbar("Bonus approved!", { variant: "success" });
         fetchBonuses();
-      } else {
-        await adminService.savePrizes({ prizes: pendingPrizes, password: adminPassword });
-        enqueueSnackbar("Prizes saved successfully!", { variant: "success" });
       }
       setApproveModalOpen(false);
       setAdminPassword("");
@@ -338,21 +303,6 @@ const AdminDataPage = () => {
     }
   };
 
-  const handlePrizeChange = (index, field, value) => {
-    const newGroups = [...prizeGroups];
-    newGroups[index][field] = value;
-    setPrizeGroups(newGroups);
-  };
-
-  const handleSavePrizes = async () => {
-    const prizes = prizeGroups.map(pg => ({
-      rankLabel: pg.rank,
-      amount: Number(pg.amount)
-    }));
-    setPendingPrizes(prizes);
-    setModalMode("prizes");
-    setApproveModalOpen(true);
-  };
 
   // --- Render ---
   return (
@@ -366,7 +316,13 @@ const AdminDataPage = () => {
       }} />
       
       {/* Header Section */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, px: 2 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 4, 
+        px: { xs: 1, sm: 0 } 
+      }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <Storage color="primary" sx={{ fontSize: 32 }} />
           <Box>
@@ -457,33 +413,6 @@ const AdminDataPage = () => {
           </Paper>
         </Box>
 
-        {/* Prize Money Settings Section */}
-        <Paper elevation={2} sx={{ p: 4, borderRadius: 3, border: "1px solid", borderColor: "divider", width: '100%' }}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-            <Box display="flex" alignItems="center" gap={1.5}>
-              <MilitaryTech color="primary" sx={{ fontSize: 28 }} />
-              <Typography variant="h6" fontWeight="bold">Tournament Prize Settings</Typography>
-            </Box>
-            <Box display="flex" alignItems="center" gap={2}>
-              <IconButton size="small" onClick={() => setShowPrizeSettings(!showPrizeSettings)} sx={{ bgcolor: 'rgba(0,0,0,0.03)' }}>
-                {showPrizeSettings ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
-              </IconButton>
-              <Button variant="contained" startIcon={<Save />} onClick={handleSavePrizes} disabled={savingPrizes} sx={{ borderRadius: 2, textTransform: 'none', px: 4 }}>Save All Prizes</Button>
-            </Box>
-          </Box>
-          <Divider sx={{ mb: showPrizeSettings ? 4 : 0 }} />
-          
-          <Collapse in={showPrizeSettings}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, width: '100%' }}>
-              {(prizeGroups || []).map((group, index) => (
-                <Box key={index} sx={{ p: 2, borderRadius: 2, bgcolor: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.05)", "&:hover": { borderColor: "primary.light" } }}>
-                  <TextField fullWidth size="small" placeholder="Rank" value={group.rank} onChange={(e) => handlePrizeChange(index, 'rank', e.target.value)} sx={{ mb: 1.5, "& fieldset": { border: "none" }, bgcolor: "rgba(0,0,0,0.03)", borderRadius: 1 }} />
-                  <TextField fullWidth size="small" placeholder="Amount (TP)" value={group.amount} onChange={(e) => handlePrizeChange(index, 'amount', e.target.value)} InputProps={{ endAdornment: <Typography variant="caption" fontWeight="bold" color="primary">TP</Typography>, sx: { bgcolor: "white" } }} />
-                </Box>
-              ))}
-            </Box>
-          </Collapse>
-        </Paper>
 
         {/* Special Bonus Management Section */}
         <Paper elevation={2} sx={{ p: 4, borderRadius: 3, border: "1px solid", borderColor: "divider", width: '100%' }}>
@@ -543,8 +472,9 @@ const AdminDataPage = () => {
 
       <Dialog open={approveModalOpen} onClose={() => setApproveModalOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ fontWeight: 'bold', color: 'warning.main' }}>Super Admin Authorization</DialogTitle>
-        <DialogContent><Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>Enter Super Admin password to {modalMode === "bonus" ? "approve this bonus" : "save prize settings"}:</Typography><TextField fullWidth type="password" size="small" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleApproveBonus()} /></DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#fff9f0' }}><Button onClick={() => setApproveModalOpen(false)}>Cancel</Button><Button variant="contained" color="warning" onClick={handleApproveBonus}>{modalMode === "bonus" ? "Approve & Pay" : "Authorize & Save"}</Button></DialogActions>
+        <DialogContent><Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>Enter Super Admin password to approve this bonus:</Typography><TextField fullWidth type="password" size="small" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleApproveBonus()} /></DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#fff9f0' }}><Button onClick={() => setApproveModalOpen(false)}>Cancel</Button><Button variant="contained" color="warning" onClick={handleApproveBonus}>Approve & Pay</Button></DialogActions>
+
       </Dialog>
     </Box>
   );

@@ -602,13 +602,13 @@ const TransferBoardPage = () => {
 
   return (
     <Box sx={{ pb: 6 }}>
+      {/* Header */}
       <Box sx={{ 
-        display: "flex", 
-        flexDirection: isMobile ? "column" : "row",
-        justifyContent: "space-between",
-        alignItems: isMobile ? "flex-start" : "center", 
-        mb: 3, 
-        gap: 1.5 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 4,
+        px: { xs: 1, sm: 0 }
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <Storefront color="primary" sx={{ fontSize: 32 }} />
@@ -617,6 +617,7 @@ const TransferBoardPage = () => {
             <Typography variant="body2" color="text.secondary">OPEN PLAYER TRANSFER MARKET</Typography>
           </Box>
         </Box>
+
         
         <Box sx={{ width: isMobile ? "100%" : "auto" }}>
           <Button 

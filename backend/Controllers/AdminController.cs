@@ -250,7 +250,7 @@ namespace eTPL.API.Controllers
                     {
                         GradeName = grade.GradeName,
                         Count = squads.Where(s => s.UserId == user.Id && s.Status == "Active" && s.Player != null)
-                                      .Count(s => s.Player.PlayerOvr >= grade.MinOVR && s.Player.PlayerOvr <= grade.MaxOVR),
+                                      .Count(s => s.Player!.PlayerOvr >= grade.MinOVR && s.Player.PlayerOvr <= grade.MaxOVR),
                         Limit = grade.MaxAllowedPerUser
                     }).ToList(),
                     LoanInCount = squads.Count(s => s.UserId == user.Id && s.IsLoan && s.Status == "Active"),
@@ -289,13 +289,8 @@ namespace eTPL.API.Controllers
         {
             try
             {
-                var superAdminPassword = _config["AdminSettings:SuperAdminPassword"];
-                if (request.Password != superAdminPassword)
-                {
-                    return BadRequest(new { message = "Incorrect Super Admin Password" });
-                }
-
                 var prizeSettings = request.Prizes;
+
 
                 // Clear existing settings
                 var existing = await _scaffoldedContext.TbsPrizeSettings.ToListAsync();

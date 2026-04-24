@@ -120,10 +120,9 @@ const AdminAuctionPage = () => {
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
-        alignItems: { xs: 'flex-start', sm: 'center' }, 
-        mb: 3,
-        flexDirection: { xs: 'column', sm: 'row' },
-        gap: { xs: 2.5, sm: 0 }
+        alignItems: 'center', 
+        mb: 4,
+        px: { xs: 1, sm: 0 }
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <Settings color="primary" sx={{ fontSize: 32 }} />

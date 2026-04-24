@@ -167,12 +167,11 @@ const CompletedAuctionPage = () => {
       {/* Header Section */}
       <Fade in={true} timeout={800}>
         <Box sx={{ 
-          display: "flex", 
-          flexDirection: isMobile ? "column" : "row",
-          justifyContent: "space-between", 
-          alignItems: isMobile ? "flex-start" : "center", 
-          gap: 2,
-          mb: 3
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 4,
+          px: { xs: 1, sm: 0 }
         }}>
           <Box display="flex" alignItems="center" gap={1.5}>
             <HotelClass color="primary" sx={{ fontSize: 32 }} />
@@ -183,6 +182,7 @@ const CompletedAuctionPage = () => {
               </Typography>
             </Box>
           </Box>
+
 
           <TextField
               placeholder="Search historical players..."

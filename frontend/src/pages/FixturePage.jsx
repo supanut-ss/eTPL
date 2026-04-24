@@ -352,11 +352,10 @@ const FixturePage = () => {
       {/* Header */}
       <Box sx={{ 
         display: 'flex', 
-        flexDirection: isMobile ? 'column' : 'row',
         justifyContent: 'space-between', 
-        alignItems: isMobile ? 'flex-start' : 'center', 
-        gap: 1.5,
-        mb: 3
+        alignItems: 'center', 
+        mb: 4,
+        px: { xs: 1, sm: 0 }
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <SportsSoccer color="primary" sx={{ fontSize: 32 }} />
@@ -369,9 +368,8 @@ const FixturePage = () => {
             </Typography>
           </Box>
         </Box>
-
-
       </Box>
+
 
       <Stack direction="row" spacing={2} mb={3} flexWrap="wrap">
         <Paper

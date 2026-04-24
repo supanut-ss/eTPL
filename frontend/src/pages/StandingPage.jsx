@@ -325,22 +325,25 @@ const StandingPage = () => {
     <Box>
       {/* Header */}
       <Box sx={{ 
-        display: "flex", 
-        flexDirection: isMobile ? "column" : "row",
-        alignItems: isMobile ? "flex-start" : "center", 
-        gap: 1.5, 
-        mb: 3 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 4,
+        px: { xs: 1, sm: 0 }
       }}>
-        <Leaderboard color="primary" sx={{ fontSize: 32 }} />
-        <Box>
-          <Typography variant="h5" fontWeight="bold">
-            Standings
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            eFootball · D1
-          </Typography>
+        <Box display="flex" alignItems="center" gap={1.5}>
+          <Leaderboard color="primary" sx={{ fontSize: 32 }} />
+          <Box>
+            <Typography variant="h5" fontWeight="bold">
+              Standings
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              EFOOTBALL · D1
+            </Typography>
+          </Box>
         </Box>
       </Box>
+
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>

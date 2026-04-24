@@ -57,68 +57,81 @@ const navItems = [
     path: "/fixtures",
     icon: <SportsSoccer />,
     loginRequired: true,
+    key: "fixtures",
   },
   {
     label: "My Team",
     path: "/my-squad",
     icon: <EmojiEvents />,
     loginRequired: true,
+    key: "my-squad",
   },
-   {
+  {
     label: "League Teams",
     path: "/clubs-squad",
     icon: <People />,
     loginRequired: true,
+    key: "clubs-squad",
   },
   {
     label: "Auction",
     path: "/auction",
     icon: <Gavel />,
     loginRequired: true,
+    key: "auction",
   },
   {
     label: "Transfer Market",
     path: "/transfer-board",
     icon: <Storefront />,
     loginRequired: true,
+    key: "transfer-board",
   },
   {
     label: "Transfer Center",
     path: "/deal-center",
     icon: <Handshake />,
     loginRequired: true,
+    key: "deal-center",
   },
-  { label: "Manage Users", path: "/users", icon: <ManageAccounts />, adminOnly: true },
+  { label: "Manage Users", path: "/users", icon: <ManageAccounts />, key: "users" },
   {
     label: "Permissions",
     path: "/permissions",
     icon: <Security />,
-    adminOnly: true,
+    key: "permissions",
   },
   {
     label: "Auction Settings",
     path: "/admin/auction",
     icon: <Settings />,
-    adminOnly: true,
+    key: "admin-auction",
   },
   {
     label: "Data Management",
     path: "/admin/manage-data",
     icon: <Storage />,
-    adminOnly: true,
+    key: "admin-manage-data",
+  },
+  {
+    label: "League Setting",
+    path: "/admin/league-setting",
+    icon: <EmojiEvents />,
+    key: "admin-league-setting",
   },
   {
     label: "Announcements",
     path: "/announcements",
     icon: <Campaign />,
-    adminOnly: true,
+    key: "announcements",
   },
 ];
+
 
 const AppLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, accessibleMenus } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -139,10 +152,19 @@ const AppLayout = () => {
   };
 
   const filteredNav = navItems.filter((item) => {
-    if (item.adminOnly && user?.userLevel !== "admin") return false;
-    if (item.loginRequired && !user) return false;
-    return true;
+    // Public items (no key) are always shown
+    if (!item.key) {
+      if (item.loginRequired && !user) return false;
+      return true;
+    }
+
+    // Restricted items (with key) check against accessibleMenus
+    // Admin always sees everything (or we rely on the backend/seed to give admin all keys)
+    if (user?.userLevel === "admin") return true;
+    
+    return (accessibleMenus || []).includes(item.key);
   });
+
 
   const drawer = (
     <Box>

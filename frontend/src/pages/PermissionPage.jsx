@@ -23,9 +23,6 @@ import { getPermissions, updatePermissions } from "../api/permissionApi";
 
 // List of menus matching backend PermissionService.AllMenus
 const ALL_MENUS = [
-  { key: "dashboard", label: "Dashboard", description: "Home / System overview" },
-  { key: "standings", label: "Standings", description: "League table and rank" },
-  { key: "matches", label: "Matches", description: "Public match history" },
   { key: "fixtures", label: "My Fixtures", description: "Match reporting for players" },
   { key: "my-squad", label: "My Team", description: "Personal squad management" },
   { key: "clubs-squad", label: "League Teams", description: "View all team squads" },
@@ -35,25 +32,28 @@ const ALL_MENUS = [
   { key: "users", label: "Manage Users", description: "Add, edit, delete users" },
   { key: "permissions", label: "Permissions", description: "Define menu access permissions" },
   { key: "admin-auction", label: "Auction Settings", description: "System financial & timer rules" },
+  { key: "admin-manage-data", label: "Data Management", description: "Scrape players & HOF entry" },
+  { key: "admin-league-setting", label: "League Setting", description: "Prize settings & tournament rules" },
   { key: "announcements", label: "Announcements", description: "Manage news and updates" },
 ];
 
-const ALL_LEVELS = ["admin", "user"];
+const ALL_LEVELS = ["admin", "moderator", "user"];
 
 const LEVEL_COLORS = {
   admin: "primary",
+  moderator: "warning",
   user: "default",
 };
 
-// dashboard is accessible by all; fixture access is admin-only; other admin menus stay locked for admin level
-const isLocked = (menuKey, userLevel) =>
-  menuKey === "dashboard" || userLevel === "admin";
+
+// admin level is always locked to 'true'
+const isLocked = (menuKey, userLevel) => userLevel === "admin";
 
 const getFixedValue = (menuKey, userLevel) => {
-  if (menuKey === "dashboard") return true;
   if (userLevel === "admin") return true;
   return null;
 };
+
 
 const PermissionPage = () => {
   const [matrix, setMatrix] = useState({}); // { "dashboard|admin": true, ... }
@@ -89,7 +89,7 @@ const PermissionPage = () => {
             return;
           }
           if (!(k in map)) {
-            map[k] = level === "admin" || key === "dashboard";
+            map[k] = level === "admin";
           }
         });
       });
@@ -141,7 +141,8 @@ const PermissionPage = () => {
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        mb: 3
+        mb: 4,
+        px: { xs: 1, sm: 0 }
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <Security color="primary" sx={{ fontSize: 32 }} />

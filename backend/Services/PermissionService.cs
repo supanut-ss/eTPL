@@ -13,9 +13,6 @@ namespace eTPL.API.Services
         // รายการ menus ทั้งหมดในระบบ (single source of truth)
         public static readonly List<(string Key, string Label)> AllMenus = new()
         {
-            ("dashboard",      "Dashboard"),
-            ("standings",      "Standings"),
-            ("matches",        "Matches"),
             ("fixtures",       "My Fixtures"),
             ("my-squad",       "My Team"),
             ("clubs-squad",    "League Teams"),
@@ -25,10 +22,13 @@ namespace eTPL.API.Services
             ("users",          "Manage Users"),
             ("permissions",    "Permissions"),
             ("admin-auction",  "Auction Settings"),
+            ("admin-manage-data", "Data Management"),
+            ("admin-league-setting", "League Setting"),
             ("announcements",  "Announcements"),
+
         };
 
-        public static readonly string[] AllLevels = { "admin", "user" };
+        public static readonly string[] AllLevels = { "admin", "moderator", "user" };
 
         public PermissionService(MsSqlDbContext db)
         {
@@ -97,8 +97,8 @@ namespace eTPL.API.Services
                 {
                     if (existingSet.Contains($"{key}|{level}")) continue;
 
-                    // Default: admin can access everything; user can access only dashboard
-                    var canAccess = level == "admin" || key == "dashboard";
+                    // Default: admin can access everything; user starts with nothing (permissions are managed)
+                    var canAccess = level == "admin";
                     seeds.Add(new Permission
                     {
                         MenuKey = key,

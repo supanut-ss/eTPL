@@ -20,6 +20,7 @@ namespace eTPL.API.Models.DTOs
         public string? LineId { get; set; }
         public string? LinePic { get; set; }
         public string? LineName { get; set; }
+        public string? CurrentTeam { get; set; }
     }
 
     public class CreateUserRequest
@@ -30,8 +31,9 @@ namespace eTPL.API.Models.DTOs
         public string? LineId { get; set; }
         public string? LinePic { get; set; }
         public string? LineName { get; set; }
+        public string? CurrentTeam { get; set; }
     }
-
+    
     public class UpdateUserRequest
     {
         public string? Password { get; set; } // null = ไม่เปลี่ยน password
@@ -39,6 +41,7 @@ namespace eTPL.API.Models.DTOs
         public string? LineId { get; set; }
         public string? LinePic { get; set; }
         public string? LineName { get; set; }
+        public string? CurrentTeam { get; set; }
     }
 
     public class LineLoginRequest

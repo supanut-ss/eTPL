@@ -23,6 +23,7 @@ import MarketOverviewPage from "./pages/MarketOverviewPage";
 import CompletedAuctionPage from "./pages/CompletedAuctionPage";
 import HallOfFamePage from "./pages/HallOfFamePage";
 import AdminDataPage from "./pages/AdminDataPage";
+import AdminLeagueSetting from "./pages/AdminLeagueSetting";
 
 import LineCallbackPage from "./pages/LineCallbackPage";
 
@@ -139,6 +140,15 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="admin/league-setting"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <AdminLeagueSetting />
+                  </ProtectedRoute>
+                }
+              />
+
             </Route>
 
               <Route path="*" element={<Navigate to="/main" replace />} />

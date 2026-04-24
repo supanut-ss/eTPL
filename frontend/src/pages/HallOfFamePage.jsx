@@ -377,24 +377,23 @@ const HallOfFamePage = () => {
       <Fade in={true} timeout={600}>
         <Box sx={{ position: 'relative', zIndex: 1, px: { xs: 1, md: 2 } }}>
           <Box sx={{ 
-            display: "flex", 
-            flexDirection: isMobile ? "column" : "row",
-            justifyContent: "space-between", 
-            alignItems: isMobile ? "flex-start" : "center", 
-            gap: 2,
-            mb: 3
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            mb: 4,
+            px: { xs: 1, sm: 0 }
           }}>
             <Box display="flex" alignItems="center" gap={1.5}>
               <MilitaryTech color="primary" sx={{ fontSize: 32 }} />
               <Box>
-                <Typography variant="h5" fontWeight="950" sx={{ letterSpacing: -0.5 }}>Hall of Fame</Typography>
-                <Typography variant="caption" color="text.secondary" fontWeight="800" sx={{ letterSpacing: 1, textTransform: 'uppercase', opacity: 0.8 }}>
+                <Typography variant="h5" fontWeight="bold">Hall of Fame</Typography>
+                <Typography variant="body2" color="text.secondary">
                   PERSON-CENTRIC LEGEND BOARD
                 </Typography>
               </Box>
             </Box>
-
           </Box>
+
 
           <Fade in={true} timeout={1200}>
             <Box 

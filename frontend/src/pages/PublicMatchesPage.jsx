@@ -537,15 +537,24 @@ const PublicMatchesPage = () => {
   if (loading)
     return (
       <Box>
-        <Box display="flex" alignItems="center" gap={1.5}>
-          <CalendarMonth color="primary" sx={{ fontSize: 32 }} />
-          <Box>
-            <Typography variant="h5" fontWeight="bold">
-              Matches
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              eFootball · D1
-            </Typography>
+        {/* Header Skeleton */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 4,
+          px: { xs: 1, sm: 0 }
+        }}>
+          <Box display="flex" alignItems="center" gap={1.5}>
+            <CalendarMonth color="primary" sx={{ fontSize: 32 }} />
+            <Box>
+              <Typography variant="h5" fontWeight="bold">
+                Matches
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                EFOOTBALL · D1
+              </Typography>
+            </Box>
           </Box>
         </Box>
         <Stack spacing={2}>
@@ -565,14 +574,13 @@ const PublicMatchesPage = () => {
 
   return (
     <Box>
-      {/* Header — same pattern as StandingPage */}
+      {/* Header */}
       <Box sx={{ 
         display: 'flex', 
-        flexDirection: isMobile ? 'column' : 'row',
         justifyContent: 'space-between', 
-        alignItems: isMobile ? 'flex-start' : 'center', 
-        gap: 1.5,
-        mb: 3
+        alignItems: 'center', 
+        mb: 4,
+        px: { xs: 1, sm: 0 }
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <CalendarMonth color="primary" sx={{ fontSize: 32 }} />
@@ -581,11 +589,12 @@ const PublicMatchesPage = () => {
               Matches
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              eFootball · D1
+              EFOOTBALL · D1
             </Typography>
           </Box>
         </Box>
       </Box>
+
 
       {/* Matchweek navigator */}
       <Paper

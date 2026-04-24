@@ -44,6 +44,7 @@ namespace eTPL.API.Services
                 LineId = request.LineId,
                 LinePic = request.LinePic,
                 LineName = request.LineName,
+                CurrentTeam = request.CurrentTeam,
             };
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
@@ -65,6 +66,7 @@ namespace eTPL.API.Services
             user.LineId = request.LineId;
             user.LinePic = request.LinePic;
             user.LineName = request.LineName;
+            user.CurrentTeam = request.CurrentTeam;
 
             if (!string.IsNullOrWhiteSpace(request.Password))
                 user.Password = request.Password;
@@ -112,6 +114,7 @@ namespace eTPL.API.Services
             LineId = u.LineId,
             LinePic = u.LinePic,
             LineName = u.LineName,
+            CurrentTeam = u.CurrentTeam,
         };
     }
 }

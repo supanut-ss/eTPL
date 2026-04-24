@@ -386,11 +386,10 @@ const AuctionPage = () => {
       {/* Header */}
       <Box sx={{ 
         display: 'flex', 
-        flexDirection: isMobile ? 'column' : 'row',
         justifyContent: 'space-between', 
-        alignItems: isMobile ? 'flex-start' : 'center', 
-        gap: 2,
-        mb: 3
+        alignItems: 'center', 
+        mb: 4,
+        px: { xs: 1, sm: 0 }
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <Gavel color="primary" sx={{ fontSize: 32 }} />
@@ -401,6 +400,7 @@ const AuctionPage = () => {
             </Typography>
           </Box>
         </Box>
+
         <Box display="flex" gap={1}>
 
           <Button 

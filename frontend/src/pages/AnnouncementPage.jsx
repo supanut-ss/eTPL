@@ -160,7 +160,8 @@ const AnnouncementPage = () => {
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        mb: 3
+        mb: 4,
+        px: { xs: 1, sm: 0 }
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <Campaign color="primary" sx={{ fontSize: 32 }} />
@@ -173,6 +174,7 @@ const AnnouncementPage = () => {
             </Typography>
           </Box>
         </Box>
+
 
         <Box display="flex" gap={1}>
 

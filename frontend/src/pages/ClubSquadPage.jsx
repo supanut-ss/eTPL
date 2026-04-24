@@ -418,16 +418,14 @@ const ClubSquadPage = () => {
 
   return (
     <Box sx={{ pb: 6 }}>
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: isMobile ? "column" : "row",
-          justifyContent: "space-between",
-          alignItems: isMobile ? "flex-start" : "center",
-          gap: 2,
-          mb: 4,
-        }}
-      >
+      {/* Header */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 4,
+        px: { xs: 1, sm: 0 }
+      }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <People color="primary" sx={{ fontSize: 32 }} />
           <Box>
@@ -435,6 +433,7 @@ const ClubSquadPage = () => {
             <Typography variant="body2" color="text.secondary">VIEW SQUADS OF OTHER TEAMS</Typography>
           </Box>
         </Box>
+
 
         <Box display="flex" gap={2} sx={{ width: isMobile ? "100%" : "auto" }}>
           <Button

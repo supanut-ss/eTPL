@@ -553,16 +553,13 @@ const MySquadPage = () => {
   return (
     <Box sx={{ pb: 6 }}>
       {/* Header */}
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: isMobile ? "column" : "row",
-          justifyContent: "space-between",
-          alignItems: isMobile ? "flex-start" : "center",
-          gap: 2,
-          mb: 3,
-        }}
-      >
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 4,
+        px: { xs: 1, sm: 0 }
+      }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <EmojiEvents color="primary" sx={{ fontSize: 32 }} />
           <Box>
@@ -574,6 +571,7 @@ const MySquadPage = () => {
             </Typography>
           </Box>
         </Box>
+
 
         <Box 
           display="flex" 
