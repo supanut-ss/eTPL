@@ -62,13 +62,41 @@ const Transition = React.forwardRef(function Transition(props, ref) {
 });
 
 const GRADE_STYLE_MAP = {
-  S: { color: "#ffb300", bg: "rgba(255,179,0,0.15)" },
-  A: { color: "#f4511e", bg: "rgba(244,81,30,0.15)" },
-  B: { color: "#8e24aa", bg: "rgba(142,36,170,0.15)" },
-  C: { color: "#1e88e5", bg: "rgba(30,136,229,0.15)" },
-  D: { color: "#43a047", bg: "rgba(67,160,71,0.15)" },
-  E: { color: "#757575", bg: "rgba(117,117,117,0.15)" },
-  DEFAULT: { color: "#9e9e9e", bg: "rgba(158,158,158,0.12)" },
+  S: {
+    color: "#ffb300",
+    bg: "rgba(255,179,0,0.15)",
+    gradient: "linear-gradient(135deg, #ffe082 0%, #ffb300 100%)",
+  },
+  A: {
+    color: "#f4511e",
+    bg: "rgba(244,81,30,0.15)",
+    gradient: "linear-gradient(135deg, #ffab91 0%, #f4511e 100%)",
+  },
+  B: {
+    color: "#8e24aa",
+    bg: "rgba(142,36,170,0.15)",
+    gradient: "linear-gradient(135deg, #ce93d8 0%, #8e24aa 100%)",
+  },
+  C: {
+    color: "#1e88e5",
+    bg: "rgba(30,136,229,0.15)",
+    gradient: "linear-gradient(135deg, #90caf9 0%, #1e88e5 100%)",
+  },
+  D: {
+    color: "#43a047",
+    bg: "rgba(67,160,71,0.15)",
+    gradient: "linear-gradient(135deg, #a5d6a7 0%, #43a047 100%)",
+  },
+  E: {
+    color: "#757575",
+    bg: "rgba(117,117,117,0.15)",
+    gradient: "linear-gradient(135deg, #eeeeee 0%, #9e9e9e 100%)",
+  },
+  DEFAULT: {
+    color: "#9e9e9e",
+    bg: "rgba(158,158,158,0.12)",
+    gradient: "linear-gradient(135deg, #eeeeee 0%, #9e9e9e 100%)",
+  },
 };
 
 const POSITION_GROUP_STYLE = {
@@ -405,14 +433,50 @@ const ClubSquadPage = () => {
     return squadData.squad.reduce((sum, p) => sum + (p.pricePaid || 0), 0);
   };
 
-  const getPositionDistribution = () => {
-    if (!squadData?.squad) return {};
-    return squadData.squad.reduce((acc, p) => {
-      const pos = p.position || "Unknown";
-      acc[pos] = (acc[pos] || 0) + 1;
+  const getDynamicGrade = (ovr) => {
+    const quotaList = (squadData?.quotas?.length > 0 ? squadData.quotas : quotas);
+    const quota = quotaList.find((q) => {
+      const min = q.minOvr ?? q.minOVR ?? q.MinOVR;
+      const max = q.maxOvr ?? q.maxOVR ?? q.MaxOVR;
+      return ovr >= min && ovr <= max;
+    });
+    if (!quota) return { label: "-", ...GRADE_STYLE_MAP["DEFAULT"] };
+    const name = quota.gradeName ?? quota.GradeName;
+    const style = GRADE_STYLE_MAP[name] || GRADE_STYLE_MAP["DEFAULT"];
+    return { label: name, ...style };
+  };
+
+  const gradeSummary = (squadData?.quotas?.length > 0 ? squadData.quotas : quotas).map((q) => {
+    const style = GRADE_STYLE_MAP[q.gradeName] || GRADE_STYLE_MAP["DEFAULT"];
+    const min = q.minOvr ?? q.minOVR ?? q.MinOVR;
+    const max = q.maxOvr ?? q.maxOVR ?? q.MaxOVR;
+    return {
+      label: q.gradeName,
+      count: (squadData?.squad || []).filter(
+        (p) =>
+          p.playerOvr >= min &&
+          p.playerOvr <= max,
+      ).length,
+      ...style,
+    };
+  });
+
+  const getPositionSummary = () => {
+    const activeSquad = squadData?.squad || [];
+    const summary = activeSquad.reduce((acc, player) => {
+      const position =
+        player.position ??
+        player.playerPosition ??
+        player.playerPos ??
+        player.pos ??
+        "UNK";
+      acc[position] = (acc[position] || 0) + 1;
       return acc;
     }, {});
+    return summary;
   };
+
+  const positionSummary = getPositionSummary();
 
   if (loading) return <LinearProgress />;
 
@@ -499,17 +563,92 @@ const ClubSquadPage = () => {
               boxShadow: "0 10px 40px -10px rgba(0,0,0,0.05)",
             }}
           >
-            <Grid container spacing={3}>
-              <Grid item xs={12} sm={6} md={3}>
-                <Typography variant="caption" sx={{ fontWeight: 1000, display: "block", mb: 1 }}>TEAM VALUE</Typography>
-                <Box display="flex" alignItems="baseline" gap={1}>
-                  <Typography variant="h3" fontWeight={1000} color="primary">{calculateTotalValue().toLocaleString()}</Typography>
-                  <Typography variant="h6" fontWeight={1000} color="text.secondary">TP</Typography>
+            <Grid container spacing={3} alignItems="center">
+              {/* Team Value */}
+              <Grid item xs={6} sm={3} md={1.5}>
+                <Typography variant="caption" sx={{ fontWeight: 1000, display: "block", mb: 0.5, opacity: 0.5, letterSpacing: 1.2 }}>TEAM VALUE</Typography>
+                <Box display="flex" alignItems="baseline" gap={0.5}>
+                  <Typography variant="h3" fontWeight={1000} sx={{ letterSpacing: -1.5 }}>{calculateTotalValue().toLocaleString()}</Typography>
+                  <Typography variant="body2" fontWeight={1000} color="text.secondary">TP</Typography>
                 </Box>
               </Grid>
-              <Grid item xs={12} sm={6} md={2}>
-                <Typography variant="caption" sx={{ fontWeight: 1000, display: "block", mb: 1 }}>PLAYERS</Typography>
-                <Typography variant="h3" fontWeight={1000}>{squadData.squad.length} / 23</Typography>
+
+              {/* Players Count */}
+              <Grid item xs={6} sm={3} md={1.5}>
+                <Typography variant="caption" sx={{ fontWeight: 1000, display: "block", mb: 0.5, opacity: 0.5, letterSpacing: 1.2 }}>PLAYERS</Typography>
+                <Box display="flex" alignItems="baseline" gap={0.5}>
+                  <Typography variant="h3" fontWeight={1000} sx={{ letterSpacing: -1.5 }}>{squadData.squad.length}</Typography>
+                  <Typography variant="body2" fontWeight={1000} color="text.secondary">/ 23</Typography>
+                </Box>
+              </Grid>
+
+              {/* Grade Summary */}
+              <Grid item xs={12} md={4}>
+                <Typography variant="caption" sx={{ fontWeight: 1000, display: "block", mb: 1, opacity: 0.5, letterSpacing: 1 }}>GRADE</Typography>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
+                  {gradeSummary.map((g) => (
+                    <Box
+                      key={g.label}
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        borderRadius: "10px",
+                        overflow: "hidden",
+                        border: "1px solid rgba(0,0,0,0.06)",
+                        bgcolor: "rgba(0,0,0,0.02)",
+                        height: 38,
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          px: 1.5,
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          background: g.gradient,
+                          color: g.label === "E" ? "#333" : "white",
+                          fontWeight: 1000,
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        {g.label}
+                      </Box>
+                      <Box sx={{ px: 1.5, fontWeight: 1000, fontSize: "1rem", color: "#1e293b" }}>
+                        {g.count}
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              </Grid>
+
+              {/* Position Summary */}
+              <Grid item xs={12} md={5}>
+                <Typography variant="caption" sx={{ fontWeight: 1000, display: "block", mb: 1, opacity: 0.5, letterSpacing: 1 }}>POSITION</Typography>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.6 }}>
+                  {positionGroups.flat().map((pos) => {
+                    const group = positionGroups[0].includes(pos) ? "GK" : positionGroups[1].includes(pos) ? "DEF" : positionGroups[2].includes(pos) ? "MID" : "ATT";
+                    const style = POSITION_GROUP_STYLE[group];
+                    return (
+                      <Box
+                        key={pos}
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          minWidth: 38,
+                          height: 42,
+                          borderRadius: "10px",
+                          border: `1px solid ${style.border}`,
+                          bgcolor: style.bg,
+                        }}
+                      >
+                        <Typography variant="caption" sx={{ fontSize: "0.65rem", fontWeight: 800, color: "text.secondary", lineHeight: 1 }}>{pos}</Typography>
+                        <Typography variant="caption" sx={{ fontSize: "0.85rem", fontWeight: 1000, color: "#0f172a", mt: 0.3 }}>{positionSummary[pos] || 0}</Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
               </Grid>
             </Grid>
           </Box>
@@ -529,14 +668,67 @@ const ClubSquadPage = () => {
                 {squadData.squad.map((player) => (
                   <TableRow key={player.squadId}>
                     <TableCell>
-                      <Box sx={{ width: 38, height: 38, borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", bgcolor: "primary.main", color: "white", fontWeight: 1000 }}>
-                        {player.playerOvr >= 90 ? "S" : "A"}
-                      </Box>
+                      {(() => {
+                        const grade = getDynamicGrade(player.playerOvr);
+                        return (
+                          <Box sx={{ 
+                            width: 34, 
+                            height: 34, 
+                            borderRadius: "8px", 
+                            display: "flex", 
+                            alignItems: "center", 
+                            justifyContent: "center", 
+                            background: grade.gradient, 
+                            color: grade.label === "E" ? "#333" : "white", 
+                            fontWeight: 1000,
+                            border: "1px solid rgba(0,0,0,0.05)"
+                          }}>
+                            {grade.label}
+                          </Box>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       <Box display="flex" alignItems="center" gap={2}>
-                        <PlayerAvatar playerId={player.playerId} />
-                        <Typography fontWeight={1000}>{player.playerName}</Typography>
+                        <Box
+                          component="a"
+                          href={getPesdbInfoUrl(player.playerId)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          sx={{ textDecoration: "none", display: "flex", alignItems: "center" }}
+                        >
+                          <PlayerAvatar playerId={player.playerId} />
+                        </Box>
+                        <Box>
+                          <Typography
+                            component="a"
+                            href={getPesdbInfoUrl(player.playerId)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            fontWeight={1000}
+                            sx={{
+                              color: "#1e293b",
+                              fontSize: "1rem",
+                              textDecoration: "none",
+                              display: "block",
+                              "&:hover": { color: "primary.main", textDecoration: "underline" },
+                            }}
+                          >
+                            {player.playerName}
+                          </Typography>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Typography variant="caption" fontWeight={800} color="text.secondary" sx={{ textTransform: "uppercase" }}>
+                              {player.position}
+                            </Typography>
+                            <Typography variant="caption" color="text.disabled">•</Typography>
+                            <Typography variant="caption" fontWeight={700} color="text.secondary">
+                              {player.playingStyle || "Standard"}
+                            </Typography>
+                          </Box>
+                          <Typography variant="caption" color="text.disabled" sx={{ display: "block", mt: 0.2 }}>
+                            {player.teamName} {player.league ? `(${player.league})` : ""}
+                          </Typography>
+                        </Box>
                       </Box>
                     </TableCell>
                     <TableCell align="center"><Typography fontWeight={1000} color="primary">{player.playerOvr}</Typography></TableCell>

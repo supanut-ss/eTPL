@@ -483,12 +483,14 @@ const MySquadPage = () => {
 
   const gradeSummary = quotas.map((q) => {
     const style = GRADE_STYLE_MAP[q.gradeName] || GRADE_STYLE_MAP["DEFAULT"];
+    const min = q.minOvr ?? q.minOVR ?? q.MinOVR;
+    const max = q.maxOvr ?? q.maxOVR ?? q.MaxOVR;
     return {
       label: q.gradeName,
       count: activeSquad.filter(
         (p) =>
-          p.playerOvr >= (q.minOVR ?? q.MinOVR) &&
-          p.playerOvr <= (q.maxOVR ?? q.MaxOVR),
+          p.playerOvr >= min &&
+          p.playerOvr <= max,
       ).length,
       ...style,
     };
