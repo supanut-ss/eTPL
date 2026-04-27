@@ -38,6 +38,11 @@ const AdminLeagueSetting = () => {
     resetTeams: false
   });
 
+  // ── Cup Generator ────────────────────────────────────────
+  const [showCupGen, setShowCupGen] = useState(false);
+  const [generatingCup, setGeneratingCup] = useState(false);
+  const [resetingCup, setResetingCup] = useState(false);
+
   // ── Effects ──────────────────────────────────────────────
   useEffect(() => { fetchPrizes(); }, []);
 
@@ -126,6 +131,32 @@ const AdminLeagueSetting = () => {
       enqueueSnackbar("Reset ไม่สำเร็จ", { variant: "error" });
     } finally {
       setReseting(false);
+    }
+  };
+
+  const handleGenerateCup = async () => {
+    setGeneratingCup(true);
+    try {
+      const res = await adminService.generateCupBracket();
+      enqueueSnackbar(res.data?.message || "Generate Cup สำเร็จ!", { variant: "success" });
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || "Generate Cup ไม่สำเร็จ", { variant: "error" });
+    } finally {
+      setGeneratingCup(false);
+    }
+  };
+
+  const handleResetCup = async () => {
+    if (!window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลบอลถ้วยทั้งหมดของซีซั่นนี้?")) return;
+    
+    setResetingCup(true);
+    try {
+      const res = await adminService.resetCupBracket();
+      enqueueSnackbar(res.data?.message || "Reset Cup สำเร็จ!", { variant: "success" });
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || "Reset Cup ไม่สำเร็จ", { variant: "error" });
+    } finally {
+      setResetingCup(false);
     }
   };
 
@@ -373,6 +404,74 @@ const AdminLeagueSetting = () => {
                 </Box>
               </Stack>
             )}
+          </Collapse>
+        </Paper>
+
+        {/* ── Cup Tournament Generator ──────────────────────── */}
+        <Paper elevation={2} sx={{ p: 4, borderRadius: 3, border: "1px solid", borderColor: showCupGen ? "primary.main" : "divider", transition: "border-color 0.3s" }}>
+          <Box 
+            display="flex" 
+            justifyContent="space-between" 
+            alignItems="center"
+            onClick={() => setShowCupGen(!showCupGen)}
+            sx={{ cursor: "pointer", "&:hover .toggle-icon": { bgcolor: "rgba(0,0,0,0.08)" } }}
+          >
+            <Box display="flex" alignItems="center" gap={1.5}>
+              <MilitaryTech color="primary" sx={{ fontSize: 28 }} />
+              <Box>
+                <Typography variant="h6" fontWeight="bold">Cup Tournament</Typography>
+                <Typography variant="body2" color="text.secondary">KNOCKOUT CUP GENERATOR</Typography>
+              </Box>
+            </Box>
+            <IconButton size="small" className="toggle-icon" sx={{ bgcolor: "rgba(0,0,0,0.03)", transition: "all 0.2s" }}>
+              {showCupGen ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
+            </IconButton>
+          </Box>
+
+          <Collapse in={showCupGen}>
+            <Divider sx={{ my: 3 }} />
+            <Stack spacing={3}>
+              <Alert severity="info" icon={<EmojiEvents />} sx={{ borderRadius: 2 }}>
+                <Typography fontWeight="bold">การสุ่มประกบคู่บอลถ้วย</Typography>
+                <Typography variant="body2">
+                  ระบบจะสุ่มนำผู้เล่นทั้งหมดมาจัดสายการแข่งขันแบบแพ้คัดออก (Knockout) 
+                  หากจำนวนผู้เล่นไม่ลงตัวเป็นเลขยกกำลังของ 2 (เช่น 16, 32, 64) 
+                  ระบบจะสุ่มผู้เล่นบางส่วนให้ได้สิทธิ์ "ชนะบาย (Bye)" ในรอบแรกโดยอัตโนมัติ
+                </Typography>
+              </Alert>
+
+              <Box display="flex" gap={2} justifyContent="flex-end" sx={{ mt: 1 }}>
+                <Button 
+                  variant="outlined" 
+                  color="error" 
+                  startIcon={<DeleteForever />}
+                  onClick={handleResetCup}
+                  disabled={resetingCup || generatingCup}
+                  sx={{ borderRadius: 100, textTransform: "none", px: 3, fontWeight: "bold" }}
+                >
+                  {resetingCup ? "Reseting..." : "Reset Cup Data"}
+                </Button>
+
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  startIcon={generatingCup ? <CircularProgress size={18} color="inherit" /> : <RocketLaunch />}
+                  onClick={handleGenerateCup}
+                  disabled={resetingCup || generatingCup}
+                  sx={{ 
+                    borderRadius: 100, 
+                    textTransform: "none", 
+                    px: 4,
+                    fontWeight: "bold",
+                    boxShadow: "0 4px 12px rgba(25, 118, 210, 0.2)",
+                    "&:hover": { boxShadow: "0 6px 16px rgba(25, 118, 210, 0.3)" }
+                  }}
+                >
+                  {generatingCup ? "Generating..." : "Generate Cup Bracket"}
+                </Button>
+              </Box>
+            </Stack>
           </Collapse>
         </Paper>
       </Stack>

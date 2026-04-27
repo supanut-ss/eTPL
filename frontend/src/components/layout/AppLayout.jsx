@@ -51,6 +51,7 @@ const navItems = [
   { label: "Dashboard", path: "/main", icon: <Dashboard /> },
   { label: "Standings", path: "/standings", icon: <Leaderboard /> },
   { label: "Matches", path: "/matches", icon: <CalendarMonth /> },
+  { label: "Cup Bracket", path: "/cup-bracket", icon: <EmojiEvents /> },
   { label: "Hall of Fame", path: "/hall-of-fame", icon: <MilitaryTech /> },
   { label: "Auction Board", path: "/auction-results", icon: <HotelClass /> },
   {

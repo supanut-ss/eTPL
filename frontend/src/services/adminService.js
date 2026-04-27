@@ -20,6 +20,10 @@ const adminService = {
   requestBonus: (data) => api.post("/api/bonus/request", data),
   approveBonus: (data) => api.post("/api/bonus/approve", data),
   rejectBonus: (bonusId) => api.post("/api/bonus/reject", bonusId),
+  // ── Cup Management ──────────────────────────────────────────
+  generateCupBracket: () => api.post("/api/cup/generate"),
+  resetCupBracket: () => api.post("/api/cup/reset"),
+
 };
 
 export default adminService;

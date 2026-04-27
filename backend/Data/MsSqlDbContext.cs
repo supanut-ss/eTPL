@@ -23,6 +23,7 @@ namespace eTPL.API.Data
         public DbSet<TransferOffer> TransferOffers { get; set; }
         public DbSet<SpecialBonus> SpecialBonuses { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<CupFixture> CupFixtures { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
