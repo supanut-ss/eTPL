@@ -19,6 +19,7 @@ import {
   Tooltip,
   useTheme,
   useMediaQuery,
+  Collapse,
 } from "@mui/material";
 import {
   Menu as MenuIcon,
@@ -42,6 +43,9 @@ import {
   HotelClass,
   MilitaryTech,
   Storage,
+  ExpandLess,
+  ExpandMore,
+  AdminPanelSettings,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -98,36 +102,48 @@ const navItems = [
     loginRequired: true,
     key: "deal-center",
   },
-  { label: "Manage Users", path: "/users", icon: <ManageAccounts />, key: "users" },
   {
-    label: "Permissions",
-    path: "/permissions",
-    icon: <Security />,
-    key: "permissions",
-  },
-  {
-    label: "Auction Settings",
-    path: "/admin/auction",
-    icon: <Settings />,
-    key: "admin-auction",
-  },
-  {
-    label: "Data Management",
-    path: "/admin/manage-data",
-    icon: <Storage />,
-    key: "admin-manage-data",
-  },
-  {
-    label: "League Setting",
-    path: "/admin/league-setting",
-    icon: <EmojiEvents />,
-    key: "admin-league-setting",
-  },
-  {
-    label: "Announcements",
-    path: "/announcements",
-    icon: <Campaign />,
-    key: "announcements",
+    label: "Admin",
+    icon: <AdminPanelSettings />,
+    key: "admin-group",
+    children: [
+      {
+        label: "Manage Users",
+        path: "/users",
+        icon: <ManageAccounts />,
+        key: "users",
+      },
+      {
+        label: "Permissions",
+        path: "/permissions",
+        icon: <Security />,
+        key: "permissions",
+      },
+      {
+        label: "Auction Settings",
+        path: "/admin/auction",
+        icon: <Settings />,
+        key: "admin-auction",
+      },
+      {
+        label: "Data Management",
+        path: "/admin/manage-data",
+        icon: <Storage />,
+        key: "admin-manage-data",
+      },
+      {
+        label: "League Setting",
+        path: "/admin/league-setting",
+        icon: <EmojiEvents />,
+        key: "admin-league-setting",
+      },
+      {
+        label: "Announcements",
+        path: "/announcements",
+        icon: <Campaign />,
+        key: "announcements",
+      },
+    ],
   },
 ];
 
@@ -140,6 +156,7 @@ const AppLayout = () => {
   const [desktopOpen, setDesktopOpen] = useState(true);
   const [anchorEl, setAnchorEl] = useState(null);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -160,19 +177,49 @@ const AppLayout = () => {
     navigate("/login");
   };
 
-  const filteredNav = navItems.filter((item) => {
-    // Public items (no key) are always shown
-    if (!item.key) {
-      if (item.loginRequired && !user) return false;
-      return true;
-    }
+  const filterMenuItems = (items) => {
+    return items
+      .filter((item) => {
+        // Public items (no key) are always shown
+        if (!item.key) {
+          if (item.loginRequired && !user) return false;
+          return true;
+        }
 
-    // Restricted items (with key) check against accessibleMenus
-    // Admin always sees everything (or we rely on the backend/seed to give admin all keys)
-    if (user?.userLevel === "admin") return true;
-    
-    return Array.isArray(accessibleMenus) && accessibleMenus.includes(item.key);
-  });
+        // Admin group is shown if user is admin OR if it has children after filtering
+        if (item.key === "admin-group") {
+          if (user?.userLevel === "admin") return true;
+          // We'll check children in the next step
+          return true;
+        }
+
+        // Restricted items (with key) check against accessibleMenus
+        if (user?.userLevel === "admin") return true;
+
+        return (
+          Array.isArray(accessibleMenus) && accessibleMenus.includes(item.key)
+        );
+      })
+      .map((item) => {
+        if (item.children) {
+          const filteredChildren = filterMenuItems(item.children);
+          return {
+            ...item,
+            children: filteredChildren,
+          };
+        }
+        return item;
+      })
+      .filter((item) => {
+        // If it's a parent, only show if it has visible children OR user is admin
+        if (item.children) {
+          return item.children.length > 0 || user?.userLevel === "admin";
+        }
+        return true;
+      });
+  };
+
+  const filteredNav = filterMenuItems(navItems);
 
 
   const drawer = (
@@ -184,44 +231,147 @@ const AppLayout = () => {
       </Toolbar>
       <Divider />
       <List>
-        {filteredNav.map((item) => (
-          <Tooltip title={!isDrawerExpanded ? item.label : ""} placement="right" key={item.path}>
-            <ListItem disablePadding sx={{ display: "block" }}>
-              <ListItemButton
-                selected={location.pathname === item.path}
-                onClick={() => {
-                  navigate(item.path);
-                  if (isMobile) {
-                    setMobileOpen(false);
-                  }
-                }}
-                sx={{
-                  minHeight: 48,
-                  justifyContent: isDrawerExpanded ? "initial" : "center",
-                  px: 2.5,
-                }}
-              >
-                <ListItemIcon
+        {filteredNav.map((item) => {
+          if (item.children) {
+            return (
+              <Box key={item.label}>
+                <Tooltip
+                  title={!isDrawerExpanded ? item.label : ""}
+                  placement="right"
+                >
+                  <ListItem disablePadding sx={{ display: "block" }}>
+                    <ListItemButton
+                      onClick={() => setAdminOpen(!adminOpen)}
+                      sx={{
+                        minHeight: 48,
+                        justifyContent: isDrawerExpanded ? "initial" : "center",
+                        px: 2.5,
+                      }}
+                    >
+                      <ListItemIcon
+                        sx={{
+                          minWidth: 0,
+                          mr: isDrawerExpanded ? 2 : "auto",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {item.icon}
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={item.label}
+                        sx={{
+                          opacity: isDrawerExpanded ? 1 : 0,
+                          display: isDrawerExpanded ? "block" : "none",
+                          whiteSpace: "nowrap",
+                        }}
+                      />
+                      {isDrawerExpanded &&
+                        (adminOpen ? <ExpandLess /> : <ExpandMore />)}
+                    </ListItemButton>
+                  </ListItem>
+                </Tooltip>
+                <Collapse
+                  in={adminOpen && isDrawerExpanded}
+                  timeout="auto"
+                  unmountOnExit
+                >
+                  <List component="div" disablePadding>
+                    {item.children.map((child) => (
+                      <Tooltip
+                        key={child.path}
+                        title={!isDrawerExpanded ? child.label : ""}
+                        placement="right"
+                      >
+                        <ListItemButton
+                          selected={location.pathname === child.path}
+                          onClick={() => {
+                            navigate(child.path);
+                            if (isMobile) {
+                              setMobileOpen(false);
+                            }
+                          }}
+                          sx={{
+                            minHeight: 44,
+                            pl: isDrawerExpanded ? 4 : 2.5,
+                            justifyContent: isDrawerExpanded
+                              ? "initial"
+                              : "center",
+                          }}
+                        >
+                          <ListItemIcon
+                            sx={{
+                              minWidth: 0,
+                              mr: isDrawerExpanded ? 2 : "auto",
+                              justifyContent: "center",
+                            }}
+                          >
+                            {child.icon}
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={child.label}
+                            primaryTypographyProps={{
+                              variant: "body2",
+                              fontWeight:
+                                location.pathname === child.path ? 600 : 400,
+                            }}
+                            sx={{
+                              opacity: isDrawerExpanded ? 1 : 0,
+                              display: isDrawerExpanded ? "block" : "none",
+                              whiteSpace: "nowrap",
+                            }}
+                          />
+                        </ListItemButton>
+                      </Tooltip>
+                    ))}
+                  </List>
+                </Collapse>
+              </Box>
+            );
+          }
+
+          return (
+            <Tooltip
+              title={!isDrawerExpanded ? item.label : ""}
+              placement="right"
+              key={item.path}
+            >
+              <ListItem disablePadding sx={{ display: "block" }}>
+                <ListItemButton
+                  selected={location.pathname === item.path}
+                  onClick={() => {
+                    navigate(item.path);
+                    if (isMobile) {
+                      setMobileOpen(false);
+                    }
+                  }}
                   sx={{
-                    minWidth: 0,
-                    mr: isDrawerExpanded ? 2 : "auto",
-                    justifyContent: "center",
+                    minHeight: 48,
+                    justifyContent: isDrawerExpanded ? "initial" : "center",
+                    px: 2.5,
                   }}
                 >
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText 
-                  primary={item.label} 
-                  sx={{ 
-                    opacity: isDrawerExpanded ? 1 : 0, 
-                    display: isDrawerExpanded ? "block" : "none",
-                    whiteSpace: "nowrap" 
-                  }} 
-                />
-              </ListItemButton>
-            </ListItem>
-          </Tooltip>
-        ))}
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 0,
+                      mr: isDrawerExpanded ? 2 : "auto",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.label}
+                    sx={{
+                      opacity: isDrawerExpanded ? 1 : 0,
+                      display: isDrawerExpanded ? "block" : "none",
+                      whiteSpace: "nowrap",
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            </Tooltip>
+          );
+        })}
       </List>
     </Box>
   );
