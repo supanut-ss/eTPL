@@ -17,6 +17,8 @@ import {
   MenuItem,
   Divider,
   Tooltip,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
 import {
   Menu as MenuIcon,
@@ -135,8 +137,13 @@ const AppLayout = () => {
   const location = useLocation();
   const { user, logout, accessibleMenus } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopOpen, setDesktopOpen] = useState(true);
   const [anchorEl, setAnchorEl] = useState(null);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isDrawerExpanded = isMobile ? true : desktopOpen;
 
   const handleLogout = () => {
     logout();
@@ -170,26 +177,50 @@ const AppLayout = () => {
 
   const drawer = (
     <Box>
-      <Toolbar>
-        <Typography variant="h6" fontWeight="bold" color="primary">
-          eTPL
+      <Toolbar sx={{ justifyContent: isDrawerExpanded ? "flex-start" : "center", px: isDrawerExpanded ? 2 : 1 }}>
+        <Typography variant="h6" fontWeight="bold" color="primary" noWrap>
+          {isDrawerExpanded ? "eTPL" : "e"}
         </Typography>
       </Toolbar>
       <Divider />
       <List>
         {filteredNav.map((item) => (
-          <ListItem key={item.path} disablePadding>
-            <ListItemButton
-              selected={location.pathname === item.path}
-              onClick={() => {
-                navigate(item.path);
-                setMobileOpen(false);
-              }}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.label} />
-            </ListItemButton>
-          </ListItem>
+          <Tooltip title={!isDrawerExpanded ? item.label : ""} placement="right" key={item.path}>
+            <ListItem disablePadding sx={{ display: "block" }}>
+              <ListItemButton
+                selected={location.pathname === item.path}
+                onClick={() => {
+                  navigate(item.path);
+                  if (isMobile) {
+                    setMobileOpen(false);
+                  }
+                }}
+                sx={{
+                  minHeight: 48,
+                  justifyContent: isDrawerExpanded ? "initial" : "center",
+                  px: 2.5,
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    minWidth: 0,
+                    mr: isDrawerExpanded ? 2 : "auto",
+                    justifyContent: "center",
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText 
+                  primary={item.label} 
+                  sx={{ 
+                    opacity: isDrawerExpanded ? 1 : 0, 
+                    display: isDrawerExpanded ? "block" : "none",
+                    whiteSpace: "nowrap" 
+                  }} 
+                />
+              </ListItemButton>
+            </ListItem>
+          </Tooltip>
         ))}
       </List>
     </Box>
@@ -206,8 +237,14 @@ const AppLayout = () => {
           <IconButton
             color="inherit"
             edge="start"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            sx={{ mr: 2, display: { sm: "none" } }}
+            onClick={() => {
+              if (isMobile) {
+                setMobileOpen(!mobileOpen);
+              } else {
+                setDesktopOpen(!desktopOpen);
+              }
+            }}
+            sx={{ mr: 2 }}
           >
             <MenuIcon />
           </IconButton>
@@ -309,12 +346,21 @@ const AppLayout = () => {
       <Drawer
         variant="permanent"
         sx={{
-          width: DRAWER_WIDTH,
+          width: desktopOpen ? DRAWER_WIDTH : 65,
           flexShrink: 0,
           display: { xs: "none", sm: "block" },
+          transition: theme.transitions.create("width", {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
           "& .MuiDrawer-paper": {
-            width: DRAWER_WIDTH,
+            width: desktopOpen ? DRAWER_WIDTH : 65,
             boxSizing: "border-box",
+            transition: theme.transitions.create("width", {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
+            overflowX: "hidden",
           },
         }}
       >

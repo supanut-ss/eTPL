@@ -15,12 +15,16 @@ import {
   Chip,
   useMediaQuery,
   useTheme,
+  Avatar,
+  Stack,
+  IconButton,
 } from "@mui/material";
 import {
   SportsSoccer,
   StyleOutlined,
   SquareRounded,
   EditNote,
+  Close,
 } from "@mui/icons-material";
 import {
   reportFixtureResult,
@@ -29,45 +33,81 @@ import {
 } from "../api/fixtureReportApi";
 
 const CardInput = ({ label, color, value, onChange }) => (
-  <Box display="flex" alignItems="center" gap={1}>
-    <SquareRounded sx={{ color, fontSize: 18 }} />
-    <Typography fontSize={14} color="text.secondary" sx={{ minWidth: 90 }}>
+  <Box
+    sx={{
+      display: "flex",
+      alignItems: "center",
+      gap: 1.5,
+      p: 1.5,
+      px: 2,
+      borderRadius: 2,
+      bgcolor: "white",
+      border: "1px solid",
+      borderColor: "divider",
+      boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+      width: "100%",
+    }}
+  >
+    <SquareRounded sx={{ color, fontSize: 20 }} />
+    <Typography variant="body2" fontWeight="700" color="text.secondary" sx={{ flex: 1 }}>
       {label}
     </Typography>
     <TextField
       type="number"
       size="small"
+      variant="standard"
       value={value}
       onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
-      inputProps={{ min: 0, style: { textAlign: "center", width: 56 } }}
-      sx={{ width: 80 }}
+      inputProps={{ min: 0 }}
+      InputProps={{
+        disableUnderline: true,
+        sx: {
+          fontWeight: "800",
+          fontSize: 18,
+          width: 40,
+          "& input": { textAlign: "right" },
+        },
+      }}
     />
   </Box>
 );
 
 const ScoreInput = ({ label, value, onChange }) => (
-  <Box display="flex" flexDirection="column" alignItems="center" gap={0.5}>
-    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+  <Box sx={{ textAlign: "center" }}>
+    <Typography variant="caption" color="text.secondary" fontWeight="800" sx={{ mb: 0.5, display: "block", textTransform: "uppercase", letterSpacing: 1 }}>
       {label}
     </Typography>
-    <TextField
-      type="number"
-      size="small"
-      value={value}
-      onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
-      inputProps={{
-        min: 0,
-        style: {
-          textAlign: "center",
-          fontSize: 28,
-          fontWeight: 700,
-          width: 56,
-        },
+    <Box
+      sx={{
+        bgcolor: "white",
+        borderRadius: 3,
+        border: "1px solid",
+        borderColor: "divider",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+        px: 2,
+        py: 0.5,
       }}
-      sx={{ width: 88 }}
-    />
+    >
+      <TextField
+        type="number"
+        variant="standard"
+        value={value}
+        onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
+        inputProps={{ min: 0 }}
+        InputProps={{
+          disableUnderline: true,
+          sx: {
+            fontSize: "2.5rem",
+            fontWeight: "900",
+            width: 60,
+            "& input": { textAlign: "center", p: 0 },
+          },
+        }}
+      />
+    </Box>
   </Box>
 );
+
 
 
 
@@ -131,6 +171,10 @@ const ReportResultDialog = ({ open, fixture, isAdmin, onClose, onSuccess }) => {
   };
 
   const handleSave = async () => {
+    if (homeScore < 0 || awayScore < 0 || homeYellow < 0 || homeRed < 0 || awayYellow < 0 || awayRed < 0) {
+      setError("คะแนนและจำนวนบัตรห้ามติดลบ");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -173,197 +217,187 @@ const ReportResultDialog = ({ open, fixture, isAdmin, onClose, onSuccess }) => {
         : "text.secondary";
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
-      <DialogTitle sx={{ pb: 1 }}>
-        <Box display="flex" alignItems="center" gap={1}>
+    <Dialog 
+      open={open} 
+      onClose={handleClose} 
+      maxWidth="sm" 
+      fullWidth 
+      fullScreen={isMobile}
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : 4,
+          overflow: "hidden",
+          boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
+        }
+      }}
+    >
+      <DialogTitle
+        sx={{
+          p: 3,
+          pb: 2,
+          background: "linear-gradient(to right, #1e293b, #334155)",
+          color: "white",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <Box display="flex" alignItems="center" gap={1.5}>
           {isEditMode ? (
-            <EditNote sx={{ color: "warning.main" }} />
+            <EditNote sx={{ fontSize: 28, color: "#fbbf24" }} />
           ) : (
-            <SportsSoccer color="primary" />
+            <SportsSoccer sx={{ fontSize: 28 }} />
           )}
-          <Typography fontWeight={700} fontSize={17}>
-            {isEditMode ? "Edit Match Result" : "Report Match Result"}
-          </Typography>
-          {isEditMode && (
-            <Chip
-              label="Edit Mode"
-              size="small"
-              color="warning"
-              icon={<EditNote />}
-              sx={{ ml: 0.5 }}
-            />
-          )}
+          <Box>
+            <Typography variant="h6" fontWeight="900" sx={{ letterSpacing: 0.5, lineHeight: 1.2 }}>
+              {isEditMode ? "EDIT MATCH RESULT" : "REPORT MATCH RESULT"}
+            </Typography>
+            <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.6)", fontWeight: "700" }}>
+              MATCH #{fixture.match} · {fixture.division} · SEASON {fixture.season}
+            </Typography>
+          </Box>
         </Box>
-        <Typography variant="caption" color="text.secondary">
-          Match #{fixture.match} · {fixture.division}
-        </Typography>
+        <IconButton 
+          onClick={handleClose} 
+          sx={{ color: "rgba(255,255,255,0.7)", "&:hover": { color: "white" } }}
+        >
+          <Close />
+        </IconButton>
       </DialogTitle>
 
-      <DialogContent>
+      <DialogContent sx={{ p: { xs: 2, md: 4 }, bgcolor: "#f8fafc", overflowY: "auto" }}>
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity="error" variant="filled" sx={{ mb: 3, borderRadius: 2 }}>
             {error}
           </Alert>
         )}
 
-        {/* Teams & Score */}
+        {/* Teams & Score Section */}
         <Box
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          gap={2}
-          mb={3}
-          mt={1}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: { xs: 2, md: 4 },
+            mb: 6,
+            mt: 1,
+          }}
         >
           {/* Home */}
-          <Box
-            display="flex"
-            flexDirection="column"
-            alignItems="center"
-            gap={0.5}
-            flex={1}
-          >
-            <Box
-              component="img"
+          <Box sx={{ flex: 1, textAlign: "center" }}>
+            <Avatar
               src={getLogoUrl(fixture.homeTeamName)}
-              alt={fixture.homeTeamName}
-              onError={(e) => {
-                e.target.style.display = "none";
+              sx={{
+                width: { xs: 64, md: 80 },
+                height: { xs: 64, md: 80 },
+                mx: "auto",
+                mb: 2,
+                boxShadow: "0 8px 16px rgba(0,0,0,0.1)",
+                bgcolor: "white",
+                border: "4px solid white",
+                "& img": { objectFit: "contain", p: 1 },
               }}
-              sx={{ width: 48, height: 48, objectFit: "contain" }}
-            />
-            <Typography
-              fontSize={14}
-              fontWeight={600}
-              textAlign="center"
-              noWrap
             >
+              H
+            </Avatar>
+            <Typography variant="subtitle1" fontWeight="900" color="text.primary" noWrap>
               {homeName}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" fontWeight="700" sx={{ display: "block" }} noWrap>
+              {fixture.homeTeamName || "HOME TEAM"}
             </Typography>
           </Box>
 
-          {/* Score inputs */}
-          <Box display="flex" alignItems="center" gap={1}>
-            <ScoreInput
-              label="Home"
-              value={homeScore}
-              onChange={setHomeScore}
-            />
-            <Typography
-              fontSize={22}
-              fontWeight={700}
-              color={resultColor}
-              sx={{ mt: 2.5 }}
-            >
-              -
+          {/* Score Inputs */}
+          <Box display="flex" alignItems="center" gap={2}>
+            <ScoreInput label="HOME" value={homeScore} onChange={setHomeScore} />
+            <Typography variant="h4" fontWeight="900" color="grey.300" sx={{ mt: 3 }}>
+              :
             </Typography>
-            <ScoreInput
-              label="Away"
-              value={awayScore}
-              onChange={setAwayScore}
-            />
+            <ScoreInput label="AWAY" value={awayScore} onChange={setAwayScore} />
           </Box>
 
           {/* Away */}
-          <Box
-            display="flex"
-            flexDirection="column"
-            alignItems="center"
-            gap={0.5}
-            flex={1}
-          >
-            <Box
-              component="img"
+          <Box sx={{ flex: 1, textAlign: "center" }}>
+            <Avatar
               src={getLogoUrl(fixture.awayTeamName)}
-              alt={fixture.awayTeamName}
-              onError={(e) => {
-                e.target.style.display = "none";
+              sx={{
+                width: { xs: 64, md: 80 },
+                height: { xs: 64, md: 80 },
+                mx: "auto",
+                mb: 2,
+                boxShadow: "0 8px 16px rgba(0,0,0,0.1)",
+                bgcolor: "white",
+                border: "4px solid white",
+                "& img": { objectFit: "contain", p: 1 },
               }}
-              sx={{ width: 48, height: 48, objectFit: "contain" }}
-            />
-            <Typography
-              fontSize={14}
-              fontWeight={600}
-              textAlign="center"
-              noWrap
             >
+              A
+            </Avatar>
+            <Typography variant="subtitle1" fontWeight="900" color="text.primary" noWrap>
               {awayName}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" fontWeight="700" sx={{ display: "block" }} noWrap>
+              {fixture.awayTeamName || "AWAY TEAM"}
             </Typography>
           </Box>
         </Box>
 
-        <Divider sx={{ mb: 2 }} />
+        {/* Cards Section */}
+        <Box sx={{ bgcolor: "rgba(0,0,0,0.02)", p: 3, borderRadius: 4, border: "1px dashed", borderColor: "divider" }}>
+          <Typography variant="caption" fontWeight="900" color="text.secondary" sx={{ display: "block", mb: 2, textAlign: "center", letterSpacing: 2 }}>
+            DISCIPLINARY RECORDS (CARDS)
+          </Typography>
+          
+          <Box display="flex" gap={3} flexDirection={isMobile ? "column" : "row"}>
+            {/* Home Cards */}
+            <Stack spacing={1.5} flex={1}>
+              <CardInput label="Yellow" color="#f59e0b" value={homeYellow} onChange={setHomeYellow} />
+              <CardInput label="Red" color="#ef4444" value={homeRed} onChange={setHomeRed} />
+            </Stack>
 
-        {/* Cards */}
-        <Box display="flex" gap={4} justifyContent="center" flexWrap="wrap">
-          {/* Home Cards */}
-          <Box>
-            <Typography
-              fontSize={13}
-              fontWeight={700}
-              color="text.secondary"
-              mb={1}
-            >
-              {homeName} — Cards
-            </Typography>
-            <Box display="flex" flexDirection="column" gap={1}>
-              <CardInput
-                label="Yellow"
-                color="#f59e0b"
-                value={homeYellow}
-                onChange={setHomeYellow}
-              />
-              <CardInput
-                label="Red"
-                color="#ef4444"
-                value={homeRed}
-                onChange={setHomeRed}
-              />
-            </Box>
-          </Box>
+            <Divider orientation={isMobile ? "horizontal" : "vertical"} flexItem sx={{ opacity: 0.5 }} />
 
-          <Divider orientation={isMobile ? "horizontal" : "vertical"} flexItem sx={{ my: isMobile ? 2 : 0 }} />
-
-          {/* Away Cards */}
-          <Box>
-            <Typography
-              fontSize={13}
-              fontWeight={700}
-              color="text.secondary"
-              mb={1}
-            >
-              {awayName} — Cards
-            </Typography>
-            <Box display="flex" flexDirection="column" gap={1}>
-              <CardInput
-                label="Yellow"
-                color="#f59e0b"
-                value={awayYellow}
-                onChange={setAwayYellow}
-              />
-              <CardInput
-                label="Red"
-                color="#ef4444"
-                value={awayRed}
-                onChange={setAwayRed}
-              />
-            </Box>
+            {/* Away Cards */}
+            <Stack spacing={1.5} flex={1}>
+              <CardInput label="Yellow" color="#f59e0b" value={awayYellow} onChange={setAwayYellow} />
+              <CardInput label="Red" color="#ef4444" value={awayRed} onChange={setAwayRed} />
+            </Stack>
           </Box>
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-        <Button onClick={handleClose} disabled={saving} color="inherit">
+      <DialogActions sx={{ p: 4, bgcolor: "white", justifyContent: "center", gap: 2 }}>
+        <Button 
+          onClick={handleClose} 
+          disabled={saving} 
+          sx={{ px: 4, borderRadius: 2, fontWeight: "bold", color: "text.secondary" }}
+        >
           Cancel
         </Button>
         <Button
           variant="contained"
-          color={isEditMode ? "warning" : "primary"}
           onClick={handleSave}
           disabled={saving}
+          sx={{
+            px: 6,
+            py: 1.2,
+            borderRadius: 2.5,
+            fontWeight: "900",
+            fontSize: "1rem",
+            background: isEditMode 
+              ? "linear-gradient(to right, #f59e0b, #d97706)"
+              : "linear-gradient(to right, #2563eb, #3b82f6)",
+            boxShadow: isEditMode
+              ? "0 4px 12px rgba(217, 119, 6, 0.3)"
+              : "0 4px 12px rgba(37, 99, 235, 0.3)",
+            "&:hover": {
+              opacity: 0.9,
+            },
+          }}
           startIcon={
             saving ? (
-              <CircularProgress size={16} color="inherit" />
+              <CircularProgress size={20} color="inherit" />
             ) : isEditMode ? (
               <EditNote />
             ) : (
@@ -371,13 +405,7 @@ const ReportResultDialog = ({ open, fixture, isAdmin, onClose, onSuccess }) => {
             )
           }
         >
-          {saving
-            ? isEditMode
-              ? "Saving..."
-              : "Saving..."
-            : isEditMode
-              ? "Save Changes"
-              : "Save Result"}
+          {saving ? "SAVING..." : isEditMode ? "SAVE CHANGES" : "CONFIRM RESULT"}
         </Button>
       </DialogActions>
     </Dialog>

@@ -40,13 +40,19 @@ namespace eTPL.API.Controllers
                 .ToListAsync();
 
             var users = await _context.Users.ToListAsync();
-            var teams = await _scaffoldedContext.TbmTeams.Where(t => t.Season == season.Value && t.Platform == "PC").ToListAsync();
+            var teams = await _scaffoldedContext.VCurrentTeams
+                .OrderByDescending(t => t.Season)
+                .ToListAsync();
 
             var result = fixtures.Select(f => {
-                var homeUser = users.FirstOrDefault(u => u.UserId == f.HomeUserId);
-                var awayUser = users.FirstOrDefault(u => u.UserId == f.AwayUserId);
-                var homeTeam = teams.FirstOrDefault(t => t.UserId == homeUser?.Id);
-                var awayTeam = teams.FirstOrDefault(t => t.UserId == awayUser?.Id);
+                var homeUser = users.FirstOrDefault(u => string.Equals(u.UserId, f.HomeUserId, StringComparison.OrdinalIgnoreCase));
+                var awayUser = users.FirstOrDefault(u => string.Equals(u.UserId, f.AwayUserId, StringComparison.OrdinalIgnoreCase));
+                
+                // Match team by Player string ID first, then by int UserId as fallback
+                var homeTeam = teams.FirstOrDefault(t => string.Equals(t.Player, f.HomeUserId, StringComparison.OrdinalIgnoreCase))
+                             ?? (homeUser != null ? teams.FirstOrDefault(t => t.UserId == homeUser.Id) : null);
+                var awayTeam = teams.FirstOrDefault(t => string.Equals(t.Player, f.AwayUserId, StringComparison.OrdinalIgnoreCase))
+                             ?? (awayUser != null ? teams.FirstOrDefault(t => t.UserId == awayUser.Id) : null);
 
                 return new {
                     id = f.Id,
@@ -55,10 +61,12 @@ namespace eTPL.API.Controllers
                     matchNo = f.MatchNo,
                     homeUserId = f.HomeUserId,
                     homeName = homeUser?.LineName ?? f.HomeUserId,
-                    homeTeam = homeTeam?.TeamName,
+                    homeTeam = homeTeam?.TeamName ?? homeUser?.CurrentTeam,
+                    homeLogo = homeTeam?.Image,
                     awayUserId = f.AwayUserId,
                     awayName = awayUser?.LineName ?? f.AwayUserId,
-                    awayTeam = awayTeam?.TeamName,
+                    awayTeam = awayTeam?.TeamName ?? awayUser?.CurrentTeam,
+                    awayLogo = awayTeam?.Image,
                     homeScore = f.HomeScore,
                     awayScore = f.AwayScore,
                     nextMatchId = f.NextMatchId,
