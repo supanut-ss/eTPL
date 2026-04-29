@@ -100,6 +100,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IAuctionService, AuctionService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IAiService, AiService>();
 
 var app = builder.Build();
 
@@ -155,6 +156,8 @@ try
             [WinnerImage] [nvarchar](500) NULL,
             [RunnerUpName] [nvarchar](255) NULL,
             [DisplayColor] [nvarchar](50) NULL,
+            [AiPrompt] [nvarchar](MAX) NULL,
+            [AiImageUrl] [nvarchar](500) NULL,
             PRIMARY KEY CLUSTERED ([hof_id] ASC)
         )";
         context.Database.ExecuteSqlRaw(createSql);

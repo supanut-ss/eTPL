@@ -24,4 +24,8 @@ public partial class TbmHof
     public string? WinnerImage { get; set; }
 
     public string? DisplayColor { get; set; }
+
+    public string? AiPrompt { get; set; }
+
+    public string? AiImageUrl { get; set; }
 }

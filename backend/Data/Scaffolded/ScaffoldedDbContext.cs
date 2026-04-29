@@ -377,6 +377,8 @@ public partial class ScaffoldedDbContext : DbContext
             entity.Property(e => e.RunnerUpName).HasMaxLength(255);
             entity.Property(e => e.WinnerImage).HasMaxLength(500);
             entity.Property(e => e.DisplayColor).HasMaxLength(50);
+            entity.Property(e => e.AiPrompt).IsUnicode(true);
+            entity.Property(e => e.AiImageUrl).HasMaxLength(500);
         });
 
         modelBuilder.Entity<TbmNewMember>(entity =>

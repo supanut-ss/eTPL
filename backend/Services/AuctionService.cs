@@ -18,6 +18,7 @@ namespace eTPL.API.Services
         private readonly MsSqlDbContext _context;
         private readonly ScaffoldedDbContext _scaffoldedContext;
         private readonly INotificationService _notificationService;
+        private readonly IAiService _aiService;
 
         public async Task<PlayerFilterOptionsDto> GetPlayerFilterOptionsAsync(string? league = null)
         {
@@ -39,16 +40,21 @@ namespace eTPL.API.Services
                 Positions = await baseQuery.Where(x => x.Position != null && x.Position != "").Select(x => x.Position!).Distinct().OrderBy(x => x).ToListAsync(),
                 PlayingStyles = await baseQuery.Where(x => x.PlayingStyle != null && x.PlayingStyle != "").Select(x => x.PlayingStyle!).Distinct().OrderBy(x => x).ToListAsync(),
                 Feet = await baseQuery.Where(x => x.Foot != null && x.Foot != "").Select(x => x.Foot!).Distinct().OrderBy(x => x).ToListAsync(),
-                Nationalities = await baseQuery.Where(x => x.Nationality != null && x.Nationality != "").Select(x => x.Nationality!).Distinct().OrderBy(x => x).ToListAsync()
+                Nationalities = await baseQuery.Where(x => x.Nationality != null && x.Nationalities != "").Select(x => x.Nationality!).Distinct().OrderBy(x => x).ToListAsync()
             };
             return result;
         }
 
-        public AuctionService(MsSqlDbContext context, ScaffoldedDbContext scaffoldedContext, INotificationService notificationService)
+        public AuctionService(
+            MsSqlDbContext context, 
+            ScaffoldedDbContext scaffoldedContext, 
+            INotificationService notificationService,
+            IAiService aiService)
         {
             _context = context;
             _scaffoldedContext = scaffoldedContext;
             _notificationService = notificationService;
+            _aiService = aiService;
         }
 
         private DateTime GetThaiTime() => DateTime.UtcNow.AddHours(7);
@@ -1834,6 +1840,7 @@ namespace eTPL.API.Services
             return await strategy.ExecuteAsync(async () =>
             {
                 using var transaction = await _context.Database.BeginTransactionAsync();
+                var hofIdsToProcess = new List<string>();
                 var logs = new List<string>();
                 try
                 {
@@ -1946,7 +1953,7 @@ namespace eTPL.API.Services
                                         wallet.AvailableBalance);
 
                                     // Add to HOF under "League Awards"
-                                    _scaffoldedContext.TbmHofs.Add(new eTPL.API.Models.Scaffolded.TbmHof
+                                    var topScorerHof = new eTPL.API.Models.Scaffolded.TbmHof
                                     {
                                         HofId = Guid.NewGuid().ToString(),
                                         Platform = platform,
@@ -1957,7 +1964,9 @@ namespace eTPL.API.Services
                                         WinnerTeam = team.TeamName,
                                         WinnerImage = user.LinePic != null && user.LinePic.Length > 500 ? user.LinePic.Substring(0, 500) : user.LinePic,
                                         DisplayColor = "#fbbf24"
-                                    });
+                                    };
+                                    _scaffoldedContext.TbmHofs.Add(topScorerHof);
+                                    hofIdsToProcess.Add(topScorerHof.HofId);
                                 }
                             }
                             logs.Add($"แจกรางวัลพิเศษ Top Scorer และบันทึก HOF สำเร็จ");
@@ -1987,7 +1996,7 @@ namespace eTPL.API.Services
                                         wallet.AvailableBalance);
 
                                     // Add to HOF under "League Awards"
-                                    _scaffoldedContext.TbmHofs.Add(new eTPL.API.Models.Scaffolded.TbmHof
+                                    var bestDefHof = new eTPL.API.Models.Scaffolded.TbmHof
                                     {
                                         HofId = Guid.NewGuid().ToString(),
                                         Platform = platform,
@@ -1998,7 +2007,9 @@ namespace eTPL.API.Services
                                         WinnerTeam = team.TeamName,
                                         WinnerImage = user.LinePic != null && user.LinePic.Length > 500 ? user.LinePic.Substring(0, 500) : user.LinePic,
                                         DisplayColor = "#fbbf24"
-                                    });
+                                    };
+                                    _scaffoldedContext.TbmHofs.Add(bestDefHof);
+                                    hofIdsToProcess.Add(bestDefHof.HofId);
                                 }
                             }
                             logs.Add($"แจกรางวัลพิเศษ Best Defense และบันทึก HOF สำเร็จ");
@@ -2040,6 +2051,7 @@ namespace eTPL.API.Services
                         }
 
                         _scaffoldedContext.TbmHofs.Add(hofEntry);
+                        hofIdsToProcess.Add(hofEntry.HofId);
 
                         // Notify Winner
                         if (winnerUser != null)
@@ -2135,6 +2147,12 @@ namespace eTPL.API.Services
                         throw new Exception($"Database Update Error: {inner}");
                     }
                     await transaction.CommitAsync();
+
+                    // 9. Trigger AI Image Generation (Background)
+                    foreach (var id in hofIdsToProcess)
+                    {
+                        _ = Task.Run(() => _aiService.ProcessHofAiImageAsync(id));
+                    }
 
                     logs.Add($"บันทึกการเปลี่ยนแปลงทั้งหมดลงฐานข้อมูลเรียบร้อย");
 
@@ -2567,7 +2585,7 @@ namespace eTPL.API.Services
         {
             if (_context.Database.CurrentTransaction != null)
             {
-                await DistributeCupPrizesCoreAsync(season);
+                await DistributeCupPrizesCoreAsync(season, new List<string>());
                 return;
             }
 
@@ -2577,10 +2595,17 @@ namespace eTPL.API.Services
                 using var transaction = await _context.Database.BeginTransactionAsync();
                 try
                 {
-                    await DistributeCupPrizesCoreAsync(season);
+                    var hofIdsToProcess = new List<string>();
+                    await DistributeCupPrizesCoreAsync(season, hofIdsToProcess);
                     await _context.SaveChangesAsync();
                     await _scaffoldedContext.SaveChangesAsync();
                     await transaction.CommitAsync();
+
+                    // Trigger AI Image Generation (Background)
+                    foreach (var id in hofIdsToProcess)
+                    {
+                        _ = Task.Run(() => _aiService.ProcessHofAiImageAsync(id));
+                    }
                 }
                 catch
                 {
@@ -2590,7 +2615,7 @@ namespace eTPL.API.Services
             });
         }
 
-        private async Task DistributeCupPrizesCoreAsync(int season)
+        private async Task DistributeCupPrizesCoreAsync(int season, List<string> hofIdsToProcess)
         {
             string cupSeasonLabel = $"Season {season - 22}";
             string cupPrizeTag = $"(Season {season})";
@@ -2714,6 +2739,7 @@ namespace eTPL.API.Services
                                     }
 
                                     _scaffoldedContext.TbmHofs.Add(hofEntry);
+                                    hofIdsToProcess.Add(hofEntry.HofId);
 
                                     // Notify Winner
                                     _context.Notifications.Add(new Notification
