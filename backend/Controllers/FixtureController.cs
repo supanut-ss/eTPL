@@ -14,10 +14,12 @@ namespace eTPL.API.Controllers
     public class FixtureController : ControllerBase
     {
         private readonly ScaffoldedDbContext _db;
+        private readonly IAuctionService _auctionService;
 
-        public FixtureController(ScaffoldedDbContext db)
+        public FixtureController(ScaffoldedDbContext db, IAuctionService auctionService)
         {
             _db = db;
+            _auctionService = auctionService;
         }
 
         public class ResetRequest
@@ -696,19 +698,11 @@ namespace eTPL.API.Controllers
             int perRound = isEven ? n / 2 : (n - 1) / 2;
             int leg1Matches = rounds * perRound;
 
-            var existingCount = 0;
-            var tableReady = false;
-            try
-            {
-                existingCount = await _db.TbmFixtureAllTests
-                    .CountAsync(f => f.Season == season && f.Platform == "PC" && f.Division == "D1");
-                tableReady = true;
-            }
-            catch
-            {
-                // tbm_fixture_all_test ยังไม่ได้สร้าง — ให้ผ่านไปก่อน
-                tableReady = false;
-            }
+            var existingCount = await _db.TbmFixtureAlls
+                .CountAsync(f => f.Season == season && f.Platform == "PC" && f.Division == "D1");
+
+            // Check Quotas
+            var quotaCheck = await _auctionService.ValidateAllQuotasAsync();
 
             return Ok(ApiResponse<object>.Ok(new
             {
@@ -717,7 +711,7 @@ namespace eTPL.API.Controllers
                 leg1MatchCount = leg1Matches,
                 totalMatchCount = leg1Matches * 2,
                 existingFixtureCount = existingCount,
-                tableReady,
+                quotaError = !quotaCheck.Success ? quotaCheck : null,
                 players = players.Select(p => new
                 {
                     userId = p.UserId,
@@ -743,11 +737,18 @@ namespace eTPL.API.Controllers
                 return BadRequest(ApiResponse<object>.Fail("ไม่พบ Season ปัจจุบัน"));
 
             // Block if fixtures already exist in test table
-            var existingCount = await _db.TbmFixtureAllTests
+            var existingCount = await _db.TbmFixtureAlls
                 .CountAsync(f => f.Season == season && f.Platform == "PC" && f.Division == "D1");
 
             if (existingCount > 0)
                 return BadRequest(ApiResponse<object>.Fail($"Season {season.Value} มี Fixture อยู่แล้ว {existingCount} รายการ ไม่สามารถ Generate ซ้ำได้"));
+
+            // Check Quotas before generating
+            var quotaCheck = await _auctionService.ValidateAllQuotasAsync();
+            if (!quotaCheck.Success)
+            {
+                return BadRequest(ApiResponse<object>.Fail(quotaCheck.Message, quotaCheck.FailedUsers));
+            }
 
             // ดึงผู้เล่นทั้งหมดที่ไม่ใช่ admin พร้อมข้อมูลทีม
             var users = await _db.TbmUsers
@@ -760,14 +761,14 @@ namespace eTPL.API.Controllers
             var userIds = users.Select(u => u.UserId).ToList();
             var fixtures = GenerateRoundRobin(userIds);
             
-            var fixtureInsert = new List<TbmFixtureAllTest>();
+            var fixtureInsert = new List<TbmFixtureAll>();
             var teamInsert = new List<TbmTeam>();
 
             // 1. เตรียมข้อมูล Fixtures (ใช้ UserId สำหรับ Home/Away)
             // Leg 1 — ACTIVE='YES'
             foreach (var (home, away, matchday) in fixtures)
             {
-                fixtureInsert.Add(new TbmFixtureAllTest
+                fixtureInsert.Add(new TbmFixtureAll
                 {
                     FixtureId = Guid.NewGuid().ToString(),
                     Division = "D1",
@@ -784,7 +785,7 @@ namespace eTPL.API.Controllers
             // Leg 2 — ACTIVE='NO', Home/Away สลับ
             foreach (var (home, away, matchday) in fixtures)
             {
-                fixtureInsert.Add(new TbmFixtureAllTest
+                fixtureInsert.Add(new TbmFixtureAll
                 {
                     FixtureId = Guid.NewGuid().ToString(),
                     Division = "D1",
@@ -825,7 +826,7 @@ namespace eTPL.API.Controllers
             {
                 try
                 {
-                    await _db.TbmFixtureAllTests.AddRangeAsync(fixtureInsert);
+                    await _db.TbmFixtureAlls.AddRangeAsync(fixtureInsert);
                     await _db.TbmTeams.AddRangeAsync(teamInsert);
                     await _db.SaveChangesAsync();
                     await transaction.CommitAsync();
@@ -876,14 +877,14 @@ namespace eTPL.API.Controllers
 
                         if (request.ResetFixtures)
                         {
-                            var fixturesToDelete = await _db.TbmFixtureAllTests
+                            var fixturesToDelete = await _db.TbmFixtureAlls
                                 .Where(f => f.Season == season.Value && f.Platform == "PC")
                                 .ToListAsync();
                             
                             fixtureCount = fixturesToDelete.Count;
                             if (fixtureCount > 0)
                             {
-                                _db.TbmFixtureAllTests.RemoveRange(fixturesToDelete);
+                                _db.TbmFixtureAlls.RemoveRange(fixturesToDelete);
                                 await _db.SaveChangesAsync();
                             }
                         }

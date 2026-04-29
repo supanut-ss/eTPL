@@ -6,6 +6,7 @@ using eTPL.API.Data;
 using eTPL.API.Models;
 using eTPL.API.Models.Scaffolded;
 using eTPL.API.Data.Scaffolded;
+using eTPL.API.Services.Interfaces;
 
 namespace eTPL.API.Controllers
 {
@@ -15,11 +16,13 @@ namespace eTPL.API.Controllers
     {
         private readonly MsSqlDbContext _context;
         private readonly ScaffoldedDbContext _scaffoldedContext;
+        private readonly IAuctionService _auctionService;
 
-        public CupController(MsSqlDbContext context, ScaffoldedDbContext scaffoldedContext)
+        public CupController(MsSqlDbContext context, ScaffoldedDbContext scaffoldedContext, IAuctionService auctionService)
         {
             _context = context;
             _scaffoldedContext = scaffoldedContext;
+            _auctionService = auctionService;
         }
 
         [HttpGet("bracket")]
@@ -40,7 +43,7 @@ namespace eTPL.API.Controllers
                 .ToListAsync();
 
             var users = await _context.Users.ToListAsync();
-            var teams = await _scaffoldedContext.VCurrentTeams
+            var teams = await _scaffoldedContext.TbmTeams
                 .OrderByDescending(t => t.Season)
                 .ToListAsync();
 
@@ -288,29 +291,26 @@ namespace eTPL.API.Controllers
                 var nextMatch = await _context.CupFixtures.FirstOrDefaultAsync(f => f.Id == match.NextMatchId.Value);
                 if (nextMatch != null)
                 {
-                    // Find if winner is already in the next match
-                    if (nextMatch.HomeUserId != winnerId && nextMatch.AwayUserId != winnerId)
-                    {
-                        // Determine which slot is empty. We can use logic based on original match position.
-                        // Or simply fill the first available slot.
-                        // Wait, a match receives exactly 2 winners. We should place it based on which branch it came from.
-                        // Actually, if we just place in Home if empty, then Away if empty, it's fine.
-                        // But if admin edits the result and changes the winner, we need to replace the old winner.
-                        var oldWinnerId = dto.HomeScore < dto.AwayScore ? match.HomeUserId : match.AwayUserId;
-                        
-                        if (nextMatch.HomeUserId == oldWinnerId)
-                            nextMatch.HomeUserId = winnerId;
-                        else if (nextMatch.AwayUserId == oldWinnerId)
-                            nextMatch.AwayUserId = winnerId;
-                        else if (string.IsNullOrEmpty(nextMatch.HomeUserId))
-                            nextMatch.HomeUserId = winnerId;
-                        else
-                            nextMatch.AwayUserId = winnerId;
+                    var oldWinnerId = dto.HomeScore < dto.AwayScore ? match.HomeUserId : match.AwayUserId;
+                    
+                    if (nextMatch.HomeUserId == oldWinnerId)
+                        nextMatch.HomeUserId = winnerId;
+                    else if (nextMatch.AwayUserId == oldWinnerId)
+                        nextMatch.AwayUserId = winnerId;
+                    else if (string.IsNullOrEmpty(nextMatch.HomeUserId))
+                        nextMatch.HomeUserId = winnerId;
+                    else
+                        nextMatch.AwayUserId = winnerId;
 
-                        _context.CupFixtures.Update(nextMatch);
-                        await _context.SaveChangesAsync();
-                    }
+                    _context.CupFixtures.Update(nextMatch);
+                    await _context.SaveChangesAsync();
                 }
+            }
+
+            // Distribute Prizes if it's the Final (Round 2)
+            if (match.Round == 2)
+            {
+                await _auctionService.DistributeCupPrizesAsync(match.Season);
             }
 
             return Ok(new { message = "บันทึกผลการแข่งขันสำเร็จ!" });

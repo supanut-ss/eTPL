@@ -100,7 +100,7 @@ namespace eTPL.API.Models.DTOs
         public static ApiResponse<T> Ok(T data, string message = "Success") =>
             new() { Success = true, Message = message, Data = data };
 
-        public static ApiResponse<T> Fail(string message) =>
-            new() { Success = false, Message = message };
+        public static ApiResponse<T> Fail(string message, T? data = default) =>
+            new() { Success = false, Message = message, Data = data };
     }
 }

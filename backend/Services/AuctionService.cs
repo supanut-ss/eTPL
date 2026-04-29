@@ -7,6 +7,8 @@ using eTPL.API.Data;
 using eTPL.API.Models.Auction;
 using eTPL.API.Models.DTOs;
 using eTPL.API.Services.Interfaces;
+using eTPL.API.Data.Scaffolded;
+using eTPL.API.Models;
 
 
 namespace eTPL.API.Services
@@ -14,6 +16,7 @@ namespace eTPL.API.Services
     public class AuctionService : IAuctionService
     {
         private readonly MsSqlDbContext _context;
+        private readonly ScaffoldedDbContext _scaffoldedContext;
         private readonly INotificationService _notificationService;
 
         public async Task<PlayerFilterOptionsDto> GetPlayerFilterOptionsAsync(string? league = null)
@@ -41,9 +44,10 @@ namespace eTPL.API.Services
             return result;
         }
 
-        public AuctionService(MsSqlDbContext context, INotificationService notificationService)
+        public AuctionService(MsSqlDbContext context, ScaffoldedDbContext scaffoldedContext, INotificationService notificationService)
         {
             _context = context;
+            _scaffoldedContext = scaffoldedContext;
             _notificationService = notificationService;
         }
 
@@ -540,6 +544,8 @@ namespace eTPL.API.Services
             var inSquad = await _context.AuctionSquads.AnyAsync(s => s.PlayerId == playerId);
             if (inSquad) throw new Exception("นักเตะคนนี้ถูกประมูลไปแล้ว");
 
+            await CheckPreviousOwnerRestrictionAsync(initiatorUserId, playerId);
+
             var settings = await _context.AuctionSettings.FirstOrDefaultAsync();
             int startPrice = player.PlayerOvr + 1;
 
@@ -695,6 +701,8 @@ namespace eTPL.API.Services
                 var dto = MapToDto(auction);
                 if (dto.DisplayStatus != "Normal Bid") throw new Exception("ไม่อยู่ในช่วง Normal Bid.");
 
+                await CheckPreviousOwnerRestrictionAsync(userId, auction.PlayerId);
+
                 if (auction.HighestBidderId == userId) throw new Exception("ไม่สามารถบิดทับตัวเองที่กำลังนำอยู่ได้");
 
                 if (bidAmount <= auction.CurrentPrice) throw new Exception("ราคาที่บิดต้องมากกว่าราคาปัจจุบัน");
@@ -789,6 +797,8 @@ namespace eTPL.API.Services
 
                 var dto = MapToDto(auction, bidderCount);
                 if (dto.DisplayStatus != "Final Bid") throw new Exception("ไม่อยู่ในช่วง Final Bid.");
+
+                await CheckPreviousOwnerRestrictionAsync(userId, auction.PlayerId);
 
                 var hasNormalBid = await _context.AuctionBidLogs.AnyAsync(l => l.AuctionId == auctionId && l.UserId == userId && l.Phase == "Normal");
                 if (!hasNormalBid) throw new Exception("เฉพาะผู้ที่เคยบิดในช่วง Normal เท่านั้นถึงจะมีสิทธิ์บิดในช่วง Final");
@@ -1130,6 +1140,7 @@ namespace eTPL.API.Services
 
         private async Task RecordTransactionAsync(int userId, int amount, string direction, string type, string description, int balanceAfter, int? relatedAuctionId = null, int? relatedPlayerId = null)
         {
+            Console.WriteLine($"[TX] Recording {type} for UserID {userId}: {amount} TP");
             _context.AuctionTransactions.Add(new AuctionTransaction
             {
                 UserId = userId,
@@ -1340,6 +1351,8 @@ namespace eTPL.API.Services
                 if (buyerWallet.AvailableBalance < request.LoanFee)
                     throw new Exception($"TP ไม่เพียงพอสำหรับค่ายืมตัว (ต้องการ {request.LoanFee} TP)");
 
+                await CheckPreviousOwnerRestrictionAsync(request.TargetUserId, squad.PlayerId);
+
                 // Deduct from borrower, credit to lender
                 buyerWallet.AvailableBalance -= request.LoanFee;
                 ownerWallet.AvailableBalance += request.LoanFee;
@@ -1404,6 +1417,8 @@ namespace eTPL.API.Services
 
                 if (buyerWallet.AvailableBalance < request.TransferFee)
                     throw new Exception($"TP ผู้ซื้อไม่เพียงพอ (ต้องการ {request.TransferFee} TP)");
+
+                await CheckPreviousOwnerRestrictionAsync(request.BuyerUserId, squad.PlayerId);
 
                 // Deduct from buyer, credit to seller
                 buyerWallet.AvailableBalance -= request.TransferFee;
@@ -1523,6 +1538,8 @@ namespace eTPL.API.Services
             var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == buyerUserId);
             if (wallet == null || wallet.AvailableBalance < request.Amount)
                 throw new Exception("ยอดเงินคงเหลือไม่เพียงพอสำหรับการยื่นข้อเสนอ");
+
+            await CheckPreviousOwnerRestrictionAsync(buyerUserId, squad.PlayerId);
 
             var offer = new TransferOffer
             {
@@ -1811,19 +1828,565 @@ namespace eTPL.API.Services
             return offers.Select(MapOfferDto).ToList();
         }
 
+        public async Task<SeasonTransitionResultDto> CloseSeasonAsync(string platform, string division)
+        {
+            var strategy = _context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                var logs = new List<string>();
+                try
+                {
+                    // 1. Get Current Season
+                    var currentSeasonObj = await _scaffoldedContext.TbmCurrentSeasons
+                        .FirstOrDefaultAsync(s => s.Platform == platform)
+                        ?? throw new Exception("ไม่พบข้อมูลฤดูกาลปัจจุบัน");
+                    
+                    int currentSeason = currentSeasonObj.Season ?? 1;
+                    string seasonLabel = $"Season {currentSeason - 22}";
+                    string prizeTag = $"(Season {currentSeason})";
+
+                    // --- IDEMPOTENCY CLEANUP ---
+                    // 1. Remove previous HOF entries for this season
+                    var existingHof = await _scaffoldedContext.TbmHofs
+                        .Where(h => h.Season == seasonLabel)
+                        .ToListAsync();
+                    if (existingHof.Any())
+                    {
+                        _scaffoldedContext.TbmHofs.RemoveRange(existingHof);
+                    }
+
+                    // 2. Remove previous League prize transactions and revert wallet balances
+                    var oldPrizeTxs = await _context.AuctionTransactions
+                        .Where(t => (t.Type == "PRIZE" || t.Type == "PRIZE_SPECIAL") && t.Description.Contains(prizeTag))
+                        .ToListAsync();
+                    if (oldPrizeTxs.Any())
+                    {
+                        foreach (var tx in oldPrizeTxs)
+                        {
+                            var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == tx.UserId);
+                            if (wallet != null) wallet.AvailableBalance -= tx.Amount;
+                        }
+                        _context.AuctionTransactions.RemoveRange(oldPrizeTxs);
+                    }
+                    await _context.SaveChangesAsync();
+                    await _scaffoldedContext.SaveChangesAsync();
+                    // ---------------------------
+                    logs.Add($"เริ่มกระบวนการปิดฤดูกาล {currentSeason} ({platform} - {division})");
+
+                    // 2. Get Standings from api_v_result_table
+                    var standings = await _scaffoldedContext.ApiVResultTables
+                        .Where(s => s.Platform == platform && s.Season == currentSeason && s.Division == division)
+                        .ToListAsync();
+                    
+                    var rankedStandings = standings.OrderByDescending(s => s.Pts)
+                        .ThenByDescending(s => s.Gd)
+                        .ThenByDescending(s => s.Gf)
+                        .ToList();
+
+                    // 3. Get Prizes
+                    var prizes = await _scaffoldedContext.TbsPrizeSettings.OrderBy(p => p.SortOrder).ToListAsync();
+                    logs.Add($"พบข้อมูลอันดับ {rankedStandings.Count} ทีม และการตั้งค่ารางวัล {prizes.Count} รายการ");
+
+                    // 4. Distribute Prizes
+                    int prizeCount = 0;
+                    foreach (var prize in prizes)
+                    {
+                        if (prize.PositionStart.HasValue)
+                        {
+                            int start = prize.PositionStart.Value - 1;
+                            int end = (prize.PositionEnd ?? prize.PositionStart.Value) - 1;
+
+                            for (int i = start; i <= end && i < rankedStandings.Count; i++)
+                            {
+                                var team = rankedStandings[i];
+                                if (team.Team == null) continue;
+
+                                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == team.Team);
+                                if (user == null) continue;
+
+                                var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == user.Id);
+                                if (wallet == null)
+                                {
+                                    wallet = new AuctionUserWallet { UserId = user.Id, AvailableBalance = 0, ReservedBalance = 0 };
+                                    _context.AuctionUserWallets.Add(wallet);
+                                }
+
+                                wallet.AvailableBalance += (int)prize.Amount;
+                                await RecordTransactionAsync(user.Id, (int)prize.Amount, "CREDIT", "PRIZE",
+                                    $"รางวัลอันดับ {i + 1} {prize.RankLabel} (Season {currentSeason})",
+                                    wallet.AvailableBalance);
+                                prizeCount++;
+                            }
+                        }
+                    }
+                    logs.Add($"แจกเงินรางวัลตามอันดับสำเร็จ ({prizeCount} รายการ)");
+
+                    // 4.1 Special Prizes
+                    var topScorerPrize = prizes.FirstOrDefault(p => p.RankLabel == "Top Scorer");
+                    if (topScorerPrize != null && rankedStandings.Any())
+                    {
+                        int maxGf = rankedStandings.Max(s => s.Gf ?? 0);
+                        var winners = rankedStandings.Where(s => (s.Gf ?? 0) == maxGf).ToList();
+                        
+                        if (winners.Any())
+                        {
+                            decimal dividedAmount = topScorerPrize.Amount / winners.Count;
+                            foreach (var team in winners)
+                            {
+                                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == team.Team);
+                                if (user == null) continue;
+                                var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == user.Id);
+                                if (wallet != null)
+                                {
+                                    int amountInt = (int)dividedAmount;
+                                    wallet.AvailableBalance += amountInt;
+                                    await RecordTransactionAsync(user.Id, amountInt, "CREDIT", "PRIZE_SPECIAL",
+                                        $"รางวัลพิเศษ Top Scorer (หาร {winners.Count} ทีม: {team.Gf} Goals) (Season {currentSeason})",
+                                        wallet.AvailableBalance);
+
+                                    // Add to HOF under "League Awards"
+                                    _scaffoldedContext.TbmHofs.Add(new eTPL.API.Models.Scaffolded.TbmHof
+                                    {
+                                        HofId = Guid.NewGuid().ToString(),
+                                        Platform = platform,
+                                        Season = $"Season {currentSeason - 22}",
+                                        TournamentTitle = "League Awards",
+                                        TournamentSubtitle = "Golden Boot · Top Scorer",
+                                        WinnerName = user.UserId,
+                                        WinnerTeam = team.TeamName,
+                                        WinnerImage = user.LinePic != null && user.LinePic.Length > 500 ? user.LinePic.Substring(0, 500) : user.LinePic,
+                                        DisplayColor = "#fbbf24"
+                                    });
+                                }
+                            }
+                            logs.Add($"แจกรางวัลพิเศษ Top Scorer และบันทึก HOF สำเร็จ");
+                        }
+                    }
+
+                    var bestDefPrize = prizes.FirstOrDefault(p => p.RankLabel == "Best Defense");
+                    if (bestDefPrize != null && rankedStandings.Any())
+                    {
+                        int minGa = rankedStandings.Min(s => s.Ga ?? 0);
+                        var winners = rankedStandings.Where(s => (s.Ga ?? 0) == minGa).ToList();
+                        
+                        if (winners.Any())
+                        {
+                            decimal dividedAmount = bestDefPrize.Amount / winners.Count;
+                            foreach (var team in winners)
+                            {
+                                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == team.Team);
+                                if (user == null) continue;
+                                var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == user.Id);
+                                if (wallet != null)
+                                {
+                                    int amountInt = (int)dividedAmount;
+                                    wallet.AvailableBalance += amountInt;
+                                    await RecordTransactionAsync(user.Id, amountInt, "CREDIT", "PRIZE_SPECIAL",
+                                        $"รางวัลพิเศษ Best Defense (หาร {winners.Count} ทีม: {team.Ga} GA) (Season {currentSeason})",
+                                        wallet.AvailableBalance);
+
+                                    // Add to HOF under "League Awards"
+                                    _scaffoldedContext.TbmHofs.Add(new eTPL.API.Models.Scaffolded.TbmHof
+                                    {
+                                        HofId = Guid.NewGuid().ToString(),
+                                        Platform = platform,
+                                        Season = $"Season {currentSeason - 22}",
+                                        TournamentTitle = "League Awards",
+                                        TournamentSubtitle = "Golden Glove · Best Defense",
+                                        WinnerName = user.UserId,
+                                        WinnerTeam = team.TeamName,
+                                        WinnerImage = user.LinePic != null && user.LinePic.Length > 500 ? user.LinePic.Substring(0, 500) : user.LinePic,
+                                        DisplayColor = "#fbbf24"
+                                    });
+                                }
+                            }
+                            logs.Add($"แจกรางวัลพิเศษ Best Defense และบันทึก HOF สำเร็จ");
+                        }
+                    }
+
+                    // 5. Add HOF Entry (Winner)
+                    if (rankedStandings.Any())
+                    {
+                        var winner = rankedStandings.First();
+                        var winnerUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == winner.Team);
+                        
+                        // Try to get color from existing HOF entries for this title
+                        var latestLeagueHof = await _scaffoldedContext.TbmHofs
+                            .Where(h => h.TournamentTitle == "eTPL League")
+                            .OrderByDescending(h => h.Season)
+                            .FirstOrDefaultAsync();
+                        string leagueColor = latestLeagueHof?.DisplayColor ?? "#fbbf24";
+
+                        var hofEntry = new eTPL.API.Models.Scaffolded.TbmHof
+                        {
+                            HofId = Guid.NewGuid().ToString(),
+                            Platform = platform,
+                            Season = $"Season {currentSeason - 22}",
+                            TournamentTitle = "eTPL League",
+                            TournamentSubtitle = $"{division} Division",
+                            WinnerName = winnerUser?.UserId ?? winner.Team,
+                            WinnerTeam = winner.TeamName,
+                            WinnerImage = winnerUser?.LinePic != null && winnerUser.LinePic.Length > 500 ? winnerUser.LinePic.Substring(0, 500) : winnerUser?.LinePic,
+                            DisplayColor = leagueColor
+                        };
+
+                        // Add Runner-up if available
+                        if (rankedStandings.Count >= 2)
+                        {
+                            var runnerUp = rankedStandings[1];
+                            var runnerUpUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == runnerUp.Team);
+                            hofEntry.RunnerUpName = runnerUpUser?.UserId ?? runnerUp.Team;
+                        }
+
+                        _scaffoldedContext.TbmHofs.Add(hofEntry);
+
+                        // Notify Winner
+                        if (winnerUser != null)
+                        {
+                            _context.Notifications.Add(new Notification
+                            {
+                                UserId = winnerUser.Id,
+                                Title = "🏆 ขอแสดงความยินดีกับแชมป์ลีก!",
+                                Message = $"คุณคือแชมป์ eTPL League ({division}) ประจำ {hofEntry.Season}! สุดยอดมากครับ",
+                                TargetUrl = "/hall-of-fame",
+                                CreatedAt = DateTime.UtcNow
+                            });
+                        }
+
+                        logs.Add($"บันทึกข้อมูล Hall of Fame และแจ้งเตือนผู้ชนะ ({winner.TeamName}) สำเร็จ");
+                    }
+
+                    // 6. Auto Release Expired Contracts
+                    var activeSquads = await _context.AuctionSquads
+                        .Include(s => s.Player)
+                        .Where(s => s.Status == "Active" && s.IsLoan == false)
+                        .ToListAsync();
+                    
+                    var quotas = await _context.AuctionGradeQuotas.ToListAsync();
+
+                    int releasedCount = 0;
+                    foreach (var squad in activeSquads)
+                    {
+                        if (squad.Player == null) continue;
+                        
+                        var quota = quotas.FirstOrDefault(q => squad.Player.PlayerOvr >= q.MinOVR && squad.Player.PlayerOvr <= q.MaxOVR);
+                        if (quota != null && squad.SeasonsWithTeam >= quota.MaxSeasonsPerTeam)
+                        {
+                            int refund = squad.PricePaid * quota.ReleasePercent / 100;
+                            var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == squad.UserId);
+                            if (wallet != null)
+                            {
+                                wallet.AvailableBalance += refund;
+                                await RecordTransactionAsync(squad.UserId, refund, "CREDIT", "AUTO_RELEASE_EXPIRED",
+                                    $"ปล่อยตัวอัตโนมัติ (หมดสัญญา): {squad.Player.PlayerName} คืนเงิน {refund} TP (Season {currentSeason})",
+                                    wallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
+                            }
+                            // Clean up related offers before removing squad
+                            var relatedOffers = await _context.TransferOffers.Where(o => o.SquadId == squad.SquadId).ToListAsync();
+                            if (relatedOffers.Any())
+                            {
+                                _context.TransferOffers.RemoveRange(relatedOffers);
+                                await _context.SaveChangesAsync();
+                            }
+
+                            _context.AuctionSquads.Remove(squad);
+                            releasedCount++;
+                        }
+                    }
+                    logs.Add($"ปล่อยตัวนักเตะหมดสัญญาและคืนเงินสำเร็จ ({releasedCount} คน)");
+
+                    // 7. Return Loans
+                    await HandleSeasonChangeAsync(currentSeason + 1);
+                    logs.Add($"เรียกเก็บนักเตะยืมตัวคืนต้นสังกัดสำเร็จ");
+
+                    // 8. Clear Market
+                    var activeAuctions = await _context.AuctionBoards.Where(b => b.DbStatus == "Active").ToListAsync();
+                    foreach (var auction in activeAuctions)
+                    {
+                        if (auction.HighestBidderId.HasValue)
+                        {
+                            var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == auction.HighestBidderId.Value);
+                            if (wallet != null)
+                            {
+                                wallet.AvailableBalance += auction.CurrentPrice;
+                                wallet.ReservedBalance = Math.Max(0, wallet.ReservedBalance - auction.CurrentPrice);
+                                await RecordTransactionAsync(auction.HighestBidderId.Value, auction.CurrentPrice, "CREDIT", "AUCTION_CANCELLED_SEASON_END",
+                                    $"ยกเลิกประมูลเนื่องจากจบฤดูกาล: คืนเงินมัดจำ {auction.CurrentPrice} TP",
+                                    wallet.AvailableBalance);
+                            }
+                        }
+                        auction.DbStatus = "Cancelled";
+                    }
+
+                    var pendingOffers = await _context.TransferOffers.Where(o => o.Status == "Pending").ToListAsync();
+                    foreach (var offer in pendingOffers) offer.Status = "Cancelled";
+                    logs.Add($"เคลียร์ตลาดและยกเลิกข้อเสนอซื้อขายค้างคาสำเร็จ ({activeAuctions.Count} การประมูล, {pendingOffers.Count} ข้อเสนอ)");
+
+                    try
+                    {
+                        await _context.SaveChangesAsync();
+                        await _scaffoldedContext.SaveChangesAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[CLOSE SEASON ERROR] {ex}");
+                        var inner = ex.InnerException?.Message ?? ex.Message;
+                        throw new Exception($"Database Update Error: {inner}");
+                    }
+                    await transaction.CommitAsync();
+
+                    logs.Add($"บันทึกการเปลี่ยนแปลงทั้งหมดลงฐานข้อมูลเรียบร้อย");
+
+                    return new SeasonTransitionResultDto
+                    {
+                        Success = true,
+                        Message = $"ปิดฤดูกาล {currentSeason} สำเร็จ!",
+                        Logs = logs,
+                        Data = new { currentSeason, releasedCount }
+                    };
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    return new SeasonTransitionResultDto { Success = false, Message = "เกิดข้อผิดพลาดในการปิดฤดูกาล: " + ex.Message, Logs = logs };
+                }
+            });
+        }
+
+        public async Task<SeasonTransitionResultDto> OpenSeasonAsync(string platform, string division)
+        {
+            var strategy = _context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                var logs = new List<string>();
+                try
+                {
+                    // 1. Get Current Season
+                    var currentSeasonObj = await _scaffoldedContext.TbmCurrentSeasons
+                        .FirstOrDefaultAsync(s => s.Platform == platform)
+                        ?? throw new Exception("ไม่พบข้อมูลฤดูกาลปัจจุบัน");
+                    
+                    int oldSeason = currentSeasonObj.Season ?? 1;
+                    int newSeason = oldSeason + 1;
+                    string renewalSearchTag = $"ต่อสัญญาอัตโนมัติ (เปิดฤดูกาลใหม่): ";
+                    string renewalSeasonTag = $"(Season {newSeason})";
+                    bool alreadyIncremented = false;
+
+                    // --- IDEMPOTENCY CLEANUP (OPEN SEASON) ---
+                    // Find all renewals recorded for the upcoming season transition (newSeason)
+                    var oldRenewals = await _context.AuctionTransactions
+                        .Where(t => t.Type == "CONTRACT_RENEWAL_AUTO" && t.Description.Contains(renewalSearchTag) && t.Description.Contains(renewalSeasonTag))
+                        .ToListAsync();
+
+                    // If not found, check if they were recorded under 'oldSeason' (meaning we already incremented the DB season)
+                    if (!oldRenewals.Any())
+                    {
+                        var potentialRenewals = await _context.AuctionTransactions
+                            .Where(t => t.Type == "CONTRACT_RENEWAL_AUTO" && t.Description.Contains(renewalSearchTag) && t.Description.Contains($"(Season {oldSeason})"))
+                            .ToListAsync();
+                        
+                        if (potentialRenewals.Any())
+                        {
+                            oldRenewals = potentialRenewals;
+                            newSeason = oldSeason; // The DB is already at the target season
+                            alreadyIncremented = true;
+                            logs.Add($"ตรวจพบว่าระบบอยู่ในสถานะที่อัปเดตเลขฤดูกาลเป็น {oldSeason} ไปแล้ว (ข้ามการอัปเดตเลข SS)");
+                        }
+                    }
+
+                    if (oldRenewals.Any())
+                    {
+                        foreach (var tx in oldRenewals)
+                        {
+                            // 1. Return money
+                            var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == tx.UserId);
+                            if (wallet != null) wallet.AvailableBalance += tx.Amount;
+
+                            // 2. Revert SeasonsWithTeam
+                            if (tx.RelatedPlayerId.HasValue)
+                            {
+                                var squad = await _context.AuctionSquads.FirstOrDefaultAsync(s => s.UserId == tx.UserId && s.PlayerId == tx.RelatedPlayerId.Value);
+                                if (squad != null && squad.SeasonsWithTeam > 0)
+                                {
+                                    squad.SeasonsWithTeam -= 1;
+                                }
+                            }
+                        }
+                        _context.AuctionTransactions.RemoveRange(oldRenewals);
+                        await _context.SaveChangesAsync();
+                        logs.Add($"[REVERT] ล้างข้อมูลการต่อสัญญาเดิม เพื่อคำนวณใหม่ ({oldRenewals.Count} รายการ)");
+                    }
+                    // ------------------------------------------
+
+                    logs.Add($"เริ่มกระบวนการเปิดฤดูกาลใหม่ ({oldSeason} -> {newSeason})");
+
+                    // 2. Calculate Renewal Costs & Validate Balances
+                    var activeSquads = await _context.AuctionSquads
+                        .Include(s => s.Player)
+                        .Where(s => s.Status == "Active" && s.IsLoan == false)
+                        .ToListAsync();
+                    
+                    var quotas = await _context.AuctionGradeQuotas.ToListAsync();
+                    var users = await _context.Users.ToListAsync();
+                    var wallets = await _context.AuctionUserWallets.ToListAsync();
+
+                    var failedUsers = new List<string>();
+                    var renewalMap = new Dictionary<int, List<(AuctionSquad Squad, int Cost)>>();
+
+                    foreach (var squad in activeSquads)
+                    {
+                        if (squad.Player == null) continue;
+                        var quota = quotas.FirstOrDefault(q => squad.Player.PlayerOvr >= q.MinOVR && squad.Player.PlayerOvr <= q.MaxOVR);
+                        if (quota == null) continue;
+
+                        int cost = squad.PricePaid * quota.RenewalPercent / 100;
+                        if (!renewalMap.ContainsKey(squad.UserId)) renewalMap[squad.UserId] = new List<(AuctionSquad, int)>();
+                        renewalMap[squad.UserId].Add((squad, cost));
+                    }
+
+                    foreach (var kvp in renewalMap)
+                    {
+                        int userId = kvp.Key;
+                        int totalCost = kvp.Value.Sum(x => x.Cost);
+                        var wallet = wallets.FirstOrDefault(w => w.UserId == userId);
+                        var user = users.FirstOrDefault(u => u.Id == userId);
+
+                        if (wallet == null || wallet.AvailableBalance < totalCost)
+                        {
+                            failedUsers.Add(user?.UserId ?? $"User ID: {userId}");
+                        }
+                    }
+
+                    if (failedUsers.Any())
+                    {
+                        logs.Add($"ตรวจสอบยอดเงินไม่ผ่าน: พบ {failedUsers.Count} ทีมที่มีเงินไม่พอ");
+                        return new SeasonTransitionResultDto
+                        {
+                            Success = false,
+                            Message = "ไม่สามารถเปิดฤดูกาลได้เนื่องจากมีทีมที่มีเงินไม่พอต่อสัญญานักเตะ",
+                            FailedUsers = failedUsers,
+                            Logs = logs
+                        };
+                    }
+                    logs.Add($"ตรวจสอบงบประมาณของทุกทีม ({renewalMap.Count} ทีม) ผ่านเรียบร้อย");
+
+                    // 3. Apply Deductions & Increment SeasonsWithTeam
+                    int renewalCount = 0;
+                    
+                    foreach (var kvp in renewalMap)
+                    {
+                        int userId = kvp.Key;
+                        var wallet = wallets.First(w => w.UserId == userId);
+
+                        foreach (var item in kvp.Value)
+                        {
+                            wallet.AvailableBalance -= item.Cost;
+                            item.Squad.SeasonsWithTeam += 1;
+
+                            await RecordTransactionAsync(userId, item.Cost, "DEBIT", "CONTRACT_RENEWAL_AUTO",
+                                $"{renewalSearchTag}{item.Squad.Player?.PlayerName} {renewalSeasonTag} เพิ่มเป็น {item.Squad.SeasonsWithTeam} ปี",
+                                wallet.AvailableBalance, relatedPlayerId: item.Squad.PlayerId);
+                            renewalCount++;
+                        }
+                    }
+                    logs.Add($"ดำเนินการต่อสัญญาและหักเงินสำเร็จ ({renewalCount} รายการ)");
+
+                    // 4. Increment Season (only if not already at target)
+                    if (!alreadyIncremented)
+                    {
+                        currentSeasonObj.Season = newSeason;
+                        logs.Add($"อัปเดตเลขฤดูกาลเป็น {newSeason} สำเร็จ");
+                    }
+                    else
+                    {
+                        logs.Add($"เลขฤดูกาลปัจจุบันคือ {currentSeasonObj.Season} (ไม่ต้องอัปเดตซ้ำ)");
+                    }
+
+                    // 5. Database Maintenance
+                    // Backup tbt_result
+                    await _scaffoldedContext.Database.ExecuteSqlRawAsync(@"
+                        IF OBJECT_ID('dbo.tbt_result_log', 'U') IS NULL 
+                        BEGIN
+                            SELECT * INTO dbo.tbt_result_log FROM dbo.tbt_result WHERE 1=0;
+                        END;
+                        INSERT INTO dbo.tbt_result_log SELECT * FROM dbo.tbt_result;
+                    ");
+                    logs.Add($"สำรองข้อมูลตารางคะแนนเดิมลง tbt_result_log สำเร็จ");
+
+                    // Clear tables
+                    await _scaffoldedContext.Database.ExecuteSqlRawAsync("DELETE FROM dbo.tbt_result");
+                    await _scaffoldedContext.Database.ExecuteSqlRawAsync("DELETE FROM dbo.tbm_fixture_all");
+                    logs.Add($"ล้างตารางผลการแข่งขันและตารางแข่งลีกเดิมสำเร็จ");
+                    
+                    // Reset Fixture SP
+                    try {
+                        await _scaffoldedContext.Database.ExecuteSqlRawAsync("EXEC ResetFixture");
+                        logs.Add($"เรียกใช้งาน Stored Procedure: ResetFixture สำเร็จ");
+                    } catch { 
+                        logs.Add($"หมายเหตุ: ไม่พบ Stored Procedure 'ResetFixture' ในระบบ (ข้ามขั้นตอน)");
+                    }
+
+                    // Clear Cups
+                    await _context.Database.ExecuteSqlRawAsync("DELETE FROM dbo.tbs_cup_fixture");
+                    logs.Add($"ล้างข้อมูลสายการแข่งขันบอลถ้วยสำเร็จ");
+
+                    await _context.SaveChangesAsync();
+                    await _scaffoldedContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    logs.Add($"บันทึกการเปลี่ยนแปลงทั้งหมดลงฐานข้อมูลเรียบร้อย");
+
+                    return new SeasonTransitionResultDto
+                    {
+                        Success = true,
+                        Message = $"เปิดฤดูกาล {newSeason} สำเร็จ!",
+                        Logs = logs,
+                        Data = new { newSeason }
+                    };
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    return new SeasonTransitionResultDto { Success = false, Message = "เกิดข้อผิดพลาดในการเปิดฤดูกาล: " + ex.Message, Logs = logs };
+                }
+            });
+        }
+
         public async Task HandleSeasonChangeAsync(int newSeason)
         {
+            if (_context.Database.CurrentTransaction != null)
+            {
+                await HandleSeasonChangeCoreAsync(newSeason);
+                return;
+            }
+
             var strategy = _context.Database.CreateExecutionStrategy();
             await strategy.ExecuteAsync(async () =>
             {
                 using var transaction = await _context.Database.BeginTransactionAsync();
                 try
                 {
-                // Find all currently loaned players that exist as borrow entries
-                var activeLoans = await _context.AuctionSquads
-                    .Where(s => s.IsLoan == true && s.LoanedFromUserId != null)
-                    .Include(s => s.Player)
-                    .ToListAsync();
+                    await HandleSeasonChangeCoreAsync(newSeason);
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            });
+        }
+
+        private async Task HandleSeasonChangeCoreAsync(int newSeason)
+        {
+            // Find all currently loaned players that exist as borrow entries
+            var activeLoans = await _context.AuctionSquads
+                .Where(s => s.IsLoan == true && s.LoanedFromUserId != null)
+                .Include(s => s.Player)
+                .ToListAsync();
 
                 foreach (var loan in activeLoans)
                 {
@@ -1841,6 +2404,7 @@ namespace eTPL.API.Services
                     if (relatedOffers.Any())
                     {
                         _context.TransferOffers.RemoveRange(relatedOffers);
+                        await _context.SaveChangesAsync(); // Save offers deletion first
                     }
 
                     // Delete the borrowed entry
@@ -1853,15 +2417,15 @@ namespace eTPL.API.Services
                     offer.Status = "Cancelled";
                 }
 
-                await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
-                }
-                catch
+                try
                 {
-                    try { await transaction.RollbackAsync(); } catch { }
-                    throw;
+                    await _context.SaveChangesAsync();
                 }
-            });
+                catch (DbUpdateException ex)
+                {
+                    var inner = ex.InnerException?.Message ?? ex.Message;
+                    throw new Exception($"HandleSeasonChange Save Error: {inner}");
+                }
         }
 
         public async Task<List<UserDto>> GetAllClubsAsync()
@@ -1948,6 +2512,280 @@ namespace eTPL.API.Services
                 CreatedAt = DateTime.SpecifyKind(offer.CreatedAt, DateTimeKind.Utc),
                 UpdatedAt = offer.UpdatedAt.HasValue ? DateTime.SpecifyKind(offer.UpdatedAt.Value, DateTimeKind.Utc) : (DateTime?)null
             };
+        }
+        public async Task<SeasonTransitionResultDto> ValidateAllQuotasAsync()
+        {
+            try
+            {
+                var grades = await _context.AuctionGradeQuotas.OrderBy(g => g.GradeId).ToListAsync();
+                var squads = await _context.AuctionSquads
+                    .Include(s => s.Player)
+                    .Where(s => s.Status == "Active" && s.IsLoan == false)
+                    .ToListAsync();
+                
+                var users = await _context.Users.ToListAsync();
+                var failedUsers = new List<string>();
+
+                foreach (var user in users)
+                {
+                    var userSquad = squads.Where(s => s.UserId == user.Id).ToList();
+                    var userErrors = new List<string>();
+
+                    foreach (var grade in grades)
+                    {
+                        int count = userSquad.Count(s => s.Player != null && s.Player.PlayerOvr >= grade.MinOVR && s.Player.PlayerOvr <= grade.MaxOVR);
+                        if (count > grade.MaxAllowedPerUser)
+                        {
+                            userErrors.Add($"{grade.GradeName}: {count}/{grade.MaxAllowedPerUser}");
+                        }
+                    }
+
+                    if (userErrors.Any())
+                    {
+                        failedUsers.Add($"{user.UserId} ({string.Join(", ", userErrors)})");
+                    }
+                }
+
+                if (failedUsers.Any())
+                {
+                    return new SeasonTransitionResultDto
+                    {
+                        Success = false,
+                        Message = "มีทีมที่ถือครองนักเตะเกินโควต้าที่กำหนด",
+                        FailedUsers = failedUsers
+                    };
+                }
+
+                return new SeasonTransitionResultDto { Success = true, Message = "ตรวจสอบโควต้าผ่านทึกทีม" };
+            }
+            catch (Exception ex)
+            {
+                return new SeasonTransitionResultDto { Success = false, Message = "เกิดข้อผิดพลาดในการตรวจสอบโควต้า: " + ex.Message };
+            }
+        }
+        public async Task DistributeCupPrizesAsync(int season)
+        {
+            if (_context.Database.CurrentTransaction != null)
+            {
+                await DistributeCupPrizesCoreAsync(season);
+                return;
+            }
+
+            var strategy = _context.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
+                    await DistributeCupPrizesCoreAsync(season);
+                    await _context.SaveChangesAsync();
+                    await _scaffoldedContext.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            });
+        }
+
+        private async Task DistributeCupPrizesCoreAsync(int season)
+        {
+            string cupSeasonLabel = $"Season {season - 22}";
+            string cupPrizeTag = $"(Season {season})";
+
+            // --- IDEMPOTENCY CLEANUP (CUP) ---
+            // 1. Remove previous Cup HOF entries for this season
+            var existingCupHof = await _scaffoldedContext.TbmHofs
+                .Where(h => h.Season == cupSeasonLabel && h.TournamentTitle == "eTPL Cup")
+                .ToListAsync();
+            if (existingCupHof.Any())
+            {
+                _scaffoldedContext.TbmHofs.RemoveRange(existingCupHof);
+            }
+
+            // 2. Remove previous Cup prize transactions and revert wallet balances
+            var oldCupTxs = await _context.AuctionTransactions
+                .Where(t => t.Type == "CUP_PRIZE" && t.Description.Contains(cupPrizeTag))
+                .ToListAsync();
+            if (oldCupTxs.Any())
+            {
+                foreach (var tx in oldCupTxs)
+                {
+                    var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == tx.UserId);
+                    if (wallet != null) wallet.AvailableBalance -= tx.Amount;
+                }
+                _context.AuctionTransactions.RemoveRange(oldCupTxs);
+            }
+            await _context.SaveChangesAsync();
+            await _scaffoldedContext.SaveChangesAsync();
+            // ---------------------------------
+
+
+            // 2. Get all matches for this season (including unplayed ones to identify all participants)
+            var allFixtures = await _context.CupFixtures
+                .Where(f => f.Season == season)
+                .ToListAsync();
+
+            if (!allFixtures.Any()) return;
+
+                    // Get all users who participated in this cup season
+                    var allUserIds = allFixtures
+                        .SelectMany(f => new[] { f.HomeUserId, f.AwayUserId })
+                        .Where(id => !string.IsNullOrEmpty(id))
+                        .Distinct()
+                        .ToList();
+
+                    foreach (var rawUserIdStr in allUserIds)
+                    {
+                        var userIdStr = rawUserIdStr?.Trim();
+                        if (string.IsNullOrEmpty(userIdStr)) continue;
+                        // Try matching by UserId (string) or Id (int if applicable)
+                        var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userIdStr);
+                        if (user == null && int.TryParse(userIdStr, out int idVal))
+                        {
+                            user = await _context.Users.FirstOrDefaultAsync(u => u.Id == idVal);
+                        }
+
+                        if (user == null) continue;
+
+                        var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == user.Id);
+                        if (wallet == null)
+                        {
+                            wallet = new AuctionUserWallet { UserId = user.Id, AvailableBalance = 0, ReservedBalance = 0 };
+                            _context.AuctionUserWallets.Add(wallet);
+                        }
+
+                        // Find all matches for this user in this season (using Trim and IgnoreCase)
+                        var userMatches = allFixtures.Where(f => 
+                            (f.HomeUserId != null && string.Equals(f.HomeUserId.Trim(), userIdStr, StringComparison.OrdinalIgnoreCase)) || 
+                            (f.AwayUserId != null && string.Equals(f.AwayUserId.Trim(), userIdStr, StringComparison.OrdinalIgnoreCase))).ToList();
+                        
+                        if (!userMatches.Any()) continue;
+
+                        // The furthest round is the smallest Round number
+                        int maxRoundReached = userMatches.Min(f => f.Round); 
+                        
+                        decimal amount = 0;
+                        string label = "";
+
+                        if (maxRoundReached == 2)
+                        {
+                            // Special check for the Final
+                            var finalMatch = userMatches.FirstOrDefault(f => f.Round == 2);
+                            if (finalMatch != null && finalMatch.IsPlayed)
+                            {
+                                bool isHome = finalMatch.HomeUserId != null && string.Equals(finalMatch.HomeUserId.Trim(), userIdStr, StringComparison.OrdinalIgnoreCase);
+                                bool won = isHome ? (finalMatch.HomeScore > finalMatch.AwayScore) : (finalMatch.AwayScore > finalMatch.HomeScore);
+                                
+                                if (won)
+                                {
+                                    amount = 100;
+                                    label = "Cup Winner (Round 1)";
+
+                                    // Try to get color from existing HOF entries for this title
+                                    var latestCupHof = await _scaffoldedContext.TbmHofs
+                                        .Where(h => h.TournamentTitle == "eTPL Cup")
+                                        .OrderByDescending(h => h.Season)
+                                        .FirstOrDefaultAsync();
+                                    string cupColor = latestCupHof?.DisplayColor ?? "#A86929";
+
+                                    // Hall of Fame
+                                    var hofEntry = new eTPL.API.Models.Scaffolded.TbmHof
+                                    {
+                                        HofId = Guid.NewGuid().ToString(),
+                                        Platform = "PC",
+                                        Season = $"Season {season - 22}",
+                                        TournamentTitle = "eTPL Cup",
+                                        TournamentSubtitle = "Knockout King",
+                                        WinnerName = user.UserId,
+                                        WinnerTeam = user.CurrentTeam,
+                                        WinnerImage = user.LinePic != null && user.LinePic.Length > 500 ? user.LinePic.Substring(0, 500) : user.LinePic,
+                                        DisplayColor = cupColor
+                                    };
+
+                                    // Add Runner-up (The loser of the final)
+                                    string runnerUpId = isHome ? (finalMatch.AwayUserId?.Trim() ?? "") : (finalMatch.HomeUserId?.Trim() ?? "");
+                                    if (!string.IsNullOrEmpty(runnerUpId))
+                                    {
+                                        var runnerUpUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == runnerUpId);
+                                        hofEntry.RunnerUpName = runnerUpUser?.UserId ?? runnerUpId;
+                                    }
+
+                                    _scaffoldedContext.TbmHofs.Add(hofEntry);
+
+                                    // Notify Winner
+                                    _context.Notifications.Add(new Notification
+                                    {
+                                        UserId = user.Id,
+                                        Title = "🏆 ขอแสดงความยินดีกับแชมป์บอลถ้วย!",
+                                        Message = $"คุณคือแชมป์ eTPL Cup ประจำ {hofEntry.Season}! เก่งมากครับ",
+                                        TargetUrl = "/hall-of-fame",
+                                        CreatedAt = DateTime.UtcNow
+                                    });
+                                }
+                                else
+                                {
+                                    amount = 60;
+                                    label = "Cup Runner-up (Round 2)";
+                                }
+                            }
+                            else if (finalMatch != null)
+                            {
+                                // If final is not played, they get Semifinalist prize for reaching this far
+                                amount = 50;
+                                label = "Cup Semifinalist (Round 4)";
+                            }
+                        }
+                        else if (maxRoundReached == 4) { amount = 50; label = "Cup Semifinalist (Round 4)"; }
+                        else if (maxRoundReached == 8) { amount = 40; label = "Cup Quarterfinalist (Round 8)"; }
+                        else if (maxRoundReached == 16) { amount = 30; label = "Cup Round of 16"; }
+                        else if (maxRoundReached == 32) { amount = 20; label = "Cup Round of 32"; }
+
+                        if (amount > 0)
+                        {
+                            int amountInt = (int)amount;
+                            wallet.AvailableBalance += amountInt;
+                            await RecordTransactionAsync(user.Id, amountInt, "CREDIT", "CUP_PRIZE",
+                                $"รางวัลบอลถ้วย {label} (Season {season})",
+                                wallet.AvailableBalance);
+                        }
+                    }
+                try
+                {
+                    await _context.SaveChangesAsync();
+                    await _scaffoldedContext.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[CUP PRIZE ERROR] {ex}");
+                    var inner = ex.InnerException?.Message ?? ex.Message;
+                    throw new Exception($"Cup Prize DB Error: {inner}");
+                }
+        }
+
+        private async Task CheckPreviousOwnerRestrictionAsync(int userId, int playerId)
+        {
+            // 1. Get current season
+            var currentSeasonObj = await _scaffoldedContext.TbmCurrentSeasons.FirstOrDefaultAsync();
+            if (currentSeasonObj == null) return;
+            int currentSeason = currentSeasonObj.Season ?? 1;
+
+            // 2. Check if this user released this player in the previous season transition
+            // The previous season number was currentSeason - 1
+            string targetTag = $"(Season {currentSeason - 1})";
+            
+            bool isRestricted = await _context.AuctionTransactions.AnyAsync(t => 
+                t.UserId == userId && 
+                t.RelatedPlayerId == playerId && 
+                t.Type == "AUTO_RELEASE_EXPIRED" &&
+                t.Description.Contains(targetTag));
+
+            if (isRestricted)
+            {
+                throw new Exception("คุณไม่สามารถประมูล/ซื้อ/ยืม นักเตะคนเดิมที่เพิ่งหมดสัญญากับทีมคุณในฤดูกาลที่ผ่านมาได้");
+            }
         }
     }
 }

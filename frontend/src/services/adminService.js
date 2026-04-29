@@ -24,6 +24,9 @@ const adminService = {
   generateCupBracket: () => api.post("/api/cup/generate"),
   resetCupBracket: () => api.post("/api/cup/reset"),
 
+  // ── Season Management ───────────────────────────────────────
+  closeSeason: (platform = "PC", division = "D1") => api.post(`/api/season/close?platform=${platform}&division=${division}`),
+  openSeason: (platform = "PC", division = "D1") => api.post(`/api/season/open?platform=${platform}&division=${division}`),
 };
 
 export default adminService;

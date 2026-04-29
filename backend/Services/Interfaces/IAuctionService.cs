@@ -65,6 +65,10 @@ namespace eTPL.API.Services.Interfaces
         Task<List<AuctionSquadDto>> GetTransferBoardAsync();
         Task<List<AuctionBoardDto>> GetCompletedAuctionsAsync();
         Task<List<UserDto>> GetAllClubsAsync();
+        Task<SeasonTransitionResultDto> CloseSeasonAsync(string platform, string division);
+        Task<SeasonTransitionResultDto> OpenSeasonAsync(string platform, string division);
+        Task<SeasonTransitionResultDto> ValidateAllQuotasAsync();
+        Task DistributeCupPrizesAsync(int season);
         Task ResetMarketAsync();
     }
 }

@@ -43,6 +43,14 @@ const AdminLeagueSetting = () => {
   const [generatingCup, setGeneratingCup] = useState(false);
   const [resetingCup, setResetingCup] = useState(false);
 
+  // ── Season Lifecycle ──────────────────────────────────────
+  const [showSeasonLifecycle, setShowSeasonLifecycle] = useState(false);
+  const [closingSeason, setClosingSeason] = useState(false);
+  const [openingSeason, setOpeningSeason] = useState(false);
+  const [failedRenewalUsers, setFailedRenewalUsers] = useState([]);
+  const [summaryLogs, setSummaryLogs] = useState([]);
+  const [showSummary, setShowSummary] = useState(false);
+
   // ── Effects ──────────────────────────────────────────────
   useEffect(() => { fetchPrizes(); }, []);
 
@@ -160,8 +168,55 @@ const AdminLeagueSetting = () => {
     }
   };
 
-  const isBlocked = preview && preview.existingFixtureCount > 0;
-  const tableNotReady = preview && preview.tableReady === false;
+  const handleCloseSeason = async () => {
+    if (!window.confirm("คุณแน่ใจหรือไม่ว่าต้องการปิดฤดูกาลปัจจุบัน? ระบบจะแจกเงินรางวัลและปล่อยตัวนักเตะที่หมดสัญญาโดยอัตโนมัติ")) return;
+    
+    setClosingSeason(true);
+    setSummaryLogs([]);
+    try {
+      const res = await adminService.closeSeason();
+      if (res.data?.success) {
+        setSummaryLogs(res.data.logs || []);
+        setShowSummary(true);
+        enqueueSnackbar(res.data?.message || "ปิดฤดูกาลสำเร็จ!", { variant: "success" });
+      }
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || "ปิดฤดูกาลไม่สำเร็จ", { variant: "error" });
+    } finally {
+      setClosingSeason(false);
+    }
+  };
+
+  const handleOpenSeason = async () => {
+    if (!window.confirm("คุณแน่ใจหรือไม่ว่าต้องการเปิดฤดูกาลใหม่? ระบบจะหักเงินต่อสัญญาอัตโนมัติและล้างข้อมูลการแข่งขันเดิมทั้งหมด")) return;
+    
+    setOpeningSeason(true);
+    setFailedRenewalUsers([]);
+    setSummaryLogs([]);
+    try {
+      const res = await adminService.openSeason();
+      if (res.data?.success) {
+        setSummaryLogs(res.data.logs || []);
+        setShowSummary(true);
+        enqueueSnackbar(res.data?.message || "เปิดฤดูกาลใหม่สำเร็จ!", { variant: "success" });
+      }
+    } catch (err) {
+      const errorData = err.response?.data;
+      if (errorData?.failedUsers && errorData.failedUsers.length > 0) {
+        setFailedRenewalUsers(errorData.failedUsers);
+        setSummaryLogs(errorData.logs || []);
+        setShowSummary(true);
+        enqueueSnackbar("เปิดฤดูกาลไม่สำเร็จ: มีทีมเงินไม่พอต่อสัญญา", { variant: "error" });
+      } else {
+        enqueueSnackbar(errorData?.message || "เปิดฤดูกาลไม่สำเร็จ", { variant: "error" });
+      }
+    } finally {
+      setOpeningSeason(false);
+    }
+  };
+
+  const isBlocked = preview && (preview.existingFixtureCount > 0 || preview.quotaError);
+
 
   return (
     <Box sx={{ width: "100%", px: { xs: 0, sm: 0 } }}>
@@ -285,22 +340,32 @@ const AdminLeagueSetting = () => {
                   ))}
                 </Box>
 
-                {/* Table Not Ready Warning */}
-                {tableNotReady && (
-                  <Alert severity="warning" icon={<Warning />} sx={{ borderRadius: 2 }}>
-                    <Typography fontWeight="bold">ยังไม่มีตาราง tbm_fixture_all_test</Typography>
-                    <Typography variant="body2">กรุณารัน SQL ต่อไปนี้ใน SQL Server ก่อน:</Typography>
-                    <Box component="pre" sx={{ mt: 1, p: 1.5, bgcolor: "rgba(0,0,0,0.06)", borderRadius: 1, fontSize: 12, overflowX: "auto" }}>
-                      {"SELECT TOP 0 * INTO [dbo].[tbm_fixture_all_test]\nFROM [dbo].[tbm_fixture_all]"}
-                    </Box>
-                  </Alert>
-                )}
+
 
                 {/* Blocked Warning */}
                 {isBlocked && (
                   <Alert severity="error" icon={<Block />} sx={{ borderRadius: 2 }}>
                     <Typography fontWeight="bold">ไม่สามารถ Generate ได้</Typography>
-                    <Typography variant="body2">Season {preview.season} มี Fixture อยู่แล้ว {preview.existingFixtureCount} รายการ — กรุณาติดต่อ DBA เพื่อล้างข้อมูลก่อน</Typography>
+                    <Typography variant="body2">
+                      {preview.existingFixtureCount > 0 
+                        ? `Season ${preview.season} มี Fixture อยู่แล้ว ${preview.existingFixtureCount} รายการ — กรุณาติดต่อ DBA เพื่อล้างข้อมูลก่อน`
+                        : "มีบางทีมถือครองนักเตะเกินโควต้าที่กำหนด"}
+                    </Typography>
+                  </Alert>
+                )}
+
+                {/* Quota Error Details */}
+                {preview?.quotaError && (
+                  <Alert severity="warning" icon={<Warning />} sx={{ borderRadius: 2 }}>
+                    <Typography fontWeight="bold" sx={{ mb: 1 }}>รายชื่อทีมที่ถือครองนักเตะเกินโควต้า:</Typography>
+                    <Stack spacing={0.5}>
+                      {preview.quotaError.failedUsers.map(user => (
+                        <Typography key={user} variant="caption" display="block">• {user}</Typography>
+                      ))}
+                    </Stack>
+                    <Typography variant="caption" sx={{ mt: 1, display: "block" }}>
+                      * กรุณาแจ้งผู้เล่นให้จัดการนักเตะให้ถูกต้องตามโควต้าก่อนดำเนินการ
+                    </Typography>
                   </Alert>
                 )}
 
@@ -389,7 +454,7 @@ const AdminLeagueSetting = () => {
                     size="large"
                     startIcon={generating ? <CircularProgress size={18} color="inherit" /> : <RocketLaunch />}
                     onClick={() => setConfirmOpen(true)}
-                    disabled={isBlocked || tableNotReady || generating}
+                    disabled={isBlocked || generating}
                     sx={{ 
                       borderRadius: 100, 
                       textTransform: "none", 
@@ -474,6 +539,96 @@ const AdminLeagueSetting = () => {
             </Stack>
           </Collapse>
         </Paper>
+
+        {/* ── Season Lifecycle Management ──────────────────── */}
+        <Paper elevation={2} sx={{ p: 4, borderRadius: 3, border: "1px solid", borderColor: showSeasonLifecycle ? "primary.main" : "divider", transition: "border-color 0.3s" }}>
+          <Box 
+            display="flex" 
+            justifyContent="space-between" 
+            alignItems="center"
+            onClick={() => setShowSeasonLifecycle(!showSeasonLifecycle)}
+            sx={{ cursor: "pointer", "&:hover .toggle-icon": { bgcolor: "rgba(0,0,0,0.08)" } }}
+          >
+            <Box display="flex" alignItems="center" gap={1.5}>
+              <CalendarMonth color="primary" sx={{ fontSize: 28 }} />
+              <Box>
+                <Typography variant="h6" fontWeight="bold">Season Lifecycle Management</Typography>
+                <Typography variant="body2" color="text.secondary">CLOSE SEASON / OPEN NEW SEASON</Typography>
+              </Box>
+            </Box>
+            <IconButton size="small" className="toggle-icon" sx={{ bgcolor: "rgba(0,0,0,0.03)", transition: "all 0.2s" }}>
+              {showSeasonLifecycle ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
+            </IconButton>
+          </Box>
+          
+          <Collapse in={showSeasonLifecycle}>
+            <Divider sx={{ my: 3 }} />
+            <Stack spacing={3}>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3 }}>
+                {/* Close Season Card */}
+                <Box sx={{ p: 3, borderRadius: 2, bgcolor: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.05)" }}>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="error">1. Close Season Actions</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    • แจกรางวัลตามอันดับ (Standing) และรางวัลพิเศษ<br />
+                    • บันทึกข้อมูลเข้า Hall of Fame<br />
+                    • ปล่อยตัวนักเตะที่หมดสัญญาอัตโนมัติ (พร้อมคืนเงิน %)<br />
+                    • ส่งคืนนักเตะยืมตัว และ <strong>ยกเลิกรายการประกาศขายในตลาดทั้งหมด</strong>
+                  </Typography>
+                  <Button 
+                    variant="contained" 
+                    color="error" 
+                    fullWidth
+                    onClick={handleCloseSeason}
+                    disabled={closingSeason}
+                    startIcon={closingSeason ? <CircularProgress size={18} color="inherit" /> : <Block />}
+                    sx={{ borderRadius: 2, fontWeight: "bold" }}
+                  >
+                    {closingSeason ? "Closing..." : "Close Current Season"}
+                  </Button>
+                </Box>
+
+                {/* Open Season Card */}
+                <Box sx={{ p: 3, borderRadius: 2, bgcolor: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.05)" }}>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="primary">2. Open New Season Actions</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    • หักเงินต่อสัญญาอัตโนมัติ และเพิ่มปีที่อยู่กับทีม<br />
+                    • <strong>(Atomic) หากมีคนเงินไม่พอ ระบบจะไม่ทำงาน</strong><br />
+                    • สำรองข้อมูลผลการแข่งขันลง Log<br />
+                    • ล้างตารางบอลลีกและบอลถ้วย (Reset Fixture)
+                  </Typography>
+                  <Button 
+                    variant="contained" 
+                    color="primary" 
+                    fullWidth
+                    onClick={handleOpenSeason}
+                    disabled={openingSeason}
+                    startIcon={openingSeason ? <CircularProgress size={18} color="inherit" /> : <RocketLaunch />}
+                    sx={{ borderRadius: 2, fontWeight: "bold" }}
+                  >
+                    {openingSeason ? "Opening..." : "Open New Season"}
+                  </Button>
+                </Box>
+              </Box>
+
+              {/* Failed Renewal Users List */}
+              {failedRenewalUsers.length > 0 && (
+                <Alert severity="error" icon={<Warning />} sx={{ borderRadius: 2 }}>
+                  <Typography fontWeight="bold" sx={{ mb: 1 }}>รายชื่อทีมที่เงินไม่พอต่อสัญญา (Open Season ล้มเหลว):</Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {failedRenewalUsers.map(user => (
+                      <Box key={user} sx={{ px: 1.5, py: 0.5, bgcolor: "rgba(211, 47, 47, 0.1)", borderRadius: 100, fontSize: "0.85rem", fontWeight: "bold", mb: 1 }}>
+                        {user}
+                      </Box>
+                    ))}
+                  </Stack>
+                  <Typography variant="caption" sx={{ mt: 1, display: "block" }}>
+                    * โปรดแจ้งให้ทีมข้างต้นเติมเงิน หรือแอดมินปรับยอดเงินให้เพียงพอก่อนดำเนินการเปิดฤดูกาลอีกครั้ง
+                  </Typography>
+                </Alert>
+              )}
+            </Stack>
+          </Collapse>
+        </Paper>
       </Stack>
 
       {/* ── Reset Confirmation Dialog ────────────────────── */}
@@ -500,7 +655,7 @@ const AdminLeagueSetting = () => {
                 label={
                   <Box>
                     <Typography variant="body2" fontWeight="bold">ตารางแข่งขัน (Fixtures)</Typography>
-                    <Typography variant="caption" color="text.secondary">ลบข้อมูลการจับคู่ทั้งหมดใน tbm_fixture_all_test</Typography>
+                    <Typography variant="caption" color="text.secondary">ลบข้อมูลการจับคู่ทั้งหมดใน tbm_fixture_all</Typography>
                   </Box>
                 }
               />
@@ -561,9 +716,7 @@ const AdminLeagueSetting = () => {
                 <Typography variant="body2">• Leg 2: <strong>{preview.leg1MatchCount} fixtures</strong> (ACTIVE=NO)</Typography>
                 <Typography variant="body2">• Total: <strong>{preview.totalMatchCount} fixtures</strong></Typography>
               </Box>
-              <Alert severity="info" sx={{ borderRadius: 2 }}>
-                <Typography variant="body2">⚠ ข้อมูลจะถูกบันทึกลงตาราง <strong>tbm_fixture_all_test</strong> (ทดสอบ)</Typography>
-              </Alert>
+
             </Stack>
           )}
         </DialogContent>
