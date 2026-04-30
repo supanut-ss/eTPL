@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import React from "react";
-import { getLogoUrl, getPlayerFaceUrl, getPlayerCardUrl } from "../utils/imageUtils";
+import { getLogoUrl, getPlayerFaceUrl, getPlayerCardUrl, getAnnouncementImageUrl } from "../utils/imageUtils";
 import {
   Card,
   CardContent,
@@ -32,6 +32,8 @@ import {
   Login,
   TrendingUp,
   Dashboard,
+  Dns,
+  Refresh,
 } from "@mui/icons-material";
 import { useAuth } from "../store/AuthContext";
 import { getStandings } from "../api/standingApi";
@@ -797,282 +799,320 @@ const MainPage = () => {
   }, [bannerSquad, currentClubIndex]);
 
   return (
-    <Box sx={{ width: "100%", pb: 4 }}>
+    <>
+    <Box sx={{ width: "100%", pb: 2 }}>
       <Paper
         elevation={0}
         sx={{
-          p: { xs: 3, sm: 4, md: 5 },
-          mb: 4,
-          borderRadius: 8,
-          background: "linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(240,245,255,0.95) 50%, rgba(224,231,255,0.9) 100%)",
-          backdropFilter: "blur(20px)",
-          color: "text.primary",
+          p: { xs: 2, sm: 2.5, md: 3 },
+          mb: 3,
+          borderRadius: 6,
+          background: "linear-gradient(145deg, #0f172a 0%, #1e293b 100%)",
           position: "relative",
           overflow: "hidden",
-          border: "1px solid",
-          borderColor: "rgba(99, 102, 241, 0.2)",
-          boxShadow: "0 20px 40px -20px rgba(15, 23, 42, 0.12)",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          boxShadow: "0 30px 60px -20px rgba(0, 0, 0, 0.4)",
         }}
       >
-        {/* Animated Orbs */}
-        <Box
-          sx={{
-            position: "absolute",
-            top: -100,
-            right: -60,
-            width: 400,
-            height: 400,
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%)",
-            filter: "blur(60px)",
-            pointerEvents: "none",
-          }}
-        />
-        <Box
-          sx={{
-            position: "absolute",
-            bottom: -80,
-            left: "5%",
-            width: 250,
-            height: 250,
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%)",
-            filter: "blur(40px)",
-            pointerEvents: "none",
-          }}
-        />
-
         <Box
           sx={{
             display: "grid",
             gridTemplateColumns: {
               xs: "1fr",
-              md: "1fr 1fr",
+              md: "6fr 3fr 3fr",
             },
-            gap: 4,
-            alignItems: "center",
+            gap: { xs: 2, md: 3 },
+            alignItems: "stretch",
             position: "relative",
             zIndex: 1,
           }}
         >
-          <Box>
-            <Typography variant="h3" fontWeight={900} letterSpacing={-1} lineHeight={1} color="primary.main" sx={{ fontSize: { xs: "2rem", md: "3rem" } }}>
-              <Box component="span" sx={{ color: "secondary.main" }}>eTPL</Box>
-            </Typography>
-            
-            <Typography variant="body1" sx={{ color: "text.secondary", mt: 2.5, mb: 4, maxWidth: 500, fontSize: 18, fontWeight: 500 }}>
-              Welcome back to eTPL by Thai PES League. Track your squad's performance and stay updated with the latest market moves.
-            </Typography>
+          {/* LEFT: News Showcase */}
+          <Box 
+            sx={{ 
+              borderRadius: 4,
+              overflow: "hidden",
+              position: "relative",
+              aspectRatio: { xs: "16/9", md: "unset" },
+              minHeight: { md: 360 },
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow: "0 20px 40px -10px rgba(0,0,0,0.3)",
+              "&:hover .news-image": { transform: "scale(1.05)" }
+            }}
+          >
+            <Box className="news-image" sx={{
+              position: "absolute",
+              inset: 0,
+              background: activeAnnouncement?.imageUrl 
+                ? `url(${getAnnouncementImageUrl(activeAnnouncement.imageUrl)})` 
+                : "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              transition: "transform 2s cubic-bezier(0.2, 0, 0.2, 1)",
+            }}>
+              <Box sx={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(15,23,42,0.9) 0%, rgba(15,23,42,0.2) 50%, transparent 100%)" }} />
+            </Box>
 
-            <Box display="flex" gap={1.5} flexWrap="wrap" alignItems="center">
-              <Chip
-                icon={<SportsSoccer sx={{ color: "primary.main !important", fontSize: "18px !important" }} />}
-                label={`Season ${season || "1"}`}
-                sx={{ 
-                  bgcolor: "white", 
-                  color: "primary.main", 
-                  px: 1, 
-                  py: 2.2, 
-                  fontSize: 14,
-                  border: "1px solid",
-                  borderColor: "divider",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
-                  "& .MuiChip-label": { fontWeight: 700 }
-                }}
-              />
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1.5,
-                  px: 2,
-                  py: 1,
-                  borderRadius: "99px",
-                  bgcolor: "rgba(16,185,129,0.08)",
-                  border: "1px solid rgba(16,185,129,0.15)",
-                  color: "success.dark",
-                  mr: 2
-                }}
-              >
-                <Timeline sx={{ fontSize: 18 }} />
-                <Typography variant="body2" fontWeight={800}>
-                  {Math.round((playedMatches / (totalMatches || 1)) * 100)}% Season Complete
-                </Typography>
+            {/* Slider Dots */}
+            {announcements.length > 1 && (
+              <Box sx={{ position: "absolute", bottom: 16, right: 16, zIndex: 10, display: "flex", gap: 0.8 }}>
+                {announcements.map((_, idx) => (
+                  <Box
+                    key={idx}
+                    onClick={() => setAnnouncementIndex(idx)}
+                    sx={{
+                      width: idx === announcementIndex ? 24 : 6,
+                      height: 3,
+                      borderRadius: 1,
+                      bgcolor: idx === announcementIndex ? "secondary.main" : "rgba(255,255,255,0.2)",
+                      cursor: "pointer",
+                      transition: "0.4s"
+                    }}
+                  />
+                ))}
               </Box>
+            )}
 
-              {/* Social Icons */}
-              <Box display="flex" gap={1}>
-                <Tooltip title="Facebook Group">
-                  <IconButton 
-                    component="a"
-                    href="https://www.facebook.com/thaipesleague"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    size="small" 
-                    sx={{ 
-                      bgcolor: "rgba(24, 119, 242, 0.1)", 
-                      color: "#1877f2",
-                      "&:hover": { bgcolor: "#1877f2", color: "white" },
-                      transition: "all 0.3s ease"
-                    }}
-                  >
-                    <Facebook fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                
-                <Tooltip title="Line Community">
-                  <IconButton 
-                    component="a"
-                    href="https://lin.ee/TxcwFFB"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    size="small" 
-                    sx={{ 
-                      bgcolor: "rgba(0, 185, 0, 0.1)", 
-                      color: "#00b900",
-                      "&:hover": { bgcolor: "#00b900", color: "white" },
-                      transition: "all 0.3s ease",
-                    }}
-                  >
-                    <LineIcon sx={{ fontSize: 18 }} />
-                  </IconButton>
-                </Tooltip>
-
-                <Tooltip title="YouTube Channel">
-                  <IconButton 
-                    component="a"
-                    href="https://www.youtube.com/@iamcrazygamerch?sub_confirmation=1"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    size="small" 
-                    sx={{ 
-                      bgcolor: "rgba(255, 0, 0, 0.1)", 
-                      color: "#ff0000",
-                      "&:hover": { bgcolor: "#ff0000", color: "white" },
-                      transition: "all 0.3s ease"
-                    }}
-                  >
-                    <YouTube fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-
-                <Tooltip title="Discord Server">
-                  <IconButton 
-                    component="a"
-                    href="https://discord.gg/jXsh65jqy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    size="small" 
-                    sx={{ 
-                      bgcolor: "rgba(88, 101, 242, 0.1)", 
-                      color: "#5865f2",
-                      "&:hover": { bgcolor: "#5865f2", color: "white" },
-                      transition: "all 0.3s ease",
-                    }}
-                  >
-                    <DiscordIcon sx={{ fontSize: 18 }} />
-                  </IconButton>
-                </Tooltip>
+            <Box sx={{ position: "absolute", bottom: 0, left: 0, right: 0, p: { xs: 2, md: 3.5 }, zIndex: 2 }}>
+              <Chip 
+                label="LATEST" 
+                size="small" 
+                sx={{ 
+                  bgcolor: "secondary.main", 
+                  color: "white", 
+                  fontWeight: 900, 
+                  mb: 1.5, 
+                  px: 0.5,
+                  height: 20,
+                  fontSize: 9,
+                  letterSpacing: 1,
+                }} 
+              />
+              <Typography variant="h4" fontWeight={900} color="white" sx={{ mb: 1, fontSize: { xs: "1.4rem", md: "2rem" }, lineHeight: 1.1, letterSpacing: -1, textShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>
+                {activeAnnouncement?.announcement?.split("\n")[0] || "The Season Begins"}
+              </Typography>
+              <Box display="flex" alignItems="center" gap={1}>
+                <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.5)", fontWeight: 700, fontSize: 10 }}>
+                  {activeAnnouncement?.announcer?.toUpperCase() || "ADMIN"} • {formatMatchDate(activeAnnouncement?.createDate) || "TODAY"}
+                </Typography>
               </Box>
             </Box>
           </Box>
 
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: { xs: 1.5, sm: 2.5 },
-              p: 1,
+          {/* MIDDLE: Live Feed Center */}
+          <Box 
+            sx={{ 
+              display: "flex", 
+              flexDirection: "column", 
+              p: 2,
+              borderRadius: 4,
+              background: "rgba(255, 255, 255, 0.015)",
+              border: "1px solid rgba(255, 255, 255, 0.05)",
+              position: "relative",
+              overflow: "hidden",
             }}
           >
-            {[
-              { label: "Active Manager", value: user?.userId || "Guest Access", icon: <AccountCircle />, color: "#4f46e5" },
-              { label: "Total Clubs", value: totalTeams || 0, icon: <Groups />, color: "#3b82f6" },
-              { label: "Matches Completed", value: `${playedMatches} / ${totalMatches}`, icon: <SportsSoccer />, color: "#10b981" },
-              { label: "Market Status", value: "Active", dot: "#10b981", icon: <Timeline />, color: "#f59e0b" },
-            ].map((item) => (
-              <Box
-                key={item.label}
-                sx={{
-                  p: { xs: 2.5, sm: 3 },
-                  borderRadius: 6,
-                  bgcolor: "rgba(255, 255, 255, 0.7)",
-                  backdropFilter: "blur(12px)",
-                  border: "1px solid rgba(255, 255, 255, 0.6)",
-                  boxShadow: "0 10px 25px -10px rgba(0,0,0,0.05), inset 0 0 0 1px rgba(255,255,255,0.4)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: { xs: 1.5, sm: 3 },
-                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                  "&:hover": {
-                    transform: "translateY(-4px)",
-                    bgcolor: "rgba(255, 255, 255, 0.9)",
-                    boxShadow: `0 15px 30px -10px ${item.color}25`,
-                    borderColor: `${item.color}40`,
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    width: { xs: 44, sm: 56 },
-                    height: { xs: 44, sm: 56 },
-                    borderRadius: 4,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    bgcolor: `${item.color}15`,
-                    color: item.color,
-                    flexShrink: 0
-                  }}
-                >
-                  {React.cloneElement(item.icon, { sx: { fontSize: { xs: 22, sm: 28 } } })}
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <Box className="pulse-dot" sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "#ef4444" }} />
+              <Typography variant="caption" fontWeight={1000} color="white" sx={{ letterSpacing: 2, fontSize: 10 }}>
+                LIVE FEED
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, height: 276, overflowY: "auto", "&::-webkit-scrollbar": { display: "none" }, scrollbarWidth: "none", msOverflowStyle: "none" }}>
+              {[
+                ...lastFixtures.map(f => ({
+                  type: "RESULT",
+                  color: "#10b981",
+                  date: f.matchDate || f.date,
+                  msg: `${extractPlayer(f.home) || f.homeTeamName || "?"} ${f.homeScore ?? "-"} - ${f.awayScore ?? "-"} ${extractPlayer(f.away) || f.awayTeamName || "?"}`,
+                  detail: null,
+                  time: (f.matchDate || f.date) ? new Date(f.matchDate || f.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "–",
+                })),
+                ...marketActivity
+                  .filter(m => {
+                    const sub = (m.subtitle || "").toLowerCase();
+                    return !(sub.includes("ออโต้") || sub.includes("อัตโนมัติ") || (sub.includes("auto") && sub.includes("สัญญา")));
+                  })
+                  .map(m => ({
+                  type: m.type === "DEAL" ? "DEAL" : "MARKET",
+                  color: m.type === "DEAL" ? "#6366f1" : "#f59e0b",
+                  date: m.date,
+                  msg: m.subtitle || "Market activity",
+                  detail: m.type === "DEAL"
+                    ? (m.amount ? `${Number(m.amount).toLocaleString()} TP` : null)
+                    : [m.title, m.amount ? `${Number(m.amount).toLocaleString()} TP` : null].filter(Boolean).join(" • "),
+                  time: m.date ? new Date(m.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "–",
+                })),
+              ]
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .slice(0, 20)
+                .map((feed, idx) => (
+                  <Box key={idx} sx={{ position: "relative", pl: 1.5, flexShrink: 0, "&::before": { content: '""', position: "absolute", left: 0, top: 3, bottom: 3, width: 2, bgcolor: feed.color, borderRadius: 2 } }}>
+                    <Typography variant="caption" sx={{ color: feed.color, fontWeight: 800, fontSize: 8, display: "block", mb: 0.2, letterSpacing: 0.5, opacity: 0.8 }}>
+                      {feed.type} • {feed.time}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.9)", fontWeight: 700, fontSize: 11, lineHeight: 1.3 }} noWrap>
+                      {feed.msg}
+                    </Typography>
+                    {feed.detail && (
+                      <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.35)", fontWeight: 600, fontSize: 9, display: "block", mt: 0.2 }} noWrap>
+                        {feed.detail}
+                      </Typography>
+                    )}
+                  </Box>
+                ))
+              }
+              {(lastFixtures.length === 0 && marketActivity.length === 0) && (
+                <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.15)", fontWeight: 700, letterSpacing: 1, fontSize: 9 }}>
+                    NO ACTIVITY YET
+                  </Typography>
                 </Box>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography 
-                    variant="caption" 
+              )}
+            </Box>
+
+
+            <Box sx={{ mt: "auto", pt: 1.5, borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Box display="flex" gap={0.5}>
+                {[
+                  { icon: <Facebook sx={{ fontSize: 14 }} />, url: "https://www.facebook.com/thaipesleague" },
+                  { icon: <LineIcon sx={{ fontSize: 14 }} />, url: "https://lin.ee/TxcwFFB" },
+                  { icon: <YouTube sx={{ fontSize: 14 }} />, url: "https://www.youtube.com/@iamcrazygamerch" },
+                  { icon: <DiscordIcon sx={{ fontSize: 14 }} />, url: "https://discord.gg/jXsh65jqy" }
+                ].map((social, i) => (
+                  <IconButton 
+                    key={i}
+                    component="a"
+                    href={social.url}
+                    target="_blank"
+                    size="small" 
                     sx={{ 
-                      color: "text.secondary", 
-                      fontWeight: 800, 
-                      textTransform: "uppercase", 
-                      letterSpacing: 1.5,
-                      fontSize: { xs: 9, sm: 11 },
-                      display: "block",
-                      mb: 0.5
+                      color: "rgba(255,255,255,0.2)", 
+                      p: 0.5,
+                      transition: "0.2s",
+                      "&:hover": { color: "white", bgcolor: "rgba(255,255,255,0.05)" } 
                     }}
                   >
-                    {item.label}
-                  </Typography>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    {item.dot && (
-                      <Box 
-                        sx={{ 
-                          width: 8, 
-                          height: 8, 
-                          borderRadius: "50%", 
-                          bgcolor: item.dot,
-                          boxShadow: `0 0 8px ${item.dot}` 
-                        }} 
-                      />
-                    )}
-                    <Typography 
-                      variant="h5" 
-                      fontWeight={900} 
-                      noWrap
-                      sx={{ 
-                        color: "text.primary", 
-                        fontSize: { xs: 18, sm: 24 },
-                        letterSpacing: -0.5
-                      }}
-                    >
+                    {social.icon}
+                  </IconButton>
+                ))}
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                <Box sx={{ width: 5, height: 5, borderRadius: "50%", bgcolor: "#10b981", boxShadow: "0 0 6px #10b981" }} />
+                <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.3)", fontWeight: 700, fontSize: 8, letterSpacing: 0.5 }}>
+                  LIVE
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+
+          {/* RIGHT: User Command Center Console - Premium Edition */}
+          <Box 
+            sx={{ 
+              display: "flex", 
+              flexDirection: "column", 
+              p: 2.5,
+              borderRadius: 4,
+              background: "rgba(255, 255, 255, 0.01)",
+              backdropFilter: "blur(10px)",
+              border: "1px solid rgba(255, 255, 255, 0.06)",
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            {/* Header: Manager Profile */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 3 }}>
+              <Box sx={{ position: "relative" }}>
+                <Avatar 
+                  src={getPlayerFaceUrl(user?.userId) || ""} 
+                  sx={{ 
+                    width: 48, 
+                    height: 48, 
+                    border: "2px solid rgba(255,255,255,0.1)",
+                    bgcolor: "rgba(255,255,255,0.05)" 
+                  }} 
+                />
+                <Box sx={{ 
+                  position: "absolute", 
+                  bottom: 2, 
+                  right: 2, 
+                  width: 10, 
+                  height: 10, 
+                  borderRadius: "50%", 
+                  bgcolor: "#10b981", 
+                  border: "2px solid #0f172a",
+                  boxShadow: "0 0 5px #10b981"
+                }} />
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="caption" fontWeight={800} sx={{ color: "secondary.main", letterSpacing: 1.5, fontSize: 9 }}>
+                  MANAGER
+                </Typography>
+                <Typography variant="h6" fontWeight={900} color="white" noWrap sx={{ lineHeight: 1.2, letterSpacing: -0.5 }}>
+                  {user?.userId || "Guest Manager"}
+                </Typography>
+               
+              </Box>
+            </Box>
+
+            {/* Stats: Technical Metrics */}
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, flex: 1 }}>
+              {[
+                { label: "CLUBS IN LEAGUE", value: clubs.length || 0, icon: <Groups />, color: "#3b82f6", bg: "rgba(59, 130, 246, 0.1)" },
+                { label: "PLAYERS IN TEAMS", value: bannerSquad.length || 0, icon: <AccountCircle />, color: "#a855f7", bg: "rgba(168, 85, 247, 0.1)" },
+                { label: "FIXTURES PLAYED", value: (() => { const played = standings.reduce((s, t) => Math.max(s, (t.win||0)+(t.draw||0)+(t.loss||0)), 0); const total = standings.length > 0 ? Math.max(...standings.map(t => (t.win||0)+(t.draw||0)+(t.loss||0)+(t.remainMatch||0))) : 0; return `${played} / ${total}`; })(), icon: <SportsSoccer />, color: "#10b981", bg: "rgba(16, 185, 129, 0.1)" },
+              ].map((item, idx) => (
+                <Box
+                  key={idx}
+                  sx={{
+                    p: 2,
+                    borderRadius: 3,
+                    background: "rgba(255, 255, 255, 0.02)",
+                    border: "1px solid rgba(255, 255, 255, 0.05)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2,
+                    transition: "0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                    cursor: "default",
+                    "&:hover": { 
+                      background: "rgba(255, 255, 255, 0.04)", 
+                      borderColor: "rgba(255, 255, 255, 0.1)",
+                      transform: "translateX(-4px)"
+                    }
+                  }}
+                >
+                  <Box sx={{ 
+                    width: 36, 
+                    height: 36, 
+                    borderRadius: 2, 
+                    display: "flex", 
+                    alignItems: "center", 
+                    justifyContent: "center",
+                    color: item.color,
+                    background: item.bg,
+                    boxShadow: `0 0 15px ${alpha(item.color, 0.2)}`
+                  }}>
+                    {React.cloneElement(item.icon, { sx: { fontSize: 20 } })}
+                  </Box>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.3)", fontWeight: 800, fontSize: 8, letterSpacing: 0.5, display: "block" }}>
+                      {item.label}
+                    </Typography>
+                    <Typography variant="h6" fontWeight={1000} color="white" sx={{ lineHeight: 1.1, fontSize: 16 }}>
                       {item.value}
                     </Typography>
                   </Box>
                 </Box>
-              </Box>
-            ))}
+              ))}
+            </Box>
+
+            {/* Footer: System Status */}
+            
           </Box>
         </Box>
       </Paper>
+    </Box>
 
       {/* Top 20 Showcase Banner */}
       <TopPlayersBanner 
@@ -1090,211 +1130,7 @@ const MainPage = () => {
       )}
 
 
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "1fr",
-            md: "1fr 1fr",
-          },
-          gap: 3,
-          mb: 3
-        }}
-      >
-        <Paper elevation={0} sx={{ ...panelSx, border: "none", bgcolor: "rgba(255,255,255,0.7)" }}>
-          <SectionHeader
-            icon={<Campaign fontSize="small" />}
-            title="League Announcements"
-            color="#f59e0b"
-          />
-
-          <Box p={3} sx={{ minHeight: 180, display: "flex", flexDirection: "column" }}>
-            {announcements.length === 0 ? (
-              <Box
-                display="flex"
-                flexDirection="column"
-                alignItems="center"
-                justifyContent="center"
-                flex={1}
-                textAlign="center"
-                gap={1}
-              >
-                <Campaign sx={{ color: "grey.300", fontSize: 48 }} />
-                <Typography fontWeight={700} color="text.secondary">No active announcements</Typography>
-              </Box>
-            ) : (
-              <Box flex={1}>
-                {activeAnnouncement && (
-                   <Box
-                    key={activeAnnouncement.id}
-                    sx={{
-                      p: { xs: 2, sm: 3 },
-                      borderRadius: 4,
-                      bgcolor: "white",
-                      boxShadow: "0 4px 12px -5 rgba(0,0,0,0.05)",
-                      border: "1px solid",
-                      borderColor: "divider",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: { xs: 1.5, sm: 2.5 },
-                      minHeight: 120
-                    }}
-                  >
-                    <Box sx={{ 
-                      width: 50, 
-                      height: 50, 
-                      borderRadius: 3, 
-                      bgcolor: "rgba(245, 158, 11, 0.1)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "warning.main",
-                      flexShrink: 0
-                    }}>
-                      <Campaign />
-                    </Box>
-                    <Box flex={1}>
-                      <Typography
-                        variant="body1"
-                        color="text.primary"
-                        sx={{ whiteSpace: "pre-wrap", fontWeight: 700, lineHeight: 1.4, mb: 0.5 }}
-                      >
-                        {activeAnnouncement.announcement}
-                      </Typography>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Box sx={{ width: 4, height: 4, borderRadius: "50%", bgcolor: "warning.main" }} />
-                        <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                          Issued by {activeAnnouncement.announcer || "System"} • {formatMatchDate(activeAnnouncement.createDate)}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                )}
-              </Box>
-            )}
-            
-            {announcements.length > 1 && (
-              <Box display="flex" justifyContent="center" gap={1} mt="auto" py={2}>
-                {announcements.map((_, index) => (
-                  <Box
-                    key={index}
-                    onClick={() => setAnnouncementIndex(index)}
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      cursor: "pointer",
-                      bgcolor: index === announcementIndex ? "#f59e0b" : "grey.200",
-                      transition: "all 0.3s ease"
-                    }}
-                  />
-                ))}
-              </Box>
-            )}
-          </Box>
-        </Paper>
-
-        <Paper elevation={0} sx={{ ...panelSx, border: "none", bgcolor: "rgba(255,255,255,0.7)" }}>
-          <SectionHeader
-            icon={<LocalFireDepartment fontSize="small" />}
-            title="Market Pulse — Latest Moves"
-            color="#6366f1"
-          />
-
-          <Box p={3} sx={{ minHeight: 180, display: "flex", flexDirection: "column" }}>
-            {marketActivity.length === 0 ? (
-              <Box
-                display="flex"
-                flexDirection="column"
-                alignItems="center"
-                justifyContent="center"
-                flex={1}
-                textAlign="center"
-                gap={1}
-              >
-                <Timeline sx={{ color: "grey.300", fontSize: 48 }} />
-                <Typography fontWeight={700} color="text.secondary">Market is quiet right now</Typography>
-              </Box>
-            ) : (
-              <Box flex={1}>
-                {marketActivity[marketIndex] && (
-                  <Box
-                    key={marketActivity[marketIndex].id}
-                    sx={{
-                      p: { xs: 2, sm: 3 },
-                      borderRadius: 4,
-                      bgcolor: "white",
-                      boxShadow: "0 4px 12px -5px rgba(0,0,0,0.05)",
-                      border: "1px solid",
-                      borderColor: "divider",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: { xs: 1.5, sm: 2.5 },
-                      minHeight: 120
-                    }}
-                  >
-                    <Box sx={{ 
-                      width: 50, 
-                      height: 50, 
-                      borderRadius: 3, 
-                      bgcolor: marketActivity[marketIndex].type === "DEAL" ? "rgba(99, 102, 241, 0.1)" : "rgba(16, 185, 129, 0.1)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: marketActivity[marketIndex].type === "DEAL" ? "indigo.500" : "success.main"
-                    }}>
-                      {marketActivity[marketIndex].type === "DEAL" ? <CheckCircle /> : <Timeline />}
-                    </Box>
-                    <Box flex={1}>
-                      <Typography variant="body1" fontWeight={800} color="primary.main">
-                        {marketActivity[marketIndex].title}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" fontWeight={500} sx={{ mb: 1 }}>
-                        {marketActivity[marketIndex].subtitle}
-                      </Typography>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Chip 
-                          label={`${marketActivity[marketIndex].amount?.toLocaleString()} TP`} 
-                          size="small" 
-                          sx={{ 
-                            fontWeight: 800, 
-                            bgcolor: marketActivity[marketIndex].type === "DEAL" ? "indigo.50" : "success.50",
-                            color: marketActivity[marketIndex].type === "DEAL" ? "indigo.700" : "success.700",
-                            border: "1px solid",
-                            borderColor: marketActivity[marketIndex].type === "DEAL" ? "indigo.100" : "success.100"
-                          }} 
-                        />
-                        <Typography variant="caption" color="text.disabled" fontWeight={600}>
-                          {marketActivity[marketIndex].type === "DEAL" ? "SUCCESSFUL MOVE" : "FOR SALE"}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                )}
-              </Box>
-            )}
-            
-            {marketActivity.length > 1 && (
-              <Box display="flex" justifyContent="center" gap={1} mt={3}>
-                {marketActivity.map((_, index) => (
-                  <Box
-                    key={index}
-                    onClick={() => setMarketIndex(index)}
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      cursor: "pointer",
-                      bgcolor: index === marketIndex ? "#6366f1" : "grey.200",
-                      transition: "all 0.3s ease"
-                    }}
-                  />
-                ))}
-              </Box>
-            )}
-          </Box>
-        </Paper>
-      </Box>
+      {/* Announcements & Market sections hidden per request */}
 
       <Box
         sx={{
@@ -1705,7 +1541,7 @@ const MainPage = () => {
           </Box>
         </Paper>
       )}
-    </Box>
+    </>
   );
 };
 

@@ -1,4 +1,4 @@
-import { createTheme } from "@mui/material/styles";
+import { createTheme, alpha } from "@mui/material/styles";
 
 const theme = createTheme({
   palette: {
@@ -51,43 +51,62 @@ const theme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: "#0f172a",
+          backgroundColor: alpha("#0f172a", 0.85),
+          backdropFilter: "blur(12px)",
           backgroundImage: "none",
-          boxShadow: "0 1px 0 0 #1e293b",
+          boxShadow: "0 1px 0 0 rgba(255, 255, 255, 0.05)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
         },
       },
     },
     MuiDrawer: {
       styleOverrides: {
         paper: {
-          backgroundColor: "#ffffff",
-          borderRight: "1px solid #e2e8f0",
+          backgroundColor: "#0f172a",
+          borderRight: "1px solid rgba(255, 255, 255, 0.05)",
           boxShadow: "none",
+          color: "#ffffff",
         },
       },
     },
     MuiListItemButton: {
       styleOverrides: {
         root: {
-          borderRadius: 8,
-          marginLeft: 8,
-          marginRight: 8,
-          marginBottom: 2,
-          paddingTop: 8,
-          paddingBottom: 8,
-          "&.Mui-selected": {
-            backgroundColor: "#eef2ff",
-            color: "#4338ca",
-            "& .MuiListItemIcon-root": {
-              color: "#4338ca",
-            },
-            "&:hover": {
-              backgroundColor: "#e0e7ff",
-            },
+          borderRadius: 12,
+          margin: "4px 12px",
+          padding: "10px 16px",
+          transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+          color: "rgba(255, 255, 255, 0.65)",
+          "& .MuiListItemIcon-root": {
+            color: "rgba(255, 255, 255, 0.65)",
+            minWidth: 40,
+            transition: "all 0.2s ease",
           },
           "&:hover": {
-            backgroundColor: "#f1f5f9",
+            backgroundColor: "rgba(255, 255, 255, 0.04)",
+            color: "#ffffff",
+            "& .MuiListItemIcon-root": {
+              color: "#ffffff",
+            },
           },
+          "&.Mui-selected": {
+            background: "linear-gradient(90deg, #6366f1 0%, #4f46e5 100%)",
+            color: "#ffffff",
+            boxShadow: "0 4px 15px rgba(79, 70, 229, 0.25)",
+            "& .MuiListItemIcon-root": {
+              color: "#ffffff",
+            },
+            "&:hover": {
+              background: "linear-gradient(90deg, #818cf8 0%, #6366f1 100%)",
+            },
+          },
+        },
+      },
+    },
+    MuiDivider: {
+      styleOverrides: {
+        root: {
+          borderColor: "rgba(255, 255, 255, 0.08)",
         },
       },
     },
@@ -95,6 +114,43 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: "none",
+        },
+      },
+    },
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          backgroundColor: "#0f172a",
+          color: "#ffffff",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.3)",
+          "& .MuiTypography-root": {
+            color: "#ffffff",
+          },
+          "& .MuiTypography-body2, & .MuiTypography-caption": {
+            color: "rgba(255, 255, 255, 0.7)",
+          },
+          "& .MuiListItemIcon-root": {
+            color: "rgba(255, 255, 255, 0.7)",
+          },
+          "& .MuiDivider-root": {
+            borderColor: "rgba(255, 255, 255, 0.1)",
+          },
+        },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          fontSize: "0.9rem",
+          fontWeight: 500,
+          "&:hover": {
+            backgroundColor: "rgba(255, 255, 255, 0.05)",
+          },
+          "&.Mui-disabled": {
+            opacity: 1,
+            color: "inherit",
+          },
         },
       },
     },

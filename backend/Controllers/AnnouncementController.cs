@@ -39,6 +39,7 @@ namespace eTPL.API.Controllers
                     Announcer = a.Announcer ?? string.Empty,
                     CreateDate = a.CreateDate,
                     IsActive = a.Platform == ActivePlatform,
+                    ImageUrl = a.ImageUrl,
                 })
                 .ToListAsync();
 
@@ -60,6 +61,7 @@ namespace eTPL.API.Controllers
                     Announcer = a.Announcer ?? string.Empty,
                     CreateDate = a.CreateDate,
                     IsActive = a.Platform == ActivePlatform,
+                    ImageUrl = a.ImageUrl,
                 })
                 .ToListAsync();
 
@@ -83,6 +85,7 @@ namespace eTPL.API.Controllers
                     : request.Announcer!.Trim(),
                 CreateDate = DateTime.Now,
                 Platform = request.IsActive ? ActivePlatform : InactivePlatform,
+                ImageUrl = request.ImageUrl,
             };
 
             _db.TbmAnnouces.Add(entity);
@@ -95,6 +98,7 @@ namespace eTPL.API.Controllers
                 Announcer = entity.Announcer ?? string.Empty,
                 CreateDate = entity.CreateDate,
                 IsActive = entity.Platform == ActivePlatform,
+                ImageUrl = entity.ImageUrl,
             }, "Announcement created"));
         }
 
@@ -116,6 +120,7 @@ namespace eTPL.API.Controllers
                 ? entity.Announcer
                 : request.Announcer!.Trim();
             entity.Platform = request.IsActive ? ActivePlatform : InactivePlatform;
+            entity.ImageUrl = request.ImageUrl;
 
             await _db.SaveChangesAsync();
             return Ok(ApiResponse<string>.Ok("Announcement updated"));

@@ -220,13 +220,38 @@ const AppLayout = () => {
   };
 
   const filteredNav = filterMenuItems(navItems);
+  
+  // Get current page title
+  const getCurrentPageTitle = () => {
+    // Flatten nav items including children
+    const allItems = navItems.reduce((acc, item) => {
+      acc.push(item);
+      if (item.children) acc.push(...item.children);
+      return acc;
+    }, []);
+    
+    const current = allItems.find(item => item.path === location.pathname);
+    return current?.label || "eTPL";
+  };
+
+  const pageTitle = getCurrentPageTitle();
 
 
   const drawer = (
     <Box>
-      <Toolbar sx={{ justifyContent: isDrawerExpanded ? "flex-start" : "center", px: isDrawerExpanded ? 2 : 1 }}>
-        <Typography variant="h6" fontWeight="bold" color="primary" noWrap>
-          {isDrawerExpanded ? "eTPL" : "e"}
+      <Toolbar sx={{ justifyContent: isDrawerExpanded ? "flex-start" : "center", px: isDrawerExpanded ? 2 : 1.5, minHeight: 70 }}>
+        <Typography
+          variant="h5"
+          fontWeight="900"
+          sx={{
+            background: "linear-gradient(90deg, #fff 0%, #6366f1 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            letterSpacing: 1.5,
+          }}
+          noWrap
+        >
+          {isDrawerExpanded ? "eTPL" : "E"}
         </Typography>
       </Toolbar>
       <Divider />
@@ -251,7 +276,7 @@ const AppLayout = () => {
                       <ListItemIcon
                         sx={{
                           minWidth: 0,
-                          mr: isDrawerExpanded ? 2 : "auto",
+                          mr: isDrawerExpanded ? 1.5 : "auto",
                           justifyContent: "center",
                         }}
                       >
@@ -259,10 +284,13 @@ const AppLayout = () => {
                       </ListItemIcon>
                       <ListItemText
                         primary={item.label}
+                        primaryTypographyProps={{
+                          fontWeight: 600,
+                          fontSize: "0.9rem",
+                        }}
                         sx={{
                           opacity: isDrawerExpanded ? 1 : 0,
                           display: isDrawerExpanded ? "block" : "none",
-                          whiteSpace: "nowrap",
                         }}
                       />
                       {isDrawerExpanded &&
@@ -301,7 +329,7 @@ const AppLayout = () => {
                           <ListItemIcon
                             sx={{
                               minWidth: 0,
-                              mr: isDrawerExpanded ? 2 : "auto",
+                              mr: isDrawerExpanded ? 1.5 : "auto",
                               justifyContent: "center",
                             }}
                           >
@@ -312,12 +340,11 @@ const AppLayout = () => {
                             primaryTypographyProps={{
                               variant: "body2",
                               fontWeight:
-                                location.pathname === child.path ? 600 : 400,
+                                location.pathname === child.path ? 700 : 500,
                             }}
                             sx={{
                               opacity: isDrawerExpanded ? 1 : 0,
                               display: isDrawerExpanded ? "block" : "none",
-                              whiteSpace: "nowrap",
                             }}
                           />
                         </ListItemButton>
@@ -353,7 +380,7 @@ const AppLayout = () => {
                   <ListItemIcon
                     sx={{
                       minWidth: 0,
-                      mr: isDrawerExpanded ? 2 : "auto",
+                      mr: isDrawerExpanded ? 1.5 : "auto",
                       justifyContent: "center",
                     }}
                   >
@@ -361,10 +388,13 @@ const AppLayout = () => {
                   </ListItemIcon>
                   <ListItemText
                     primary={item.label}
+                    primaryTypographyProps={{
+                      fontWeight: 600,
+                      fontSize: "0.9rem",
+                    }}
                     sx={{
                       opacity: isDrawerExpanded ? 1 : 0,
                       display: isDrawerExpanded ? "block" : "none",
-                      whiteSpace: "nowrap",
                     }}
                   />
                 </ListItemButton>
@@ -398,7 +428,16 @@ const AppLayout = () => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          <Typography
+            variant="h6"
+            fontWeight="800"
+            sx={{
+              flexGrow: 1,
+              color: "white",
+              letterSpacing: 1,
+              ml: 1,
+            }}
+          >
             eTPL
           </Typography>
 
@@ -543,7 +582,7 @@ const AppLayout = () => {
           overflowY: "auto",
           overflowX: "hidden",
           background:
-            "radial-gradient(circle at top right, rgba(99,102,241,0.08), transparent 24%), linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)",
+            "radial-gradient(circle at top right, rgba(99,102,241,0.05), transparent 40%), #f1f5f9",
         }}
       >
         <Box sx={{ width: "100%", maxWidth: 1680, mx: "auto" }}>

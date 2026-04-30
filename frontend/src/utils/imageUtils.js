@@ -67,6 +67,20 @@ export const getPesdbInfoUrl = (playerId) => {
  * @param {string} imageUrl
  * @returns {string|null}
  */
+/**
+ * Generates the URL for an announcement/news image
+ * @param {string} imageUrl - The stored image URL/path
+ * @returns {string}
+ */
+export const getAnnouncementImageUrl = (imageUrl) => {
+  if (!imageUrl) return "";
+  if (imageUrl.startsWith("http")) return imageUrl;
+  
+  // For relative paths (starting with /), prepend API_BASE_URL if available
+  // During local dev, API_BASE_URL might be empty, and Vite proxy handles /uploads
+  return `${API_BASE_URL}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+};
+
 export const getPesdbLinkFromUrl = (imageUrl) => {
   if (!imageUrl) return null;
   const match = imageUrl.match(/(?:b)?(\d+)\.(?:png|webp)(?:\?.*)?$/i);

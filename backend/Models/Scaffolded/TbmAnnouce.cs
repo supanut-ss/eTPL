@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace eTPL.API.Models.Scaffolded;
@@ -14,4 +14,5 @@ public partial class TbmAnnouce
     public DateTime? CreateDate { get; set; }
 
     public string? Platform { get; set; }
+    public string? ImageUrl { get; set; }
 }

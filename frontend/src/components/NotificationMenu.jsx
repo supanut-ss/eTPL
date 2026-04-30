@@ -139,10 +139,13 @@ const NotificationMenu = () => {
                 key={n.id}
                 disablePadding
                 sx={{
-                  bgcolor: n.isRead ? "transparent" : "rgba(25, 118, 210, 0.05)",
+                  bgcolor: n.isRead ? "transparent" : "rgba(99, 102, 241, 0.12)",
                   borderLeft: n.isRead ? "4px solid transparent" : "4px solid",
-                  borderColor: "primary.main",
-                  transition: 'background-color 0.2s',
+                  borderColor: "#6366f1",
+                  transition: 'all 0.2s ease',
+                  "&:hover": {
+                    bgcolor: n.isRead ? "rgba(255, 255, 255, 0.05)" : "rgba(99, 102, 241, 0.18)",
+                  }
                 }}
               >
                 <ListItemButton 
