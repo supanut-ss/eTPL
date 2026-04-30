@@ -51,8 +51,9 @@ import {
   Payments,
   ThumbUp,
   ThumbDown,
-  Lock
-
+  Lock,
+  Close,
+  ExpandMore
 } from "@mui/icons-material";
 import adminService from "../services/adminService";
 import { useSnackbar } from "notistack";
@@ -89,6 +90,18 @@ const AdminDataPage = () => {
   const [modalMode, setModalMode] = useState("bonus"); // "bonus" | "prizes"
   const [adminPassword, setAdminPassword] = useState("");
   const [submittingBonus, setSubmittingBonus] = useState(false);
+
+  // AI Image Generation State
+  const [aiUser, setAiUser] = useState(null);
+  const [aiType, setAiType] = useState("LeagueChampion");
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiImageUrl, setAiImageUrl] = useState("");
+  const [generatingPrompt, setGeneratingPrompt] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [additionalImages, setAdditionalImages] = useState([]); // Array of strings (URLs)
+  const [tempImageUrl, setTempImageUrl] = useState("");
+  const [showAiSection, setShowAiSection] = useState(false);
+  const [aiProvider, setAiProvider] = useState("Leonardo");
 
 
   // --- Effects ---
@@ -303,6 +316,75 @@ const AdminDataPage = () => {
     }
   };
 
+  const handleGenerateAiPrompt = async () => {
+    if (!aiUser) {
+      enqueueSnackbar("Please select a user first", { variant: "warning" });
+      return;
+    }
+    try {
+      setGeneratingPrompt(true);
+      setAiPrompt("");
+      setAiImageUrl("");
+      const res = await adminService.generateAiPrompt({
+        name: aiUser.userId,
+        team: aiUser.currentTeam || "No Team",
+        type: aiType
+      });
+      setAiPrompt(res.data.prompt);
+      enqueueSnackbar("Prompt generated! You can now review and generate the image.", { variant: "success" });
+    } catch (err) {
+      enqueueSnackbar("Failed to generate prompt", { variant: "error" });
+    } finally {
+      setGeneratingPrompt(false);
+    }
+  };
+
+  const handleGenerateAiImage = async () => {
+    if (!aiPrompt) {
+      enqueueSnackbar("Prompt is required", { variant: "warning" });
+      return;
+    }
+    try {
+      setGeneratingImage(true);
+      
+      // Collect all image URLs
+      const allImageUrls = [];
+      if (aiUser?.linePic) allImageUrls.push(aiUser.linePic);
+      additionalImages.forEach(url => {
+        if (url.trim()) allImageUrls.push(url.trim());
+      });
+
+      if (allImageUrls.length === 0) {
+        enqueueSnackbar("At least one image reference is required", { variant: "warning" });
+        setGeneratingImage(false);
+        return;
+      }
+
+      const res = await adminService.generateAiImage({
+        prompt: aiPrompt,
+        imageUrls: allImageUrls,
+        provider: aiProvider
+      });
+      setAiImageUrl(res.data.imageUrl);
+      enqueueSnackbar("Image generated successfully!", { variant: "success" });
+    } catch (err) {
+      enqueueSnackbar("Failed to generate image", { variant: "error" });
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
+
+  const addAdditionalImage = () => {
+    if (tempImageUrl.trim()) {
+      setAdditionalImages([...additionalImages, tempImageUrl.trim()]);
+      setTempImageUrl("");
+    }
+  };
+
+  const removeAdditionalImage = (index) => {
+    setAdditionalImages(additionalImages.filter((_, i) => i !== index));
+  };
+
 
   // --- Render ---
   return (
@@ -401,8 +483,8 @@ const AdminDataPage = () => {
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '0.8fr 1.5fr 2.5fr' }, gap: 2 }}>
                   <TextField fullWidth label="Season" name="season" size="small" type="number" value={hofData.season} onChange={handleHofChange} />
                   <TextField fullWidth label="Tournament" name="tournamentTitle" size="small" value={hofData.tournamentTitle} onChange={handleHofChange} select SelectProps={{ native: true }}>
-                    <option value="eTPL League">eTPL League</option>
-                    <option value="eTPL Cup">eTPL Cup</option>
+                    <option value="eTPL League">eTPL LEAGUE</option>
+                    <option value="eTPL Cup">eTPL CUP</option>
                   </TextField>
                   <Autocomplete fullWidth options={users} getOptionLabel={(option) => option ? `${option.userId} (${option.lineName || ""})` : ""} value={(users || []).find(u => u.userId === hofData.winnerName) || null} onChange={(e, v) => setHofData(prev => ({ ...prev, winnerName: v ? v.userId : "" }))} renderInput={(params) => <TextField {...params} size="small" label="Winner" />} />
                 </Box>
@@ -457,6 +539,25 @@ const AdminDataPage = () => {
             </Table>
           </TableContainer>
         </Paper>
+
+        {/* AI Image Generation Section - Hidden until quality is ready */}
+        {/* 
+        <Paper elevation={2} sx={{ p: 4, borderRadius: 3, border: "1px solid", borderColor: "divider", width: '100%' }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={showAiSection ? 3 : 0}>
+            <Box display="flex" alignItems="center" gap={1.5}>
+              <AutoAwesome color="primary" sx={{ fontSize: 28 }} />
+              <Typography variant="h6" fontWeight="bold">AI Image Generation (Character Reference)</Typography>
+            </Box>
+            <IconButton onClick={() => setShowAiSection(!showAiSection)} sx={{ bgcolor: 'action.hover' }}>
+              <ExpandMore sx={{ transform: showAiSection ? 'rotate(180deg)' : 'rotate(0deg)', transition: '0.3s' }} />
+            </IconButton>
+          </Box>
+          
+          <Collapse in={showAiSection}>
+            ... [Rest of AI section code] ...
+          </Collapse>
+        </Paper>
+        */}
       </Stack>
 
       {/* Modals */}

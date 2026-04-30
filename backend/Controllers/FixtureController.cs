@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using eTPL.API.Data.Scaffolded;
 using eTPL.API.Models.DTOs;
 using eTPL.API.Models.Scaffolded;
+using eTPL.API.Services.Interfaces;
 
 namespace eTPL.API.Controllers
 {

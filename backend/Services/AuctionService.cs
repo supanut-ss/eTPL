@@ -40,7 +40,7 @@ namespace eTPL.API.Services
                 Positions = await baseQuery.Where(x => x.Position != null && x.Position != "").Select(x => x.Position!).Distinct().OrderBy(x => x).ToListAsync(),
                 PlayingStyles = await baseQuery.Where(x => x.PlayingStyle != null && x.PlayingStyle != "").Select(x => x.PlayingStyle!).Distinct().OrderBy(x => x).ToListAsync(),
                 Feet = await baseQuery.Where(x => x.Foot != null && x.Foot != "").Select(x => x.Foot!).Distinct().OrderBy(x => x).ToListAsync(),
-                Nationalities = await baseQuery.Where(x => x.Nationality != null && x.Nationalities != "").Select(x => x.Nationality!).Distinct().OrderBy(x => x).ToListAsync()
+                Nationalities = await baseQuery.Where(x => x.Nationality != null && x.Nationality != "").Select(x => x.Nationality!).Distinct().OrderBy(x => x).ToListAsync()
             };
             return result;
         }

@@ -33,7 +33,7 @@ namespace eTPL.API.Controllers
         public async Task<IActionResult> GetUsers()
         {
             var users = await _context.Users
-                .Select(u => new { u.Id, u.UserId, u.LineName, u.LinePic })
+                .Select(u => new { u.Id, u.UserId, u.LineName, u.LinePic, u.CurrentTeam })
                 .ToListAsync();
             return Ok(users);
         }
