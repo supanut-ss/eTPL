@@ -828,7 +828,7 @@ const AuctionPage = () => {
                             }}
                         >
                             <Avatar 
-                                src={auction.imageUrl || getPlayerCardUrl(auction.playerId)}
+                                src={getPlayerCardUrl(auction.playerId)}
                                 variant="rounded" 
                                 imgProps={{ referrerPolicy: "no-referrer" }}
                                 sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc", "& img": { objectFit: "contain" } }} 
@@ -1241,7 +1241,7 @@ const AuctionPage = () => {
                   >
                     <Box 
                       component="img"
-                      src={p.imageUrl || getPlayerCardUrl(p.idPlayer)} 
+                      src={getPlayerCardUrl(p.idPlayer)} 
                       referrerPolicy="no-referrer"
                       sx={{ 
                         width: 72, 

@@ -757,7 +757,7 @@ const TransferBoardPage = () => {
                             }}
                         >
                             <Avatar 
-                                src={p.imageUrl}
+                                src={getPlayerCardUrl(p.playerId)}
                                 variant="rounded"
                                 sx={{ 
                                     width: "100%", 
@@ -964,7 +964,7 @@ const TransferBoardPage = () => {
                             }}
                         >
                              <Avatar
-                                src={selectedPlayer.imageUrl || getPlayerCardUrl(selectedPlayer.playerId)}
+                                src={getPlayerCardUrl(selectedPlayer.playerId)}
                                 variant="rounded"
                                 imgProps={{ referrerPolicy: "no-referrer" }}
                                 sx={{

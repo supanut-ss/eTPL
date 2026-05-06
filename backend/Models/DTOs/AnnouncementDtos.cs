@@ -10,6 +10,7 @@ namespace eTPL.API.Models.DTOs
         public DateTime? CreateDate { get; set; }
         public bool IsActive { get; set; }
         public string? ImageUrl { get; set; }
+        public string Type { get; set; } = "News";
     }
 
     public class CreateAnnouncementRequest
@@ -18,6 +19,7 @@ namespace eTPL.API.Models.DTOs
         public string? Announcer { get; set; }
         public bool IsActive { get; set; } = true;
         public string? ImageUrl { get; set; }
+        public string Type { get; set; } = "News";
     }
 
     public class UpdateAnnouncementRequest
@@ -26,6 +28,7 @@ namespace eTPL.API.Models.DTOs
         public string? Announcer { get; set; }
         public bool IsActive { get; set; }
         public string? ImageUrl { get; set; }
+        public string Type { get; set; } = "News";
     }
 
     public class ToggleAnnouncementRequest

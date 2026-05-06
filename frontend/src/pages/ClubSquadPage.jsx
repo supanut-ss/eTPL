@@ -54,6 +54,7 @@ import {
   getPlayerFaceUrl,
   getPesdbInfoUrl,
   getPlayerCardUrl,
+  getPlayerFaceUrlPesmaster,
 } from "../utils/imageUtils";
 import adminService from "../services/adminService";
 
@@ -138,12 +139,12 @@ const getPositionGroup = (pos) => {
 };
 
 const PlayerAvatar = ({ playerId }) => {
-  const [src, setSrc] = useState(getPlayerFaceUrl(playerId, "png"));
+  const [src, setSrc] = useState(getPlayerFaceUrlPesmaster(playerId, "png"));
   const [failed, setFailed] = useState(false);
 
   const handleError = () => {
     if (!failed) {
-      setSrc(getPlayerFaceUrl(playerId, "webp"));
+      setSrc(getPlayerFaceUrlPesmaster(playerId, "webp"));
       setFailed(true);
     }
   };

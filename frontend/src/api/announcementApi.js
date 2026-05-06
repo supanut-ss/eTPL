@@ -10,10 +10,10 @@ const publicAxios = axios.create({
   },
 });
 
-export const getPublicAnnouncements = () =>
-  publicAxios.get("/api/announcements/public");
+export const getPublicAnnouncements = (type = "News") =>
+  publicAxios.get(`/api/announcements/public?type=${type}`);
 
-export const getAnnouncements = () => axiosInstance.get("/api/announcements");
+export const getAnnouncements = (type = "News") => axiosInstance.get(`/api/announcements?type=${type}`);
 export const createAnnouncement = (data) =>
   axiosInstance.post("/api/announcements", data);
 export const updateAnnouncement = (id, data) =>

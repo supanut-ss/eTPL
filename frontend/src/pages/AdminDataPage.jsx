@@ -58,6 +58,7 @@ import {
 import adminService from "../services/adminService";
 import { useSnackbar } from "notistack";
 import { useNavigate } from "react-router-dom";
+import { getPlayerCardUrl } from "../utils/imageUtils";
 
 const AdminDataPage = () => {
   const navigate = useNavigate();
@@ -443,7 +444,7 @@ const AdminDataPage = () => {
                   <CardContent>
                     <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
                       <Box sx={{ position: 'relative' }}>
-                        <Box component="img" src={`https://pesdb.net/assets/img/card/b${scrapedData.idPlayer}.png`} sx={{ width: 85, height: 'auto', borderRadius: 2, boxShadow: '0 8px 16px rgba(0,0,0,0.15)', border: '2px solid #fff' }} />
+                        <Box component="img" src={getPlayerCardUrl(scrapedData.idPlayer)} sx={{ width: 85, height: 'auto', borderRadius: 2, boxShadow: '0 8px 16px rgba(0,0,0,0.15)', border: '2px solid #fff' }} />
                         <Box sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'white', borderRadius: '50%' }}><CheckCircle color="success" sx={{ fontSize: 24 }} /></Box>
                       </Box>
                       <Box sx={{ flexGrow: 1 }}>

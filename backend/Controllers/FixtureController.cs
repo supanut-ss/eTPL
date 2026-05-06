@@ -16,11 +16,13 @@ namespace eTPL.API.Controllers
     {
         private readonly ScaffoldedDbContext _db;
         private readonly IAuctionService _auctionService;
+        private readonly IDiscordService _discordService;
 
-        public FixtureController(ScaffoldedDbContext db, IAuctionService auctionService)
+        public FixtureController(ScaffoldedDbContext db, IAuctionService auctionService, IDiscordService discordService)
         {
             _db = db;
             _auctionService = auctionService;
+            _discordService = discordService;
         }
 
         public class ResetRequest
@@ -184,7 +186,7 @@ namespace eTPL.API.Controllers
 
             var data = await query
                 .OrderByDescending(f => f.MatchDate)
-                .Take(10)
+                .Take(25)
                 .Select(f => new
                 {
                     f.FixtureId,
@@ -459,7 +461,7 @@ namespace eTPL.API.Controllers
                 string? awayName = vFixture?.AwayTeamName ?? fixture.Away;
 
                 string resultMsg = "แจ้งผลการแข่งขัน " + fixture.Division + " : " + homeName + " " + dto.HomeScore.ToString() + " - " + dto.AwayScore.ToString() + " " + awayName + " \n\nREPORT BY " + reportUserName;
-                _ = SendDiscordEmbed(resultMsg);
+                _ = _discordService.SendMatchResultAsync(resultMsg);
             }
             catch (Exception ex)
             {
@@ -623,7 +625,7 @@ namespace eTPL.API.Controllers
                 string awayName = vFixture?.AwayTeamName ?? fixture.Away ?? "Away";
 
                 string resultMsg = "แก้ไขผลการแข่งขัน " + fixture.Division + " : " + homeName + " " + dto.HomeScore.ToString() + " - " + dto.AwayScore.ToString() + " " + awayName + " \n\nEDIT BY " + reportUserName;
-                _ = SendDiscordEmbed(resultMsg);
+                _ = _discordService.SendMatchResultAsync(resultMsg, isEdit: true);
             }
             catch (Exception ex)
             {
@@ -633,46 +635,6 @@ namespace eTPL.API.Controllers
             return Ok(ApiResponse<object>.Ok(new { message = "แก้ไขผลสำเร็จ" }));
         }
 
-        private async Task SendDiscordEmbed(string message)
-        {
-            try
-            {
-                string webhookUrl = "https://discord.com/api/webhooks/1376384353894142002/ProgNBZkOnWteq66wJKuSKmz---IjXYxGMTbah7JjxirdYaZdlLuvwUG8XJcttR5JKat";
-
-                var payload = new
-                {
-                    embeds = new[]
-                    {
-                        new
-                        {
-                            title = "MATCH RESULT",
-                            description = message,
-                            color = 0x2ECC71,
-                            footer = new { text = "TPL FA" },
-                            timestamp = DateTime.UtcNow.ToString("o")
-                        }
-                    }
-                };
-
-                var options = new System.Text.Json.JsonSerializerOptions
-                {
-                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                };
-                var json = System.Text.Json.JsonSerializer.Serialize(payload, options);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                using (var client = new HttpClient())
-                {
-                    var response = await client.PostAsync(webhookUrl, content);
-                    if (!response.IsSuccessStatusCode)
-                        System.Diagnostics.Debug.WriteLine("ส่งไม่สำเร็จ: " + response.StatusCode);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("ข้อผิดพลาด: " + ex.Message);
-            }
-        }
 
         // ─────────────────────────────────────────────
         // GET api/fixtures/generate-preview  (Admin only)

@@ -269,7 +269,7 @@ public partial class ScaffoldedDbContext : DbContext
                 .HasColumnType("datetime")
                 .HasColumnName("create_date");
             entity.Property(e => e.Platform)
-                .HasMaxLength(4)
+                .HasMaxLength(20)
                 .HasColumnName("platform");
         });
 

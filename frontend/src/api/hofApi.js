@@ -9,5 +9,9 @@ export const hofApi = {
       console.error('Error fetching Hall of Fame data:', error);
       throw error;
     }
+  },
+  updateHof: async (id, data) => {
+    const response = await axiosInstance.put(`/api/Hof/${id}`, data);
+    return response.data;
   }
 };

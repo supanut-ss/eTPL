@@ -45,7 +45,7 @@ function Test-RemoteDirectoryExists {
         return $true
     }
 
-    $uri = "ftp://$Server/$($DirectoryPath.Trim('/'))"
+    $uri = "ftp://$Server/$($DirectoryPath.Trim('/'))/" # Added trailing slash for directory test
 
     try {
         $request = New-FtpRequest -Uri $uri -Method ([System.Net.WebRequestMethods+Ftp]::ListDirectory)
@@ -99,6 +99,7 @@ function Ensure-RemoteDirectory {
             $request = New-FtpRequest -Uri $uri -Method ([System.Net.WebRequestMethods+Ftp]::MakeDirectory)
             $response = $request.GetResponse()
             $response.Close()
+            Write-Host "Created Directory: $current" -ForegroundColor Gray
         }
         catch [System.Net.WebException] {
             $ftpResponse = $_.Exception.Response
@@ -106,15 +107,16 @@ function Ensure-RemoteDirectory {
                 $statusCode = [int]$ftpResponse.StatusCode
                 $ftpResponse.Close()
 
+                # 550 ActionNotTakenFileUnavailable usually means directory already exists
                 if ($statusCode -eq [int][System.Net.FtpStatusCode]::ActionNotTakenFileUnavailable) {
-                    if (Test-RemoteDirectoryExists -DirectoryPath $current) {
-                        continue
-                    }
-                    throw "Failed to create remote directory '$current' (550 and does not exist)."
+                    continue
                 }
             }
-
-            throw
+            # For other errors, we can try to check if it exists before failing
+            if (Test-RemoteDirectoryExists -DirectoryPath $current) {
+                continue
+            }
+            throw "Failed to create remote directory '$current': $($_.Exception.Message)"
         }
     }
 }

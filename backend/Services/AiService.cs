@@ -293,8 +293,6 @@ namespace eTPL.API.Services
                 }
 
                 return string.Empty;
-
-                return string.Empty;
             }
             catch (Exception ex)
             {
@@ -543,7 +541,7 @@ namespace eTPL.API.Services
                         var filePath = Path.Combine(_env.WebRootPath, "assets", "images", "hof", fileName);
                         
                         var directory = Path.GetDirectoryName(filePath);
-                        if (!Directory.Exists(directory))
+                        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                         {
                             Directory.CreateDirectory(directory);
                         }

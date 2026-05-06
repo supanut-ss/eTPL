@@ -153,7 +153,7 @@ const AppLayout = () => {
   const location = useLocation();
   const { user, logout, accessibleMenus } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [desktopOpen, setDesktopOpen] = useState(true);
+  const [desktopOpen, setDesktopOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);

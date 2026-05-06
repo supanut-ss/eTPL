@@ -19,6 +19,7 @@ namespace eTPL.API.Services
         private readonly ScaffoldedDbContext _scaffoldedContext;
         private readonly INotificationService _notificationService;
         private readonly IAiService _aiService;
+        private readonly IDiscordService _discordService;
 
         public async Task<PlayerFilterOptionsDto> GetPlayerFilterOptionsAsync(string? league = null)
         {
@@ -49,12 +50,14 @@ namespace eTPL.API.Services
             MsSqlDbContext context, 
             ScaffoldedDbContext scaffoldedContext, 
             INotificationService notificationService,
-            IAiService aiService)
+            IAiService aiService,
+            IDiscordService discordService)
         {
             _context = context;
             _scaffoldedContext = scaffoldedContext;
             _notificationService = notificationService;
             _aiService = aiService;
+            _discordService = discordService;
         }
 
         private DateTime GetThaiTime() => DateTime.UtcNow.AddHours(7);
@@ -988,7 +991,16 @@ namespace eTPL.API.Services
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                    return MapToDto(auction);
+                // SEND DISCORD NOTIFICATION
+                try
+                {
+                    var winnerUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == winnerId.Value);
+                    string winTeam = winnerUser?.LineName ?? winnerUser?.UserId ?? "Unknown";
+                    _ = _discordService.SendAuctionConfirmAsync(playerName2, winTeam, winningPrice, auction.PlayerId.ToString());
+                }
+                catch { }
+
+                return MapToDto(auction);
                 }
                 catch (Exception ex)
                 {
@@ -1384,12 +1396,19 @@ namespace eTPL.API.Services
                     request.TargetUserId, request.LoanFee, "DEBIT", "LOAN_FEE",
                     $"ค่ายืมตัว {playerName}", buyerWallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
 
-                await RecordTransactionAsync(
-                    ownerUserId, request.LoanFee, "CREDIT", "LOAN_INCOME",
-                    $"รายได้ยืมตัว {playerName}", ownerWallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
-
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                // SEND DISCORD NOTIFICATION
+                try
+                {
+                    var owner = await _context.Users.FirstOrDefaultAsync(u => u.Id == ownerUserId);
+                    var borrower = await _context.Users.FirstOrDefaultAsync(u => u.Id == request.TargetUserId);
+                    string ownerName = owner?.LineName ?? owner?.UserId ?? "Unknown";
+                    string borrowerName = borrower?.LineName ?? borrower?.UserId ?? "Unknown";
+                    _ = _discordService.SendTransferAsync(playerName, ownerName, borrowerName, request.LoanFee, isLoan: true, pesPlayerId: squad.PlayerId.ToString());
+                }
+                catch { }
                 }
                 catch
                 {
@@ -1453,6 +1472,17 @@ namespace eTPL.API.Services
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                // SEND DISCORD NOTIFICATION
+                try
+                {
+                    var seller = await _context.Users.FirstOrDefaultAsync(u => u.Id == sellerUserId);
+                    var buyer = await _context.Users.FirstOrDefaultAsync(u => u.Id == request.BuyerUserId);
+                    string sellerName = seller?.LineName ?? seller?.UserId ?? "Unknown";
+                    string buyerName = buyer?.LineName ?? buyer?.UserId ?? "Unknown";
+                    _ = _discordService.SendTransferAsync(playerName, sellerName, buyerName, request.TransferFee, isLoan: false, pesPlayerId: squad.PlayerId.ToString());
+                }
+                catch { }
                 }
                 catch
                 {
@@ -1466,7 +1496,11 @@ namespace eTPL.API.Services
 
         public async Task ListPlayerAsync(int userId, int squadId, int listingPrice)
         {
-            var squad = await _context.AuctionSquads.FirstOrDefaultAsync(s => s.SquadId == squadId && s.UserId == userId);
+            var squad = await _context.AuctionSquads
+                .Include(s => s.Player)
+                .Include(s => s.User)
+                .FirstOrDefaultAsync(s => s.SquadId == squadId && s.UserId == userId);
+            
             if (squad == null) throw new Exception("ไม่พบนักเตะในทีม");
             if (squad.IsLoan) throw new Exception("นักเตะยืมตัว ไม่สามารถตั้งขายได้");
             if (listingPrice <= 0) throw new Exception("ราคาตั้งขายต้องมากกว่า 0");
@@ -1474,6 +1508,15 @@ namespace eTPL.API.Services
             squad.Status = "Listed";
             squad.ListingPrice = listingPrice;
             await _context.SaveChangesAsync();
+
+            // SEND DISCORD NOTIFICATION
+            try
+            {
+                string playerName = squad.Player?.PlayerName ?? "Unknown";
+                string teamName = squad.User?.LineName ?? squad.User?.UserId ?? "Unknown";
+                _ = _discordService.SendPlayerListedAsync(playerName, teamName, listingPrice, squad.PlayerId.ToString());
+            }
+            catch { }
         }
 
         public async Task DelistPlayerAsync(int userId, int squadId)
@@ -2148,6 +2191,9 @@ namespace eTPL.API.Services
                     }
                     await transaction.CommitAsync();
 
+                    // SEND DISCORD NOTIFICATION
+                    _ = _discordService.SendSeasonEventAsync("SEASON CLOSED", $"ฤดูกาลที่ {currentSeason} ได้สิ้นสุดลงแล้ว! กำลังเตรียมการสำหรับฤดูกาลถัดไป...");
+
                     // 9. Trigger AI Image Generation (Background)
                     foreach (var id in hofIdsToProcess)
                     {
@@ -2352,7 +2398,11 @@ namespace eTPL.API.Services
 
                     await _context.SaveChangesAsync();
                     await _scaffoldedContext.SaveChangesAsync();
-                    await transaction.CommitAsync();
+                                        await transaction.CommitAsync();
+
+                    // SEND DISCORD NOTIFICATION
+                    _ = _discordService.SendSeasonEventAsync("SEASON OPENED", $"ฤดูกาลใหม่ที่ {newSeason} ได้เริ่มต้นขึ้นอย่างเป็นทางการแล้ว! ขอให้โชคดีในฤดูกาลใหม่ครับทุกทีม");
+
 
                     logs.Add($"บันทึกการเปลี่ยนแปลงทั้งหมดลงฐานข้อมูลเรียบร้อย");
 

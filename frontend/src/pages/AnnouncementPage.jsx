@@ -60,11 +60,13 @@ const formatDateTime = (value) => {
 const AnnouncementPage = () => {
   const { user } = useAuth();
   const [items, setItems] = useState([]);
+  const [eventItems, setEventItems] = useState([]);
+  const [magazineItems, setMagazineItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
-  const [tabValue, setTabValue] = useState(0);
+  const [masterTab, setMasterTab] = useState(0); // 0 = News, 1 = Event, 2 = Magazine
   const [uploading, setUploading] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -78,8 +80,12 @@ const AnnouncementPage = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await getAnnouncements();
+      const res = await getAnnouncements("News");
       setItems(res.data.data || []);
+      const eventRes = await getAnnouncements("Event");
+      setEventItems(eventRes.data.data || []);
+      const magRes = await getAnnouncements("Magazine");
+      setMagazineItems(magRes.data.data || []);
     } catch {
       showSnackbar("Failed to load announcements", "error");
     } finally {
@@ -104,6 +110,7 @@ const AnnouncementPage = () => {
       announcer: item.announcer || user?.userId || "",
       imageUrl: item.imageUrl || "",
       isActive: Boolean(item.isActive),
+      type: item.type || (masterTab === 2 ? "Magazine" : masterTab === 1 ? "Event" : "News"),
     });
     setOpenDialog(true);
   };
@@ -122,6 +129,7 @@ const AnnouncementPage = () => {
           announcer: form.announcer?.trim() || user?.userId || "system",
           imageUrl: form.imageUrl?.trim() || "",
           isActive: form.isActive,
+          type: masterTab === 2 ? "Magazine" : masterTab === 1 ? "Event" : "News"
         });
         showSnackbar("Announcement updated");
       } else {
@@ -130,6 +138,7 @@ const AnnouncementPage = () => {
           announcer: form.announcer?.trim() || user?.userId || "system",
           imageUrl: form.imageUrl?.trim() || "",
           isActive: form.isActive,
+          type: masterTab === 2 ? "Magazine" : masterTab === 1 ? "Event" : "News"
         });
         showSnackbar("Announcement created");
       }
@@ -137,8 +146,9 @@ const AnnouncementPage = () => {
       setForm(emptyForm);
       setEditing(null);
       await loadData();
-    } catch {
-      showSnackbar("Save failed", "error");
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Save failed";
+      showSnackbar(msg, "error");
     }
   };
 
@@ -173,8 +183,9 @@ const AnnouncementPage = () => {
     try {
       await toggleAnnouncement(item.id, !item.isActive);
       await loadData();
-    } catch {
-      showSnackbar("Failed to update status", "error");
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Failed to update status";
+      showSnackbar(msg, "error");
     }
   };
 
@@ -186,8 +197,9 @@ const AnnouncementPage = () => {
       await deleteAnnouncement(item.id);
       showSnackbar("Announcement deleted");
       await loadData();
-    } catch {
-      showSnackbar("Delete failed", "error");
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Delete failed";
+      showSnackbar(msg, "error");
     }
   };
 
@@ -240,113 +252,114 @@ const AnnouncementPage = () => {
       </Box>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} aria-label="announcement tabs">
-          <Tab label="Text Announcements" icon={<Campaign />} iconPosition="start" />
-          <Tab label="News Media (Graphic)" icon={<Image />} iconPosition="start" />
+        <Tabs value={masterTab} onChange={(e, v) => setMasterTab(v)} aria-label="master tabs">
+          <Tab label="System Announcements" icon={<Campaign />} iconPosition="start" />
+          <Tab label="Event Updates" icon={<Image />} iconPosition="start" />
+          <Tab label="AI Magazine" icon={<Image />} iconPosition="start" />
         </Tabs>
       </Box>
 
-      <Alert severity="info" sx={{ mb: 2.5 }}>
-        Active announcements are shown on the dashboard and rotate automatically
-        when multiple messages exist.
-      </Alert>
+      {/* Render Table Helper */}
+      {(() => {
+        let currentItems = [];
+        let emptyMessage = "";
+        let infoMessage = "";
+        if (masterTab === 0) {
+          currentItems = items;
+          emptyMessage = "No announcements";
+          infoMessage = "System announcements are displayed as text on the dashboard.";
+        } else if (masterTab === 1) {
+          currentItems = eventItems;
+          emptyMessage = "No event updates found";
+          infoMessage = "Event Updates are displayed in the Event box with an image and text.";
+        } else if (masterTab === 2) {
+          currentItems = magazineItems;
+          emptyMessage = "No AI Magazine entries found";
+          infoMessage = "AI Magazine entries are displayed in the top-left Magazine box on the dashboard.";
+        }
 
-      <Paper
-        elevation={0}
-        sx={{ borderRadius: 3, border: "1px solid", borderColor: "divider" }}
-      >
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: "grey.50" }}>
-                <TableCell sx={{ fontWeight: 700, width: "45%" }}>
-                  Message
-                </TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Announcer</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Created</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>
-                  Actions
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {items
-                .filter(item => tabValue === 0 ? !item.imageUrl : !!item.imageUrl)
-                .map((item) => (
-                <TableRow key={item.id} hover>
-                  <TableCell>
-                    <Box display="flex" gap={2} alignItems="center">
-                      {item.imageUrl && (
-                        <Box
-                          component="img"
-                          src={getAnnouncementImageUrl(item.imageUrl)}
-                          sx={{ width: 80, height: 45, borderRadius: 1, objectFit: 'cover', border: '1px solid #ddd' }}
-                        />
-                      )}
-                      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                        {item.announcement}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>{item.announcer || "-"}</TableCell>
-                  <TableCell>{formatDateTime(item.createDate)}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={item.isActive ? "Active" : "Hidden"}
-                      color={item.isActive ? "success" : "default"}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Stack
-                      direction="row"
-                      spacing={0.5}
-                      justifyContent="flex-end"
-                    >
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleOpenEdit(item)}
-                        startIcon={<Edit fontSize="small" />}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color={item.isActive ? "warning" : "success"}
-                        onClick={() => handleToggle(item)}
-                      >
-                        {item.isActive ? "Hide" : "Show"}
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="error"
-                        onClick={() => handleDelete(item)}
-                        startIcon={<Delete fontSize="small" />}
-                      >
-                        Delete
-                      </Button>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
+        return (
+          <>
+            <Alert severity="info" sx={{ mb: 2.5 }}>
+              {infoMessage}
+            </Alert>
 
-              {items.length === 0 && !loading && (
-                <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 5 }}>
-                    <Typography color="text.secondary">
-                      No announcements
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+            <Paper elevation={0} sx={{ borderRadius: 3, border: "1px solid", borderColor: "divider" }}>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: "grey.50" }}>
+                      <TableCell sx={{ fontWeight: 700, width: "45%" }}>
+                        Message / Title
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Announcer / Subtitle</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Created</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>
+                        Actions
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {currentItems.map((item) => (
+                      <TableRow key={item.id} hover>
+                        <TableCell>
+                          <Box display="flex" gap={2} alignItems="center">
+                            {item.imageUrl && (
+                              <Box
+                                component="img"
+                                src={getAnnouncementImageUrl(item.imageUrl)}
+                                sx={{ width: 80, height: 45, borderRadius: 1, objectFit: 'cover', border: '1px solid #ddd' }}
+                              />
+                            )}
+                            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                              {item.announcement}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>{item.announcer || "-"}</TableCell>
+                        <TableCell>{formatDateTime(item.createDate)}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={item.isActive ? "Active" : "Hidden"}
+                            color={item.isActive ? "success" : "default"}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                            <Button size="small" variant="outlined" onClick={() => handleOpenEdit(item)} startIcon={<Edit fontSize="small" />}>
+                              Edit
+                            </Button>
+                            <Button size="small" variant="outlined" color={item.isActive ? "warning" : "success"} onClick={() => handleToggle(item)}>
+                              {item.isActive ? "Hide" : "Show"}
+                            </Button>
+                            <Button size="small" variant="outlined" color="error" onClick={() => handleDelete(item)} startIcon={<Delete fontSize="small" />}>
+                              Delete
+                            </Button>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+
+                    {currentItems.length === 0 && !loading && (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center" sx={{ py: 5 }}>
+                          <Typography color="text.secondary">
+                            {emptyMessage}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </>
+        );
+      })()}
+
+
 
       <Dialog
         open={openDialog}
@@ -355,14 +368,16 @@ const AnnouncementPage = () => {
         maxWidth="sm"
       >
         <DialogTitle>
-          {editing ? "Edit announcement" : "Create announcement"}
+          {editing 
+            ? (masterTab === 2 ? "Edit Magazine Entry" : masterTab === 1 ? "Edit Event Update" : "Edit Announcement") 
+            : (masterTab === 2 ? "Create Magazine Entry" : masterTab === 1 ? "Create Event Update" : "Create Announcement")}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} mt={0.5}>
             <TextField
-              label="Announcement message"
-              multiline
-              minRows={4}
+              label={masterTab === 2 ? "Magazine Title" : masterTab === 1 ? "Event Title / Message" : "Announcement message"}
+              multiline={masterTab !== 2}
+              minRows={masterTab !== 2 ? 4 : 1}
               value={form.announcement}
               onChange={(event) =>
                 setForm((prev) => ({
@@ -372,10 +387,22 @@ const AnnouncementPage = () => {
               }
               fullWidth
             />
-            <Box>
-              <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ display: 'block', mb: 1 }}>
-                NEWS IMAGE (GRAPHIC)
-              </Typography>
+            <TextField
+              label={masterTab === 2 ? "Magazine Subtitle" : "Announcer (Optional)"}
+              value={form.announcer}
+              onChange={(event) =>
+                setForm((prev) => ({
+                  ...prev,
+                  announcer: event.target.value,
+                }))
+              }
+              fullWidth
+            />
+            {masterTab !== 0 && (
+              <Box>
+                <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ display: 'block', mb: 1 }}>
+                  {masterTab === 2 ? "MAGAZINE IMAGE" : "EVENT COVER IMAGE"}
+                </Typography>
               <Stack direction="row" spacing={2} alignItems="flex-start">
                 <Box sx={{ flex: 1 }}>
                   <TextField
@@ -413,30 +440,30 @@ const AnnouncementPage = () => {
                   </label>
                 </Box>
               </Stack>
-            </Box>
-
-            {form.imageUrl && (
-              <Box sx={{ mt: 1, position: 'relative' }}>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Typography variant="caption" color="text.secondary" fontWeight={700}>PREVIEW:</Typography>
-                  <Button 
-                    size="small" 
-                    color="error" 
-                    startIcon={<Close />} 
-                    onClick={() => setForm(prev => ({ ...prev, imageUrl: "" }))}
-                    sx={{ fontSize: 10 }}
-                  >
-                    Remove Image
-                  </Button>
+              {form.imageUrl && (
+                <Box sx={{ mt: 1, position: 'relative' }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Typography variant="caption" color="text.secondary" fontWeight={700}>PREVIEW:</Typography>
+                    <Button 
+                      size="small" 
+                      color="error" 
+                      startIcon={<Close />} 
+                      onClick={() => setForm(prev => ({ ...prev, imageUrl: "" }))}
+                      sx={{ fontSize: 10 }}
+                    >
+                      Remove Image
+                    </Button>
+                  </Box>
+                  <Box 
+                    component="img" 
+                    src={getAnnouncementImageUrl(form.imageUrl)} 
+                    sx={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 2, border: '2px solid', borderColor: 'divider', mt: 0.5 }}
+                    onError={(e) => { e.target.src = 'https://via.placeholder.com/400x200?text=Invalid+Image+URL'; }}
+                  />
                 </Box>
-                <Box 
-                  component="img" 
-                  src={getAnnouncementImageUrl(form.imageUrl)} 
-                  sx={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 2, border: '2px solid', borderColor: 'divider', mt: 0.5 }}
-                  onError={(e) => { e.target.src = 'https://via.placeholder.com/400x200?text=Invalid+Image+URL'; }}
-                />
-              </Box>
-            )}
+              )}
+            </Box>
+          )}
 
             <FormControlLabel
               control={
@@ -461,6 +488,7 @@ const AnnouncementPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
 
       <Snackbar
         open={snackbar.open}

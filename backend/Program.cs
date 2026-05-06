@@ -101,6 +101,8 @@ builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IAuctionService, AuctionService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IAiService, AiService>();
+builder.Services.AddScoped<IDiscordService, DiscordService>();
+
 
 var app = builder.Build();
 

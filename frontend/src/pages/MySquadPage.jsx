@@ -1279,7 +1279,7 @@ const MySquadPage = () => {
                     >
                       <Avatar
                         className="player-avatar"
-                        src={player.imageUrl || getPlayerCardUrl(player.playerId)}
+                        src={getPlayerCardUrl(player.playerId)}
                         variant="rounded"
                         imgProps={{ referrerPolicy: "no-referrer" }}
                         sx={{

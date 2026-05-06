@@ -40,6 +40,30 @@ namespace eTPL.API.Controllers
             }
         }
 
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateHof(string id, TbmHof hofUpdate)
+        {
+            EnsureTableExists();
+            
+            var existing = await _context.TbmHofs.FindAsync(id);
+            if (existing == null) return NotFound("HOF record not found");
+
+            existing.TournamentTitle = hofUpdate.TournamentTitle ?? existing.TournamentTitle;
+            existing.TournamentSubtitle = hofUpdate.TournamentSubtitle ?? existing.TournamentSubtitle;
+            existing.WinnerName = hofUpdate.WinnerName ?? existing.WinnerName;
+            existing.WinnerTeam = hofUpdate.WinnerTeam ?? existing.WinnerTeam;
+            existing.Season = hofUpdate.Season ?? existing.Season;
+            existing.AiImageUrl = hofUpdate.AiImageUrl ?? existing.AiImageUrl;
+            existing.WinnerImage = hofUpdate.WinnerImage ?? existing.WinnerImage;
+
+            // Handle empty string as null for images if they want to clear it
+            if (hofUpdate.AiImageUrl == "") existing.AiImageUrl = null;
+            if (hofUpdate.WinnerImage == "") existing.WinnerImage = null;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { success = true, data = existing });
+        }
+
         [HttpPost("seed")]
         public async Task<IActionResult> Seed()
         {
