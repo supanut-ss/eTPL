@@ -26,6 +26,8 @@ import AdminDataPage from "./pages/AdminDataPage";
 import AdminLeagueSetting from "./pages/AdminLeagueSetting";
 import CupBracketPage from "./pages/CupBracketPage";
 import NewsPage from "./pages/NewsPage";
+import UserListPage from "./pages/UserListPage";
+import ProfilePage from "./pages/ProfilePage";
 
 import LineCallbackPage from "./pages/LineCallbackPage";
 
@@ -51,7 +53,8 @@ function App() {
               <Route path="auction-results" element={<CompletedAuctionPage />} />
               <Route path="hall-of-fame" element={<HallOfFamePage />} />
               <Route path="cup-bracket" element={<CupBracketPage />} />
-              <Route path="news" element={<NewsPage />} />
+               <Route path="news" element={<NewsPage />} />
+              <Route path="members" element={<UserListPage />} />
 
               {/* Login required */}
               <Route
@@ -94,11 +97,19 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route
+               <Route
                 path="deal-center"
                 element={
                   <ProtectedRoute>
                     <MarketOverviewPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="profile"
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
                   </ProtectedRoute>
                 }
               />

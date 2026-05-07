@@ -47,6 +47,7 @@ import {
   ExpandMore,
   AdminPanelSettings,
   Home,
+  Person,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -60,6 +61,7 @@ const navItems = [
   { label: "Matches", path: "/matches", icon: <CalendarMonth /> },
   { label: "Cup Bracket", path: "/cup-bracket", icon: <EmojiEvents /> },
   { label: "Hall of Fame", path: "/hall-of-fame", icon: <MilitaryTech /> },
+  { label: "Members", path: "/members", icon: <People /> },
   { label: "Auction Board", path: "/auction-results", icon: <HotelClass /> },
   {
     label: "My Fixtures",
@@ -504,6 +506,10 @@ const AppLayout = () => {
 
               {user ? (
                 <>
+                  <MenuItem onClick={() => { setAnchorEl(null); navigate("/profile"); }}>
+                    <Person sx={{ mr: 1 }} fontSize="small" />
+                    My Profile
+                  </MenuItem>
                   <MenuItem onClick={handleChangePassword}>
                     <LockReset sx={{ mr: 1 }} fontSize="small" />
                     Change Password
