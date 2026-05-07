@@ -205,8 +205,8 @@ const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results,
                                 />
 
                                 <Box 
-                                    component={getPesdbLink(p.imageUrl || getPlayerCardUrl(p.idPlayer || p.IdPlayer)) ? "a" : "div"}
-                                    href={getPesdbLink(p.imageUrl || getPlayerCardUrl(p.idPlayer || p.IdPlayer))}
+                                    component={getPesdbLink(getPlayerCardUrl(p.idPlayer || p.IdPlayer)) ? "a" : "div"}
+                                    href={getPesdbLink(getPlayerCardUrl(p.idPlayer || p.IdPlayer))}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     sx={{ 
@@ -221,7 +221,7 @@ const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results,
                                     }}
                                 >
                                     <Avatar 
-                                        src={p.imageUrl || getPlayerCardUrl(p.idPlayer || p.IdPlayer)}
+                                        src={getPlayerCardUrl(p.idPlayer || p.IdPlayer)}
                                         variant="rounded"
                                         imgProps={{ referrerPolicy: "no-referrer" }}
                                         sx={{ 
@@ -276,7 +276,7 @@ const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results,
                                                     "&:hover": { color: "primary.main", textDecoration: "underline" }
                                                 }}
                                                 component="a"
-                                                href={getPesdbLink(p.imageUrl || getPlayerCardUrl(p.idPlayer || p.IdPlayer))}
+                                                href={getPesdbLink(getPlayerCardUrl(p.idPlayer || p.IdPlayer))}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                             >
@@ -741,8 +741,8 @@ const TransferBoardPage = () => {
                         overflow: "hidden"
                     }}>
                         <Box 
-                            component={getPesdbLink(p.imageUrl) ? "a" : "div"}
-                            href={getPesdbLink(p.imageUrl)}
+                            component={getPesdbLink(getPlayerCardUrl(p.playerId)) ? "a" : "div"}
+                            href={getPesdbLink(getPlayerCardUrl(p.playerId))}
                             target="_blank"
                             rel="noopener noreferrer"
                             sx={{ 
@@ -751,9 +751,9 @@ const TransferBoardPage = () => {
                                 width: 80, 
                                 height: 110, 
                                 flexShrink: 0,
-                                cursor: getPesdbLink(p.imageUrl) ? "pointer" : "default",
+                                cursor: getPesdbLink(getPlayerCardUrl(p.playerId)) ? "pointer" : "default",
                                 transition: "all 0.2s",
-                                "&:hover": { transform: getPesdbLink(p.imageUrl) ? "scale(1.05)" : "none" }
+                                "&:hover": { transform: getPesdbLink(getPlayerCardUrl(p.playerId)) ? "scale(1.05)" : "none" }
                             }}
                         >
                             <Avatar 
@@ -811,7 +811,7 @@ const TransferBoardPage = () => {
                                             "&:hover": { color: "primary.main", textDecoration: "underline" }
                                         }}
                                         component="a"
-                                        href={getPesdbLink(p.imageUrl)}
+                                        href={getPesdbLink(getPlayerCardUrl(p.playerId))}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
@@ -948,7 +948,7 @@ const TransferBoardPage = () => {
                     }}>
                         <Box 
                             component="a"
-                            href={getPesdbLink(selectedPlayer.imageUrl || getPlayerCardUrl(selectedPlayer.playerId))}
+                            href={getPesdbLink(getPlayerCardUrl(selectedPlayer.playerId))}
                             target="_blank"
                             rel="noopener noreferrer"
                             sx={{
@@ -988,7 +988,7 @@ const TransferBoardPage = () => {
                                     "&:hover": { color: "primary.main", textDecoration: "underline" }
                                 }}
                                 component="a"
-                                href={getPesdbLink(selectedPlayer.imageUrl || getPlayerCardUrl(selectedPlayer.playerId))}
+                                href={getPesdbLink(getPlayerCardUrl(selectedPlayer.playerId))}
                                 target="_blank"
                                 rel="noopener noreferrer"
                             >

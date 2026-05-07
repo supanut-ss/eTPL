@@ -813,8 +813,8 @@ const AuctionPage = () => {
                         py: { xs: 3, sm: 1.8 }
                     }}>
                         <Box 
-                            component={getPesdbLink(auction.imageUrl || getPlayerCardUrl(auction.playerId)) ? "a" : "div"}
-                            href={getPesdbLink(auction.imageUrl || getPlayerCardUrl(auction.playerId))}
+                            component={getPesdbLink(getPlayerCardUrl(auction.playerId)) ? "a" : "div"}
+                            href={getPesdbLink(getPlayerCardUrl(auction.playerId))}
                             target="_blank"
                             rel="noopener noreferrer"
                             sx={{ 
@@ -859,7 +859,7 @@ const AuctionPage = () => {
                                             "&:hover": { color: "primary.main", textDecoration: "underline" }
                                         }}
                                         component="a"
-                                        href={getPesdbLink(auction.imageUrl || getPlayerCardUrl(auction.playerId))}
+                                        href={getPesdbLink(getPlayerCardUrl(auction.playerId))}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
@@ -1221,8 +1221,8 @@ const AuctionPage = () => {
 
                   {/* Player Image - WITH GRADE BORDER */}
                   <Box 
-                    component={getPesdbLink(p.imageUrl || getPlayerCardUrl(p.idPlayer)) ? "a" : "div"}
-                    href={getPesdbLink(p.imageUrl || getPlayerCardUrl(p.idPlayer))}
+                    component={getPesdbLink(getPlayerCardUrl(p.idPlayer)) ? "a" : "div"}
+                    href={getPesdbLink(getPlayerCardUrl(p.idPlayer))}
                     target="_blank"
                     rel="noopener noreferrer"
                     sx={{ 
@@ -1266,7 +1266,7 @@ const AuctionPage = () => {
                         "&:hover": { color: "primary.main", textDecoration: "underline" }
                       }}
                       component="a"
-                      href={getPesdbLink(p.imageUrl || getPlayerCardUrl(p.idPlayer))}
+                      href={getPesdbLink(getPlayerCardUrl(p.idPlayer))}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

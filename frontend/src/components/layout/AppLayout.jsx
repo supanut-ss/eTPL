@@ -46,6 +46,7 @@ import {
   ExpandLess,
   ExpandMore,
   AdminPanelSettings,
+  Home,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -54,7 +55,7 @@ import NotificationMenu from "../NotificationMenu";
 const DRAWER_WIDTH = 240;
 
 const navItems = [
-  { label: "Dashboard", path: "/main", icon: <Dashboard /> },
+  { label: "Home", path: "/main", icon: <Home /> },
   { label: "Standings", path: "/standings", icon: <Leaderboard /> },
   { label: "Matches", path: "/matches", icon: <CalendarMonth /> },
   { label: "Cup Bracket", path: "/cup-bracket", icon: <EmojiEvents /> },

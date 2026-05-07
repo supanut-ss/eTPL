@@ -28,7 +28,7 @@ import { useAuth } from "../store/AuthContext";
 
 import { checkMarketOpen } from "../utils/marketUtils";
 
-import { getPesdbLinkFromUrl } from "../utils/imageUtils";
+import { getPesdbLinkFromUrl, getPlayerIdFromUrl, getPlayerCardUrl } from "../utils/imageUtils";
 
 
 
@@ -610,7 +610,7 @@ const MarketOverviewPage = () => {
 
                                 >
 
-                                    <Avatar src={offer.imageUrl} variant="rounded" sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc" }} />
+                                    <Avatar src={getPlayerCardUrl(getPlayerIdFromUrl(offer.imageUrl))} variant="rounded" sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc" }} />
 
                                     <Box sx={{ position: "absolute", top: -8, left: -8, background: grade.gradient, color: "white", minWidth: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", border: "2px solid white", zIndex: 2 }}>{grade.label}</Box>
 
@@ -627,7 +627,7 @@ const MarketOverviewPage = () => {
                                                   fontWeight="bold" 
                                                   noWrap 
                                                   component="a"
-                                                  href={getPesdbLink(offer.imageUrl)}
+                                                  href={getPesdbLink(getPlayerCardUrl(getPlayerIdFromUrl(offer.imageUrl)))}
                                                   target="_blank"
                                                   rel="noopener noreferrer"
                                                   sx={{ 
@@ -798,7 +798,7 @@ const MarketOverviewPage = () => {
 
                                 >
 
-                                    <Avatar src={offer.imageUrl} variant="rounded" sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc" }} />
+                                    <Avatar src={getPlayerCardUrl(getPlayerIdFromUrl(offer.imageUrl))} variant="rounded" sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc" }} />
 
                                     <Box sx={{ position: "absolute", top: -8, left: -8, background: grade.gradient, color: "white", minWidth: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", border: "2px solid white", zIndex: 2 }}>{grade.label}</Box>
 
@@ -815,7 +815,7 @@ const MarketOverviewPage = () => {
                                                   fontWeight="bold" 
                                                   noWrap 
                                                   component="a"
-                                                  href={getPesdbLink(offer.imageUrl)}
+                                                  href={getPesdbLink(getPlayerCardUrl(getPlayerIdFromUrl(offer.imageUrl)))}
                                                   target="_blank"
                                                   rel="noopener noreferrer"
                                                   sx={{ 
@@ -955,36 +955,25 @@ const MarketOverviewPage = () => {
                             }}>
 
                                 <Box 
-
                                     component={getPesdbLink(p.imageUrl) ? "a" : "div"}
 
                                     href={getPesdbLink(p.imageUrl)}
-
                                     target="_blank"
-
                                     rel="noopener noreferrer"
 
                                     sx={{ 
-
                                         position: "relative", 
-
                                         width: 80, 
-
                                         height: 110, 
-
                                         flexShrink: 0,
-
                                         cursor: getPesdbLink(p.imageUrl) ? "pointer" : "default",
-
                                         transition: "transform 0.2s",
-
                                         "&:hover": { transform: getPesdbLink(p.imageUrl) ? "scale(1.05)" : "none" }
-
                                     }}
 
                                 >
 
-                                    <Avatar src={p.imageUrl} variant="rounded" sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc" }} />
+                                    <Avatar src={getPlayerCardUrl(getPlayerIdFromUrl(p.imageUrl))} variant="rounded" sx={{ width: "100%", height: "100%", bgcolor: "#f8fafc" }} />
 
                                     <Box sx={{ position: "absolute", top: -8, left: -8, background: grade.gradient, color: "white", minWidth: 32, height: 32, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "900", border: "2px solid white", zIndex: 2 }}>{grade.label}</Box>
 
@@ -1001,7 +990,7 @@ const MarketOverviewPage = () => {
                                                   fontWeight="bold" 
                                                   noWrap 
                                                   component="a"
-                                                  href={getPesdbLink(p.imageUrl)}
+                                                  href={getPesdbLink(getPlayerCardUrl(getPlayerIdFromUrl(p.imageUrl)))}
                                                   target="_blank"
                                                   rel="noopener noreferrer"
                                                   sx={{ 

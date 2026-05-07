@@ -25,6 +25,7 @@ import HallOfFamePage from "./pages/HallOfFamePage";
 import AdminDataPage from "./pages/AdminDataPage";
 import AdminLeagueSetting from "./pages/AdminLeagueSetting";
 import CupBracketPage from "./pages/CupBracketPage";
+import NewsPage from "./pages/NewsPage";
 
 import LineCallbackPage from "./pages/LineCallbackPage";
 
@@ -50,6 +51,7 @@ function App() {
               <Route path="auction-results" element={<CompletedAuctionPage />} />
               <Route path="hall-of-fame" element={<HallOfFamePage />} />
               <Route path="cup-bracket" element={<CupBracketPage />} />
+              <Route path="news" element={<NewsPage />} />
 
               {/* Login required */}
               <Route

@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import React from "react";
+import { useState, useEffect, useCallback, useMemo, memo, cloneElement } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   getLogoUrl,
   getPlayerFaceUrl,
   getPlayerCardUrl,
   getAnnouncementImageUrl,
+  getPlayerFaceUrlPesmaster,
 } from "../utils/imageUtils";
 import {
   Card,
@@ -32,16 +32,12 @@ import {
   AccountCircle,
   SportsSoccer,
   Leaderboard,
-  EmojiEvents,
   CheckCircle,
   HourglassBottom,
   Groups,
   Campaign,
   Login,
   TrendingUp,
-  Dashboard,
-  Dns,
-  Refresh,
 } from "@mui/icons-material";
 import { useAuth } from "../store/AuthContext";
 import { getStandings } from "../api/standingApi";
@@ -56,7 +52,6 @@ import { hofApi } from "../api/hofApi";
 import auctionService from "../services/auctionService";
 import {
   LocalFireDepartment,
-  Timeline,
   ConfirmationNumber,
   ArrowForward,
   InfoOutlined,
@@ -130,198 +125,9 @@ const FormDots = ({ last, max = 5 }) => {
   );
 };
 
-// ─── rank medal ──────────────────────────────────────────────────────────────
-const RankMedal = ({ rank }) => {
-  const medals = { 1: "#FFD700", 2: "#C0C0C0", 3: "#CD7F32" };
-  return (
-    <Box
-      sx={{
-        width: 26,
-        height: 26,
-        borderRadius: "50%",
-        bgcolor: medals[rank] || "rgba(255,255,255,0.1)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontWeight: 700,
-        fontSize: 12,
-        color: medals[rank] ? "#1e293b" : "white",
-        flexShrink: 0,
-        border: medals[rank]
-          ? "2px solid rgba(0,0,0,0.1)"
-          : "2px solid rgba(255,255,255,0.1)",
-      }}
-    >
-      {rank}
-    </Box>
-  );
-};
-
-// ─── stat card ───────────────────────────────────────────────────────────────
-const StatCard = ({ title, value, icon, color, loading }) => (
-  <Card
-    elevation={0}
-    sx={{
-      height: "100%",
-      border: "1px solid",
-      borderColor: "rgba(255, 255, 255, 0.4)",
-      borderRadius: 2,
-      background: "rgba(255, 255, 255, 0.5)",
-      backdropFilter: "blur(12px)",
-      overflow: "hidden",
-      position: "relative",
-      transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-      "&:hover": {
-        transform: "translateY(-6px)",
-        boxShadow: `0 20px 40px -15px ${alpha(color, 0.2)}`,
-        borderColor: color,
-        background: "rgba(255, 255, 255, 0.8)",
-        "& .icon-box": {
-          transform: "scale(1.1) rotate(8deg)",
-          background: color,
-          color: "white",
-        },
-      },
-    }}
-  >
-    <CardContent sx={{ p: 2.5 }}>
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="flex-start"
-      >
-        <Box>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            fontWeight={800}
-            sx={{
-              letterSpacing: 1.2,
-              textTransform: "uppercase",
-              fontSize: 10,
-              opacity: 0.7,
-            }}
-          >
-            {title}
-          </Typography>
-          {loading ? (
-            <Skeleton width={60} height={40} />
-          ) : (
-            <Typography
-              variant="h4"
-              fontWeight={1000}
-              mt={0.5}
-              color="text.primary"
-              sx={{ letterSpacing: -0.5 }}
-            >
-              {value ?? "—"}
-            </Typography>
-          )}
-        </Box>
-        <Box
-          className="icon-box"
-          sx={{
-            width: 48,
-            height: 48,
-            borderRadius: 3,
-            background: alpha(color, 0.1),
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: color,
-            transition: "all 0.3s ease",
-          }}
-        >
-          {React.cloneElement(icon, { sx: { fontSize: 24 } })}
-        </Box>
-      </Box>
-    </CardContent>
-  </Card>
-);
-
-// ─── Market Activity Row ──────────────────────────────────────────────────
-const ActivityRow = ({ activity }) => {
-  const isAward =
-    activity.type?.toLowerCase().includes("award") ||
-    activity.reason?.toLowerCase().includes("bonus");
-  const isTransfer =
-    activity.type?.toLowerCase().includes("transfer") ||
-    activity.type?.toLowerCase().includes("buy");
-  const isRelease = activity.type?.toLowerCase().includes("release");
-
-  let color = "#64748b";
-  let icon = <InfoOutlined fontSize="small" />;
-
-  if (isAward) {
-    color = "#f59e0b";
-    icon = <LocalFireDepartment fontSize="small" />;
-  }
-  if (isTransfer) {
-    color = "#6366f1";
-    icon = <Timeline fontSize="small" />;
-  }
-  if (isRelease) {
-    color = "#ef4444";
-    icon = <InfoOutlined fontSize="small" />;
-  }
-
-  return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 1.5,
-        p: 1.5,
-        borderRadius: 2.5,
-        bgcolor: "transparent",
-        border: "1px solid transparent",
-        "&:hover": { bgcolor: "rgba(0,0,0,0.02)", borderColor: "divider" },
-        transition: "all 0.2s ease",
-      }}
-    >
-      <Box
-        sx={{
-          color,
-          display: "flex",
-          p: 1,
-          bgcolor: `${color}11`,
-          borderRadius: 1.5,
-        }}
-      >
-        {icon}
-      </Box>
-      <Box flex={1} minWidth={0}>
-        <Typography variant="body2" fontWeight={700} noWrap>
-          {activity.playerName ||
-            activity.description ||
-            activity.type ||
-            "System Activity"}
-        </Typography>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          noWrap
-          display="block"
-        >
-          {activity.userName || "System"} •{" "}
-          {activity.amount
-            ? `${activity.amount.toLocaleString()} TP`
-            : "Action"}
-        </Typography>
-      </Box>
-      <Typography
-        variant="caption"
-        color="text.disabled"
-        sx={{ whiteSpace: "nowrap" }}
-      >
-        {formatMatchDate(activity.createdAt)}
-      </Typography>
-    </Box>
-  );
-};
-
 // ─── AI Magazine Box ────────────────────────────────────────────────────────
 const AiMagazineBox = ({ magazineData, loading }) => {
+  const navigate = useNavigate();
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -350,7 +156,8 @@ const AiMagazineBox = ({ magazineData, loading }) => {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        bgcolor: "#ffffff",
+        minHeight: 340, 
+        bgcolor: "transparent", // Inherit glass from parent
         borderRadius: 2,
         overflow: "hidden",
       }}
@@ -359,9 +166,29 @@ const AiMagazineBox = ({ magazineData, loading }) => {
         icon={<AutoAwesome sx={{ fontSize: 18 }} />} 
         title="AI Magazine" 
         color="#a855f7" 
+        action={
+          <Link 
+            href="#" 
+            onClick={(e) => { e.preventDefault(); navigate("/news", { state: { tab: 1 } }); }}
+            underline="none"
+            sx={{ 
+              fontSize: 10, 
+              fontWeight: 800, 
+              color: "rgba(100, 116, 139, 0.6)",
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              "&:hover": { color: "#a855f7" }
+            }}
+          >
+            View All <ChevronRight sx={{ fontSize: 14 }} />
+          </Link>
+        }
       />
       {/* Image Area */}
-      <Box sx={{ flex: 1.2, width: "100%", overflow: "hidden", position: "relative" }}>
+      <Box sx={{ width: "100%", overflow: "hidden", position: "relative", aspectRatio: "16 / 9" }}>
         <Box
           component="img"
           key={index}
@@ -436,7 +263,8 @@ const AiMagazineBox = ({ magazineData, loading }) => {
 };
 
 // ─── Event Update Box ──────────────────────────────────────────────────────────
-const EventUpdateBox = React.memo(({ announcements, loading }) => {
+const EventUpdateBox = memo(({ announcements, loading }) => {
+  const navigate = useNavigate();
   if (loading)
     return (
       <Skeleton variant="rectangular" height="100%" sx={{ borderRadius: 2 }} />
@@ -462,6 +290,7 @@ const EventUpdateBox = React.memo(({ announcements, loading }) => {
         action={
           <Link 
             href="#" 
+            onClick={(e) => { e.preventDefault(); navigate("/news", { state: { tab: 2 } }); }}
             underline="none"
             sx={{ 
               fontSize: 10, 
@@ -470,6 +299,8 @@ const EventUpdateBox = React.memo(({ announcements, loading }) => {
               display: "flex",
               alignItems: "center",
               gap: 0.5,
+              textTransform: "uppercase",
+              letterSpacing: 1,
               "&:hover": { color: "#38bdf8" }
             }}
           >
@@ -479,7 +310,7 @@ const EventUpdateBox = React.memo(({ announcements, loading }) => {
       />
 
       <Box sx={{ 
-        height: 255, 
+        flex: 1, // Fill available vertical space
         display: "flex", 
         flexDirection: "column", 
         p: 0, 
@@ -591,8 +422,8 @@ const LatestResultBox = ({ recentMatches, loading }) => {
 
   const homeTeam = getCleanName(match.home, match.homeTeam, match.homeTeamName);
   const awayTeam = getCleanName(match.away, match.awayTeam, match.awayTeamName);
-  const homeName = homeTeam;
-  const awayName = awayTeam;
+  const homeName = extractPlayer(match.home) || homeTeam;
+  const awayName = extractPlayer(match.away) || awayTeam;
   const dateStr = formatMatchDate(match.matchDate || match.createDate);
 
   return (
@@ -642,7 +473,7 @@ const LatestResultBox = ({ recentMatches, loading }) => {
         </Typography>
 
         {/* Teams Display */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 3, width: "100%", justifyContent: "center", mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, sm: 3 }, width: "100%", justifyContent: "center", mb: 3 }}>
           {/* Home Team */}
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, minWidth: 0 }}>
             <Box 
@@ -723,7 +554,7 @@ const LatestResultBox = ({ recentMatches, loading }) => {
 };
 
 // ─── Top Standing Box (Podium + List) ────────────────────────────────────────
-const TopStandingBox = React.memo(({ standings, loading }) => {
+const TopStandingBox = memo(({ standings, loading }) => {
   const navigate = useNavigate();
   if (loading)
     return <Skeleton variant="rectangular" height="100%" sx={{ borderRadius: 2 }} />;
@@ -886,7 +717,7 @@ const TopStandingBox = React.memo(({ standings, loading }) => {
 });
 
 // ─── Top Scorer Box ──────────────────────────────────────────────────────────
-const TopScorerBox = React.memo(({ standings, loading }) => {
+const TopScorerBox = memo(({ standings, loading }) => {
   const navigate = useNavigate();
   if (loading)
     return (
@@ -999,7 +830,7 @@ const TopScorerBox = React.memo(({ standings, loading }) => {
 });
 
 // ─── Hall of Fame Box ──────────────────────────────────────────────────────────
-const HofBox = React.memo(({ hofData, loading }) => {
+const HofBox = memo(({ hofData, loading }) => {
   const navigate = useNavigate();
   if (loading)
     return (
@@ -1032,7 +863,7 @@ const HofBox = React.memo(({ hofData, loading }) => {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "transparent" }}>
       <SectionHeader
-        icon={<EmojiEvents sx={{ fontSize: 18 }} />}
+        icon={<TrophyIcon sx={{ fontSize: 18 }} />}
         title="Hall of Fame"
         color="#fbbf24"
         action={
@@ -1226,11 +1057,11 @@ const HofBox = React.memo(({ hofData, loading }) => {
 
 // ─── Elite Showcase Box ───────────────────────────────────────────────────────
 const EliteShowcaseBox = ({ elitePlayers, loading, clubs = [] }) => {
-  const [index, setIndex] = React.useState(0);
+  const [index, setIndex] = useState(0);
   const displayCount = 3;
   const players = elitePlayers.slice(0, 12);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (players.length <= displayCount) return undefined;
     const timer = setInterval(() => {
       setIndex((prev) => (prev + displayCount) % players.length);
@@ -1238,10 +1069,12 @@ const EliteShowcaseBox = ({ elitePlayers, loading, clubs = [] }) => {
     return () => clearInterval(timer);
   }, [players.length]);
 
-  if (loading || players.length === 0)
+  if (loading)
     return (
       <Skeleton variant="rectangular" height="100%" sx={{ borderRadius: 2 }} />
     );
+
+  if (players.length === 0) return null;
 
   const visiblePlayers = players.slice(index, index + displayCount);
   if (visiblePlayers.length < displayCount) {
@@ -1255,11 +1088,9 @@ const EliteShowcaseBox = ({ elitePlayers, loading, clubs = [] }) => {
         flexDirection: "column", 
         height: "100%", 
         position: "relative",
-        background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+        background: "transparent", // Inherit glass from parent
         borderRadius: 2,
         overflow: "hidden",
-        border: "1px solid rgba(0,0,0,0.05)",
-        boxShadow: "0 10px 30px -10px rgba(15, 23, 42, 0.08)",
       }}
     >
       <SectionHeader
@@ -1295,7 +1126,8 @@ const EliteShowcaseBox = ({ elitePlayers, loading, clubs = [] }) => {
           flex: 1,
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-evenly",
+          justifyContent: "center", // Center the cards
+          gap: 3, // Space between cards
           px: { xs: 2, md: 4 },
           py: 3,
           position: "relative",
@@ -1409,8 +1241,8 @@ const EliteShowcaseBox = ({ elitePlayers, loading, clubs = [] }) => {
                     variant="caption"
                     fontWeight={1000}
                     sx={{
-                      color: "#d1ad73ff",
-                      fontSize: { xs: 11, md: 13 },
+                      color: "#ec830cd8",
+                      fontSize: { xs: 13, md: 15 },
                       letterSpacing: 0.2,
                     }}
                   >
@@ -1421,9 +1253,9 @@ const EliteShowcaseBox = ({ elitePlayers, loading, clubs = [] }) => {
                 <Typography
                   variant="caption"
                   sx={{
-                    color: "rgba(100, 116, 139, 0.45)",
+                    color: "#ec830cd8",
                     fontWeight: 800,
-                    fontSize: 8,
+                    fontSize: 8.5,
                     display: "block",
                     mt: 1,
                     letterSpacing: 1,
@@ -1573,7 +1405,7 @@ const SectionHeader = ({ icon, title, color = "#4f46e5", action }) => (
     }}
   >
     <Box sx={{ color: color, mr: 1.5, display: "flex", alignItems: "center" }}>
-      {React.cloneElement(icon, { sx: { fontSize: 22 } })}
+      {cloneElement(icon, { sx: { fontSize: 22 } })}
     </Box>
     <Typography
       fontWeight={1000}
@@ -1626,22 +1458,22 @@ const DESIGN_TOKENS = {
   glowB: "rgba(56, 189, 248, 0.03)",
   shell:
     "linear-gradient(145deg, rgba(255, 255, 255, 1) 0%, rgba(248, 250, 252, 1) 100%)",
-  glass: "rgba(255,255,255,0.95)",
-  glassSoft: "rgba(255,255,255,0.98)",
-  border: "rgba(148, 163, 184, 0.15)",
-  borderStrong: "rgba(148, 163, 184, 0.25)",
-  shadow: "0 10px 30px -15px rgba(15, 23, 42, 0.1)",
+  glass: "linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.65) 100%)",
+  glassSoft: "linear-gradient(135deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.8) 100%)",
+  border: "rgba(255, 255, 255, 0.5)", // Brighter rim light
+  borderStrong: "rgba(255, 255, 255, 0.8)",
+  shadow: "0 10px 30px -15px rgba(15, 23, 42, 0.1), inset 0 0 10px rgba(255,255,255,0.5)",
 };
 
 
 const panelSx = {
-  borderRadius: 2,
+  p: 3, 
+  borderRadius: 3,
   overflow: "hidden",
   border: "1px solid",
   borderColor: DESIGN_TOKENS.border,
-  background:
-    "linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 252, 0.96) 100%)",
-  backdropFilter: "blur(10px)",
+  background: DESIGN_TOKENS.glass,
+  backdropFilter: "blur(30px)", // Increased blur for more "glossy" depth
   boxShadow: DESIGN_TOKENS.shadow,
   transition:
     "transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease",
@@ -1658,14 +1490,11 @@ const MainPage = () => {
   const [standings, setStandings] = useState([]);
   const [fixtures, setFixtures] = useState([]);
   const [lastFixtures, setLastFixtures] = useState([]);
-  const [recentMatchesIndex, setRecentMatchesIndex] = useState(0);
   const [announcements, setAnnouncements] = useState([]);
   const [announcementIndex, setAnnouncementIndex] = useState(0);
   const [members, setMembers] = useState([]);
-  const [transactions, setTransactions] = useState([]);
   const [memberBannerIndex, setMemberBannerIndex] = useState(0);
   const [marketActivity, setMarketActivity] = useState([]);
-  const [marketIndex, setMarketIndex] = useState(0);
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -1717,7 +1546,6 @@ const MainPage = () => {
           .catch((err) => console.error("Public users load failed", err));
 
         if (!canLoadTransactions) {
-          setTransactions([]);
           return null;
         }
 
@@ -1760,7 +1588,9 @@ const MainPage = () => {
                     tx.playerName || tx.relatedPlayerName || "Deal Confirmed",
                   subtitle: `${tx.userName || "System"} ${tx.description}`,
                   amount: tx.amount,
-                  date: tx.createdAt,
+                  date: tx.createdAt || tx.CreatedAt || tx.createDate || tx.CreateDate || tx.date || tx.Date,
+                  player: tx.playerName || tx.relatedPlayerName,
+                  manager: tx.userName,
                 });
               }
             });
@@ -1773,7 +1603,9 @@ const MainPage = () => {
                 title: player.playerName,
                 subtitle: `${player.ownerName || "สโมสร"} ประกาศขายนักเตะ`,
                 amount: player.listingPrice || player.price,
-                date: new Date().toISOString(),
+                date: player.acquiredAt || player.AcquiredAt || player.updatedAt || player.UpdatedAt || player.createdAt || player.CreatedAt || player.createDate || player.CreateDate || player.listedAt || player.ListedAt || player.date || player.Date || new Date().toISOString(),
+                player: player.playerName,
+                manager: player.ownerName,
               });
             });
 
@@ -1826,19 +1658,22 @@ const MainPage = () => {
     };
   }, [user]);
 
+  const displayAnnouncements = useMemo(() => (announcements || []).slice(0, 5), [announcements]);
+  const recentMatches = useMemo(() => (lastFixtures || []).slice(0, 25), [lastFixtures]);
+
   useEffect(() => {
     setAnnouncementIndex(0);
   }, [announcements]);
 
   useEffect(() => {
-    if (announcements.length <= 1) return undefined;
+    if (displayAnnouncements.length <= 1) return undefined;
 
     const timerId = setInterval(() => {
-      setAnnouncementIndex((prev) => (prev + 1) % announcements.length);
+      setAnnouncementIndex((prev) => (prev + 1) % displayAnnouncements.length);
     }, 4500);
 
     return () => clearInterval(timerId);
-  }, [announcements]);
+  }, [displayAnnouncements]);
 
 
   const season = standings[0]?.season || "";
@@ -1857,27 +1692,7 @@ const MainPage = () => {
     });
   }, [standings, clubs]);
 
-  const totalMatches = fixtures.length;
-  const playedMatches = fixtures.filter(
-    (f) => f.homeScore != null && f.awayScore != null,
-  ).length;
-  const pendingMatches = totalMatches - playedMatches;
-  const totalTeams = standings.length;
-
-  const top10 = standings.slice(0, 10).map((row, index) => ({
-    ...row,
-    rank: index + 1,
-  }));
-
-  const topPlayers = useMemo(() => {
-    return standings.slice(0, 20).map((row, index) => ({
-      ...row,
-      rank: index + 1,
-    }));
-  }, [standings]);
-
-  const recentMatches = (lastFixtures || []).slice(0, 25);
-  const activeAnnouncement = announcements[announcementIndex] || null;
+  const activeAnnouncement = displayAnnouncements[announcementIndex] || null;
 
   const sortedMembers = members
     .filter((member) => member.userLevel !== "admin")
@@ -1889,10 +1704,6 @@ const MainPage = () => {
   const visibleMembers = sortedMembers.slice(
     memberBannerIndex * memberBannerSize,
     memberBannerIndex * memberBannerSize + memberBannerSize,
-  );
-  const memberPlaceholders = Math.max(
-    0,
-    memberBannerSize - visibleMembers.length,
   );
 
   useEffect(() => {
@@ -1909,23 +1720,38 @@ const MainPage = () => {
     return () => clearInterval(timerId);
   }, [memberBannerCount]);
 
-  useEffect(() => {
-    if (marketActivity.length <= 1) return undefined;
-    const timerId = setInterval(() => {
-      setMarketIndex((prev) => (prev + 1) % marketActivity.length);
-    }, 4500);
-    return () => clearInterval(timerId);
-  }, [marketActivity.length]);
+  // Market activity is static list in sidebar, no auto-index needed
 
-  useEffect(() => {
-    if (recentMatches.length <= 5) return undefined;
-    const timerId = setInterval(() => {
-      setRecentMatchesIndex(
-        (prev) => (prev + 1) % Math.ceil(recentMatches.length / 5),
-      );
-    }, 4500);
-    return () => clearInterval(timerId);
-  }, [recentMatches.length]);
+
+  const feedItems = useMemo(() => [
+    ...lastFixtures.map((f) => ({
+      type: "RESULT",
+      icon: <SportsSoccer sx={{ fontSize: 14 }} />,
+      color: "#10b981",
+      date: f.matchDate || f.date,
+      data: f,
+      msg: `${extractPlayer(f.home) || f.homeTeamName || "?"} ${f.homeScore ?? "-"} - ${f.awayScore ?? "-"} ${extractPlayer(f.away) || f.awayTeamName || "?"}`,
+      detail: null,
+      time: (f.matchDate || f.MatchDate || f.createDate || f.CreateDate || f.date || f.Date) ? new Date(f.matchDate || f.MatchDate || f.createDate || f.CreateDate || f.date || f.Date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "–",
+    })),
+    ...marketActivity
+      .filter((m) => {
+        const sub = (m.subtitle || "").toLowerCase();
+        return !(sub.includes("ออโต้") || sub.includes("อัตโนมัติ") || (sub.includes("auto") && sub.includes("สัญญา")));
+      })
+      .map((m) => ({
+        type: m.type === "DEAL" ? "DEAL" : "MARKET",
+        icon: m.type === "DEAL" ? <TrendingUp sx={{ fontSize: 14 }} /> : <ConfirmationNumber sx={{ fontSize: 14 }} />,
+        color: m.type === "DEAL" ? "#6366f1" : "#f59e0b",
+        date: m.date,
+        data: m,
+        msg: m.subtitle || "Market activity",
+        detail: m.type === "DEAL" ? (m.amount ? `${Number(m.amount).toLocaleString()} TP` : null) : [m.title, m.amount ? `${Number(m.amount).toLocaleString()} TP` : null].filter(Boolean).join(" • "),
+        time: m.date ? new Date(m.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "–",
+      })),
+  ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 20), [lastFixtures, marketActivity]);
+
+  // recentMatches rotation is handled internally in LatestResultBox
 
 
   return (
@@ -1974,10 +1800,10 @@ const MainPage = () => {
                 borderRadius: 2,
                 overflow: "hidden",
                 position: "relative",
-                aspectRatio: { xs: "16/9", md: "unset" },
-                height: { md: 460 },
-                border: `1px solid ${DESIGN_TOKENS.border}`,
-                boxShadow: "0 14px 30px -20px rgba(15,23,42,0.24)",
+                height: { xs: 240, md: 600 },
+                border: "1px solid",
+                borderColor: DESIGN_TOKENS.border,
+                boxShadow: DESIGN_TOKENS.shadow,
                 "&:hover .news-image": { transform: "scale(1.02)" },
               }}
             >
@@ -2014,7 +1840,7 @@ const MainPage = () => {
               </Box>
 
               {/* Slider Dots */}
-              {announcements.length > 1 && (
+              {displayAnnouncements.length > 1 && (
                 <Box
                   sx={{
                     position: "absolute",
@@ -2025,7 +1851,7 @@ const MainPage = () => {
                     gap: 0.8,
                   }}
                 >
-                  {announcements.map((_, idx) => (
+                  {displayAnnouncements.map((_, idx) => (
                     <Box
                       key={idx}
                       onClick={() => setAnnouncementIndex(idx)}
@@ -2052,48 +1878,23 @@ const MainPage = () => {
                     left: 0,
                     right: 0,
                     p: { xs: 3, md: 5 },
+                    pt: { md: 3 }, // More space from the top of the text
                     zIndex: 2,
-                    background: "linear-gradient(to top, rgba(2, 6, 23, 0.9) 0%, rgba(2, 6, 23, 0.4) 60%, transparent 100%)",
-                    backdropFilter: "blur(2px)",
+                   background: "linear-gradient(to top, rgba(2, 6, 23, 0.6) 0%, transparent 70%)",
+                    backdropFilter: "blur(6px)",
+                    borderTop: "0px solid rgba(255,255,255,0.1)",
                   }}
                 >
-                  <Chip
-                    label="FEATURED"
-                    size="small"
-                    sx={{
-                      background: "linear-gradient(90deg, #38bdf8 0%, #0ea5e9 100%)",
-                      color: "white",
-                      fontWeight: 1000,
-                      mb: 2.5,
-                      px: 1.2,
-                      height: 26,
-                      fontSize: 10,
-                      letterSpacing: 2.5,
-                      position: "relative",
-                      overflow: "hidden",
-                      border: "1px solid rgba(255,255,255,0.25)",
-                      boxShadow: "0 8px 20px rgba(14, 165, 233, 0.4)",
-                      "&::after": {
-                        content: '""',
-                        position: "absolute",
-                        top: 0,
-                        left: "-100%",
-                        width: "100%",
-                        height: "100%",
-                        background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)",
-                        animation: `${shine} 3s infinite`,
-                      }
-                    }}
-                  />
+               
                   <Typography
                     variant="h3"
                     fontWeight={1000}
                     color="white"
                     sx={{
                       mb: 2,
-                      fontSize: { xs: "1.8rem", md: "3.2rem" },
+                      fontSize: { xs: "1.4rem", md: "2.2rem" },
                       lineHeight: 1.05,
-                      letterSpacing: -2,
+                      letterSpacing: -1,
                       textShadow: "0 8px 24px rgba(0,0,0,0.6)",
                       maxWidth: "90%",
                     }}
@@ -2107,7 +1908,7 @@ const MainPage = () => {
                       sx={{
                         color: "rgba(255,255,255,0.85)",
                         fontWeight: 800,
-                        fontSize: 11,
+                        fontSize: 8,
                         letterSpacing: 1,
                         textTransform: "uppercase",
                       }}
@@ -2120,7 +1921,7 @@ const MainPage = () => {
                       sx={{
                         color: "rgba(255,255,255,0.5)",
                         fontWeight: 700,
-                        fontSize: 11,
+                        fontSize: 8,
                       }}
                     >
                       {formatMatchDate(activeAnnouncement?.createDate) || "TODAY"}
@@ -2140,7 +1941,7 @@ const MainPage = () => {
                 border: `1px solid ${DESIGN_TOKENS.border}`,
                 position: "relative",
                 overflow: "hidden",
-                height: { md: 460 },
+                height: { md: 600 },
                 boxShadow: "0 10px 25px -15px rgba(0,0,0,0.1)",
               }}
             >
@@ -2190,61 +1991,97 @@ const MainPage = () => {
                   msOverflowStyle: "none",
                 }}
               >
-                {[
-                  ...lastFixtures.map((f) => ({
-                    type: "RESULT",
-                    icon: <SportsSoccer sx={{ fontSize: 14 }} />,
-                    color: "#10b981",
-                    date: f.matchDate || f.date,
-                    msg: `${extractPlayer(f.home) || f.homeTeamName || "?"} ${f.homeScore ?? "-"} - ${f.awayScore ?? "-"} ${extractPlayer(f.away) || f.awayTeamName || "?"}`,
-                    detail: null,
-                    time:
-                      f.matchDate || f.date
-                        ? new Date(f.matchDate || f.date).toLocaleDateString(
-                            "en-GB",
-                            { day: "2-digit", month: "short" },
-                          )
-                        : "–",
-                  })),
-                  ...marketActivity
-                    .filter((m) => {
-                      const sub = (m.subtitle || "").toLowerCase();
-                      return !(
-                        sub.includes("ออโต้") ||
-                        sub.includes("อัตโนมัติ") ||
-                        (sub.includes("auto") && sub.includes("สัญญา"))
-                      );
-                    })
-                    .map((m) => ({
-                      type: m.type === "DEAL" ? "DEAL" : "MARKET",
-                      icon: m.type === "DEAL" ? <TrendingUp sx={{ fontSize: 14 }} /> : <ConfirmationNumber sx={{ fontSize: 14 }} />,
-                      color: m.type === "DEAL" ? "#6366f1" : "#f59e0b",
-                      date: m.date,
-                      msg: m.subtitle || "Market activity",
-                      detail:
-                        m.type === "DEAL"
-                          ? m.amount
-                            ? `${Number(m.amount).toLocaleString()} TP`
-                            : null
-                          : [
-                              m.title,
-                              m.amount
-                                ? `${Number(m.amount).toLocaleString()} TP`
-                                : null,
-                            ]
-                              .filter(Boolean)
-                              .join(" • "),
-                      time: m.date
-                        ? new Date(m.date).toLocaleDateString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                          })
-                        : "–",
-                    })),
-                ]
-                  .sort((a, b) => new Date(b.date) - new Date(a.date))
-                  .slice(0, 20)
-                  .map((feed, idx) => (
+                {feedItems.map((feed, idx) => {
+                  // Dynamic message generation
+                  let displayMsg = "";
+                  if (feed.type === "RESULT") {
+                    const hName = extractPlayer(feed.data?.home || feed.homeTeamName || "?");
+                    const aName = extractPlayer(feed.data?.away || feed.awayTeamName || "?");
+                    const hScore = feed.data?.homeScore ?? feed.homeScore ?? 0;
+                    const aScore = feed.data?.awayScore ?? feed.awayScore ?? 0;
+                    const isDraw = hScore === aScore;
+                    const winner = hScore > aScore ? hName : aName;
+                    const loser = hScore > aScore ? aName : hName;
+                    const wScore = Math.max(hScore, aScore);
+                    const lScore = Math.min(hScore, aScore);
+                    const templates = [
+                      `จบเกมสุดมันส์! ${hName} ${hScore} - ${aScore} ${aName}`,
+                      !isDraw ? `ชัยชนะเป็นของ ${winner}! เอาชนะ ${loser} ไปได้ ${wScore}-${lScore}` : `แบ่งแต้มกันไป! ${hName} เสมอกับ ${aName} ${hScore}-${aScore} แบบสุดระทึก`,
+                      !isDraw ? `${winner} โชว์ฟอร์มดุ! ถล่ม ${loser} เก็บ 3 แต้มสำคัญ ${wScore}-${lScore}` : `ศึกศักดิ์ศรีจบลงที่ ${hScore}-${aScore}! ${hName} และ ${aName} สู้กันได้สมศักดิ์ศรี`,
+                      `คะแนนเท่ากัน! ${hName} และ ${aName} จบเกมที่สกอร์ ${hScore}-${aScore}`,
+                      !isDraw ? `${winner} เก็บชัยได้สำเร็จ! เฉือนเอาชนะ ${loser} ไปอย่างหวุดหวิด ${wScore}-${lScore}` : `เกมรับเหนียวแน่น! ${hName} และ ${aName} ทำอะไรกันไม่ได้มากจบที่ ${hScore}-${aScore}`,
+                      `แฟนบอลเฮลั่น! ${hName} และ ${aName} สู้กันยิบตาจบที่ ${hScore}-${aScore}`,
+                      !isDraw ? `ผลการแข่งขัน: ${winner} คว้าชัยเหนือ ${loser} ${wScore}-${lScore}` : `เจ๊ากันไป! ${hName} และ ${aName} กอดคอแบ่งแต้ม ${hScore}-${aScore}`,
+                      `ศึกบิ๊กแมตช์จบลงแล้ว! ${hName} ${hScore} - ${aScore} ${aName}`,
+                      !isDraw ? `${winner} แกร่งเกินต้าน! ถล่มเอาชนะ ${loser} ไปได้ ${wScore}-${lScore}` : `สู้กันจนนาทีสุดท้าย! ${hName} เสมอ ${aName} ${hScore}-${aScore}`,
+                      `รายงานผล: ${hName} ${hScore} - ${aScore} ${aName} ท่ามกลางเสียงเชียร์กึกก้อง`,
+                      `เกมรับสุดแกร่ง! ${hName} และ ${aName} สู้กันจนนาทีสุดท้ายที่ ${hScore}-${aScore}`,
+                      !isDraw ? `บุกแหลก! ${winner} ถล่ม ${loser} ไปแบบขาดลอย ${wScore}-${lScore}` : `ผลเสมอที่น่าทึ่ง! ${hName} และ ${aName} แบ่งแต้มกันไป ${hScore}-${aScore}`,
+                      `จบแมตช์หยุดโลก! ${hName} ${hScore} - ${aScore} ${aName} สู้กันได้สมศักดิ์ศรี`,
+                      !isDraw ? `ชัยชนะอันล้ำค่า! ${winner} เฉือนเอาชนะ ${loser} ไปได้ ${wScore}-${lScore}` : `ไม่มีใครยอมใคร! ${hName} และ ${aName} จบที่สกอร์ ${hScore}-${aScore}`,
+                      !isDraw ? `เกมรุกดุดัน! ${winner} ไล่ต้อน ${loser} จนมุม จบที่ ${wScore}-${lScore}` : `เสียงนกหวีดดังขึ้น! ${hName} ${hScore} - ${aScore} ${aName} แบ่งแต้มกันไป`,
+                      !isDraw ? `พลิกนรก! ${winner} ฮึดสู้เอาชนะ ${loser} ไปอย่างสุดมันส์ ${wScore}-${lScore}` : `สู้กันได้สูสี! ${hName} และ ${aName} แบ่งคะแนนกันที่ ${hScore}-${aScore}`,
+                      `เกมคุณภาพ! ${hName} และ ${aName} โชว์ฟอร์มเยี่ยมจบที่ ${hScore}-${aScore}`,
+                      `จบการรายงาน: ${hName} ${hScore} - ${aScore} ${aName} แฟนบอลลุ้นกันตัวโก่ง`,
+                      !isDraw ? `ฟอร์มแชมป์! ${winner} จัดหนักถล่ม ${loser} คาบ้าน ${wScore}-${lScore}` : `จบแมตช์ด้วยผลเสมอ! ${hName} และ ${aName} กินกันไม่ลง ${hScore}-${aScore}`,
+                      `สรุปผลสดๆ: ${hName} ${hScore} - ${aScore} ${aName} สนุกตื่นเต้นทุกวินาที`
+                    ];
+                    displayMsg = templates[(idx * 3) % 20];
+                  } else if (feed.type === "MARKET") {
+                    const manager = feed.data?.manager || "สโมสร";
+                    const player = feed.data?.player || "นักเตะ";
+                    const templates = [
+                      `${manager} ประกาศขึ้นบัญชีขาย ${player} ลงสู่ตลาด!`,
+                      `ข่าวร้อน! ${manager} พร้อมเปิดรับข้อเสนอสำหรับ ${player}`,
+                      `${manager} กำลังมองหาโอกาสปล่อยตัว ${player} ทันที!`,
+                      `ดีลน่าสนใจ! ${manager} ตัดใจปล่อย ${player} ออกจากทีม`,
+                      `${manager} ปักป้ายขาย ${player} แฟนๆ รอลุ้นสังกัดใหม่!`,
+                      `ใครจะคว้าไป? ${manager} ปล่อย ${player} เข้าสู่ตลาดซื้อขาย`,
+                      `${manager} เตรียมปรับทัพ! ประกาศขาย ${player} เรียบร้อย`,
+                      `ข้อเสนอต้องโดน! ${manager} รอคนมาดึง ${player} ไปร่วมทีม`,
+                      `${manager} ประกาศวางตัว ${player} ไว้ในรายการขาย!`,
+                      `ตลาดเริ่มเดือด! ${manager} ส่ง ${player} ลงชิงชัยในตลาดนักเตะ`,
+                      `${manager} เปิดไฟเขียว! ${player} พร้อมย้ายสังกัดแล้ว`,
+                      `ดีลใหญ่กำลังมา? ${manager} ปล่อย ${player} ลงตลาดซื้อขาย`,
+                      `${manager} ประกาศหาบ้านใหม่ให้ ${player} ทันที!`,
+                      `โอกาสทอง! ${manager} พร้อมปล่อย ${player} ให้ทีมที่สนใจ`,
+                      `${manager} ขยับทัพ! ขึ้นป้ายขาย ${player} เรียบร้อย`,
+                      `จับตาให้ดี! ${manager} ปล่อย ${player} ลงสู่ตลาดนักเตะแล้ว`,
+                      `${manager} ตัดสินใจเด็ดขาด! ประกาศปล่อย ${player} ออกจากทีม`,
+                      `ตลาดสั่นสะเทือน! ${manager} พร้อมขาย ${player} ทันที`,
+                      `${manager} เปิดรับทุกข้อเสนอสำหรับ ${player} ในเวลานี้`,
+                      `ข่าววงใน! ${manager} เตรียมปล่อย ${player} เพื่อสมทบทุนเสริมทัพ`
+                    ];
+                    displayMsg = templates[(idx * 3) % 20];
+                  } else if (feed.type === "DEAL") {
+                    const manager = feed.data?.manager || "สโมสร";
+                    const player = feed.data?.player || "นักเตะ";
+                    const templates = [
+                      `ปิดดีลสายฟ้าแลบ! ${manager} คว้าตัว ${player} สำเร็จ!`,
+                      `ยินดีด้วยกับ ${manager}! เสริมทัพด้วย ${player} เรียบร้อย!`,
+                      `บอร์ดบริหารปลื้ม! ${manager} เจรจาปิดดีล ${player} สำเร็จ!`,
+                      `${manager} ประกาศเปิดตัว ${player} เสริมความแข็งแกร่ง!`,
+                      `ดีลยักษ์จบลงแล้ว! ${manager} สอย ${player} เข้ารังสำเร็จ`,
+                      `${manager} เดินเกมไว! คว้า ${player} เข้าสู่สโมสรเรียบร้อย`,
+                      `แฟนคลับเฮ! ${manager} ประกาศความสำเร็จในการคว้า ${player}`,
+                      `${manager} เสริมคม! ดีล ${player} เข้าทีมอย่างเป็นทางการ`,
+                      `ปิดจ๊อบ! ${manager} เจรจาลงตัว คว้า ${player} ร่วมทัพ`,
+                      `ข่าวดีของแฟนๆ! ${manager} จัดหนักคว้าตัว ${player} เสริมทีม`,
+                      `บอร์ดบริหารเฮ! ${manager} ปิดดีล ${player} ระดับท็อปเสริมทัพ`,
+                      `${manager} จัดหนัก! คว้าตัว ${player} เข้าสู่ทีมสำเร็จ`,
+                      `ยินดีด้วยกับ ${manager}! ได้ ${player} มาเติมเต็มส่วนที่ขาด`,
+                      `ดีลประวัติศาสตร์! ${manager} คว้า ${player} ร่วมทีมอย่างยิ่งใหญ่`,
+                      `${manager} เสริมความโหด! เปิดตัว ${player} สู่แฟนบอล`,
+                      `ปิดจ๊อบสุดสวย! ${manager} เจรจาคว้า ${player} สำเร็จเรียบร้อย`,
+                      `ข่าวดีต่อเนื่อง! ${manager} เสริม ${player} เข้าสู่สโมสร`,
+                      `${manager} เดินเครื่องเต็มสูบ! ปิดดีล ${player} ได้ทันท่วงที`,
+                      `แฟนบอลปลื้ม! ${manager} จัดแจงคว้า ${player} เสริมความแข็งแกร่ง`,
+                      `สำเร็จเสร็จสิ้น! ${manager} ประกาศปิดดีล ${player} เข้าทีม`
+                    ];
+                    displayMsg = templates[(idx * 3) % 20];
+                  }
+
+                  return (
                     <Box
                       key={idx}
                       sx={{
@@ -2283,49 +2120,49 @@ const MainPage = () => {
                         {feed.icon}
                       </Box>
                       <Box sx={{ flex: 1, minWidth: 0, pt: 0.2 }}>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: feed.color,
-                          fontWeight: 900,
-                          fontSize: 9,
-                          display: "block",
-                          mb: 0.3,
-                          letterSpacing: 0.5,
-                        }}
-                      >
-                        {feed.type} • {feed.time}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: "#0f172a",
-                          fontWeight: 800,
-                          fontSize: 12,
-                          lineHeight: 1.4,
-                        }}
-                        noWrap
-                      >
-                        {feed.msg}
-                      </Typography>
-                      {feed.detail && (
                         <Typography
                           variant="caption"
                           sx={{
-                            color: "rgba(15,23,42,0.5)",
-                            fontWeight: 700,
-                            fontSize: 10,
+                            color: feed.color,
+                            fontWeight: 900,
+                            fontSize: 9,
                             display: "block",
-                            mt: 0.2,
+                            mb: 0.3,
+                            letterSpacing: 0.5,
                           }}
-                          noWrap
                         >
-                          {feed.detail}
+                          {feed.type} • {feed.time}
                         </Typography>
-                      )}
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: "#0f172a",
+                            fontWeight: 800,
+                            fontSize: 12,
+                            lineHeight: 1.5,
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {displayMsg || feed.msg}
+                        </Typography>
+                        {feed.detail && (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: "#f59e0b",
+                              fontWeight: 800,
+                              fontSize: 11,
+                              display: "block",
+                              mt: 0.2
+                            }}
+                          >
+                            • {feed.detail}
+                          </Typography>
+                        )}
+                      </Box>
                     </Box>
-                  </Box>
-                ))}
+                  );
+                })}
               </Box>
 
               <Box
@@ -2405,24 +2242,24 @@ const MainPage = () => {
           }}
         >
           {/* Row 1: Ai Magazine, Event, Standing, Latest */}
-          <Paper elevation={0} sx={{ ...panelSx, p: 0, overflow: "hidden" }}>
-            <AiMagazineBox magazineData={magazineData} loading={loading} />
+          <Paper elevation={0} sx={{ ...panelSx, p: 0, height: 395, overflow: "hidden" }}>
+            <AiMagazineBox magazineData={magazineData.slice(0, 5)} loading={loading} />
           </Paper>
 
-          <Paper elevation={0} sx={{ ...panelSx, p: 0, overflow: "hidden" }}>
-            <EventUpdateBox announcements={eventData} loading={loading} />
+          <Paper elevation={0} sx={{ ...panelSx, p: 0, height: 395, overflow: "hidden" }}>
+            <EventUpdateBox announcements={eventData.slice(0, 5)} loading={loading} />
           </Paper>
 
           <Paper
             elevation={0}
-            sx={{ ...panelSx, display: "flex", flexDirection: "column" }}
+            sx={{ ...panelSx, p: 0, height: 395, display: "flex", flexDirection: "column" }}
           >
             <TopStandingBox standings={standings} loading={loading} />
           </Paper>
 
           <Paper
             elevation={0}
-            sx={{ ...panelSx, display: "flex", flexDirection: "column" }}
+            sx={{ ...panelSx, p: 0, height: 395, display: "flex", flexDirection: "column" }}
           >
             <LatestResultBox recentMatches={recentMatches} loading={loading} />
           </Paper>
@@ -2534,7 +2371,7 @@ const MainPage = () => {
                 letterSpacing: 0.5,
               }}
             >
-              © {new Date().getFullYear()} THAI EFOOTBALL LEAGUE. ALL RIGHTS
+              © {new Date().getFullYear()} THAI PES LEAGUE. ALL RIGHTS
               RESERVED.
             </Typography>
 

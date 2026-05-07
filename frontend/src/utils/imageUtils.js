@@ -96,3 +96,14 @@ export const getPesdbLinkFromUrl = (imageUrl) => {
   const match = imageUrl.match(/(?:[bf])?(\d+)\.(?:png|webp)(?:\?.*)?$/i);
   return match ? getPesdbInfoUrl(match[1]) : null;
 };
+
+/**
+ * Extracts player ID from a URL (PESDB or PESMaster format)
+ * @param {string} url 
+ * @returns {string|null}
+ */
+export const getPlayerIdFromUrl = (url) => {
+  if (!url) return null;
+  const match = url.match(/(?:player_|[bf])?(\d+)(?:_)?\.(?:png|webp)(?:\?.*)?$/i);
+  return match ? match[1] : null;
+};

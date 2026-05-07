@@ -398,11 +398,10 @@ const AnnouncementPage = () => {
               }
               fullWidth
             />
-            {masterTab !== 0 && (
-              <Box>
-                <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ display: 'block', mb: 1 }}>
-                  {masterTab === 2 ? "MAGAZINE IMAGE" : "EVENT COVER IMAGE"}
-                </Typography>
+            <Box>
+              <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ display: 'block', mb: 1 }}>
+                {masterTab === 2 ? "MAGAZINE IMAGE" : masterTab === 1 ? "EVENT COVER IMAGE" : "NEWS IMAGE"}
+              </Typography>
               <Stack direction="row" spacing={2} alignItems="flex-start">
                 <Box sx={{ flex: 1 }}>
                   <TextField
@@ -463,8 +462,6 @@ const AnnouncementPage = () => {
                 </Box>
               )}
             </Box>
-          )}
-
             <FormControlLabel
               control={
                 <Switch

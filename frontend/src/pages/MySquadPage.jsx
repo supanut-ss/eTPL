@@ -1272,8 +1272,8 @@ const MySquadPage = () => {
                   >
                     <Box 
                       sx={{ position: "relative", mb: 2 }}
-                      component={getPesdbLink(player.imageUrl || getPlayerCardUrl(player.playerId)) ? "a" : "div"}
-                      href={getPesdbLink(player.imageUrl || getPlayerCardUrl(player.playerId))}
+                      component={getPesdbLink(getPlayerCardUrl(player.playerId)) ? "a" : "div"}
+                      href={getPesdbLink(getPlayerCardUrl(player.playerId))}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -1966,13 +1966,13 @@ const MySquadPage = () => {
           {selectedPlayerForList && (
             <Box mb={3} textAlign="center">
               <Box
-                component={getPesdbLink(selectedPlayerForList.imageUrl || getPlayerCardUrl(selectedPlayerForList.playerId)) ? "a" : "div"}
-                href={getPesdbLink(selectedPlayerForList.imageUrl || getPlayerCardUrl(selectedPlayerForList.playerId))}
+                component={getPesdbLink(getPlayerCardUrl(selectedPlayerForList.playerId)) ? "a" : "div"}
+                href={getPesdbLink(getPlayerCardUrl(selectedPlayerForList.playerId))}
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 <Avatar 
-                  src={selectedPlayerForList.imageUrl || getPlayerCardUrl(selectedPlayerForList.playerId)} 
+                  src={getPlayerCardUrl(selectedPlayerForList.playerId)} 
                   sx={{ 
                     width: 80, height: 80, mx: "auto", mb: 1, border: "2px solid #ccc", 
                     "& img": { objectFit: "contain" },
