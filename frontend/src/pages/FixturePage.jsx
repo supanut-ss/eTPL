@@ -430,7 +430,7 @@ const FixturePage = () => {
             onChange={(event) => setSearch(event.target.value)}
             onKeyDown={handleSearch}
             placeholder="Press Enter to search"
-            sx={{ minWidth: 280 }}
+            sx={{ flex: { xs: "1 1 100%", sm: "0 1 280px" } }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -468,28 +468,32 @@ const FixturePage = () => {
       )}
 
       <Paper elevation={2} sx={{ borderRadius: 2, overflow: "hidden" }}>
-        <DataGrid
-          rows={displayRows}
-          columns={columns}
-          loading={loading}
-          autoHeight
-          getRowId={(row) => row.fixtureId}
-          pageSizeOptions={[25, 50, 100]}
-          initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-          disableRowSelectionOnClick
-          sx={{
-            border: "none",
-            "& .MuiDataGrid-columnHeaders": {
-              bgcolor: "grey.50",
-              fontWeight: 700,
-            },
-            "& .MuiDataGrid-row:hover": { bgcolor: "primary.50" },
-            "& .MuiDataGrid-cell": {
-              display: "flex",
-              alignItems: "center",
-            },
-          }}
-        />
+        <Box sx={{ width: "100%", overflowX: "auto" }}>
+          <Box sx={{ minWidth: isMobile ? 800 : "auto" }}>
+            <DataGrid
+              rows={displayRows}
+              columns={columns}
+              loading={loading}
+              autoHeight
+              getRowId={(row) => row.fixtureId}
+              pageSizeOptions={[25, 50, 100]}
+              initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+              disableRowSelectionOnClick
+              sx={{
+                border: "none",
+                "& .MuiDataGrid-columnHeaders": {
+                  bgcolor: "grey.50",
+                  fontWeight: 700,
+                },
+                "& .MuiDataGrid-row:hover": { bgcolor: "primary.50" },
+                "& .MuiDataGrid-cell": {
+                  display: "flex",
+                  alignItems: "center",
+                },
+              }}
+            />
+          </Box>
+        </Box>
         <Divider />
         <Box
           px={2}

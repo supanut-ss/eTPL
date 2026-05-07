@@ -24,7 +24,7 @@ import {
 import { alpha } from "@mui/material/styles";
 import { EmojiEvents, Groups, SportsSoccer, AccountBalanceWallet, History, TrendingUp, InfoOutlined, Search, SearchOff, MilitaryTech ,HotelClass } from "@mui/icons-material";
 import auctionService from "../services/auctionService";
-import { getPlayerCardUrl, getPlayerFaceUrl } from "../utils/imageUtils";
+import { getPlayerCardUrl, getPlayerFaceUrl, getPesdbInfoUrl, getPlayerCardFUrl } from "../utils/imageUtils";
 
 // --- Animations from Elite Section ---
 const dealCard = keyframes`
@@ -63,15 +63,33 @@ const CompletedAuctionPage = () => {
           auctionService.getQuotas(),
         ]);
         
-        // Sorting: TP (CurrentPrice) Desc, then OVR (PlayerOvr) Desc
-        const sorted = (auctionsRes.data || []).sort((a, b) => {
-          if (b.CurrentPrice !== a.CurrentPrice) {
-            return b.CurrentPrice - a.CurrentPrice;
+        // Elite Players (Top Unique by Price, latest transaction only)
+        const allAuctions = auctionsRes.data || [];
+        
+        // 1. Group by player ID and keep only the latest transaction per player
+        const uniqueAuctionsMap = new Map();
+        allAuctions.forEach(auction => {
+          const pId = auction.playerId || auction.idPlayer || auction.id;
+          const existing = uniqueAuctionsMap.get(pId);
+          // Use createDate or auctionId to determine "latest"
+          if (!existing || new Date(auction.createDate || auction.createdAt) > new Date(existing.createDate || existing.createdAt)) {
+            uniqueAuctionsMap.set(pId, auction);
           }
-          return b.PlayerOvr - a.PlayerOvr;
         });
 
-        setCompletedAuctions(sorted);
+        // 2. Convert to array and sort by Price (Primary) and OVR (Secondary)
+        const sortedUnique = Array.from(uniqueAuctionsMap.values()).sort((a, b) => {
+          const bPrice = b.currentPrice || b.CurrentPrice || 0;
+          const aPrice = a.currentPrice || a.CurrentPrice || 0;
+          if (bPrice !== aPrice) {
+            return bPrice - aPrice;
+          }
+          const bOvr = b.playerOvr || b.PlayerOvr || 0;
+          const aOvr = a.playerOvr || a.PlayerOvr || 0;
+          return bOvr - aOvr;
+        });
+
+        setCompletedAuctions(sortedUnique);
         setGrades(quotasRes.data || []);
       } catch (err) {
         console.error("Failed to fetch completed auctions:", err);
@@ -326,7 +344,7 @@ const CompletedAuctionPage = () => {
                                     <Box sx={{ position: 'relative', pt: 4, pb: 2, display: 'flex', justifyContent: 'center' }}>
                                         <Box 
                                             component="a" 
-                                            href={`https://pesdb.net/efootball/player.php?id=${pId}`} 
+                                            href={getPesdbInfoUrl(pId)} 
                                             target="_blank"
                                             sx={{ textDecoration: 'none' }}
                                         >
@@ -334,6 +352,16 @@ const CompletedAuctionPage = () => {
                                                 component="img"
                                                 image={getPlayerCardUrl(pId)}
                                                 sx={{ height: 150, width: 'auto', animation: index === 0 ? `${goldGlow} 3s infinite` : 'none' }}
+                                                onError={(e) => {
+                                                  if (e.target.src.includes("/card/b")) {
+                                                    e.target.src = e.target.src.replace("/card/b", "/card/f");
+                                                  } else if (e.target.src.includes("/card/f")) {
+                                                    e.target.src = e.target.src.replace("/card/f", "/card/");
+                                                  } else {
+                                                    e.target.onerror = null;
+                                                    e.target.src = getPlayerFaceUrl(pId);
+                                                  }
+                                                }}
                                             />
                                         </Box>
                                         
@@ -388,7 +416,7 @@ const CompletedAuctionPage = () => {
                                           variant="body1" 
                                           fontWeight="950" 
                                           component="a"
-                                          href={`https://pesdb.net/efootball/player.php?id=${pId}`}
+                                          href={getPesdbInfoUrl(pId)}
                                           target="_blank"
                                           sx={{ 
                                             fontSize: '0.95rem',
@@ -510,7 +538,7 @@ const CompletedAuctionPage = () => {
                     }}>
                       <Box 
                         component="a"
-                        href={`https://pesdb.net/efootball/player.php?id=${pId}`}
+                        href={getPesdbInfoUrl(pId)}
                         target="_blank"
                         sx={{ display: 'flex', justifyContent: 'center', width: '100%', textDecoration: 'none' }}
                       >
@@ -590,7 +618,7 @@ const CompletedAuctionPage = () => {
                             variant="body1" 
                             fontWeight="950" 
                             component="a"
-                            href={`https://pesdb.net/efootball/player.php?id=${pId}`}
+                            href={getPesdbInfoUrl(pId)}
                             target="_blank"
                             sx={{ 
                               fontSize: '0.95rem',

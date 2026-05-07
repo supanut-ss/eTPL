@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useMemo, memo, cloneElement } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link as RouterLink } from "react-router-dom";
 import {
   getLogoUrl,
   getPlayerFaceUrl,
   getPlayerCardUrl,
+  getPlayerCardFUrl,
   getAnnouncementImageUrl,
   getPlayerFaceUrlPesmaster,
+  getPesdbInfoUrl,
 } from "../utils/imageUtils";
 import {
   Card,
@@ -27,6 +29,7 @@ import {
   keyframes,
   Grid,
   Link,
+  ButtonBase,
 } from "@mui/material";
 import {
   AccountCircle,
@@ -131,12 +134,18 @@ const AiMagazineBox = ({ magazineData, loading }) => {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
+    // Only reset index if the number of items decreased and current index is out of bounds
+    if (magazineData && index >= magazineData.length) {
+      setIndex(0);
+    }
+    
     if (!magazineData || magazineData.length <= 1) return undefined;
+    
     const interval = setInterval(() => {
       setIndex((prev) => (prev + 1) % magazineData.length);
-    }, 6000);
+    }, 4000); // Speed up to 4 seconds
     return () => clearInterval(interval);
-  }, [magazineData]);
+  }, [magazineData?.length, magazineData]); // Track length changes
 
   if (loading)
     return (
@@ -145,21 +154,30 @@ const AiMagazineBox = ({ magazineData, loading }) => {
 
   if (!magazineData || magazineData.length === 0) return null;
 
-  const active = magazineData[index];
+  const active = magazineData[index] || magazineData[0];
+  if (!active) return null;
+
   const displayImage = active.imageUrl
     ? getAnnouncementImageUrl(active.imageUrl)
     : "";
 
   return (
-    <Box
+    <ButtonBase
+      component={RouterLink}
+      to="/news"
+      state={{ tab: 1 }}
       sx={{
         display: "flex",
         flexDirection: "column",
+        alignItems: "stretch",
+        width: "100%",
         height: "100%",
         minHeight: 340, 
-        bgcolor: "transparent", // Inherit glass from parent
+        bgcolor: "transparent",
         borderRadius: 2,
         overflow: "hidden",
+        textAlign: "left",
+        "&:hover": { bgcolor: "rgba(0,0,0,0.02)" }
       }}
     >
       <SectionHeader 
@@ -189,21 +207,30 @@ const AiMagazineBox = ({ magazineData, loading }) => {
       />
       {/* Image Area */}
       <Box sx={{ width: "100%", overflow: "hidden", position: "relative", aspectRatio: "16 / 9" }}>
-        <Box
-          component="img"
-          key={index}
-          src={displayImage}
-          onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&q=80&w=800";
-          }}
-          sx={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            animation: "fadeIn 0.8s ease-in-out",
-          }}
-        />
+        {/* Layered Images for Smooth Transition */}
+        {magazineData.map((item, i) => (
+          <Box
+            key={item.id || i}
+            component="img"
+            src={getAnnouncementImageUrl(item.imageUrl)}
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&q=80&w=800";
+            }}
+            sx={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              opacity: i === index ? 1 : 0,
+              transition: "opacity 1.2s ease-in-out",
+              zIndex: i === index ? 1 : 0,
+            }}
+          />
+        ))}
+
+        {/* Dots removed from here */}
       </Box>
 
       {/* Content Area */}
@@ -219,6 +246,7 @@ const AiMagazineBox = ({ magazineData, loading }) => {
       >
         <Box>
           <Typography
+            key={`title-${index}`}
             variant="subtitle2"
             fontWeight={1000}
             sx={{
@@ -231,6 +259,7 @@ const AiMagazineBox = ({ magazineData, loading }) => {
               lineHeight: 1.3,
               fontSize: { xs: 13, md: 15 },
               letterSpacing: -0.2,
+              animation: "fadeIn 0.8s ease-in-out",
             }}
           >
             {active.announcement}
@@ -244,21 +273,40 @@ const AiMagazineBox = ({ magazineData, loading }) => {
           pt={1}
         >
           <Typography
+            key={`announcer-${index}`}
             variant="caption"
             sx={{
-              color: "rgba(15,23,42,0.5)",
+              color: "rgba(15, 23, 42, 0.5)",
               fontWeight: 800,
               fontSize: 10,
+              animation: "fadeIn 0.5s ease-in-out",
             }}
           >
             {active.announcer || "E-TPL AI Editor"}
           </Typography>
-          <Box
-            sx={{ width: 30, height: 3, bgcolor: "#a855f7", borderRadius: 1 }}
-          />
+          
+          {/* Navigation Dots - Pill Style (Elite) */}
+          {magazineData.length > 1 && (
+            <Box sx={{ display: "flex", gap: 0.5 }}>
+              {magazineData.map((_, i) => (
+                <Box
+                  key={i}
+                  onClick={() => setIndex(i)}
+                  sx={{
+                    width: i === index ? 16 : 6,
+                    height: 3,
+                    borderRadius: 2,
+                    bgcolor: i === index ? "#a855f7" : "rgba(15, 23, 42, 0.1)",
+                    cursor: "pointer",
+                    transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                  }}
+                />
+              ))}
+            </Box>
+          )}
         </Box>
       </Box>
-    </Box>
+    </ButtonBase>
   );
 };
 
@@ -320,28 +368,34 @@ const EventUpdateBox = memo(({ announcements, loading }) => {
         scrollbarWidth: "none"
       }}>
         {list.map((item, idx) => (
-          <Box
+          <ButtonBase
             key={idx}
+            component={RouterLink}
+            to="/news"
+            state={{ tab: 2 }}
             sx={{
               display: "flex",
+              justifyContent: "flex-start",
               alignItems: "center",
               gap: 2,
               px: 2,
-              height: 85,
+              width: "100%",
+              height: 100,
               borderRadius: 2,
               transition: "all 0.2s ease",
               borderBottom: idx !== list.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none",
-              "&:hover": { bgcolor: "rgba(0,0,0,0.02)" }
+              "&:hover": { bgcolor: "rgba(0,0,0,0.04)" }
             }}
           >
             <Box
               sx={{
-                width: 100,
-                height: 60,
-                borderRadius: 1,
+                width: 125, // Reduced from 140
+                height: 80, // Reduced from 90
+                borderRadius: 1.5,
                 overflow: "hidden",
                 flexShrink: 0,
                 bgcolor: "rgba(0,0,0,0.05)",
+                boxShadow: "0 4px 10px rgba(0,0,0,0.06)",
                 border: "1px solid rgba(0,0,0,0.05)"
               }}
             >
@@ -368,26 +422,13 @@ const EventUpdateBox = memo(({ announcements, loading }) => {
                   display: "-webkit-box",
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: "vertical",
-                  fontSize: 13
+                  fontSize: 14 // Slightly larger font
                 }}
               >
                 {item.announcement}
               </Typography>
             </Box>
-
-            <Typography
-              variant="caption"
-              sx={{
-                color: "text.disabled",
-                fontWeight: 700,
-                fontSize: 9,
-                whiteSpace: "nowrap",
-                ml: 1
-              }}
-            >
-              {formatMatchDate(item.createDate)}
-            </Typography>
-          </Box>
+          </ButtonBase>
         ))}
       </Box>
     </Box>
@@ -1097,6 +1138,7 @@ const EliteShowcaseBox = ({ elitePlayers, loading, clubs = [] }) => {
         icon={<AutoAwesome sx={{ fontSize: 18 }} />}
         title="Elite Showcase"
         color="#d1ad73ff"
+        titleId="elite-showcase-title"
         action={
           <Link 
             href="/auction-results" 
@@ -1120,7 +1162,6 @@ const EliteShowcaseBox = ({ elitePlayers, loading, clubs = [] }) => {
           </Link>
         }
       />
-      
       <Box
         sx={{
           flex: 1,
@@ -1135,10 +1176,10 @@ const EliteShowcaseBox = ({ elitePlayers, loading, clubs = [] }) => {
         }}
       >
         {visiblePlayers.map((player, idx) => {
-          const pId = player.idPlayer || player.playerId || player.id;
-          const price = player.pricePaid || player.valuation || 0;
+          const pId = player.playerId || player.idPlayer || player.id;
+          const price = player.currentPrice || player.CurrentPrice || player.pricePaid || 0;
           const clubOwner = clubs.find(c => c.id === player.ownedByUserId || (c.currentTeam && c.currentTeam === player.teamName));
-          const owner = clubOwner?.userId || player.winnerName || "Manager";
+          const owner = player.highestBidderName || player.winnerName || clubOwner?.userId || "Manager";
 
           return (
             <Box
@@ -1154,25 +1195,30 @@ const EliteShowcaseBox = ({ elitePlayers, loading, clubs = [] }) => {
               }}
             >
                 <Box
+                  component="a"
+                  href={getPesdbInfoUrl(pId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   sx={{
                     position: "relative",
                     mb: 1.5,
-                    p: "1.5px", // Even thinner border
-                    borderRadius: 0, // Sharp corners as requested
-                    background: "linear-gradient(135deg, #fde68a 0%, #fcd34d 50%, #fde68a 100%)", // Lighter gold
+                    p: "1.5px", 
+                    borderRadius: 0, 
+                    background: "linear-gradient(135deg, #fde68a 0%, #fcd34d 50%, #fde68a 100%)", 
                     display: "flex",
                     justifyContent: "center",
-                    filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.12))",
+                    filter: "drop-shadow(0 8px 20px rgba(0,0,0,0.15))",
+                    textDecoration: "none",
                     transition: "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)",
                     "&:hover": { 
-                      transform: "scale(1.1) translateY(-8px)",
-                      filter: "drop-shadow(0 15px 25px rgba(251, 191, 36, 0.2))",
+                      transform: "scale(1.08) translateY(-8px)",
+                      filter: "drop-shadow(0 15px 35px rgba(251, 191, 36, 0.3))",
                     },
                   }}
                 >
                 <Box
                   component="img"
-                  src={player.imageUrl || getPlayerCardUrl(pId)}
+                  src={getPlayerCardUrl(pId) || player.imageUrl}
                   onError={(e) => {
                     if (e.target.src.includes("/card/b")) {
                       e.target.src = e.target.src.replace("/card/b", "/card/f");
@@ -1255,7 +1301,7 @@ const EliteShowcaseBox = ({ elitePlayers, loading, clubs = [] }) => {
                   sx={{
                     color: "#ec830cd8",
                     fontWeight: 800,
-                    fontSize: 8.5,
+                    fontSize: 9,
                     display: "block",
                     mt: 1,
                     letterSpacing: 1,
@@ -1503,12 +1549,10 @@ const MainPage = () => {
   const [hofData, setHofData] = useState([]);
   const [elitePlayers, setElitePlayers] = useState([]);
 
-    const fetchDashboardData = (isSilent = false) => {
+  const fetchDashboardData = (isSilent = false) => {
     if (!isSilent) setLoading(true);
     const fixtureRequest = user ? getFixtures({}) : getPublicFixtures();
-    // Allow loading users for everyone, but transactions only for logged in users
-    const canLoadTransactions = !!user;
-
+    
     return Promise.all([
       fixtureRequest,
       getPublicLastFixtures(),
@@ -1516,117 +1560,90 @@ const MainPage = () => {
       auctionService.getClubs().catch(() => ({ data: [] })),
       getPublicAnnouncements("Magazine").catch(() => ({ data: { data: [] } })),
       getPublicAnnouncements("Event").catch(() => ({ data: { data: [] } })),
-      auctionService.searchPlayers({ ownedOnly: true, pageSize: 20 }).catch(() => ({ data: { items: [] } })),
+      auctionService.getCompletedAuctions().catch(() => ({ data: [] })),
+      getUsers().catch(() => ({ data: { data: [] } })),
     ])
-      .then(([fRes, lastRes, aRes, cRes, hRes, eRes, ePlayersRes]) => {
+      .then(([fRes, lastRes, aRes, cRes, hRes, eRes, ePlayersRes, uRes]) => {
         setFixtures(fRes.data.data || []);
         setLastFixtures(lastRes.data.data || []);
-        const sortedAnnouncements = (aRes.data.data || []).sort(
-          (a, b) => new Date(b.createDate) - new Date(a.createDate),
-        );
-        setAnnouncements(sortedAnnouncements);
+        setAnnouncements((aRes.data.data || []).sort((a, b) => new Date(b.createDate) - new Date(a.createDate)));
         setClubs(cRes.data || cRes || []);
-        setMagazineData(hRes.data?.data || []);
+        setMagazineData((hRes.data?.data || []).sort((a, b) => new Date(b.createDate) - new Date(a.createDate)));
+        setEventData((eRes.data?.data || []).sort((a, b) => new Date(b.createDate) - new Date(a.createDate)));
+        setMembers(uRes.data.data || []);
 
-        const sortedEvents = (eRes.data?.data || []).sort(
-          (a, b) => new Date(b.createDate) - new Date(a.createDate),
-        );
-        setEventData(sortedEvents);
-        
-        // Elite Players (Top by Price/OVR)
-        const allElite = ePlayersRes.data?.items || ePlayersRes.items || [];
-        const sortedElite = allElite.sort((a, b) => (b.pricePaid || 0) - (a.pricePaid || 0)).slice(0, 10);
+        // Elite Players (Top Unique by Price)
+        const allElite = ePlayersRes.data || ePlayersRes || [];
+        const uniqueEliteMap = new Map();
+        allElite.forEach(player => {
+          const pId = player.idPlayer || player.playerId || player.id;
+          const existing = uniqueEliteMap.get(pId);
+          if (!existing || new Date(player.createDate || player.createdAt) > new Date(existing.createDate || existing.createdAt)) {
+            uniqueEliteMap.set(pId, player);
+          }
+        });
+        const sortedElite = Array.from(uniqueEliteMap.values()).sort((a, b) => {
+          const bPrice = b.currentPrice || b.CurrentPrice || b.pricePaid || 0;
+          const aPrice = a.currentPrice || a.CurrentPrice || a.pricePaid || 0;
+          return bPrice !== aPrice ? bPrice - aPrice : (b.playerOvr || b.PlayerOvr || 0) - (a.playerOvr || a.PlayerOvr || 0);
+        }).slice(0, 12);
         setElitePlayers(sortedElite);
 
-        // Load users publicly for banner profile pics
-        getUsers()
-          .then((uRes) => {
-            setMembers(uRes.data.data || []);
-          })
-          .catch((err) => console.error("Public users load failed", err));
-
-        if (!canLoadTransactions) {
-          return null;
-        }
-
+        // --- Live Activity Feed Data ---
         return Promise.all([
-          auctionService
-            .getGlobalTransactions(1, 100)
-            .catch(() => ({ data: [] })),
+          auctionService.getGlobalTransactions(1, 100).catch(() => ({ data: [] })),
           auctionService.getTransferBoard().catch(() => ({ data: [] })),
-        ])
-          .then(([tRes, bRes]) => {
-            // Format and Combine Activities
-            const txs = tRes.data?.items || tRes.items || [];
-            const listings = bRes.data || bRes || [];
+        ]).then(([tRes, bRes]) => {
+          const txs = tRes.data?.items || tRes.items || (Array.isArray(tRes.data) ? tRes.data : []);
+          const listings = bRes.data || bRes || (Array.isArray(bRes.data) ? bRes.data : []);
+          const combined = [];
 
-            const combined = [];
-
-            // Add Confirmed Transactions (Sold Out / Accepted)
-            txs.forEach((tx) => {
-              const desc = (tx.description || "").toLowerCase();
-              // Check for both English and Thai keywords used in DB
-              const isSignificant =
-                desc.includes("won") ||
-                desc.includes("confirm") ||
-                desc.includes("accepted") ||
-                desc.includes("transfer") ||
-                desc.includes("success") ||
-                desc.includes("signed") ||
-                desc.includes("ชนะ") ||
-                desc.includes("ซื้อ") ||
-                desc.includes("ขาย") ||
-                desc.includes("ยืม") ||
-                desc.includes("ปล่อย") ||
-                desc.includes("สัญญา");
-
-              if (isSignificant) {
-                combined.push({
-                  id: `tx-${tx.transactionId}`,
-                  type: "DEAL",
-                  title:
-                    tx.playerName || tx.relatedPlayerName || "Deal Confirmed",
-                  subtitle: `${tx.userName || "System"} ${tx.description}`,
-                  amount: tx.amount,
-                  date: tx.createdAt || tx.CreatedAt || tx.createDate || tx.CreateDate || tx.date || tx.Date,
-                  player: tx.playerName || tx.relatedPlayerName,
-                  manager: tx.userName,
-                });
-              }
-            });
-
-            // Add Current Listings
-            listings.forEach((player) => {
+          // Add Transactions (Deals & Market Activity)
+          txs.forEach((tx) => {
+            const pName = tx.playerName || tx.PlayerName || tx.relatedPlayerName || "นักเตะ";
+            const uName = tx.userName || tx.UserName || tx.highestBidderName || "ระบบ";
+            const rawDesc = tx.description || tx.Description || "ทำรายการสำเร็จ";
+            const txDate = tx.createdAt || tx.CreatedAt || tx.createDate || tx.CreateDate || tx.date || tx.Date;
+            
+            if (txDate) {
               combined.push({
-                id: `listing-${player.squadId}`,
-                type: "LISTING",
-                title: player.playerName,
-                subtitle: `${player.ownerName || "สโมสร"} ประกาศขายนักเตะ`,
-                amount: player.listingPrice || player.price,
-                date: player.acquiredAt || player.AcquiredAt || player.updatedAt || player.UpdatedAt || player.createdAt || player.CreatedAt || player.createDate || player.CreateDate || player.listedAt || player.ListedAt || player.date || player.Date || new Date().toISOString(),
-                player: player.playerName,
-                manager: player.ownerName,
+                id: `tx-${tx.transactionId || tx.id || Math.random()}`,
+                type: (rawDesc.toLowerCase().includes("won") || rawDesc.toLowerCase().includes("ชนะ") || rawDesc.toLowerCase().includes("signed") || rawDesc.toLowerCase().includes("ปิดดีล")) ? "DEAL" : "MARKET",
+                title: pName,
+                subtitle: `${uName} ${rawDesc}`,
+                amount: tx.amount || tx.Amount || tx.currentPrice || tx.CurrentPrice || 0,
+                date: txDate,
+                player: pName,
+                manager: uName,
               });
-            });
-
-            // Sort by date and take latest 10
-            const sorted = combined
-              .sort((a, b) => new Date(b.date) - new Date(a.date))
-              .slice(0, 10);
-            setMarketActivity(sorted);
-          })
-          .catch((err) => {
-            console.error("Member/Transaction load error", err);
+            }
           });
+
+          // Add Active Auctions / Market Listings
+          listings.forEach((player) => {
+            const pName = player.playerName || player.PlayerName || player.idPlayer || "นักเตะ";
+            const owner = player.ownerName || player.OwnerName || player.sellerName || "สโมสร";
+            const pDate = player.createDate || player.CreateDate || player.createdAt || player.CreatedAt || player.updatedAt || player.UpdatedAt || player.listedAt || player.ListedAt || player.date || player.Date;
+            
+            if (pDate) {
+              combined.push({
+                id: `listing-${player.auctionId || player.id || player.squadId || Math.random()}`,
+                type: "MARKET",
+                title: pName,
+                subtitle: `${owner} ประกาศปล่อย ${pName} ลงสู่ตลาด!`,
+                amount: player.listingPrice || player.price || player.currentPrice || player.CurrentPrice || player.valuation || 0,
+                date: pDate,
+                player: pName,
+                manager: owner,
+              });
+            }
+          });
+
+          setMarketActivity(combined.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 50));
+        });
       })
       .catch((err) => {
-        if (!isSilent) {
-          const errorMsg =
-            err.response?.data?.message ||
-            err.message ||
-            "Failed to load dashboard data";
-          setError(errorMsg);
-        }
+        if (!isSilent) setError(err.response?.data?.message || err.message || "Failed to load dashboard data");
       })
       .finally(() => {
         if (!isSilent) setLoading(false);
@@ -1732,7 +1749,19 @@ const MainPage = () => {
       data: f,
       msg: `${extractPlayer(f.home) || f.homeTeamName || "?"} ${f.homeScore ?? "-"} - ${f.awayScore ?? "-"} ${extractPlayer(f.away) || f.awayTeamName || "?"}`,
       detail: null,
-      time: (f.matchDate || f.MatchDate || f.createDate || f.CreateDate || f.date || f.Date) ? new Date(f.matchDate || f.MatchDate || f.createDate || f.CreateDate || f.date || f.Date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "–",
+      time: (() => {
+        const rawDate = f.matchDate || f.MatchDate || f.createDate || f.CreateDate || f.date || f.Date;
+        if (!rawDate) return "–";
+        const d = new Date(rawDate);
+        return d.toLocaleString("en-GB", { 
+          day: "2-digit", 
+          month: "short", 
+          hour: "2-digit", 
+          minute: "2-digit", 
+          hour12: false,
+          timeZone: "Asia/Bangkok" 
+        });
+      })(),
     })),
     ...marketActivity
       .filter((m) => {
@@ -1747,9 +1776,16 @@ const MainPage = () => {
         data: m,
         msg: m.subtitle || "Market activity",
         detail: m.type === "DEAL" ? (m.amount ? `${Number(m.amount).toLocaleString()} TP` : null) : [m.title, m.amount ? `${Number(m.amount).toLocaleString()} TP` : null].filter(Boolean).join(" • "),
-        time: m.date ? new Date(m.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "–",
+        time: m.date ? new Date(m.date).toLocaleString("en-GB", { 
+          day: "2-digit", 
+          month: "short", 
+          hour: "2-digit", 
+          minute: "2-digit", 
+          hour12: false,
+          timeZone: "Asia/Bangkok"
+        }) : "–",
       })),
-  ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 20), [lastFixtures, marketActivity]);
+  ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 50), [lastFixtures, marketActivity]);
 
   // recentMatches rotation is handled internally in LatestResultBox
 
@@ -1795,49 +1831,65 @@ const MainPage = () => {
             }}
           >
             {/* LEFT: Hero Banner (News Showcase) */}
-            <Box
+            <ButtonBase
+              component={RouterLink}
+              to="/news"
+              state={{ tab: 0 }}
               sx={{
                 borderRadius: 2,
                 overflow: "hidden",
                 position: "relative",
+                display: "block",
+                width: "100%",
                 height: { xs: 240, md: 600 },
                 border: "1px solid",
                 borderColor: DESIGN_TOKENS.border,
                 boxShadow: DESIGN_TOKENS.shadow,
-                "&:hover .news-image": { transform: "scale(1.02)" },
+                transition: "transform 0.3s ease",
+                "&:hover": { 
+                  transform: "translateY(-4px)",
+                  borderColor: "secondary.main",
+                },
+                "&:hover .news-image": { transform: "scale(1.05)" },
               }}
             >
-              <Box
-                className="news-image"
-                sx={{
-                  position: "absolute",
-                  inset: 0,
-                  background: activeAnnouncement?.imageUrl
-                    ? `url(${getAnnouncementImageUrl(activeAnnouncement.imageUrl)})`
-                    : "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  transition: "transform 2s cubic-bezier(0.2, 0, 0.2, 1)",
-                  "&::after": {
-                    content: '""',
-                    position: "absolute",
-                    inset: 0,
-                    background: "inherit",
-                    zIndex: -1,
-                    // Fallback background in case image fails
-                    backgroundImage: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-                  }
-                }}
-              >
+              {/* Layered Images for Smooth Cross-fade */}
+              {(displayAnnouncements.length > 0 ? displayAnnouncements : [{ imageUrl: null }]).map((ann, i) => (
                 <Box
+                  key={ann.id || i}
+                  component="img"
+                  className="news-image"
+                  src={ann.imageUrl 
+                    ? getAnnouncementImageUrl(ann.imageUrl) 
+                    : "https://images.unsplash.com/photo-1551288049-bbbda546697a?auto=format&fit=crop&q=80&w=1600"}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = "https://images.unsplash.com/photo-1551288049-bbbda546697a?auto=format&fit=crop&q=80&w=1600";
+                  }}
                   sx={{
                     position: "absolute",
                     inset: 0,
-                    background:
-                      "linear-gradient(to top, rgba(15,23,42,0.84) 0%, rgba(15,23,42,0.22) 52%, transparent 100%)",
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    objectPosition: "center",
+                    opacity: i === announcementIndex ? 1 : 0,
+                    transition: "opacity 1.5s ease-in-out, transform 8s linear",
+                    zIndex: i === announcementIndex ? 1 : 0,
+                    transform: i === announcementIndex ? "scale(1.05)" : "scale(1)",
                   }}
                 />
-              </Box>
+              ))}
+              
+              <Box
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  background:
+                    "linear-gradient(to top, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.4) 40%, transparent 100%)",
+                  zIndex: 2,
+                }}
+              />
 
               {/* Slider Dots */}
               {displayAnnouncements.length > 1 && (
@@ -1854,17 +1906,23 @@ const MainPage = () => {
                   {displayAnnouncements.map((_, idx) => (
                     <Box
                       key={idx}
-                      onClick={() => setAnnouncementIndex(idx)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAnnouncementIndex(idx);
+                      }}
                       sx={{
-                        width: idx === announcementIndex ? 24 : 6,
-                        height: 3,
-                        borderRadius: 2,
+                        width: idx === announcementIndex ? 10 : 10,
+                        height: 10,
+                        borderRadius: "50%",
                         bgcolor:
                           idx === announcementIndex
                             ? "secondary.main"
-                            : "rgba(255,255,255,0.2)",
+                            : "rgba(255,255,255,0.3)",
+                        border: idx === announcementIndex ? "2px solid #fff" : "none",
+                        boxShadow: idx === announcementIndex ? "0 0 10px rgba(255,255,255,0.5)" : "none",
                         cursor: "pointer",
-                        transition: "0.4s",
+                        transition: "0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+                        "&:hover": { transform: "scale(1.2)", bgcolor: "secondary.light" }
                       }}
                     />
                   ))}
@@ -1928,7 +1986,7 @@ const MainPage = () => {
                     </Typography>
                   </Box>
                 </Box>
-            </Box>
+              </ButtonBase>
 
             {/* RIGHT: Live Feed Center */}
             <Box

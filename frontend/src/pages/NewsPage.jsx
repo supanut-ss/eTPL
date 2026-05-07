@@ -168,7 +168,7 @@ const NewsPage = () => {
       <Paper
         elevation={0}
         sx={{
-          p: { xs: 4, md: 7, lg: 10 }, // Even more luxury padding
+          p: { xs: 2, sm: 4, md: 7, lg: 10 }, // More compact on mobile
           borderRadius: 4,
           background: DESIGN_TOKENS.glass,
           backdropFilter: "blur(10px)",
@@ -184,6 +184,9 @@ const NewsPage = () => {
           <Tabs 
             value={tabValue} 
             onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             sx={{
               "& .MuiTab-root": {
                 fontWeight: 800,
@@ -208,8 +211,8 @@ const NewsPage = () => {
         {loading ? (
           <Box sx={{ 
             display: "grid", 
-            gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(3, 1fr)", md: "repeat(6, 1fr)" },
-            gap: 3 
+            gridTemplateColumns: { xs: "repeat(1, 1fr)", sm: "repeat(3, 1fr)", md: "repeat(6, 1fr)" },
+            gap: { xs: 2, sm: 3 } 
           }}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => (
               <Box key={i}>
@@ -229,8 +232,8 @@ const NewsPage = () => {
         ) : (
           <Box sx={{ 
             display: "grid", 
-            gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(3, 1fr)", md: "repeat(6, 1fr)" },
-            gap: 3 
+            gridTemplateColumns: { xs: "repeat(1, 1fr)", sm: "repeat(3, 1fr)", md: "repeat(6, 1fr)" },
+            gap: { xs: 2, sm: 3 } 
           }}>
             {currentData.map((item, idx) => (
               <Box key={item.id || idx} sx={{ minWidth: 0 }}>
@@ -290,7 +293,7 @@ const NewsPage = () => {
                         color: DESIGN_TOKENS.textMain,
                         lineHeight: 1.2,
                         mb: 0.3,
-                        fontSize: "0.75rem", // Further reduced font
+                        fontSize: { xs: "0.85rem", sm: "0.75rem" }, 
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         display: "-webkit-box",
@@ -309,7 +312,7 @@ const NewsPage = () => {
                         fontWeight={700} 
                         sx={{ 
                           color: DESIGN_TOKENS.textMuted,
-                          fontSize: "0.55rem", // Further reduced font
+                          fontSize: { xs: "0.65rem", sm: "0.55rem" },
                           textTransform: "uppercase",
                           letterSpacing: 0.3,
                           opacity: 0.8
@@ -368,7 +371,7 @@ const NewsPage = () => {
             />
           </Box>
 
-          <DialogContent sx={{ p: { xs: 4, md: 6 } }}>
+          <DialogContent sx={{ p: { xs: 2, sm: 4, md: 6 } }}>
             <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
               <Typography 
                 variant="caption" 

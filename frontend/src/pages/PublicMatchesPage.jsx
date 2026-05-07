@@ -148,7 +148,7 @@ const TeamBlock = ({
         }}
       >
         <Typography
-          fontSize={14}
+          fontSize={{ xs: 12, sm: 14 }}
           fontWeight={isWinner ? 700 : 500}
           color={isWinner ? "success.main" : "text.primary"}
           noWrap
@@ -172,7 +172,7 @@ const TeamBlock = ({
         onError={(e) => {
           e.target.style.display = "none";
         }}
-        sx={{ width: 40, height: 40, objectFit: "contain", flexShrink: 0 }}
+        sx={{ width: { xs: 32, sm: 40 }, height: { xs: 32, sm: 40 }, objectFit: "contain", flexShrink: 0 }}
       />
     </Box>
   );
@@ -244,9 +244,10 @@ const H2HDialog = ({ open, onClose, home, away, homeTeamName, awayTeamName }) =>
           <>
             {/* Summary bar */}
             <Stack
-              direction="row"
+              direction={{ xs: "column", sm: "row" }}
               justifyContent="space-between"
               alignItems="center"
+              spacing={{ xs: 2, sm: 0 }}
               sx={{
                 bgcolor: "action.hover",
                 borderRadius: 2,

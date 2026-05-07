@@ -7,6 +7,7 @@ export const IMAGE_BASE_URLS = {
   // PESDB Assets (Default)
   PESDB_FACE: "https://pesdb.net/assets/img/player/{id}.png",
   PESDB_CARD: "https://pesdb.net/assets/img/card/b{id}.png",
+  PESDB_CARD_F: "https://pesdb.net/assets/img/card/f{id}.png",
 
   // PESMaster Assets (Specific for ClubSquadPage)
   PESMASTER_FACE_PNG: "https://www.pesmaster.com/pes-2021/graphics/players/player_{id}.png",
@@ -53,13 +54,23 @@ export const getPlayerFaceUrlPesmaster = (playerId, format = "png") => {
 };
 
 /**
- * Generates the URL for a player's card image (PESDB)
+ * Generates the URL for a player's card image (b-style)
  * @param {number|string} playerId - The player's ID
  * @returns {string}
  */
 export const getPlayerCardUrl = (playerId) => {
   if (!playerId) return "";
   return IMAGE_BASE_URLS.PESDB_CARD.replace("{id}", playerId);
+};
+
+/**
+ * Generates the URL for a player's card image (f-style - Featured)
+ * @param {number|string} playerId - The player's ID
+ * @returns {string}
+ */
+export const getPlayerCardFUrl = (playerId) => {
+  if (!playerId) return "";
+  return IMAGE_BASE_URLS.PESDB_CARD_F.replace("{id}", playerId);
 };
 
 /**
@@ -86,9 +97,20 @@ export const getAnnouncementImageUrl = (imageUrl) => {
   if (!imageUrl) return "";
   if (imageUrl.startsWith("http")) return imageUrl;
   
-  // For relative paths (starting with /), prepend API_BASE_URL if available
-  // During local dev, API_BASE_URL might be empty, and Vite proxy handles /uploads
-  return `${API_BASE_URL}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+  // Strictly use production domain even in local development
+  const mainDomain = "https://thaipesleague.com";
+  
+  // If the path already contains "/uploads/", just ensure it uses the main domain
+  if (imageUrl.includes("/uploads/")) {
+    const cleanPath = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+    return `${mainDomain}${cleanPath}`;
+  }
+  
+  // If it's just a filename, default to the news upload directory
+  const baseUploadPath = `${mainDomain}/uploads/news/`;
+  const cleanPath = imageUrl.startsWith("/") ? imageUrl.substring(1) : imageUrl;
+  
+  return `${baseUploadPath}${cleanPath}`;
 };
 
 export const getPesdbLinkFromUrl = (imageUrl) => {
