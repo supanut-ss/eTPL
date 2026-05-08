@@ -49,6 +49,7 @@ import {
   Home,
   Person,
   MenuBook,
+  Facebook,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -169,6 +170,12 @@ const navItems = [
         icon: <Campaign />,
         key: "announcements",
       },
+      {
+        label: "Facebook Settings",
+        path: "/admin/facebook-settings",
+        icon: <Facebook />,
+        key: "facebook-settings",
+      },
     ],
   },
 ];
@@ -288,8 +295,10 @@ const AppLayout = () => {
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             letterSpacing: 1.5,
+            cursor: 'pointer'
           }}
           noWrap
+          onClick={() => navigate("/main")}
         >
           {isDrawerExpanded ? "eTPL" : "E"}
         </Typography>
@@ -298,51 +307,46 @@ const AppLayout = () => {
       <List>
         {filteredNav.map((item) => {
           if (item.children) {
+            const isExpanded = openGroups[item.key] || false;
             return (
-              <Box key={item.label}>
+              <Box key={item.key}>
                 <Tooltip
                   title={!isDrawerExpanded ? item.label : ""}
                   placement="right"
                 >
-                  <ListItem disablePadding sx={{ display: "block" }}>
-                    <ListItemButton
-                      onClick={() => toggleGroup(item.key)}
+                  <ListItemButton
+                    onClick={() => toggleGroup(item.key)}
+                    sx={{
+                      minHeight: 48,
+                      justifyContent: isDrawerExpanded ? "initial" : "center",
+                      px: 2.5,
+                    }}
+                  >
+                    <ListItemIcon
                       sx={{
-                        minHeight: 48,
-                        justifyContent: isDrawerExpanded ? "initial" : "center",
-                        px: 2.5,
+                        minWidth: 0,
+                        mr: isDrawerExpanded ? 1.5 : "auto",
+                        justifyContent: "center",
                       }}
                     >
-                      <ListItemIcon
-                        sx={{
-                          minWidth: 0,
-                          mr: isDrawerExpanded ? 1.5 : "auto",
-                          justifyContent: "center",
-                        }}
-                      >
-                        {item.icon}
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={item.label}
-                        primaryTypographyProps={{
-                          fontWeight: 600,
-                          fontSize: "0.9rem",
-                        }}
-                        sx={{
-                          opacity: isDrawerExpanded ? 1 : 0,
-                          display: isDrawerExpanded ? "block" : "none",
-                        }}
-                      />
-                      {isDrawerExpanded &&
-                        (openGroups[item.key] ? <ExpandLess /> : <ExpandMore />)}
-                    </ListItemButton>
-                  </ListItem>
+                      {item.icon}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={item.label}
+                      primaryTypographyProps={{
+                        fontWeight: 600,
+                        fontSize: "0.9rem",
+                      }}
+                      sx={{
+                        opacity: isDrawerExpanded ? 1 : 0,
+                        display: isDrawerExpanded ? "block" : "none",
+                      }}
+                    />
+                    {isDrawerExpanded &&
+                      (isExpanded ? <ExpandLess /> : <ExpandMore />)}
+                  </ListItemButton>
                 </Tooltip>
-                <Collapse
-                  in={openGroups[item.key] && isDrawerExpanded}
-                  timeout="auto"
-                  unmountOnExit
-                >
+                <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                   <List component="div" disablePadding>
                     {item.children.map((child) => (
                       <Tooltip
@@ -470,13 +474,14 @@ const AppLayout = () => {
           </IconButton>
           <Typography
             variant="h6"
-            fontWeight="800"
+            fontWeight="900"
             sx={{
               flexGrow: 1,
               color: "white",
               letterSpacing: 1,
-              ml: 1,
+              cursor: 'pointer'
             }}
+            onClick={() => navigate("/main")}
           >
             eTPL
           </Typography>

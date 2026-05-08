@@ -116,7 +116,8 @@ const FixturePage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { user } = useAuth();
-  const isUserLevel = user?.userLevel !== "admin";
+  const isAdminOrMod = user?.userLevel === "admin" || user?.userLevel === "moderator";
+  const isUserLevel = !isAdminOrMod;
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -305,7 +306,7 @@ const FixturePage = () => {
         const isPlayed =
           params.row.homeScore != null && params.row.awayScore != null;
 
-        if (!isUserLevel) {
+        if (isAdminOrMod) {
           return (
             <Button
               size="small"
@@ -513,7 +514,7 @@ const FixturePage = () => {
       <ReportResultDialog
         open={!!reportFixture}
         fixture={reportFixture}
-        isAdmin={!isUserLevel}
+        isAdmin={isAdminOrMod}
         onClose={() => setReportFixture(null)}
         onSuccess={() => fetchFixtures(search)}
       />

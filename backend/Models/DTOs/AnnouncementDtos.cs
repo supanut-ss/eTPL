@@ -11,6 +11,7 @@ namespace eTPL.API.Models.DTOs
         public bool IsActive { get; set; }
         public string? ImageUrl { get; set; }
         public string Type { get; set; } = "News";
+        public bool IsSharedFacebook { get; set; }
     }
 
     public class CreateAnnouncementRequest

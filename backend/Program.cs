@@ -102,6 +102,7 @@ builder.Services.AddScoped<IAuctionService, AuctionService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IAiService, AiService>();
 builder.Services.AddScoped<IDiscordService, DiscordService>();
+builder.Services.AddScoped<IFacebookService, FacebookService>();
 
 
 var app = builder.Build();

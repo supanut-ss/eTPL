@@ -50,7 +50,7 @@ namespace eTPL.API.Controllers
             if (currentSeason.HasValue)
                 query = query.Where(f => f.Season == currentSeason.Value);
 
-            if (userLevel != "admin" && !string.IsNullOrEmpty(userId))
+            if (userLevel != "admin" && userLevel != "moderator" && !string.IsNullOrEmpty(userId))
                 query = query.Where(f => f.Home == userId || f.Away == userId);
 
             if (!string.IsNullOrEmpty(search))
@@ -71,7 +71,7 @@ namespace eTPL.API.Controllers
             if (currentSeason.HasValue)
                 cardQuery = cardQuery.Where(f => f.Season == currentSeason.Value);
 
-            if (userLevel != "admin" && !string.IsNullOrEmpty(userId))
+            if (userLevel != "admin" && userLevel != "moderator" && !string.IsNullOrEmpty(userId))
                 cardQuery = cardQuery.Where(f => f.Home == userId || f.Away == userId);
 
             var cardData = await cardQuery
@@ -297,8 +297,11 @@ namespace eTPL.API.Controllers
             if (fixture == null)
                 return NotFound(ApiResponse<object>.Fail("ไม่พบ Fixture นี้"));
 
-            // User-level can report only own fixtures. Admin can report any fixture.
-            if (!string.Equals(userLevel, "admin", StringComparison.OrdinalIgnoreCase))
+            // User-level can report only own fixtures. Admin/Moderator can report any fixture.
+            bool isAdminOrMod = string.Equals(userLevel, "admin", StringComparison.OrdinalIgnoreCase) || 
+                               string.Equals(userLevel, "moderator", StringComparison.OrdinalIgnoreCase);
+
+            if (!isAdminOrMod)
             {
                 var canReportOwnMatch = !string.IsNullOrWhiteSpace(userId) &&
                     (string.Equals(fixture.Home, userId, StringComparison.OrdinalIgnoreCase) ||
@@ -471,10 +474,10 @@ namespace eTPL.API.Controllers
             return Ok(ApiResponse<object>.Ok(new { message = "บันทึกผลสำเร็จ" }));
         }
 
-        // PUT api/fixtures/{fixtureId}/report  (admin only — แก้ไขผลที่บันทึกแล้ว)
+        // PUT api/fixtures/{fixtureId}/report  (admin/moderator only — แก้ไขผลที่บันทึกแล้ว)
         [HttpPut("{fixtureId}/report")]
         [HttpPost("{fixtureId}/report/edit")]
-        [Authorize(Roles = "admin")]
+        [Authorize(Roles = "admin,moderator")]
         public async Task<IActionResult> EditResult(string fixtureId, [FromBody] ReportResultDto dto)
         {
             var fixture = await _db.TbmFixtureAlls

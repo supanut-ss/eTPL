@@ -66,6 +66,8 @@ public partial class ScaffoldedDbContext : DbContext
 
     public virtual DbSet<VResultTableNew> VResultTableNews { get; set; }
 
+    public virtual DbSet<TbmSystemSetting> TbmSystemSettings { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("dbo");
@@ -852,6 +854,14 @@ public partial class ScaffoldedDbContext : DbContext
             entity.Property(e => e.TeamName)
                 .HasMaxLength(50)
                 .HasColumnName("TEAM_NAME");
+        });
+
+        modelBuilder.Entity<TbmSystemSetting>(entity =>
+        {
+            entity.HasKey(e => e.SettingKey);
+            entity.ToTable("tbm_system_setting", "dbo");
+            entity.Property(e => e.SettingKey).HasMaxLength(50);
+            entity.Property(e => e.UpdateDate).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
         });
 
         OnModelCreatingPartial(modelBuilder);

@@ -29,6 +29,7 @@ import NewsPage from "./pages/NewsPage";
 import UserListPage from "./pages/UserListPage";
 import ProfilePage from "./pages/ProfilePage";
 import UserManualPage from "./pages/UserManualPage";
+import FacebookSettingsPage from "./pages/FacebookSettingsPage";
 
 
 import LineCallbackPage from "./pages/LineCallbackPage";
@@ -164,6 +165,14 @@ function App() {
                 element={
                   <ProtectedRoute requiredRole="admin">
                     <AdminLeagueSetting />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/facebook-settings"
+                element={
+                  <ProtectedRoute requiredRole="admin">
+                    <FacebookSettingsPage />
                   </ProtectedRoute>
                 }
               />

@@ -25,13 +25,14 @@ import {
   Typography,
   CircularProgress,
 } from "@mui/material";
-import { Add, Campaign, Delete, Edit, Image, Refresh, Upload, Close } from "@mui/icons-material";
+import { Add, Campaign, Delete, Edit, Image, Refresh, Upload, Close, Facebook, Check } from "@mui/icons-material";
 import {
   createAnnouncement,
   deleteAnnouncement,
   getAnnouncements,
   toggleAnnouncement,
   updateAnnouncement,
+  shareToFacebook,
 } from "../api/announcementApi";
 import { uploadNewsImage } from "../api/uploadApi";
 import { useAuth } from "../store/AuthContext";
@@ -203,6 +204,23 @@ const AnnouncementPage = () => {
     }
   };
 
+  const handleShareFacebook = async (item) => {
+    if (item.isSharedFacebook) return;
+    
+    const confirmed = window.confirm("Share this announcement to Facebook Page?");
+    if (!confirmed) return;
+
+    try {
+      showSnackbar("Sharing to Facebook...", "info");
+      await shareToFacebook(item.id);
+      showSnackbar("Successfully shared to Facebook!");
+      await loadData();
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || "Share failed";
+      showSnackbar(msg, "error");
+    }
+  };
+
   return (
     <Box>
       {/* Header */}
@@ -333,6 +351,16 @@ const AnnouncementPage = () => {
                             </Button>
                             <Button size="small" variant="outlined" color={item.isActive ? "warning" : "success"} onClick={() => handleToggle(item)}>
                               {item.isActive ? "Hide" : "Show"}
+                            </Button>
+                            <Button 
+                              size="small" 
+                              variant="outlined" 
+                              color={item.isSharedFacebook ? "success" : "primary"} 
+                              onClick={() => handleShareFacebook(item)} 
+                              disabled={item.isSharedFacebook}
+                              startIcon={item.isSharedFacebook ? <Check fontSize="small" /> : <Facebook fontSize="small" />}
+                            >
+                              {item.isSharedFacebook ? "Shared" : "Share"}
                             </Button>
                             <Button size="small" variant="outlined" color="error" onClick={() => handleDelete(item)} startIcon={<Delete fontSize="small" />}>
                               Delete

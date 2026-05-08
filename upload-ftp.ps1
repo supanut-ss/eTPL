@@ -35,6 +35,7 @@ function New-FtpRequest {
     $request.KeepAlive = $false
     $request.Timeout = 30000
     $request.ReadWriteTimeout = 120000
+    $request.Timeout = 60000 # Increased to 60s
     return $request
 }
 
@@ -134,6 +135,52 @@ function Upload-File {
     $remoteDirectory = (Split-Path $remoteFilePath -Parent).Replace('\', '/')
     $remoteUri = "ftp://$Server/$remoteFilePath"
 
+    # Optimization: Special rules
+    $isWwwroot = $RelativePath.Replace('\', '/').Contains("wwwroot/")
+    $isClubLogo = $RelativePath.Replace('\', '/').Contains("wwwroot/_image/CLUB_LOGO/")
+    $isHashedAsset = $RelativePath.Replace('\', '/').Contains("wwwroot/assets/")
+    
+    try {
+        # Rule 1: Hashed assets (Vite) - if name exists, content is the same
+        if ($isHashedAsset) {
+            $request = New-FtpRequest -Uri $remoteUri -Method ([System.Net.WebRequestMethods+Ftp]::GetFileSize)
+            $response = $request.GetResponse()
+            $response.Close()
+            Write-Host "Skipped (Hashed Asset): $RelativePath" -ForegroundColor Gray
+            return
+        }
+
+        # Rule 2: CLUB_LOGO - skip if exists
+        if ($isClubLogo) {
+            $request = New-FtpRequest -Uri $remoteUri -Method ([System.Net.WebRequestMethods+Ftp]::GetFileSize)
+            $response = $request.GetResponse()
+            $response.Close()
+            Write-Host "Skipped (Exists): $RelativePath" -ForegroundColor Gray
+            return
+        }
+
+        # Rule 3: Other files in wwwroot (like index.html) - ALWAYS UPLOAD
+        if ($isWwwroot) {
+            # No skip logic, proceed to Ensure-RemoteDirectory
+        }
+        else {
+            # Rule 4: System files (DLLs, etc.) - use size match to prevent timeout
+            $request = New-FtpRequest -Uri $remoteUri -Method ([System.Net.WebRequestMethods+Ftp]::GetFileSize)
+            $response = $request.GetResponse()
+            $remoteSize = $response.ContentLength
+            $response.Close()
+
+            $localSize = (Get-Item $SourceFile).Length
+            if ($remoteSize -eq $localSize) {
+                Write-Host "Skipped (Size Match): $RelativePath" -ForegroundColor Gray
+                return
+            }
+        }
+    }
+    catch {
+        # File doesn't exist, proceed with upload
+    }
+
     Ensure-RemoteDirectory -DirectoryPath $remoteDirectory
 
     if ($DryRun) {
@@ -196,7 +243,11 @@ if (-not (Test-Path $resolvedLocal)) {
     throw "LocalPath not found: $LocalPath"
 }
 
-$files = Get-ChildItem -Path $resolvedLocal -Recurse -File
+$files = Get-ChildItem -Path $resolvedLocal -Recurse -File | Sort-Object { 
+    # Prioritize wwwroot first, then alphabetical
+    if ($_.FullName.Contains("wwwroot")) { 0 } else { 1 }
+}, FullName
+
 if (-not $files) {
     throw "No files found in LocalPath: $resolvedLocal"
 }
@@ -237,7 +288,7 @@ foreach ($file in $files) {
 
     if ($shouldSkip) {
         $skipped++
-        Write-Host "Skipped: $relative"
+        Write-Host "Excluded: $relative"
         continue
     }
 
@@ -245,4 +296,5 @@ foreach ($file in $files) {
     $uploaded++
 }
 
-Write-Host "Upload complete. Uploaded: $uploaded, Skipped: $skipped"
+Write-Host "Upload complete. Uploaded/Checked: $uploaded, Excluded: $skipped"
+

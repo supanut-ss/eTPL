@@ -142,6 +142,19 @@ const UserListPage = () => {
           >
             {/* Left Column: Title & Description */}
             <Box sx={{ textAlign: { xs: 'center', md: 'left' }, flex: 1 }}>
+              <Box 
+                component="img"
+                src="/logo-etpl.png"
+                alt="eTPL Logo"
+                sx={{ 
+                  height: 100, 
+                  width: 'auto', 
+                  mb: 2, 
+                  filter: 'drop-shadow(0 0 20px rgba(209, 173, 115, 0.2))',
+                  display: { xs: 'block', md: 'inline-block' },
+                  mx: { xs: 'auto', md: 0 }
+                }}
+              />
               <Typography 
                 variant="caption" 
                 sx={{ 
@@ -150,7 +163,8 @@ const UserListPage = () => {
                   letterSpacing: 4, 
                   textTransform: 'uppercase',
                   display: 'block',
-                  mb: 2
+                  mb: 2,
+                  mt: 1
                 }}
               >
                 Network Directory

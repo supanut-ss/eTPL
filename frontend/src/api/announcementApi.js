@@ -22,3 +22,6 @@ export const toggleAnnouncement = (id, isActive) =>
   axiosInstance.post(`/api/announcements/${id}/toggle`, { isActive });
 export const deleteAnnouncement = (id) =>
   axiosInstance.post(`/api/announcements/${id}/delete`);
+
+export const shareToFacebook = (id) =>
+  axiosInstance.post(`/api/announcements/${id}/share-facebook`);

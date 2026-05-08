@@ -142,9 +142,6 @@ const HeroBanner = ({ announcements }) => {
           p: { xs: 3, md: 5 },
           pt: { md: 3 }, // More space from the top of the text
           zIndex: 2,
-          background: "linear-gradient(to top, rgba(2, 6, 23, 0.6) 0%, transparent 70%)",
-          backdropFilter: "blur(6px)",
-          borderTop: "0px solid rgba(255,255,255,0.1)",
         }}
       >
         <Typography

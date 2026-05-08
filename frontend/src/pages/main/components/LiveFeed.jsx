@@ -3,6 +3,7 @@ import {
   Box,
   Typography,
   IconButton,
+  keyframes,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import {
@@ -19,6 +20,17 @@ import {
   pulse,
   pulseOutline
 } from "./shared/designTokens";
+
+const float = keyframes`
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-1px); }
+  100% { transform: translateY(0px); }
+`;
+
+const scanline = keyframes`
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+`;
 
 const LiveFeed = ({ lastFixtures, marketActivity }) => {
   const feedItems = useMemo(() => [
@@ -47,7 +59,10 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
     ...(marketActivity || [])
       .filter((m) => {
         const sub = (m.subtitle || "").toLowerCase();
-        return !(sub.includes("ออโต้") || sub.includes("อัตโนมัติ") || (sub.includes("auto") && sub.includes("สัญญา")));
+        // ซ่อนรายการ Auto และรายการที่เกี่ยวกับ Bid (ประมูล/บิด) เพราะเป็นความลับ
+        const isAuto = sub.includes("ออโต้") || sub.includes("อัตโนมัติ") || (sub.includes("auto") && sub.includes("สัญญา"));
+        const isBid = sub.includes("bid") || sub.includes("บิด") || sub.includes("ประมูล") || sub.includes("วาง bid") || sub.includes("place bid");
+        return !isAuto && !isBid;
       })
       .map((m) => ({
         type: m.type === "DEAL" ? "DEAL" : "MARKET",
@@ -81,6 +96,18 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
         overflow: "hidden",
         height: { xs: 450, md: 600 },
         boxShadow: "0 10px 25px -15px rgba(0,0,0,0.1)",
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: "200%",
+          background: "linear-gradient(to bottom, transparent, rgba(255,255,255,0.03), transparent)",
+          zIndex: 5,
+          pointerEvents: "none",
+          animation: `${scanline} 8s linear infinite`,
+        }
       }}
     >
       <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
@@ -226,6 +253,9 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
                 gap: 2,
                 position: "relative",
                 flexShrink: 0,
+                animation: `${float} 6s ease-in-out infinite`,
+                animationDelay: `${idx * 0.8}s`,
+                willChange: "transform",
                 "&:not(:last-child)::after": {
                   content: '""',
                   position: "absolute",

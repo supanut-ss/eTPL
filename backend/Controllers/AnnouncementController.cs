@@ -23,11 +23,15 @@ namespace eTPL.API.Controllers
 
         private readonly ScaffoldedDbContext _db;
         private readonly IDiscordService _discordService;
+        private readonly IFacebookService _facebookService;
+        private readonly IWebHostEnvironment _environment;
 
-        public AnnouncementController(ScaffoldedDbContext db, IDiscordService discordService)
+        public AnnouncementController(ScaffoldedDbContext db, IDiscordService discordService, IFacebookService facebookService, IWebHostEnvironment environment)
         {
             _db = db;
             _discordService = discordService;
+            _facebookService = facebookService;
+            _environment = environment;
         }
 
         [HttpGet("public")]
@@ -51,6 +55,7 @@ namespace eTPL.API.Controllers
                     CreateDate = a.CreateDate,
                     IsActive = true,
                     ImageUrl = a.ImageUrl,
+                    IsSharedFacebook = a.IsSharedFacebook ?? false,
                     Type = type
                 })
                 .ToListAsync();
@@ -78,6 +83,7 @@ namespace eTPL.API.Controllers
                     CreateDate = a.CreateDate,
                     IsActive = a.Platform == activePlat,
                     ImageUrl = a.ImageUrl,
+                    IsSharedFacebook = a.IsSharedFacebook ?? false,
                     Type = type
                 })
                 .ToListAsync();
@@ -190,6 +196,61 @@ namespace eTPL.API.Controllers
             await _db.SaveChangesAsync();
 
             return Ok(ApiResponse<string>.Ok("Announcement deleted"));
+        }
+
+        [HttpPost("{id:guid}/share-facebook")]
+        [Authorize(Roles = "admin,moderator")]
+        public async Task<IActionResult> ShareFacebook(Guid id)
+        {
+            var entity = await _db.TbmAnnouces.FirstOrDefaultAsync(a => a.Id == id);
+            if (entity == null)
+                return NotFound(ApiResponse<string>.Fail("Announcement not found"));
+
+            if (entity.IsSharedFacebook == true)
+                return BadRequest(ApiResponse<string>.Fail("This announcement has already been shared to Facebook"));
+
+            string result;
+            if (!string.IsNullOrEmpty(entity.ImageUrl))
+            {
+                // If it's a relative path (e.g., /uploads/...), we should upload the file directly
+                string imageUrl = entity.ImageUrl;
+                if (imageUrl.StartsWith("/") && !imageUrl.StartsWith("//"))
+                {
+                    // Resolve physical path
+                    var physicalPath = Path.Combine(_environment.WebRootPath, imageUrl.TrimStart('/'));
+                    if (System.IO.File.Exists(physicalPath))
+                    {
+                        using var stream = System.IO.File.OpenRead(physicalPath);
+                        result = await _facebookService.PostPhotoWithStreamAsync(entity.Announcement ?? "", stream, Path.GetFileName(physicalPath));
+                    }
+                    else
+                    {
+                        // Fallback to Production URL if file not found locally
+                        var absoluteUrl = $"https://thaipesleague.com{imageUrl}";
+                        result = await _facebookService.PostPhotoAsync(entity.Announcement ?? "", absoluteUrl);
+                    }
+                }
+                else
+                {
+                    // External URL
+                    result = await _facebookService.PostPhotoAsync(entity.Announcement ?? "", imageUrl);
+                }
+            }
+            else
+            {
+                result = await _facebookService.PostMessageAsync(entity.Announcement ?? "");
+            }
+
+            // Check if Facebook returned an error in the JSON string
+            if (result.Contains("\"error\""))
+            {
+                return BadRequest(ApiResponse<string>.Fail("Facebook API Error: " + result));
+            }
+
+            entity.IsSharedFacebook = true;
+            await _db.SaveChangesAsync();
+
+            return Ok(ApiResponse<string>.Ok(result, "Successfully shared to Facebook"));
         }
     }
 }

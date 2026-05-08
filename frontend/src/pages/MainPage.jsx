@@ -435,17 +435,31 @@ const MainPage = () => {
               alignItems: "center",
             }}
           >
-            <Typography
-              variant="caption"
-              sx={{
-                color: "rgba(15,23,42,0.56)",
-                fontWeight: 600,
-                letterSpacing: 0.5,
-              }}
-            >
-              © {new Date().getFullYear()} THAI PES LEAGUE. ALL RIGHTS
-              RESERVED.
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box 
+                component="img"
+                src="/logo-etpl.png"
+                alt="eTPL Logo"
+                sx={{ 
+                  height: 35, 
+                  width: 'auto',
+                  filter: 'grayscale(1) opacity(0.4)',
+                  transition: '0.3s',
+                  '&:hover': { filter: 'grayscale(0) opacity(0.8)' }
+                }}
+              />
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "rgba(15,23,42,0.56)",
+                  fontWeight: 600,
+                  letterSpacing: 0.5,
+                }}
+              >
+                © {new Date().getFullYear()} THAI PES LEAGUE. ALL RIGHTS
+                RESERVED.
+              </Typography>
+            </Box>
 
             <Box display="flex" gap={1}>
               {[

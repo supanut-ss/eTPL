@@ -15,4 +15,5 @@ public partial class TbmAnnouce
 
     public string? Platform { get; set; }
     public string? ImageUrl { get; set; }
+    public bool? IsSharedFacebook { get; set; }
 }
