@@ -28,6 +28,8 @@ import CupBracketPage from "./pages/CupBracketPage";
 import NewsPage from "./pages/NewsPage";
 import UserListPage from "./pages/UserListPage";
 import ProfilePage from "./pages/ProfilePage";
+import UserManualPage from "./pages/UserManualPage";
+
 
 import LineCallbackPage from "./pages/LineCallbackPage";
 
@@ -113,6 +115,8 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route path="manual" element={<UserManualPage />} />
+
 
               {/* Admin-only pages */}
               <Route

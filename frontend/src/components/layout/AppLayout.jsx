@@ -48,6 +48,7 @@ import {
   AdminPanelSettings,
   Home,
   Person,
+  MenuBook,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -61,49 +62,71 @@ const navItems = [
   { label: "Matches", path: "/matches", icon: <CalendarMonth /> },
   { label: "Cup Bracket", path: "/cup-bracket", icon: <EmojiEvents /> },
   { label: "Hall of Fame", path: "/hall-of-fame", icon: <MilitaryTech /> },
-  { label: "Members", path: "/members", icon: <People /> },
   { label: "Auction Board", path: "/auction-results", icon: <HotelClass /> },
   {
-    label: "My Fixtures",
-    path: "/fixtures",
-    icon: <SportsSoccer />,
-    loginRequired: true,
-    key: "fixtures",
-  },
-  {
-    label: "My Team",
-    path: "/my-squad",
-    icon: <EmojiEvents />,
-    loginRequired: true,
-    key: "my-squad",
-  },
-  {
-    label: "League Teams",
-    path: "/clubs-squad",
-    icon: <People />,
-    loginRequired: true,
-    key: "clubs-squad",
-  },
-  {
-    label: "Auction",
-    path: "/auction",
+    label: "Transfer",
     icon: <Gavel />,
-    loginRequired: true,
-    key: "auction",
+    key: "transfer-group",
+    children: [
+      {
+        label: "Auction",
+        path: "/auction",
+        icon: <Gavel />,
+        loginRequired: true,
+        key: "auction",
+      },
+      {
+        label: "Transfer Market",
+        path: "/transfer-board",
+        icon: <Storefront />,
+        loginRequired: true,
+        key: "transfer-board",
+      },
+      {
+        label: "Transfer Center",
+        path: "/deal-center",
+        icon: <Handshake />,
+        loginRequired: true,
+        key: "deal-center",
+      },
+    ],
   },
   {
-    label: "Transfer Market",
-    path: "/transfer-board",
-    icon: <Storefront />,
-    loginRequired: true,
-    key: "transfer-board",
+    label: "Member",
+    icon: <People />,
+    key: "member-group",
+    children: [
+      {
+        label: "My Fixtures",
+        path: "/fixtures",
+        icon: <SportsSoccer />,
+        loginRequired: true,
+        key: "fixtures",
+      },
+      {
+        label: "My Team",
+        path: "/my-squad",
+        icon: <EmojiEvents />,
+        loginRequired: true,
+        key: "my-squad",
+      },
+      {
+        label: "League Teams",
+        path: "/clubs-squad",
+        icon: <People />,
+        loginRequired: true,
+        key: "clubs-squad",
+      },
+    ],
   },
   {
-    label: "Transfer Center",
-    path: "/deal-center",
-    icon: <Handshake />,
-    loginRequired: true,
-    key: "deal-center",
+    label: "About",
+    icon: <Campaign />,
+    key: "about-group",
+    children: [
+      { label: "Members", path: "/members", icon: <People /> },
+      { label: "User Manual", path: "/manual", icon: <MenuBook /> },
+    ],
   },
   {
     label: "Admin",
@@ -159,7 +182,7 @@ const AppLayout = () => {
   const [desktopOpen, setDesktopOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState({ "admin-group": false });
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -180,6 +203,10 @@ const AppLayout = () => {
     navigate("/login");
   };
 
+  const toggleGroup = (key) => {
+    setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const filterMenuItems = (items) => {
     return items
       .filter((item) => {
@@ -189,11 +216,18 @@ const AppLayout = () => {
           return true;
         }
 
-        // Admin group is shown if user is admin OR if it has children after filtering
-        if (item.key === "admin-group") {
-          if (user?.userLevel === "admin") return true;
-          // We'll check children in the next step
-          return true;
+        // Parent groups check (Transfer, Member, About, Admin)
+        if (item.key.endsWith("-group")) {
+          // If it's the admin group, check if user is admin
+          if (item.key === "admin-group") {
+            if (user?.userLevel === "admin") return true;
+          } else {
+            // Other groups like Transfer, Member, About might always be shown
+            // or we could add specific permission checks here if needed.
+            // For now, always show the parent group if it has no loginRequired.
+            if (item.loginRequired && !user) return false;
+            return true;
+          }
         }
 
         // Restricted items (with key) check against accessibleMenus
@@ -216,7 +250,10 @@ const AppLayout = () => {
       .filter((item) => {
         // If it's a parent, only show if it has visible children OR user is admin
         if (item.children) {
-          return item.children.length > 0 || user?.userLevel === "admin";
+          if (item.key === "admin-group") {
+             return item.children.length > 0 && user?.userLevel === "admin";
+          }
+          return item.children.length > 0;
         }
         return true;
       });
@@ -269,7 +306,7 @@ const AppLayout = () => {
                 >
                   <ListItem disablePadding sx={{ display: "block" }}>
                     <ListItemButton
-                      onClick={() => setAdminOpen(!adminOpen)}
+                      onClick={() => toggleGroup(item.key)}
                       sx={{
                         minHeight: 48,
                         justifyContent: isDrawerExpanded ? "initial" : "center",
@@ -297,12 +334,12 @@ const AppLayout = () => {
                         }}
                       />
                       {isDrawerExpanded &&
-                        (adminOpen ? <ExpandLess /> : <ExpandMore />)}
+                        (openGroups[item.key] ? <ExpandLess /> : <ExpandMore />)}
                     </ListItemButton>
                   </ListItem>
                 </Tooltip>
                 <Collapse
-                  in={adminOpen && isDrawerExpanded}
+                  in={openGroups[item.key] && isDrawerExpanded}
                   timeout="auto"
                   unmountOnExit
                 >
@@ -506,10 +543,10 @@ const AppLayout = () => {
 
               {user ? (
                 <>
-                  <MenuItem onClick={() => { setAnchorEl(null); navigate("/profile"); }}>
+{/* <MenuItem onClick={() => { setAnchorEl(null); navigate("/profile"); }}>
                     <Person sx={{ mr: 1 }} fontSize="small" />
                     My Profile
-                  </MenuItem>
+                  </MenuItem> */}
                   <MenuItem onClick={handleChangePassword}>
                     <LockReset sx={{ mr: 1 }} fontSize="small" />
                     Change Password

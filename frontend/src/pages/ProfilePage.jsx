@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Box,
   Typography,
@@ -6,7 +6,6 @@ import {
   TextField,
   Button,
   Avatar,
-  Divider,
   Container,
   Grid,
   IconButton,
@@ -14,376 +13,378 @@ import {
   Alert,
   Snackbar,
   Chip,
-  Breadcrumbs,
   Link,
+  LinearProgress,
+  Tooltip,
+  Divider,
 } from "@mui/material";
 import {
   Edit,
-  PhotoCamera,
   Save,
   Lock,
   Person,
-  CheckCircle,
   Home,
   Shield,
-  Badge,
+  CheckCircle,
+  PhotoCamera,
 } from "@mui/icons-material";
 import { Link as RouterLink } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
 import { updateUser } from "../api/userApi";
-import { panelSx } from "./main/components/shared/designTokens";
+import { uploadProfileImage } from "../api/uploadApi";
+import auctionService from "../services/auctionService";
+import { getLogoUrl } from "../utils/imageUtils";
+import { API_BASE_URL } from "../api/axiosInstance";
 
 const ProfilePage = () => {
   const { user, updateUserData } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [clubs, setClubs] = useState([]);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const fileInputRef = useRef(null);
+
   const [form, setForm] = useState({
     lineName: user?.lineName || "",
     lineId: user?.lineId || "",
     linePic: user?.linePic || "",
     password: "",
+    confirmPassword: "",
   });
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  useEffect(() => {
+    auctionService.getClubs().then((res) => setClubs(res.data || res || []));
+  }, []);
+
+  const teamLogo = user?.currentTeam
+    ? (clubs || []).find(
+        (c) => (c.teamName || "").trim().toLowerCase() === (user.currentTeam || "").trim().toLowerCase()
+      )?.linePic || getLogoUrl(user.currentTeam)
+    : null;
+
+  const isLevel = (lvl) => (user?.userLevel || "").toLowerCase() === lvl.toLowerCase();
+
+  const currentAvatarSrc = previewUrl || form.linePic || user?.linePic || null;
+  const resolvedAvatar = currentAvatarSrc
+    ? currentAvatarSrc.startsWith("/") ? `${API_BASE_URL}${currentAvatarSrc}` : currentAvatarSrc
+    : null;
+
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      setSnackbar({ open: true, message: "Only JPG, PNG, or WEBP allowed.", severity: "error" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setSnackbar({ open: true, message: "Image must be under 5MB.", severity: "error" });
+      return;
+    }
+    setPreviewUrl(URL.createObjectURL(file));
+    setUploading(true);
+    setUploadProgress(0);
+    try {
+      const interval = setInterval(() => setUploadProgress((p) => Math.min(p + 25, 85)), 120);
+      const res = await uploadProfileImage(file);
+      clearInterval(interval);
+      setUploadProgress(100);
+      const url = res.data?.data?.url || res.data?.url;
+      if (url) {
+        setForm((prev) => ({ ...prev, linePic: url }));
+        setSnackbar({ open: true, message: "Photo uploaded! Click Save Changes to confirm.", severity: "success" });
+      }
+    } catch (err) {
+      setPreviewUrl(null);
+      setSnackbar({ open: true, message: "Upload failed. Please try again.", severity: "error" });
+    } finally {
+      setUploading(false);
+      setTimeout(() => setUploadProgress(0), 800);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    if (form.password && form.password !== form.confirmPassword) {
+      setSnackbar({ open: true, message: "Passwords do not match.", severity: "error" });
+      return;
+    }
+    setSaving(true);
     try {
-      const res = await updateUser(user.userId, form);
-      const updatedUser = { ...user, ...form };
+      const payload = { 
+        lineName: form.lineName, 
+        linePic: form.linePic,
+        ...(form.password ? { password: form.password } : {})
+      };
+      await updateUser(user.userId, payload);
+      const updatedUser = { ...user, ...payload };
       delete updatedUser.password;
-      
       updateUserData(updatedUser);
-      setSnackbar({
-        open: true,
-        message: "Profile updated successfully!",
-        severity: "success",
-      });
-      setForm({ ...form, password: "" });
-    } catch (error) {
-      console.error("Update failed:", error);
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || "Failed to update profile",
-        severity: "error",
-      });
+      setSnackbar({ open: true, message: "Saved successfully!", severity: "success" });
+      setForm((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+    } catch (err) {
+      setSnackbar({ open: true, message: err.response?.data?.message || "Failed to save", severity: "error" });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
+  const handleCancel = () => {
+    setForm({
+      lineName: user?.lineName || "",
+      lineId: user?.lineId || "",
+      linePic: user?.linePic || "",
+      password: "",
+      confirmPassword: "",
+    });
+    setPreviewUrl(null);
+  };
+
+  const levelColor = isLevel("admin") ? "#d1ad73" : isLevel("mod") || isLevel("moderator") ? "#818cf8" : "#60a5fa";
+  const levelBg = isLevel("admin") ? "#0f172a" : isLevel("mod") || isLevel("moderator") ? "#312e81" : "#1e40af";
+
   return (
-    <Box sx={{ minHeight: "100vh", pb: 10 }}>
-      {/* Hero Header */}
-      <Box
-        sx={{
-          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
-          color: "white",
-          pt: 10,
-          pb: 12,
-          mb: -8,
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            opacity: 0.15,
-            background: "radial-gradient(circle at 70% 50%, #6366f1, transparent 30%), radial-gradient(circle at 30% 50%, #d1ad73, transparent 30%)",
-          }}
-        />
-        <Container maxWidth="lg">
-          <Breadcrumbs 
-            sx={{ color: "rgba(255,255,255,0.5)", mb: 2 }}
-            separator={<Typography sx={{ color: "rgba(255,255,255,0.3)" }}>•</Typography>}
-          >
-            <Link component={RouterLink} to="/" sx={{ color: "inherit", display: "flex", alignItems: "center", textDecoration: "none" }}>
-              <Home sx={{ fontSize: 16, mr: 0.5 }} /> Home
-            </Link>
-            <Typography variant="caption" sx={{ color: "#d1ad73", fontWeight: 800 }}>Account Settings</Typography>
-          </Breadcrumbs>
-          <Typography variant="h2" fontWeight={1000} sx={{ letterSpacing: -2 }}>
-            Manage <span style={{ color: "#d1ad73" }}>Profile</span>
-          </Typography>
-          <Typography variant="h6" sx={{ color: "rgba(255,255,255,0.6)", fontWeight: 500, maxWidth: 600 }}>
-            Update your personal information, security settings and community presence.
-          </Typography>
-        </Container>
+    <Box sx={{ minHeight: "100vh", bgcolor: "#eef2f7", display: "flex", flexDirection: "column" }}>
+      {/* Top bar */}
+      <Box sx={{
+        px: { xs: 2, md: 5 },
+        py: 2,
+        display: "flex",
+        alignItems: "center",
+        gap: 1,
+        borderBottom: "1px solid rgba(0,0,0,0.06)",
+        bgcolor: "white",
+      }}>
+        <Link component={RouterLink} to="/" underline="none" sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "#64748b", fontSize: 13, fontWeight: 600, "&:hover": { color: "#0f172a" } }}>
+          <Home sx={{ fontSize: 15 }} /> Home
+        </Link>
+        <Typography sx={{ color: "#cbd5e1", mx: 0.5 }}>/</Typography>
+        <Typography sx={{ color: "#94a3b8", fontSize: 13, fontWeight: 600 }}>Settings</Typography>
+        <Typography sx={{ color: "#cbd5e1", mx: 0.5 }}>/</Typography>
+        <Typography sx={{ color: "#0f172a", fontSize: 13, fontWeight: 700 }}>Profile Settings</Typography>
       </Box>
 
-      <Container maxWidth="lg">
-        <Grid container spacing={4}>
-          {/* Profile Card */}
-          <Grid item xs={12} md={4}>
-            <Paper
-              elevation={0}
-              sx={{
-                ...panelSx,
-                p: 0,
-                bgcolor: "white",
-                minHeight: 400,
-                textAlign: "center",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-              }}
-            >
-              <Box sx={{ height: 100, bgcolor: "#f8fafc", position: "relative" }}>
-                <Box
-                  sx={{
-                    position: "absolute",
-                    bottom: -50,
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    zIndex: 2,
-                  }}
-                >
+      <Container maxWidth="md" sx={{ py: 5, flex: 1 }}>
+        <Paper elevation={0} sx={{ borderRadius: 4, overflow: "hidden", border: "1px solid rgba(0,0,0,0.07)", minHeight: 600 }}>
+          <Box sx={{ bgcolor: "white", p: { xs: 3, md: 6 }, display: "flex", flexDirection: "column" }}>
+            {/* Section title */}
+            <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 4 }}>
+              <Box>
+                <Typography variant="h5" fontWeight={800} color="#0f172a" sx={{ letterSpacing: -0.5 }}>
+                  Manage Profile
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  Update your personal details and account security.
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box component="form" onSubmit={handleSubmit} sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              {/* Avatar + name row */}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 3, mb: 4, pb: 4, borderBottom: "1px solid #f1f5f9" }}>
+                <Box sx={{ position: "relative", flexShrink: 0 }}>
                   <Avatar
-                    src={form.linePic || user?.linePic}
+                    src={resolvedAvatar}
                     sx={{
-                      width: 100,
-                      height: 100,
-                      border: "5px solid white",
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                      width: 90,
+                      height: 90,
+                      border: "4px solid #e2e8f0",
+                      boxShadow: "0 4px 14px rgba(0,0,0,0.1)",
                       bgcolor: "#f1f5f9",
+                      fontSize: 32,
+                      fontWeight: 900,
+                      color: "#94a3b8",
                     }}
                   >
-                    <Person sx={{ fontSize: 50, color: "#0f172a" }} />
+                    {user?.lineName?.[0] || <Person />}
                   </Avatar>
-                  <IconButton
-                    size="small"
-                    sx={{
-                      position: "absolute",
-                      bottom: 0,
-                      right: 0,
-                      bgcolor: "#d1ad73",
-                      color: "white",
-                      boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
-                      "&:hover": { bgcolor: "#b8955d" },
-                    }}
-                  >
-                    <PhotoCamera fontSize="small" />
-                  </IconButton>
-                </Box>
-              </Box>
-              
-              <Box sx={{ pt: 8, pb: 4, px: 3, flex: 1 }}>
-                <Typography variant="h5" fontWeight={1000} sx={{ color: "#0f172a", mb: 0.5 }}>
-                  {form.lineName || "Manager"}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" fontWeight={700} sx={{ mb: 2 }}>
-                  @{user?.userId}
-                </Typography>
-                
-                <Box display="flex" justifyContent="center" gap={1} mb={3}>
-                  <Chip
-                    label={user?.userLevel?.toUpperCase()}
-                    size="small"
-                    sx={{
-                      fontWeight: 900,
-                      fontSize: 10,
-                      bgcolor: user?.userLevel === "admin" ? "#0f172a" : "#f1f5f9",
-                      color: user?.userLevel === "admin" ? "#d1ad73" : "#0f172a",
-                      borderRadius: 1,
-                    }}
-                  />
-                  <Chip
-                    icon={<Shield sx={{ fontSize: "14px !important", color: "#d1ad73 !important" }} />}
-                    label="Verified"
-                    size="small"
-                    sx={{
-                      fontWeight: 900,
-                      fontSize: 10,
-                      bgcolor: "rgba(209, 173, 115, 0.1)",
-                      color: "#d1ad73",
-                      borderRadius: 1,
-                    }}
-                  />
-                </Box>
-                
-                <Divider sx={{ mb: 3, opacity: 0.5 }} />
-                
-                <Grid container spacing={2} sx={{ textAlign: "left" }}>
-                  <Grid item xs={12}>
-                    <Box display="flex" alignItems="center" gap={1.5}>
-                      <Badge sx={{ color: "#d1ad73", fontSize: 20 }} />
-                      <Box>
-                        <Typography variant="caption" color="text.disabled" fontWeight={800} sx={{ textTransform: "uppercase" }}>
-                          Team Status
-                        </Typography>
-                        <Typography variant="body2" fontWeight={800} color="#0f172a">
-                          {user?.currentTeam || "Free Agent"}
-                        </Typography>
-                      </Box>
+
+                  {uploading && (
+                    <Box sx={{ position: "absolute", inset: -3, borderRadius: "50%", border: "2px solid #e2e8f0", overflow: "hidden" }}>
+                      <LinearProgress sx={{ height: 2, position: "absolute", bottom: 0, left: 0, right: 0, bgcolor: "transparent", "& .MuiLinearProgress-bar": { bgcolor: "#2563eb" } }} variant="determinate" value={uploadProgress} />
                     </Box>
-                  </Grid>
-                </Grid>
-              </Box>
-              
-              <Box sx={{ p: 2, bgcolor: "#f8fafc", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
-                <Typography variant="caption" color="text.disabled" fontWeight={700}>
-                  ID: {user?.userId?.toUpperCase()}
-                </Typography>
-              </Box>
-            </Paper>
-          </Grid>
+                  )}
 
-          {/* Form Section */}
-          <Grid item xs={12} md={8}>
-            <Paper
-              component="form"
-              onSubmit={handleSubmit}
-              elevation={0}
-              sx={{
-                ...panelSx,
-                p: { xs: 3, md: 5 },
-                bgcolor: "white",
-                minHeight: 500,
-              }}
-            >
-              <Box display="flex" alignItems="center" gap={1.5} mb={4}>
-                <Box sx={{ p: 1, borderRadius: 2, bgcolor: "rgba(99, 102, 241, 0.1)", color: "#6366f1" }}>
-                  <Edit />
+                  <Tooltip title="Change photo">
+                    <IconButton
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      size="small"
+                      sx={{
+                        position: "absolute",
+                        bottom: 2,
+                        right: -2,
+                        width: 28,
+                        height: 28,
+                        bgcolor: "white",
+                        border: "1.5px solid #e2e8f0",
+                        boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+                        "&:hover": { bgcolor: "#f8fafc", borderColor: "#2563eb" },
+                      }}
+                    >
+                      {uploading
+                        ? <CircularProgress size={12} sx={{ color: "#2563eb" }} />
+                        : <PhotoCamera sx={{ fontSize: 14, color: "#475569" }} />
+                      }
+                    </IconButton>
+                  </Tooltip>
+                  <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} onChange={handleFileSelect} />
                 </Box>
-                <Box>
-                  <Typography variant="h6" fontWeight={1000} color="#0f172a">
-                    Account Information
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                    Update your public profile visible to other members.
-                  </Typography>
+
+                <Box sx={{ flex: 1 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}>
+                    <Typography variant="h6" fontWeight={800} color="#0f172a">
+                      {form.lineName || user?.lineName || "Manager"}
+                    </Typography>
+                    <Chip
+                      label={user?.userLevel?.toUpperCase()}
+                      size="small"
+                      sx={{ fontWeight: 800, fontSize: 9, letterSpacing: 0.5, bgcolor: levelBg, color: levelColor, borderRadius: "5px", height: 20 }}
+                    />
+                  </Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    {teamLogo
+                      ? <Box component="img" src={teamLogo} sx={{ width: 16, height: 16, objectFit: "contain" }} />
+                      : <Shield sx={{ fontSize: 14, color: "#94a3b8" }} />
+                    }
+                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                      {user?.currentTeam || "Free Agent"} · eTPL Manager
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 2, py: 1, bgcolor: "#f0fdf4", borderRadius: 2 }}>
+                  <CheckCircle sx={{ fontSize: 16, color: "#10b981" }} />
+                  <Typography variant="caption" fontWeight={700} color="#10b981">Status Active</Typography>
                 </Box>
               </Box>
 
+              {/* Form Fields */}
               <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" fontWeight={800} sx={{ mb: 1, color: "#0f172a" }}>LINE Display Name</Typography>
-                  <TextField
-                    fullWidth
-                    name="lineName"
-                    value={form.lineName}
-                    onChange={handleChange}
-                    variant="outlined"
-                    placeholder="Manager Name"
-                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, bgcolor: "#f8fafc" } }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" fontWeight={800} sx={{ mb: 1, color: "#0f172a" }}>LINE ID</Typography>
-                  <TextField
-                    fullWidth
-                    name="lineId"
-                    value={form.lineId}
-                    onChange={handleChange}
-                    variant="outlined"
-                    placeholder="line_id_123"
-                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, bgcolor: "#f8fafc" } }}
-                  />
-                </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="body2" fontWeight={800} sx={{ mb: 1, color: "#0f172a" }}>Profile Image URL</Typography>
+                  <Typography variant="subtitle2" fontWeight={800} color="#0f172a" sx={{ mb: 2 }}>
+                    Account Details
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" fontWeight={700} color="#374151" sx={{ display: "block", mb: 0.8, letterSpacing: 0.2 }}>
+                    Display Name
+                  </Typography>
                   <TextField
-                    fullWidth
-                    name="linePic"
-                    value={form.linePic}
-                    onChange={handleChange}
-                    variant="outlined"
-                    placeholder="https://example.com/avatar.jpg"
+                    fullWidth size="small" name="lineName" value={form.lineName}
+                    onChange={handleChange} placeholder="Your display name"
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, bgcolor: "white" } }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" fontWeight={700} color="#374151" sx={{ display: "block", mb: 0.8, letterSpacing: 0.2 }}>
+                    User ID
+                  </Typography>
+                  <TextField
+                    fullWidth size="small" value={user?.userId || ""}
+                    disabled
                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, bgcolor: "#f8fafc" } }}
-                    helperText="Recommended size: 200x200px"
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" fontWeight={700} color="#374151" sx={{ display: "block", mb: 0.8, letterSpacing: 0.2 }}>
+                    Current Team
+                  </Typography>
+                  <TextField
+                    fullWidth size="small" value={user?.currentTeam || "Free Agent"}
+                    disabled
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, bgcolor: "#f8fafc" } }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" fontWeight={700} color="#374151" sx={{ display: "block", mb: 0.8, letterSpacing: 0.2 }}>
+                    Member Level
+                  </Typography>
+                  <TextField
+                    fullWidth size="small" value={user?.userLevel || ""}
+                    disabled
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, bgcolor: "#f8fafc" } }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sx={{ mt: 2 }}>
+                  <Divider sx={{ mb: 3 }} />
+                  <Typography variant="subtitle2" fontWeight={800} color="#0f172a" sx={{ mb: 2 }}>
+                    Security Settings
+                  </Typography>
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" fontWeight={700} color="#374151" sx={{ display: "block", mb: 0.8, letterSpacing: 0.2 }}>
+                    New Password
+                  </Typography>
+                  <TextField
+                    fullWidth size="small" name="password" type="password"
+                    value={form.password} onChange={handleChange} placeholder="••••••••"
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" fontWeight={700} color="#374151" sx={{ display: "block", mb: 0.8, letterSpacing: 0.2 }}>
+                    Confirm Password
+                  </Typography>
+                  <TextField
+                    fullWidth size="small" name="confirmPassword" type="password"
+                    value={form.confirmPassword} onChange={handleChange} placeholder="••••••••"
+                    error={form.confirmPassword && form.password !== form.confirmPassword}
+                    helperText={form.confirmPassword && form.password !== form.confirmPassword ? "Passwords do not match" : ""}
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
                   />
                 </Grid>
               </Grid>
 
-              <Box sx={{ my: 5 }}>
-                <Divider />
-              </Box>
-
-              <Box display="flex" alignItems="center" gap={1.5} mb={4}>
-                <Box sx={{ p: 1, borderRadius: 2, bgcolor: "rgba(244, 63, 94, 0.1)", color: "#f43f5e" }}>
-                  <Lock />
-                </Box>
-                <Box>
-                  <Typography variant="h6" fontWeight={1000} color="#0f172a">
-                    Security
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                    Update your password to keep your account secure.
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
-                  <Typography variant="body2" fontWeight={800} sx={{ mb: 1, color: "#0f172a" }}>New Password</Typography>
-                  <TextField
-                    fullWidth
-                    name="password"
-                    type="password"
-                    value={form.password}
-                    onChange={handleChange}
-                    variant="outlined"
-                    placeholder="••••••••"
-                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2, bgcolor: "#f8fafc" } }}
-                    helperText="Leave empty to keep your current password."
-                  />
-                </Grid>
-              </Grid>
-
-              <Box sx={{ mt: 6, display: "flex", justifyContent: "flex-end" }}>
+              {/* Actions */}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 6, pt: 4, borderTop: "1px solid #f1f5f9" }}>
                 <Button
                   type="submit"
                   variant="contained"
-                  disabled={loading}
-                  startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save />}
+                  disabled={saving}
+                  startIcon={saving ? <CircularProgress size={16} color="inherit" /> : null}
                   sx={{
-                    px: 6,
-                    py: 1.8,
-                    borderRadius: 3,
-                    fontWeight: 900,
-                    textTransform: "uppercase",
-                    letterSpacing: 1,
-                    background: "linear-gradient(90deg, #0f172a 0%, #1e293b 100%)",
-                    boxShadow: "0 10px 20px rgba(15, 23, 42, 0.2)",
-                    "&:hover": {
-                      background: "linear-gradient(90deg, #1e293b 0%, #334155 100%)",
-                    }
+                    px: 4, py: 1.1, borderRadius: 2.5, fontWeight: 700, textTransform: "none", fontSize: 14,
+                    bgcolor: "#2563eb", "&:hover": { bgcolor: "#1d4ed8" },
+                    boxShadow: "0 4px 14px rgba(37,99,235,0.35)",
                   }}
                 >
-                  {loading ? "Updating..." : "Update Settings"}
+                  {saving ? "Saving..." : "Save Changes"}
+                </Button>
+                <Button
+                  onClick={handleCancel}
+                  variant="text"
+                  sx={{ px: 2, py: 1.1, borderRadius: 2.5, fontWeight: 600, textTransform: "none", fontSize: 14, color: "#64748b", "&:hover": { bgcolor: "#f8fafc" } }}
+                >
+                  Cancel
                 </Button>
               </Box>
-            </Paper>
-          </Grid>
-        </Grid>
+            </Box>
+          </Box>
+        </Paper>
       </Container>
 
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert 
-          severity={snackbar.severity} 
-          variant="filled" 
-          sx={{ 
-            width: "100%", 
-            borderRadius: 2,
-            fontWeight: 800,
-            boxShadow: "0 10px 30px rgba(0,0,0,0.15)"
-          }}
+        <Alert
+          severity={snackbar.severity}
+          variant="filled"
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          sx={{ borderRadius: 2.5, fontWeight: 700, boxShadow: "0 6px 20px rgba(0,0,0,0.15)" }}
         >
           {snackbar.message}
         </Alert>

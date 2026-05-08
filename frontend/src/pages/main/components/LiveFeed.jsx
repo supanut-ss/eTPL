@@ -79,7 +79,7 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
         border: `1px solid ${DESIGN_TOKENS.border}`,
         position: "relative",
         overflow: "hidden",
-        height: { md: 600 },
+        height: { xs: 450, md: 600 },
         boxShadow: "0 10px 25px -15px rgba(0,0,0,0.1)",
       }}
     >
