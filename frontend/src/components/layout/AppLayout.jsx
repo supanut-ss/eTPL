@@ -50,6 +50,9 @@ import {
   Person,
   MenuBook,
   Facebook,
+  Shield,
+  Groups,
+  Diversity3,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -93,8 +96,8 @@ const navItems = [
     ],
   },
   {
-    label: "Member",
-    icon: <People />,
+    label: "My Club",
+    icon: <Shield />,
     key: "member-group",
     children: [
       {
@@ -105,16 +108,16 @@ const navItems = [
         key: "fixtures",
       },
       {
-        label: "My Team",
+        label: "My Squad",
         path: "/my-squad",
-        icon: <EmojiEvents />,
+        icon: <Groups />,
         loginRequired: true,
         key: "my-squad",
       },
       {
         label: "League Teams",
         path: "/clubs-squad",
-        icon: <People />,
+        icon: <Diversity3 />,
         loginRequired: true,
         key: "clubs-squad",
       },
@@ -225,13 +228,11 @@ const AppLayout = () => {
 
         // Parent groups check (Transfer, Member, About, Admin)
         if (item.key.endsWith("-group")) {
-          // If it's the admin group, check if user is admin
+          // If it's the admin group, check if user is admin or moderator
           if (item.key === "admin-group") {
-            if (user?.userLevel === "admin") return true;
+            if (user?.userLevel === "admin" || user?.userLevel === "moderator") return true;
           } else {
             // Other groups like Transfer, Member, About might always be shown
-            // or we could add specific permission checks here if needed.
-            // For now, always show the parent group if it has no loginRequired.
             if (item.loginRequired && !user) return false;
             return true;
           }
@@ -258,7 +259,7 @@ const AppLayout = () => {
         // If it's a parent, only show if it has visible children OR user is admin
         if (item.children) {
           if (item.key === "admin-group") {
-             return item.children.length > 0 && user?.userLevel === "admin";
+             return item.children.length > 0;
           }
           return item.children.length > 0;
         }

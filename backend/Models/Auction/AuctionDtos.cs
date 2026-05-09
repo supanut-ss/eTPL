@@ -58,6 +58,7 @@ namespace eTPL.API.Models.Auction
         public string? MarketStartDate { get; set; }
         public string? MarketEndDate { get; set; }
         public int NormalBidDurationMinutes { get; set; }
+        public int FinalBidDurationMinutes { get; set; }
     }
 
     public class AuctionSquadDto
@@ -115,6 +116,8 @@ namespace eTPL.API.Models.Auction
         public int? SquadId { get; set; } // ID in squad table (if owned)
         public int? OwnedByUserId { get; set; } // ID of owner
         public int? PricePaid { get; set; } // Latest price paid
+        [System.Text.Json.Serialization.JsonPropertyName("isRestricted")]
+        public bool IsRestricted { get; set; } = false;
 
         public string? Grade { get; set; }
         public string? League { get; set; }

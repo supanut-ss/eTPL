@@ -120,17 +120,28 @@ const MainPage = () => {
             const uName = tx.userName || tx.UserName || tx.highestBidderName || "ระบบ";
             const rawDesc = tx.description || tx.Description || "ทำรายการสำเร็จ";
             const txDate = tx.createdAt || tx.CreatedAt || tx.createDate || tx.CreateDate || tx.date || tx.Date;
+            const txType = tx.type || tx.Type || "";
             
+            // HIDE sensitive/secret items from Live Feed
+            const secretTypes = ["AUCTION_BID", "AUCTION_REFUND", "CONTRACT_RENEWAL", "CONTRACT_RENEWAL_AUTO", "BONUS"];
+            if (secretTypes.includes(txType)) return;
+
             if (txDate) {
+              const lowerDesc = rawDesc.toLowerCase();
+              const isDeal = txType.includes("WIN") || txType.includes("BUY") || txType.includes("SELL") || 
+                             lowerDesc.includes("won") || lowerDesc.includes("ชนะ") || lowerDesc.includes("signed") || lowerDesc.includes("ปิดดีล");
+
               combined.push({
                 id: `tx-${tx.transactionId || tx.id || Math.random()}`,
-                type: (rawDesc.toLowerCase().includes("won") || rawDesc.toLowerCase().includes("ชนะ") || rawDesc.toLowerCase().includes("signed") || rawDesc.toLowerCase().includes("ปิดดีล")) ? "DEAL" : "MARKET",
+                type: isDeal ? "DEAL" : "MARKET",
                 title: pName,
                 subtitle: `${uName} ${rawDesc}`,
                 amount: tx.amount || tx.Amount || tx.currentPrice || tx.CurrentPrice || 0,
                 date: txDate,
                 player: pName,
                 manager: uName,
+                isListing: false,
+                txType: txType,
               });
             }
           });
@@ -151,6 +162,7 @@ const MainPage = () => {
                 date: pDate,
                 player: pName,
                 manager: owner,
+                isListing: true,
               });
             }
           });

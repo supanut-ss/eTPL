@@ -62,7 +62,7 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
         // ซ่อนรายการ Auto และรายการที่เกี่ยวกับ Bid (ประมูล/บิด) เพราะเป็นความลับ
         const isAuto = sub.includes("ออโต้") || sub.includes("อัตโนมัติ") || (sub.includes("auto") && sub.includes("สัญญา"));
         const isBid = sub.includes("bid") || sub.includes("บิด") || sub.includes("ประมูล") || sub.includes("วาง bid") || sub.includes("place bid");
-        return !isAuto && !isBid;
+        return !isAuto && (m.type === "DEAL" || !isBid);
       })
       .map((m) => ({
         type: m.type === "DEAL" ? "DEAL" : "MARKET",
@@ -71,7 +71,12 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
         date: m.date,
         data: m,
         msg: m.subtitle || "Market activity",
-        detail: m.type === "DEAL" ? (m.amount ? `${Number(m.amount).toLocaleString()} TP` : null) : [m.title, m.amount ? `${Number(m.amount).toLocaleString()} TP` : null].filter(Boolean).join(" • "),
+        isListing: m.isListing,
+        detail: (() => {
+          if (m.txType?.includes("RELEASE")) return m.title;
+          if (m.type === "DEAL") return m.amount ? `${Number(m.amount).toLocaleString()} TP` : null;
+          return [m.title, m.amount ? `${Number(m.amount).toLocaleString()} TP` : null].filter(Boolean).join(" • ");
+        })(),
         time: m.date ? new Date(m.date).toLocaleString("en-GB", { 
           day: "2-digit", 
           month: "short", 
@@ -216,7 +221,11 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
               `${manager} เปิดรับทุกข้อเสนอสำหรับ ${player} ในเวลานี้`,
               `ข่าววงใน! ${manager} เตรียมปล่อย ${player} เพื่อสมทบทุนเสริมทัพ`
             ];
-            displayMsg = templates[(idx * 3) % 20];
+            // If it's an actual listing from transfer board, use templates. 
+            // If it's a transaction (like release), use the original message.
+            // Filter out Season info for display
+            const cleanMsg = (feed.msg || "").replace(/\s*\(Season\s*\d+\)\s*/gi, " ").trim();
+            displayMsg = feed.isListing ? templates[(idx * 3) % 20] : cleanMsg;
           } else if (feed.type === "DEAL") {
             const manager = feed.data?.manager || "สโมสร";
             const player = feed.data?.player || "นักเตะ";

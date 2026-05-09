@@ -444,7 +444,11 @@ const ClubSquadPage = () => {
     if (!quota) return { label: "-", ...GRADE_STYLE_MAP["DEFAULT"] };
     const name = quota.gradeName ?? quota.GradeName;
     const style = GRADE_STYLE_MAP[name] || GRADE_STYLE_MAP["DEFAULT"];
-    return { label: name, ...style };
+    return { 
+      label: name, 
+      maxSeasons: quota.maxSeasonsPerTeam ?? quota.MaxSeasonsPerTeam ?? 0,
+      ...style 
+    };
   };
 
   const gradeSummary = (squadData?.quotas?.length > 0 ? squadData.quotas : quotas).map((q) => {
@@ -486,9 +490,11 @@ const ClubSquadPage = () => {
       {/* Header */}
       <Box sx={{ 
         display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
         justifyContent: 'space-between', 
-        alignItems: 'center', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
         mb: 4,
+        gap: { xs: 3, sm: 0 },
         px: { xs: 1, sm: 0 }
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
@@ -500,12 +506,23 @@ const ClubSquadPage = () => {
         </Box>
 
 
-        <Box display="flex" gap={2} sx={{ width: isMobile ? "100%" : "auto" }}>
+        <Box 
+          display="flex" 
+          flexDirection={isMobile ? "column" : "row"}
+          gap={2} 
+          sx={{ width: isMobile ? "100%" : "auto" }}
+        >
           <Button
             variant="outlined"
             startIcon={<Shield />}
+            fullWidth={isMobile}
             onClick={handleOpenQuotaModal}
-            sx={{ borderRadius: '12px', textTransform: 'none', fontWeight: 600 }}
+            sx={{ 
+              borderRadius: '12px', 
+              textTransform: 'none', 
+              fontWeight: 600,
+              height: 40
+            }}
           >
             Quota Summary
           </Button>
@@ -658,11 +675,12 @@ const ClubSquadPage = () => {
             <Table>
               <TableHead sx={{ bgcolor: "rgba(0,0,0,0.02)" }}>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 1000 }}>Grade</TableCell>
-                  <TableCell sx={{ fontWeight: 1000 }}>Player Information</TableCell>
+                  <TableCell sx={{ fontWeight: 1000, pl: { xs: 1.5, sm: 2.5 } }}>G</TableCell>
+                  <TableCell sx={{ fontWeight: 1000 }}>PLAYER</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 1000 }}>OVR</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 1000 }}>Value</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 1000 }}>Action</TableCell>
+                  {!isMobile && <TableCell align="center" sx={{ fontWeight: 1000 }}>VALUE</TableCell>}
+                  <TableCell align="center" sx={{ fontWeight: 1000 }}>CONTRACT</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 1000, pr: { xs: 1.5, sm: 2.5 } }}>ACTION</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -689,8 +707,8 @@ const ClubSquadPage = () => {
                         );
                       })()}
                     </TableCell>
-                    <TableCell>
-                      <Box display="flex" alignItems="center" gap={2}>
+                    <TableCell sx={{ pl: { xs: 1, sm: 3 } }}>
+                      <Box display="flex" alignItems="center" gap={{ xs: 1, sm: 2 }}>
                         <Box
                           component="a"
                           href={getPesdbInfoUrl(player.playerId)}
@@ -709,33 +727,85 @@ const ClubSquadPage = () => {
                             fontWeight={1000}
                             sx={{
                               color: "#1e293b",
-                              fontSize: "1rem",
+                              fontSize: { xs: "0.875rem", sm: "1rem" },
                               textDecoration: "none",
                               display: "block",
+                              lineHeight: 1.2,
+                              mb: 0.5,
                               "&:hover": { color: "primary.main", textDecoration: "underline" },
                             }}
                           >
                             {player.playerName}
                           </Typography>
                           <Box display="flex" alignItems="center" gap={1}>
-                            <Typography variant="caption" fontWeight={800} color="text.secondary" sx={{ textTransform: "uppercase" }}>
+                            <Typography variant="caption" fontWeight={800} color="text.secondary" sx={{ textTransform: "uppercase", fontSize: { xs: "0.65rem", sm: "0.75rem" } }}>
                               {player.position}
                             </Typography>
-                            <Typography variant="caption" color="text.disabled">•</Typography>
-                            <Typography variant="caption" fontWeight={700} color="text.secondary">
-                              {player.playingStyle || "Standard"}
-                            </Typography>
+                            {!isMobile && (
+                              <>
+                                <Typography variant="caption" color="text.disabled">•</Typography>
+                                <Typography variant="caption" fontWeight={700} color="text.secondary">
+                                  {player.playingStyle || "Standard"}
+                                </Typography>
+                              </>
+                            )}
                           </Box>
-                          <Typography variant="caption" color="text.disabled" sx={{ display: "block", mt: 0.2 }}>
-                            {player.teamName} {player.league ? `(${player.league})` : ""}
-                          </Typography>
+                          {!isMobile && (
+                            <Typography variant="caption" color="text.disabled" sx={{ display: "block", mt: 0.2 }}>
+                              {player.teamName} {player.league ? `(${player.league})` : ""}
+                            </Typography>
+                          )}
                         </Box>
                       </Box>
                     </TableCell>
-                    <TableCell align="center"><Typography fontWeight={1000} color="primary">{player.playerOvr}</Typography></TableCell>
-                    <TableCell align="center"><Typography fontWeight={1000}>{player.pricePaid?.toLocaleString()} TP</Typography></TableCell>
-                    <TableCell align="right">
-                      <Button variant="contained" size="small" startIcon={<LocalOffer />} onClick={() => handleOpenNegotiate(player)}>Offer</Button>
+                    <TableCell align="center">
+                      <Typography fontWeight={1000} color="primary" sx={{ fontSize: { xs: "0.9rem", sm: "1rem" } }}>
+                        {player.playerOvr}
+                      </Typography>
+                    </TableCell>
+                    {!isMobile && (
+                      <TableCell align="center">
+                        <Typography fontWeight={1000}>{player.pricePaid?.toLocaleString()} TP</Typography>
+                      </TableCell>
+                    )}
+                    <TableCell align="center">
+                      <Typography 
+                        fontWeight={1000} 
+                        sx={{ fontSize: { xs: "0.85rem", sm: "1rem" } }}
+                        color={(() => {
+                          const grade = getDynamicGrade(player.playerOvr);
+                          const isLastSeason = player.seasonsWithTeam >= grade.maxSeasons;
+                          return isLastSeason ? "error.main" : "text.primary";
+                        })()}>
+                        {player.seasonsWithTeam}/{getDynamicGrade(player.playerOvr).maxSeasons}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right" sx={{ pr: { xs: 1, sm: 3 } }}>
+                      <IconButton 
+                        color="primary" 
+                        size="small" 
+                        onClick={() => handleOpenNegotiate(player)}
+                        sx={{ 
+                          bgcolor: alpha(theme.palette.primary.main, 0.1),
+                          display: { xs: 'flex', sm: 'none' }
+                        }}
+                      >
+                        <LocalOffer fontSize="small" />
+                      </IconButton>
+                      <Button 
+                        variant="contained" 
+                        size="small" 
+                        startIcon={<LocalOffer />} 
+                        onClick={() => handleOpenNegotiate(player)}
+                        sx={{ 
+                          display: { xs: 'none', sm: 'inline-flex' },
+                          borderRadius: '8px',
+                          textTransform: 'none',
+                          fontWeight: 700
+                        }}
+                      >
+                        Offer
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -760,7 +830,14 @@ const ClubSquadPage = () => {
                     },
                   }}
                 >
-                  <Box sx={{ position: "relative" }}>
+                  <Box sx={{ 
+                    position: "relative", 
+                    display: "flex", 
+                    flexDirection: "column", 
+                    height: isMobile ? "100%" : "auto",
+                    maxHeight: isMobile ? "100vh" : "90vh",
+                    overflow: "hidden"
+                  }}>
                     {(() => {
                       const isTransfer = offerType === "Transfer";
                       const themeColor = isTransfer ? "#2563eb" : "#f97316";
@@ -835,18 +912,24 @@ const ClubSquadPage = () => {
                               zIndex: 1,
                               px: { xs: 2, sm: 4 },
                               pt: { xs: 1, sm: 3 },
-                              pb: { xs: 10, sm: 5 },
+                              pb: { xs: 12, sm: 5 },
                               overflowY: "auto",
+                              flex: 1,
+                              display: "flex",
+                              flexDirection: "column"
                             }}
                           >
-                            {selectedPlayer && (
-                              <Grid
-                                container
-                                spacing={{ xs: 2, sm: 2 }}
-                                alignItems="center"
-                                justifyContent="center"
-                                sx={{ mt: { xs: 0, sm: 1 } }}
-                              >
+                            {selectedPlayer && (() => {
+                              const grade = getDynamicGrade(selectedPlayer.playerOvr);
+                              const isLastSeason = selectedPlayer.seasonsWithTeam >= grade.maxSeasons;
+                              return (
+                                <Grid
+                                  container
+                                  spacing={{ xs: 2, sm: 2 }}
+                                  alignItems="center"
+                                  justifyContent="center"
+                                  sx={{ mt: { xs: 0, sm: 1 } }}
+                                >
                                 {/* Left Column: Player Card Visual */}
                                 <Grid item xs={12} sm={5.5}>
                                   <Box
@@ -922,6 +1005,21 @@ const ClubSquadPage = () => {
                                           }}
                                         >
                                           {selectedPlayer.playerOvr} OVR
+                                        </Box>
+                                        <Box
+                                          sx={{
+                                            mt: 1,
+                                            px: 2,
+                                            py: 0.5,
+                                            borderRadius: 2,
+                                            bgcolor: isLastSeason ? "rgba(239, 68, 68, 0.1)" : "#f1f5f9",
+                                            fontWeight: 1000,
+                                            color: isLastSeason ? "#ef4444" : "#1e293b",
+                                            fontSize: "0.75rem",
+                                            border: isLastSeason ? "1px solid rgba(239, 68, 68, 0.2)" : "none"
+                                          }}
+                                        >
+                                          Contract: {selectedPlayer.seasonsWithTeam} / {grade.maxSeasons} Seasons
                                         </Box>
                                       </Box>
                                     </Box>
@@ -1084,7 +1182,8 @@ const ClubSquadPage = () => {
                                   </Paper>
                                 </Grid>
                               </Grid>
-                            )}
+                            );
+                          })()}
                           </DialogContent>
                         </>
                       );

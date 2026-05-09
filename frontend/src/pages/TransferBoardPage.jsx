@@ -288,6 +288,13 @@ const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results,
                                             <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: "bold" }}>
                                                 OVR: {p.playerOvr}
                                             </Typography>
+                                            {p.isRestricted && (
+                                                <Chip 
+                                                    label="RESTRICTED (BUY BACK)" 
+                                                    size="small" 
+                                                    sx={{ mt: 0.5, height: 18, bgcolor: '#FFEBEE', color: '#B71C1C', fontWeight: 800, fontSize: '0.55rem', border: '1px solid #FFCDD2' }} 
+                                                />
+                                            )}
                                         </Box>
                                         <Box sx={{ textAlign: "right", ml: 1 }}>
                                             <Typography variant="h5" sx={{ color: style.color, fontWeight: "900", lineHeight: 1 }}>
@@ -303,7 +310,7 @@ const PlayerSearchDialog = ({ open, onClose, searchTerm, setSearchTerm, results,
                                         size="small" 
                                         variant="contained" 
                                         fullWidth
-                                        disabled={isOwner}
+                                        disabled={isOwner || p.isRestricted}
                                         onClick={() => onSelect(p)}
                                         startIcon={<LocalOffer fontSize="small" />}
                                         sx={{ 

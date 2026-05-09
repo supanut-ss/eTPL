@@ -457,6 +457,29 @@ namespace eTPL.API.Services
                 .Where(b => b.DbStatus == "Sold" && playerIds.Contains(b.PlayerId))
                 .ToListAsync();
 
+            // Fetch restrictions for the user
+            HashSet<int> restrictedPlayerIds = new();
+            if (excludeUserId.HasValue)
+            {
+                var currentSeasonObj = await _scaffoldedContext.TbmCurrentSeasons.FirstOrDefaultAsync();
+                if (currentSeasonObj != null)
+                {
+                    int currentSeasonNum = currentSeasonObj.Season ?? 1;
+                    string targetTag = $"(Season {currentSeasonNum - 1})";
+                    var restrictedTypes = new[] { "AUTO_RELEASE_EXPIRED", "FREE_RELEASE", "MARKET_SELL", "TRANSFER_SELL" };
+                    
+                    var restrictedList = await _context.AuctionTransactions
+                        .Where(t => t.UserId == excludeUserId.Value && 
+                                   t.RelatedPlayerId.HasValue && 
+                                   restrictedTypes.Contains(t.Type) && 
+                                   t.Description.Contains(targetTag))
+                        .Select(t => t.RelatedPlayerId!.Value)
+                        .ToListAsync();
+                    
+                    restrictedPlayerIds = restrictedList.ToHashSet();
+                }
+            }
+
             var now = DateTime.UtcNow;
             var allGrades = await _context.AuctionGradeQuotas.ToListAsync();
 
@@ -479,7 +502,8 @@ namespace eTPL.API.Services
                     Nationality = p.Nationality,
                     Height = p.Height,
                     Weight = p.Weight,
-                    Age = p.Age
+                    Age = p.Age,
+                    IsRestricted = restrictedPlayerIds.Contains(p.IdPlayer)
                 };
                 // Check if in squad (Won)
                 // If the player is loaned, there are two entries. Prioritize the one that is currently "Active" (borrower).
@@ -559,6 +583,24 @@ namespace eTPL.API.Services
             int startPrice = player.PlayerOvr + 1;
 
             await ValidateBidEligibility(initiatorUserId, startPrice, player.PlayerOvr);
+            
+            // Market Close Validation: Total duration must fit within daily market hours
+            var thaiNow = GetThaiTime();
+            var totalDurationMins = (settings?.NormalBidDurationMinutes ?? 1200) + (settings?.FinalBidDurationMinutes ?? 240);
+            var estimatedEnd = thaiNow.AddMinutes(totalDurationMins);
+            if (estimatedEnd.TimeOfDay > settings?.DailyBidEndTime && estimatedEnd.TimeOfDay < settings?.DailyBidStartTime)
+            {
+                 // This condition covers most cases where end time is after close but before next day open.
+                 // If the end time actually wraps around past start time, it's definitely too long.
+                 var endStr = estimatedEnd.ToString(@"HH\:mm");
+                 throw new Exception($"ไม่สามารถเริ่มประมูลได้เนื่องจากเวลาจบ (รวม Final Bid) คือ {endStr} ซึ่งเกินเวลาปิดตลาด ({settings?.DailyBidEndTime:hh\\:mm})");
+            }
+            else if (estimatedEnd.TimeOfDay > settings?.DailyBidEndTime || estimatedEnd.Date > thaiNow.Date)
+            {
+                 // Simpler check if same-day logic is expected
+                 var endStr = estimatedEnd.ToString(@"HH\:mm");
+                 throw new Exception($"ไม่สามารถเริ่มประมูลได้เนื่องจากเวลาจบ (รวม Final Bid) คือ {endStr} ซึ่งเกินเวลาปิดตลาด ({settings?.DailyBidEndTime:hh\\:mm})");
+            }
 
             var auction = new AuctionBoard
             {
@@ -958,12 +1000,15 @@ namespace eTPL.API.Services
                 auction.HighestBidderId = winnerId;
                 auction.CurrentPrice = winningPrice;
 
+                var currentSeasonObj = await _scaffoldedContext.TbmCurrentSeasons.FirstOrDefaultAsync();
+                int currentSeasonNum = currentSeasonObj?.Season ?? 1;
+
                 var winnerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == winnerId.Value);
                 if (winnerWallet != null)
                 {
                     winnerWallet.ReservedBalance -= winningPrice;
                     await RecordTransactionAsync(winnerId.Value, winningPrice, "DEBIT", "AUCTION_WIN",
-                        $"ชนะประมูลได้ {playerName2} ราคา {winningPrice} TP",
+                        $"ชนะประมูลได้ {playerName2} ราคา {winningPrice} TP (Season {currentSeasonNum})",
                         winnerWallet.AvailableBalance, auctionId, auction.PlayerId);
                 }
 
@@ -1071,6 +1116,7 @@ namespace eTPL.API.Services
                 MarketStartDate = settings.AuctionStartDate?.ToString("dd/MM") ?? "N/A",
                 MarketEndDate = settings.AuctionEndDate?.ToString("dd/MM") ?? "N/A",
                 NormalBidDurationMinutes = settings.NormalBidDurationMinutes,
+                FinalBidDurationMinutes = settings.FinalBidDurationMinutes,
                 Squad = squad.Select(s => new AuctionSquadDto
                 {
                     SquadId = s.SquadId,
@@ -1283,9 +1329,12 @@ namespace eTPL.API.Services
 
                 _context.AuctionSquads.Remove(squad);
 
+                var currentSeasonObj = await _scaffoldedContext.TbmCurrentSeasons.FirstOrDefaultAsync();
+                int currentSeasonNum = currentSeasonObj?.Season ?? 1;
+
                 await RecordTransactionAsync(
                     userId, request.RefundAmount, "CREDIT", "FREE_RELEASE",
-                    $"ปล่อย {playerName} (คืน {request.RefundAmount} TP)",
+                    $"ปล่อย {playerName} (Season {currentSeasonNum})",
                     wallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
 
                 await _context.SaveChangesAsync();
@@ -1324,9 +1373,12 @@ namespace eTPL.API.Services
                 wallet.AvailableBalance -= request.Cost;
                 squad.SeasonsWithTeam += request.AddSeasons;
 
+                var currentSeasonObj = await _scaffoldedContext.TbmCurrentSeasons.FirstOrDefaultAsync();
+                int currentSeasonNum = currentSeasonObj?.Season ?? 1;
+
                 await RecordTransactionAsync(
                     userId, request.Cost, "DEBIT", "CONTRACT_RENEWAL",
-                    $"ต่อสัญญา {squad.Player?.PlayerName ?? ""} เพิ่ม {request.AddSeasons} ฤดูกาล",
+                    $"ต่อสัญญา {squad.Player?.PlayerName ?? ""} เพิ่ม {request.AddSeasons} ฤดูกาล (Season {currentSeasonNum})",
                     wallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
 
                 await _context.SaveChangesAsync();
@@ -1460,14 +1512,17 @@ namespace eTPL.API.Services
                 squad.LoanExpiry = null;
                 squad.Status = "Active";
 
+                var currentSeasonObj = await _scaffoldedContext.TbmCurrentSeasons.FirstOrDefaultAsync();
+                int currentSeasonNum = currentSeasonObj?.Season ?? 1;
+
                 await RecordTransactionAsync(
                     request.BuyerUserId, request.TransferFee, "DEBIT", "TRANSFER_BUY",
-                    $"ซื้อ {playerName} ราคา {request.TransferFee} TP",
+                    $"ซื้อ {playerName} ราคา {request.TransferFee} TP (Season {currentSeasonNum})",
                     buyerWallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
 
                 await RecordTransactionAsync(
                     sellerUserId, request.TransferFee, "CREDIT", "TRANSFER_SELL",
-                    $"ขาย {playerName} ราคา {request.TransferFee} TP",
+                    $"ขาย {playerName} ราคา {request.TransferFee} TP (Season {currentSeasonNum})",
                     sellerWallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
 
                 await _context.SaveChangesAsync();
@@ -1770,8 +1825,11 @@ namespace eTPL.API.Services
                     offer.Squad.ListingPrice = null;
                     offer.Squad.SeasonsWithTeam = 1; // Reset seasons
 
-                    await RecordTransactionAsync(offer.FromUserId, offer.Amount, "DEBIT", "MARKET_BUY", $"ซื้อ {playerName} จากตลาด (Private) {offer.Amount} TP", buyerWallet.AvailableBalance, null, offer.Squad.PlayerId);
-                    await RecordTransactionAsync(sellerUserId, offer.Amount, "CREDIT", "MARKET_SELL", $"ขาย {playerName} {offer.Amount} TP", sellerWallet.AvailableBalance, null, offer.Squad.PlayerId);
+                    var currentSeasonObj = await _scaffoldedContext.TbmCurrentSeasons.FirstOrDefaultAsync();
+                    int currentSeasonNum = currentSeasonObj?.Season ?? 1;
+
+                    await RecordTransactionAsync(offer.FromUserId, offer.Amount, "DEBIT", "MARKET_BUY", $"ซื้อ {playerName} จากตลาด (Private) {offer.Amount} TP (Season {currentSeasonNum})", buyerWallet.AvailableBalance, null, offer.Squad.PlayerId);
+                    await RecordTransactionAsync(sellerUserId, offer.Amount, "CREDIT", "MARKET_SELL", $"ขาย {playerName} {offer.Amount} TP (Season {currentSeasonNum})", sellerWallet.AvailableBalance, null, offer.Squad.PlayerId);
 
                     // Add notification for the buyer
                     await _notificationService.CreateNotificationAsync(
@@ -2134,7 +2192,7 @@ namespace eTPL.API.Services
                             {
                                 wallet.AvailableBalance += refund;
                                 await RecordTransactionAsync(squad.UserId, refund, "CREDIT", "AUTO_RELEASE_EXPIRED",
-                                    $"ปล่อยตัวอัตโนมัติ (หมดสัญญา): {squad.Player.PlayerName} คืนเงิน {refund} TP (Season {currentSeason})",
+                                    $"ปล่อยตัวอัตโนมัติ (หมดสัญญา): {squad.Player.PlayerName} (Season {currentSeason})",
                                     wallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
                             }
                             // Clean up related offers before removing squad
@@ -2848,19 +2906,20 @@ namespace eTPL.API.Services
             if (currentSeasonObj == null) return;
             int currentSeason = currentSeasonObj.Season ?? 1;
 
-            // 2. Check if this user released this player in the previous season transition
-            // The previous season number was currentSeason - 1
+            // 2. Check if this user had ownership of this player in the previous season
+            // Types that indicate ownership or disposal: Expired, Manual Release, Sold via Market, Sold via Direct Transfer
             string targetTag = $"(Season {currentSeason - 1})";
+            var restrictedTypes = new[] { "AUTO_RELEASE_EXPIRED", "FREE_RELEASE", "MARKET_SELL", "TRANSFER_SELL" };
             
             bool isRestricted = await _context.AuctionTransactions.AnyAsync(t => 
                 t.UserId == userId && 
                 t.RelatedPlayerId == playerId && 
-                t.Type == "AUTO_RELEASE_EXPIRED" &&
+                restrictedTypes.Contains(t.Type) &&
                 t.Description.Contains(targetTag));
 
             if (isRestricted)
             {
-                throw new Exception("คุณไม่สามารถประมูล/ซื้อ/ยืม นักเตะคนเดิมที่เพิ่งหมดสัญญากับทีมคุณในฤดูกาลที่ผ่านมาได้");
+                throw new Exception("คุณไม่สามารถประมูล/ซื้อ/ยืม นักเตะคนเดิมที่คุณเพิ่งปล่อยตัวหรือขายออกจากทีมในฤดูกาลที่ผ่านมาได้ (กฎ Buy Back Restriction)");
             }
         }
     }

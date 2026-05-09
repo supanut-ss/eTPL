@@ -566,7 +566,7 @@ const MySquadPage = () => {
           <EmojiEvents color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h5" fontWeight="bold">
-              My Team
+              My Squad
             </Typography>
             <Typography variant="body2" color="text.secondary">
               MANAGE YOUR CLUB ROSTER

@@ -300,14 +300,16 @@ const AuctionPage = () => {
         const marketEnd = new Date();
         marketEnd.setHours(hour, minute, 0, 0);
 
-        // Calculate potential normal end time
-        const durationMins = summary.normalBidDurationMinutes || 1200; // fallback consistent with backend
+        // Calculate potential total end time (Normal + Final)
+        const normalMins = summary.normalBidDurationMinutes || 1200;
+        const finalMins = summary.finalBidDurationMinutes || 240;
+        const totalMins = normalMins + finalMins;
         const now = new Date();
-        const potentialNormalEnd = new Date(now.getTime() + durationMins * 60000);
+        const potentialTotalEnd = new Date(now.getTime() + totalMins * 60000);
 
-        if (potentialNormalEnd > marketEnd) {
-          const timeToWait = potentialNormalEnd.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-          enqueueSnackbar(`Cannot start auction because Normal phase end time (${timeToWait}) exceeds market close time (${summary.marketEndTime})`, { variant: "error" });
+        if (potentialTotalEnd > marketEnd) {
+          const timeToWait = potentialTotalEnd.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+          enqueueSnackbar(`Cannot start auction because total duration (including Final phase) ends at ${timeToWait}, which exceeds market close time (${summary.marketEndTime})`, { variant: "error" });
           return;
         }
       } catch (e) {
@@ -1297,6 +1299,9 @@ const AuctionPage = () => {
                       {isWon && (
                         <Chip label={`🏆 WON BY ${p.winnerName?.toUpperCase() ?? 'ADMIN'}`} size="small" sx={{ height: 20, bgcolor: '#FFFDE7', color: '#FBC02D', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #FFF9C4' }} />
                       )}
+                      {p.isRestricted && (
+                        <Chip label="RESTRICTED (BUY BACK)" size="small" sx={{ height: 20, bgcolor: '#FFEBEE', color: '#B71C1C', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #FFCDD2' }} />
+                      )}
                     </Box>
                   </Box>
                 </Box>
@@ -1308,6 +1313,7 @@ const AuctionPage = () => {
                       variant="contained" 
                       onClick={() => handleStartAuction(p.idPlayer)}
                       fullWidth={isMobile}
+                      disabled={p.isRestricted}
                       sx={{ 
                         bgcolor: '#1d1d1f', 
                         color: 'white',
@@ -1326,6 +1332,7 @@ const AuctionPage = () => {
                       variant="contained"
                       onClick={() => handleBidFromSearch(p.activeAuctionId, p.currentPrice)}
                       fullWidth={isMobile}
+                      disabled={p.isRestricted}
                       sx={{ 
                         bgcolor: '#007AFF', 
                         color: 'white',
