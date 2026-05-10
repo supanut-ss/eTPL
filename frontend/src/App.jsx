@@ -30,6 +30,7 @@ import UserListPage from "./pages/UserListPage";
 import ProfilePage from "./pages/ProfilePage";
 import UserManualPage from "./pages/UserManualPage";
 import FacebookSettingsPage from "./pages/FacebookSettingsPage";
+import PitchViewPage from "./pages/PitchViewPage";
 
 
 import LineCallbackPage from "./pages/LineCallbackPage";
@@ -81,6 +82,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <MySquadPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="pitch-view"
+                element={
+                  <ProtectedRoute>
+                    <PitchViewPage />
                   </ProtectedRoute>
                 }
               />

@@ -115,6 +115,13 @@ const navItems = [
         key: "my-squad",
       },
       {
+        label: "Pitch View",
+        path: "/pitch-view",
+        icon: <SportsSoccer />,
+        loginRequired: true,
+        key: "pitch-view",
+      },
+      {
         label: "League Teams",
         path: "/clubs-squad",
         icon: <Diversity3 />,
