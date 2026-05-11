@@ -1372,6 +1372,33 @@ const MySquadPage = () => {
                         </Typography>
                       </Box>
                     </Box>
+
+                    {/* Contract Remaining Bar */}
+                    {(() => {
+                      const quota = quotas.find(q => q.gradeName === grade.label);
+                      const max = quota?.maxSeasonsPerTeam ?? 0;
+                      const seasons = player.seasonsWithTeam || 0;
+                      const isLastSeason = seasons >= max;
+                      
+                      return (
+                        <Box sx={{ 
+                          mt: 2, 
+                          width: '100%', 
+                          p: 1, 
+                          borderRadius: '8px', 
+                          bgcolor: isLastSeason ? alpha('#ef4444', 0.1) : alpha(grade.color, 0.08),
+                          border: `1px solid ${isLastSeason ? alpha('#ef4444', 0.2) : alpha(grade.color, 0.15)}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 1
+                        }}>
+                          <Typography variant="caption" fontWeight={1000} sx={{ color: isLastSeason ? '#ef4444' : 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                            Contract: {seasons} / {max}
+                          </Typography>
+                        </Box>
+                      );
+                    })()}
                   </CardContent>
                   
                   {/* 3-Dots Action Button */}
