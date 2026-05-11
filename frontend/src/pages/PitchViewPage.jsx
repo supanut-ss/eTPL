@@ -461,7 +461,8 @@ const PitchViewPage = () => {
       setSquad(players);
       setQuotas(quotasData);
 
-      const savedData = localStorage.getItem(`etpl_lineup_default`);
+      const storageKey = currentUser?.userId ? `etpl_lineup_${currentUser.userId}` : `etpl_lineup_default`;
+      const savedData = localStorage.getItem(storageKey);
       if (savedData) {
         const parsed = JSON.parse(savedData);
         if (parsed.formation && FORMATIONS[parsed.formation]) {
@@ -505,8 +506,9 @@ const PitchViewPage = () => {
   };
 
   const handleSaveLineup = () => {
-    localStorage.setItem(`etpl_lineup_default`, JSON.stringify({ formation, lineup }));
-    enqueueSnackbar("Lineup saved", { variant: "success" });
+    const storageKey = currentUser?.userId ? `etpl_lineup_${currentUser.userId}` : `etpl_lineup_default`;
+    localStorage.setItem(storageKey, JSON.stringify({ formation, lineup }));
+    enqueueSnackbar("Lineup saved for your account", { variant: "success" });
   };
 
   const handleResetLineup = () => {
