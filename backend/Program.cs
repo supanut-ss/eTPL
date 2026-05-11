@@ -92,6 +92,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient("image-proxy", client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+    client.DefaultRequestHeaders.Add("Accept", "image/webp,image/apng,image/*,*/*;q=0.8");
+    client.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.9");
+    // Don't set Referer — absence of Referer often bypasses hotlink checks better than a wrong Referer
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 builder.Services.AddMemoryCache();
 
 // ── Services (DI)

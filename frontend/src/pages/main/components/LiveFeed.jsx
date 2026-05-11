@@ -59,10 +59,22 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
     ...(marketActivity || [])
       .filter((m) => {
         const sub = (m.subtitle || "").toLowerCase();
+        const type = m.type || "";
+        const txType = (m.txType || "").toUpperCase();
+
         // ซ่อนรายการ Auto และรายการที่เกี่ยวกับ Bid (ประมูล/บิด) เพราะเป็นความลับ
         const isAuto = sub.includes("ออโต้") || sub.includes("อัตโนมัติ") || (sub.includes("auto") && sub.includes("สัญญา"));
         const isBid = sub.includes("bid") || sub.includes("บิด") || sub.includes("ประมูล") || sub.includes("วาง bid") || sub.includes("place bid");
-        return !isAuto && (m.type === "DEAL" || !isBid);
+        
+        // กรองฝั่ง "คนขาย/คนให้ยืม" ออกจากรายการ DEAL เพราะเราต้องการประกาศแค่ฝั่ง "คนซื้อ/คนยืมไป" เท่านั้น
+        // (เช่น ถ้า Chalif ยืมตัวจาก Admin ให้แสดงแค่ Chalif ยืมตัว... ไม่ต้องแสดง Admin ปล่อยยืม...)
+        const isOutgoingSide = type === "DEAL" && (
+          txType.includes("SELL") || txType.includes("LOAN_OUT") || 
+          sub.includes("sold") || sub.includes("ขาย") || 
+          sub.includes("loaned out") || sub.includes("ปล่อยยืม")
+        );
+
+        return !isAuto && (type === "DEAL" || !isBid) && !isOutgoingSide;
       })
       .map((m) => ({
         type: m.type === "DEAL" ? "DEAL" : "MARKET",

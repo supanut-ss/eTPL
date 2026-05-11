@@ -53,6 +53,8 @@ import {
   Shield,
   Groups,
   Diversity3,
+  AutoAwesome,
+  SwitchAccount,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -117,7 +119,7 @@ const navItems = [
       {
         label: "Pitch View",
         path: "/pitch-view",
-        icon: <SportsSoccer />,
+        icon: <AutoAwesome />,
         loginRequired: true,
         key: "pitch-view",
       },
@@ -135,7 +137,7 @@ const navItems = [
     icon: <Campaign />,
     key: "about-group",
     children: [
-      { label: "Members", path: "/members", icon: <People /> },
+      { label: "Members", path: "/members", icon: <SwitchAccount /> },
       { label: "User Manual", path: "/manual", icon: <MenuBook /> },
     ],
   },

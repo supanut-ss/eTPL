@@ -36,6 +36,7 @@ export const getLogoUrl = (teamName) => {
  */
 export const getPlayerFaceUrl = (playerId) => {
   if (!playerId) return "";
+  if (playerId.toString().startsWith("http")) return playerId;
   return IMAGE_BASE_URLS.PESDB_FACE.replace("{id}", playerId);
 };
 
@@ -47,6 +48,7 @@ export const getPlayerFaceUrl = (playerId) => {
  */
 export const getPlayerFaceUrlPesmaster = (playerId, format = "png") => {
   if (!playerId) return "";
+  if (playerId.toString().startsWith("http")) return playerId;
   if (format === "webp") {
     return IMAGE_BASE_URLS.PESMASTER_FACE_WEBP.replace("{id}", playerId);
   }
@@ -60,6 +62,7 @@ export const getPlayerFaceUrlPesmaster = (playerId, format = "png") => {
  */
 export const getPlayerCardUrl = (playerId) => {
   if (!playerId) return "";
+  if (playerId.toString().startsWith("http")) return playerId;
   return IMAGE_BASE_URLS.PESDB_CARD.replace("{id}", playerId);
 };
 
@@ -70,6 +73,7 @@ export const getPlayerCardUrl = (playerId) => {
  */
 export const getPlayerCardFUrl = (playerId) => {
   if (!playerId) return "";
+  if (playerId.toString().startsWith("http")) return playerId;
   return IMAGE_BASE_URLS.PESDB_CARD_F.replace("{id}", playerId);
 };
 
@@ -111,6 +115,18 @@ export const getAnnouncementImageUrl = (imageUrl) => {
   const cleanPath = imageUrl.startsWith("/") ? imageUrl.substring(1) : imageUrl;
   
   return `${baseUploadPath}${cleanPath}`;
+};
+
+/**
+ * Wraps an external URL with a CORS proxy (images.weserv.nl) 
+ * to allow cross-origin image data access for tools like html2canvas.
+ * @param {string} url 
+ * @returns {string}
+ */
+export const getProxyUrl = (url) => {
+  // Returns the URL directly — display uses native browser image loading
+  // The backend proxy (/api/image-proxy) is only used during PNG export
+  return url;
 };
 
 export const getPesdbLinkFromUrl = (imageUrl) => {

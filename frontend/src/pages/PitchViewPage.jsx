@@ -31,11 +31,12 @@ import {
   AccountBalanceWallet,
   Star,
   EmojiEvents,
+  AutoAwesome,
 } from "@mui/icons-material";
 import auctionService from "../services/auctionService";
 import { useSnackbar } from "notistack";
 import { useAuth } from "../store/AuthContext";
-import { getPlayerFaceUrlPesmaster, getPlayerCardUrl, getLogoUrl, getPlayerFaceUrl } from "../utils/imageUtils";
+import { getPlayerFaceUrlPesmaster, getPlayerCardUrl, getLogoUrl, getPlayerFaceUrl, getPlayerCardFUrl, getProxyUrl } from "../utils/imageUtils";
 import { API_BASE_URL } from "../api/axiosInstance";
 import html2canvas from "html2canvas";
 
@@ -92,6 +93,9 @@ const PitchPlayerAvatar = ({ playerId, style }) => {
     if (retry === 0) {
       setSrc(getPlayerFaceUrlPesmaster(playerId, "png"));
       setRetry(1);
+    } else if (retry === 1) {
+      setSrc(getPlayerFaceUrl(playerId));
+      setRetry(2);
     } else {
       setError(true);
     }
@@ -110,20 +114,114 @@ const PitchPlayerAvatar = ({ playerId, style }) => {
   }
 
   return (
+    <Box sx={{ 
+      width: '100%', 
+      height: '100%', 
+      position: 'relative',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: '50%',
+      overflow: 'hidden',
+      // Base premium patterns
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        inset: 0,
+        background: `
+          radial-gradient(circle at 50% 20%, rgba(255,255,255,0.3) 0%, transparent 60%),
+          repeating-linear-gradient(135deg, transparent, transparent 4px, rgba(255,255,255,0.03) 4px, rgba(255,255,255,0.03) 8px)
+        `,
+        zIndex: 0
+      },
+      // Inner shadow/border
+      '&::after': {
+        content: '""',
+        position: 'absolute',
+        inset: 0,
+        borderRadius: '50%',
+        boxShadow: 'inset 0 0 10px rgba(0,0,0,0.3)',
+        zIndex: 2,
+        pointerEvents: 'none'
+      }
+    }}>
+      <Box
+        component="img"
+        src={src}
+        onError={handleError}
+        referrerPolicy="no-referrer"
+        sx={{
+          width: '110%', // Slightly larger to fill better
+          height: '110%',
+          objectFit: retry >= 2 ? 'contain' : 'cover',
+          zIndex: 1,
+          display: 'block',
+          filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.5))',
+          transform: 'translateY(5%)' // Push down slightly for better centering of the face
+        }}
+      />
+    </Box>
+  );
+};
+
+const SquadBenchCard = ({ playerId }) => {
+  const [src, setSrc] = useState(getPlayerCardUrl(playerId));
+  const [retry, setRetry] = useState(0);
+  const [error, setError] = useState(false);
+
+  const handleError = () => {
+    if (retry === 0) {
+      setSrc(getPlayerCardFUrl(playerId));
+      setRetry(1);
+    } else if (retry === 1) {
+      setSrc(getPlayerFaceUrlPesmaster(playerId, "webp"));
+      setRetry(2);
+    } else if (retry === 2) {
+      setSrc(getPlayerFaceUrlPesmaster(playerId, "png"));
+      setRetry(3);
+    } else if (retry === 3) {
+      setSrc(getPlayerFaceUrl(playerId));
+      setRetry(4);
+    } else {
+      setError(true);
+    }
+  };
+
+  useEffect(() => {
+    if (playerId) {
+      setSrc(getPlayerCardUrl(playerId));
+      setRetry(0);
+      setError(false);
+    }
+  }, [playerId]);
+
+  if (error) {
+    return (
+      <Box sx={{ 
+        width: '100%', 
+        height: '100%', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        bgcolor: 'rgba(255,255,255,0.05)'
+      }}>
+        <AccountCircle sx={{ fontSize: 40, color: 'rgba(255,255,255,0.2)' }} />
+      </Box>
+    );
+  }
+
+  return (
     <Box
       component="img"
       src={src}
       onError={handleError}
-      crossOrigin="anonymous"
       referrerPolicy="no-referrer"
-      sx={{
-        width: '100%',
-        height: '100%',
-        objectFit: retry === 3 ? 'contain' : 'cover', // Cover for faces, contain for full cards
-        borderRadius: '50%',
-        zIndex: 1,
-        display: 'block'
-      }}
+      sx={{ 
+        width: '100%', 
+        height: '100%', 
+        objectFit: 'contain',
+        filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))'
+      }} 
     />
   );
 };
@@ -433,17 +531,123 @@ const PitchViewPage = () => {
 
   const handleExport = async () => {
     if (!dashboardRef.current) return;
+    const element = dashboardRef.current;
+    const restoreActions = [];
+    const blobUrls = [];
+
+    // Production base URL for serving static assets
+    const PROD_BASE = "https://thaipesleague.com";
+
+    // Normalize a URL for export:
+    // - Relative paths (e.g. /_image/...) → rewrite to production URL → proxy
+    // - localhost URLs → rewrite path only, use production URL → proxy
+    // - External URLs → proxy as-is
+    const toProxyUrl = (url) => {
+      if (!url || url === "about:blank" || url.startsWith("data:") || url.startsWith("blob:")) return null;
+      
+      let normalized = url;
+      
+      // Relative URL (starts with /)
+      if (!url.startsWith("http")) {
+        normalized = `${PROD_BASE}${url.startsWith("/") ? "" : "/"}${url}`;
+      }
+      // Same-origin (e.g. http://localhost:5173/...) → extract pathname, rewrite to prod
+      else if (url.includes("localhost") || url.startsWith(window.location.origin)) {
+        try {
+          const parsed = new URL(url);
+          normalized = `${PROD_BASE}${parsed.pathname}${parsed.search}`;
+        } catch { normalized = url; }
+      }
+
+      return `/api/image-proxy?url=${encodeURIComponent(normalized)}`;
+    };
+
+    // Fetch image via proxy and return a local blob URL
+    const toBlob = async (url) => {
+      const proxyUrl = toProxyUrl(url);
+      if (!proxyUrl) return null;
+      try {
+        console.log("[Export] Fetching:", proxyUrl.replace("/api/image-proxy?url=", "/api/image-proxy?url=→"));
+        const res = await fetch(proxyUrl);
+        if (!res.ok) { console.warn("[Export] Failed:", res.status, url); return null; }
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        blobUrls.push(blobUrl);
+        return blobUrl;
+      } catch (e) {
+        console.warn("[Export] Error:", url, e.message);
+        return null;
+      }
+    };
+
+
+    // Wait for an <img> to finish loading its new src
+    const waitForLoad = (img) => new Promise((resolve) => {
+      if (img.complete && img.naturalWidth > 0) { resolve(); return; }
+      img.onload = resolve;
+      img.onerror = resolve;
+      setTimeout(resolve, 4000);
+    });
+
+    // 1. Swap all <img> src to blob URLs
+    const allImgs = Array.from(element.querySelectorAll("img"));
+    console.log("[Export] Found", allImgs.length, "img elements");
+    await Promise.all(allImgs.map(async (img) => {
+      // Use data-export-url if set (preserves original URL even after onError changed src)
+      const urlToFetch = img.dataset.exportUrl || img.src;
+      if (!urlToFetch) return;
+      const blobUrl = await toBlob(urlToFetch);
+      if (blobUrl) {
+        const prevSrc = img.src;
+        img.src = blobUrl;
+        restoreActions.push(() => { img.src = prevSrc; });
+        await waitForLoad(img);
+      }
+    }));
+
+
+    // 2. Swap inline-style background-images
+    const allBoxes = Array.from(element.querySelectorAll("[style*='background-image']"));
+    console.log("[Export] Found", allBoxes.length, "inline background-image elements");
+    await Promise.all(allBoxes.map(async (box) => {
+      const originalStyle = box.style.backgroundImage;
+      const match = originalStyle.match(/url\(["']?([^"')]+)["']?\)/);
+      if (match && match[1]) {
+        const blobUrl = await toBlob(match[1]);
+        if (blobUrl) {
+          box.style.backgroundImage = `url(${blobUrl})`;
+          restoreActions.push(() => { box.style.backgroundImage = originalStyle; });
+        }
+      }
+    }));
+
+    // 3. Also scan computed styles for background-images set via CSS classes (MUI sx/emotion)
+    const allEls = Array.from(element.querySelectorAll("*"));
+    await Promise.all(allEls.map(async (el) => {
+      const bg = getComputedStyle(el).backgroundImage;
+      if (!bg || bg === "none") return;
+      const match = bg.match(/url\(["']?(https?:[^"')]+)["']?\)/);
+      if (!match || !match[1]) return;
+      const url = match[1];
+      const blobUrl = await toBlob(url);
+      if (blobUrl) {
+        const prev = el.style.backgroundImage;
+        el.style.backgroundImage = `url(${blobUrl})`;
+        restoreActions.push(() => { el.style.backgroundImage = prev; });
+      }
+    }));
+
+
     try {
-      const element = dashboardRef.current;
-      const canvas = await html2canvas(element, { 
-        useCORS: true, 
-        backgroundColor: null,
+      const canvas = await html2canvas(element, {
+        useCORS: false,     // All sources are now same-origin blob URLs
+        allowTaint: false,  // No taint possible with blob URLs
+        backgroundColor: "#0f172a",
         scale: 2,
         width: element.offsetWidth,
         height: element.offsetHeight,
-        windowWidth: window.innerWidth,
-        windowHeight: window.innerHeight,
-        logging: false
+        logging: false,
+        ignoreElements: (el) => el.classList?.contains("no-export"),
       });
       const link = document.createElement("a");
       link.download = `etpl_dashboard_${formation}.png`;
@@ -451,9 +655,17 @@ const PitchViewPage = () => {
       link.click();
       enqueueSnackbar("Exported Dashboard as PNG", { variant: "success" });
     } catch (err) {
-      enqueueSnackbar("Export failed", { variant: "error" });
+      console.error("[Export] Failed:", err);
+      enqueueSnackbar(`Export failed: ${err?.message || "unknown error"}`, { variant: "error" });
+    } finally {
+      // Always restore original src and free blob memory
+      restoreActions.forEach(fn => fn());
+      blobUrls.forEach(url => URL.revokeObjectURL(url));
     }
   };
+
+
+
 
   const onDragStart = (e, player, fromIndex = null) => {
     e.dataTransfer.setData("player", JSON.stringify(player));
@@ -518,7 +730,7 @@ const PitchViewPage = () => {
     }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 2 }}>
         <Box display="flex" alignItems="center" gap={1.5}>
-          <SportsSoccer color="primary" sx={{ fontSize: 32 }} />
+          <AutoAwesome color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h5" fontWeight="bold">Pitch View</Typography>
             <Typography variant="body2" color="text.secondary">VISUAL SQUAD BUILDER</Typography>
@@ -581,7 +793,7 @@ const PitchViewPage = () => {
                 sx={{ 
                   width: '100%', 
                   height: '100%', 
-                  backgroundImage: `url(${profilePic})`,
+                  backgroundImage: `url(${getProxyUrl(profilePic)})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center top',
                   filter: 'brightness(1.05) contrast(1.05)',
@@ -647,7 +859,8 @@ const PitchViewPage = () => {
                 <Box sx={{ position: 'relative' }}>
                   <Box 
                     component="img"
-                    src={teamLogo} 
+                    src={getProxyUrl(teamLogo)} 
+                    data-export-url={teamLogo}
                     onError={(e) => { e.target.src = "https://ui-avatars.com/api/?name=Team&background=random"; }}
                     sx={{ 
                       width: 56, 
@@ -656,7 +869,7 @@ const PitchViewPage = () => {
                       border: '1px solid', 
                       borderColor: 'divider', 
                       p: 0.75, 
-                      borderRadius: 3, // Squircle shape
+                      borderRadius: 2, // Squircle shape
                       objectFit: 'contain',
                       boxShadow: '0 6px 16px rgba(0,0,0,0.06)'
                     }}
@@ -684,7 +897,7 @@ const PitchViewPage = () => {
                     sx={{ 
                       height: '100%',
                       p: 2.5, 
-                      borderRadius: 4, 
+                      borderRadius: 1, 
                       bgcolor: 'rgba(255, 255, 255, 0.03)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
                       display: 'flex',
@@ -696,7 +909,7 @@ const PitchViewPage = () => {
                       }
                     }}
                   >
-                    <Typography variant="caption" color="primary.light" fontWeight="900" sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 1, fontSize: '0.6rem', letterSpacing: 1, alignSelf: 'flex-start' }}>
+                    <Typography variant="caption" color="#ffffffff" fontWeight="900" sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 1, fontSize: '0.6rem', letterSpacing: 1, alignSelf: 'flex-start' }}>
                       <AccountBalanceWallet sx={{ fontSize: 14 }} /> VALUE
                     </Typography>
                     <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
@@ -718,7 +931,7 @@ const PitchViewPage = () => {
                       sx={{ 
                         flex: 1,
                         p: 1.5, 
-                        borderRadius: 3, 
+                        borderRadius: 1, 
                         bgcolor: 'rgba(255, 255, 255, 0.03)',
                         border: '1px solid rgba(255, 255, 255, 0.1)',
                         display: 'flex',
@@ -740,7 +953,7 @@ const PitchViewPage = () => {
                       sx={{ 
                         flex: 1,
                         p: 1.5, 
-                        borderRadius: 3, 
+                        borderRadius: 1, 
                         bgcolor: 'rgba(255, 255, 255, 0.03)',
                         border: '1px solid rgba(255, 255, 255, 0.1)',
                         display: 'flex',
@@ -753,7 +966,7 @@ const PitchViewPage = () => {
                         AVG OVR
                       </Typography>
                       <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-                        <Typography variant="h6" fontWeight="1000" sx={{ lineHeight: 1, color: '#f59e0b' }}>{avgOvr}</Typography>
+                        <Typography variant="h6" fontWeight="1000" sx={{ lineHeight: 1, color: '#ffffffff' }}>{avgOvr}</Typography>
                       </Box>
                     </Box>
                   </Box>
@@ -787,7 +1000,7 @@ const PitchViewPage = () => {
           >
             <Box sx={{ mb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1 }}>
               <Box>
-                <Typography variant="caption" sx={{ color: 'primary.light', fontWeight: '1000', letterSpacing: 2, display: 'block', opacity: 0.9 }}>FORMATION</Typography>
+                <Typography variant="caption" sx={{ color: '#ffffffff', fontWeight: '1000', letterSpacing: 2, display: 'block', opacity: 0.9 }}>FORMATION</Typography>
                 <FormControl size="small" variant="standard" sx={{ mt: 0.5 }}>
                   <Select
                     value={formation}
@@ -804,7 +1017,7 @@ const PitchViewPage = () => {
                   </Select>
                 </FormControl>
               </Box>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: '900', letterSpacing: 1 }}>FULL HEIGHT FIELD</Typography>
+              <Typography variant="caption" sx={{ color: '#ffffffff', fontWeight: '900', letterSpacing: 1 }}>FULL HEIGHT FIELD</Typography>
             </Box>
 
             <Box ref={pitchRef} sx={{ 
@@ -955,7 +1168,7 @@ const PitchViewPage = () => {
             }}
           >
             <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Groups sx={{ color: 'primary.light', fontSize: 28 }} />
+              <Groups sx={{  fontSize: 28 }} />
               <Typography variant="h6" fontWeight="1000" sx={{ letterSpacing: '-0.02em' }}>Squad Bench</Typography>
               <Box sx={{ 
                 ml: 'auto',
@@ -964,16 +1177,16 @@ const PitchViewPage = () => {
                 bgcolor: 'rgba(255,255,255,0.05)', 
                 border: '1px solid rgba(255,255,255,0.1)' 
               }}>
-                <Typography variant="caption" fontWeight="900" sx={{ color: 'primary.light' }}>{bench.length}</Typography>
+                <Typography variant="caption" fontWeight="900" sx={{ color: '#ffffffff' }}>{bench.length}</Typography>
               </Box>
             </Box>
             <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-            <Box sx={{ px: 8, py: 2, maxHeight: '70vh', overflowY: 'auto' }}>
+            <Box sx={{ px: 1, py: 2, maxHeight: '70vh', overflowY: 'auto' }}>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0 }}>
                 {bench.sort((a,b) => b.playerOvr - a.playerOvr).map(player => {
                   const style = getPlayerStyle(player);
                   return (
-                    <Box key={player.squadId} sx={{ width: { xs: '50%', sm: '33.33%', md: '20%' }, p: 0.1, mb: 1.5 }}>
+                    <Box key={player.squadId} sx={{ width: { xs: '50%', sm: '33.33%', md: '25%', lg: '20%' }, p: 0.8, mb: 1 }}>
                       <Box draggable onDragStart={e => onDragStart(e, player)}
                         sx={{ 
                           p: 0.2, 
@@ -981,8 +1194,9 @@ const PitchViewPage = () => {
                           borderRadius: 0, 
                           cursor: 'grab', 
                           position: 'relative',
-                          height: 125, 
-                          width: 90, 
+                          aspectRatio: '3/4.2',
+                          width: '100%',
+                          maxWidth: 130,
                           mx: 'auto', 
                           display: 'flex',
                           flexDirection: 'column',
@@ -1024,17 +1238,7 @@ const PitchViewPage = () => {
                           {style.grade}
                         </Box>
 
-                        <Box
-                          component="img"
-                          src={getPlayerCardUrl(player.playerId)}
-                          crossOrigin="anonymous"
-                          sx={{ 
-                            width: '100%', 
-                            height: '100%', 
-                            objectFit: 'contain',
-                            filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))'
-                          }} 
-                        />
+                        <SquadBenchCard playerId={player.playerId} />
                       </Box>
                     </Box>
                   );
