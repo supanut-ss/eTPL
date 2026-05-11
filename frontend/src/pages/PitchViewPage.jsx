@@ -717,18 +717,16 @@ const PitchViewPage = () => {
     : 0;
 
   return (
-    <Box sx={{ 
-      minHeight: '100vh',
-      bgcolor: '#f8fafc',
-      backgroundImage: `
-        radial-gradient(at 0% 0%, ${alpha(theme.palette.primary.main, 0.05)} 0px, transparent 50%),
-        radial-gradient(at 100% 0%, ${alpha(theme.palette.primary.light, 0.05)} 0px, transparent 50%),
-        radial-gradient(at 50% 100%, ${alpha(theme.palette.primary.main, 0.02)} 0px, transparent 50%)
-      `,
-      p: { xs: 2, md: 3, lg: 4 },
-      pb: 10
-    }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 2 }}>
+    <Box sx={{ pb: 6 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 4,
+        px: { xs: 1, sm: 0 },
+        flexWrap: 'wrap', 
+        gap: 2 
+      }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <AutoAwesome color="primary" sx={{ fontSize: 32 }} />
           <Box>
@@ -737,9 +735,9 @@ const PitchViewPage = () => {
           </Box>
         </Box>
         <Box display="flex" gap={1}>
-          <Button variant="outlined" startIcon={<RestartAlt />} onClick={handleResetLineup}>Reset</Button>
-          <Button variant="outlined" startIcon={<Save />} onClick={handleSaveLineup}>Save</Button>
-          <Button variant="contained" startIcon={<Download />} onClick={handleExport}>Export PNG</Button>
+          <Button variant="outlined" size={isMobile ? "small" : "medium"} startIcon={<RestartAlt />} onClick={handleResetLineup}>Reset</Button>
+          <Button variant="outlined" size={isMobile ? "small" : "medium"} startIcon={<Save />} onClick={handleSaveLineup}>Save</Button>
+          <Button variant="contained" size={isMobile ? "small" : "medium"} startIcon={<Download />} onClick={handleExport}>Export PNG</Button>
         </Box>
       </Box>
 
@@ -747,15 +745,15 @@ const PitchViewPage = () => {
         ref={dashboardRef}
         sx={{ 
           display: 'flex', 
-          flexDirection: { xs: 'column', xl: 'row' }, 
+          flexDirection: { xs: 'column', lg: 'row' }, 
           gap: 2, 
           alignItems: 'stretch',
-          p: 2, // Internal padding for clean export edges
+          p: { xs: 1, md: 2 }, // Internal padding for clean export edges
           borderRadius: 4
         }}
       >
         {/* Left: Profile Area */}
-        <Box sx={{ flex: { xs: '1 1 auto', xl: '0 0 300px' }, minWidth: 300 }}>
+        <Box sx={{ flex: { xs: '1 1 auto', lg: '0 0 300px' }, width: { xs: '100%', lg: 300 } }}>
           <Paper 
             elevation={0} 
             sx={{ 
@@ -782,7 +780,7 @@ const PitchViewPage = () => {
             {/* 1. Profile Pic - Cinematic Frame (Full Bleed Top) */}
             <Box sx={{ 
               width: '100%', 
-              height: 340, 
+              height: { xs: 240, md: 340 }, 
               position: 'relative', 
               bgcolor: 'transparent', 
               overflow: 'hidden',
@@ -1021,10 +1019,11 @@ const PitchViewPage = () => {
             </Box>
 
             <Box ref={pitchRef} sx={{ 
-              height: 'calc(100vh - 240px)', // FILL VIEWPORT HEIGHT
-              minHeight: 550,
+              height: { xs: 'auto', md: 'calc(100vh - 240px)' }, // Fluid on mobile, fixed on PC
+              minHeight: { xs: 450, md: 550 },
               aspectRatio: '3/4', // KEEP PROPORTIONAL
-              width: 'auto',
+              width: { xs: '100%', md: 'auto' },
+              maxWidth: '100%',
               mx: 'auto',
               background: 'linear-gradient(180deg, #166534 0%, #14532d 100%)', 
               borderRadius: 3, 

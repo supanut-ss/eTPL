@@ -25,6 +25,7 @@ import { getPermissions, updatePermissions } from "../api/permissionApi";
 const ALL_MENUS = [
   { key: "fixtures", label: "My Fixtures", description: "Match reporting for players" },
   { key: "my-squad", label: "My Team", description: "Personal squad management" },
+  { key: "pitch-view", label: "Pitch View", description: "Visual squad builder" },
   { key: "clubs-squad", label: "League Teams", description: "View all team squads" },
   { key: "auction", label: "Auction Market", description: "Normal auction system" },
   { key: "transfer-board", label: "Transfer Market", description: "Private offer search" },

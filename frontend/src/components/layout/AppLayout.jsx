@@ -55,6 +55,8 @@ import {
   Diversity3,
   AutoAwesome,
   SwitchAccount,
+  CompareArrows,
+  Tune,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -71,7 +73,7 @@ const navItems = [
   { label: "Auction Board", path: "/auction-results", icon: <HotelClass /> },
   {
     label: "Transfer",
-    icon: <Gavel />,
+    icon: <CompareArrows />,
     key: "transfer-group",
     children: [
       {
@@ -173,7 +175,7 @@ const navItems = [
       {
         label: "League Setting",
         path: "/admin/league-setting",
-        icon: <EmojiEvents />,
+        icon: <Tune />,
         key: "admin-league-setting",
       },
       {
