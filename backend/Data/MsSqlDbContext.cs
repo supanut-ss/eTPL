@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using eTPL.API.Models;
 using eTPL.API.Models.Auction;
+using eTPL.API.Models.LeagueOps;
 
 namespace eTPL.API.Data
 {
@@ -24,6 +25,9 @@ namespace eTPL.API.Data
         public DbSet<SpecialBonus> SpecialBonuses { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<CupFixture> CupFixtures { get; set; }
+        public DbSet<LeagueCycle> LeagueCycles { get; set; }
+        public DbSet<DailyCheckin> DailyCheckins { get; set; }
+        public DbSet<PlayerLeagueStat> PlayerLeagueStats { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -266,6 +270,8 @@ namespace eTPL.API.Data
                 entity.Property(e => e.CanAccess).HasColumnName("can_access").HasDefaultValue(false);
                 entity.HasIndex(e => new { e.MenuKey, e.UserLevel }).IsUnique();
             });
+
+            modelBuilder.Entity<PlayerLeagueStat>().HasNoKey();
         }
     }
 }

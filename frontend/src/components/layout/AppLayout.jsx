@@ -179,6 +179,12 @@ const navItems = [
         key: "admin-league-setting",
       },
       {
+        label: "League Ops",
+        path: "/admin/league-ops",
+        icon: <Gavel />,
+        key: "admin-league-ops",
+      },
+      {
         label: "Announcements",
         path: "/announcements",
         icon: <Campaign />,

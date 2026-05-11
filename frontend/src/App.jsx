@@ -34,6 +34,7 @@ import PitchViewPage from "./pages/PitchViewPage";
 
 
 import LineCallbackPage from "./pages/LineCallbackPage";
+import AdminLeagueOpsPage from "./pages/AdminLeagueOpsPage";
 
 function App() {
   return (
@@ -182,6 +183,14 @@ function App() {
                 element={
                   <ProtectedRoute requiredRole="admin">
                     <FacebookSettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/league-ops"
+                element={
+                  <ProtectedRoute requiredRole={["admin", "moderator"]}>
+                    <AdminLeagueOpsPage />
                   </ProtectedRoute>
                 }
               />
