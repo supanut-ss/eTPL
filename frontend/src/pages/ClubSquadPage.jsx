@@ -138,7 +138,7 @@ const getPositionGroup = (pos) => {
   return "MID"; // fallback
 };
 
-const PlayerAvatar = ({ playerId }) => {
+const PlayerAvatar = ({ playerId, gradeColor }) => {
   const [src, setSrc] = useState(getPlayerFaceUrlPesmaster(playerId, "png"));
   const [failed, setFailed] = useState(false);
 
@@ -156,7 +156,30 @@ const PlayerAvatar = ({ playerId }) => {
       sx={{
         width: 64,
         height: 64,
-        bgcolor: "transparent",
+        bgcolor: alpha(gradeColor || "#94a3b8", 0.08),
+        border: `1px solid ${alpha(gradeColor || "#94a3b8", 0.2)}`,
+        boxShadow: `inset 0 0 15px ${alpha(gradeColor || "#94a3b8", 0.2)}, 0 4px 12px rgba(0,0,0,0.1)`,
+        position: 'relative',
+        overflow: 'hidden',
+        background: `
+          radial-gradient(circle at 50% 50%, ${alpha(gradeColor || "#94a3b8", 0.25)} 0%, transparent 80%),
+          repeating-linear-gradient(45deg, ${alpha(gradeColor || "#94a3b8", 0.03)} 0px, ${alpha(gradeColor || "#94a3b8", 0.03)} 1px, transparent 1px, transparent 10px),
+          ${alpha(gradeColor || "#94a3b8", 0.05)}
+        `,
+        p: 0.5,
+        '& img': {
+           objectFit: 'contain',
+           filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))',
+           zIndex: 2,
+           position: 'relative'
+        },
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          inset: 0,
+          background: `linear-gradient(180deg, transparent 60%, ${alpha(gradeColor || "#94a3b8", 0.2)} 100%)`,
+          zIndex: 1
+        }
       }}
       imgProps={{
         onError: handleError,
@@ -483,6 +506,24 @@ const ClubSquadPage = () => {
 
   const positionSummary = getPositionSummary();
 
+  const sortedSquad = React.useMemo(() => {
+    if (!squadData?.squad) return [];
+    
+    const gradePriority = { S: 0, A: 1, B: 2, C: 3, D: 4, E: 5 };
+    
+    return [...squadData.squad].sort((a, b) => {
+      const gA = getDynamicGrade(a.playerOvr).label;
+      const gB = getDynamicGrade(b.playerOvr).label;
+      
+      if (gA !== gB) {
+        return (gradePriority[gA] ?? 99) - (gradePriority[gB] ?? 99);
+      }
+      
+      // If same grade, sort by OVR descending
+      return (b.playerOvr || 0) - (a.playerOvr || 0);
+    });
+  }, [squadData, quotas]);
+
   if (loading) return <LinearProgress />;
 
   return (
@@ -684,40 +725,72 @@ const ClubSquadPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {squadData.squad.map((player) => (
-                  <TableRow key={player.squadId}>
-                    <TableCell>
-                      {(() => {
-                        const grade = getDynamicGrade(player.playerOvr);
-                        return (
-                          <Box sx={{ 
-                            width: 34, 
-                            height: 34, 
-                            borderRadius: "8px", 
-                            display: "flex", 
-                            alignItems: "center", 
-                            justifyContent: "center", 
-                            background: grade.gradient, 
-                            color: grade.label === "E" ? "#333" : "white", 
-                            fontWeight: 1000,
-                            border: "1px solid rgba(0,0,0,0.05)"
-                          }}>
-                            {grade.label}
-                          </Box>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell sx={{ pl: { xs: 1, sm: 3 } }}>
-                      <Box display="flex" alignItems="center" gap={{ xs: 1, sm: 2 }}>
-                        <Box
-                          component="a"
-                          href={getPesdbInfoUrl(player.playerId)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          sx={{ textDecoration: "none", display: "flex", alignItems: "center" }}
-                        >
-                          <PlayerAvatar playerId={player.playerId} />
+                {sortedSquad.map((player, idx) => {
+                  const grade = getDynamicGrade(player.playerOvr);
+                  return (
+                    <TableRow 
+                      key={player.squadId}
+                      sx={{ 
+                        bgcolor: idx % 2 === 0 ? 'white' : 'rgba(0,0,0,0.01)',
+                        transition: 'all 0.2s ease',
+                        '&:hover': { 
+                          bgcolor: alpha(theme.palette.primary.main, 0.04),
+                          '& td': { borderBottomColor: alpha(theme.palette.primary.main, 0.2) }
+                        },
+                        '& td': { py: 2, borderBottom: '1px solid rgba(0,0,0,0.04)' }
+                      }}
+                    >
+                      <TableCell>
+                        <Box sx={{ 
+                          width: 38, 
+                          height: 46, 
+                          display: "flex", 
+                          alignItems: "center", 
+                          justifyContent: "center", 
+                          background: grade.gradient, 
+                          color: grade.label === "E" ? "#333" : "white", 
+                          fontWeight: 1000,
+                          fontSize: '1.2rem',
+                          position: 'relative',
+                          clipPath: "polygon(0% 0%, 100% 0%, 100% 75%, 50% 100%, 0% 75%)",
+                          filter: `drop-shadow(0 4px 6px ${alpha(grade.color, 0.4)})`,
+                          textShadow: grade.label === "E" ? "none" : "0 2px 4px rgba(0,0,0,0.3)",
+                          pb: 1, // Offset text upwards for shield point
+                          '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            inset: 1.5,
+                            background: 'inherit',
+                            clipPath: "inherit",
+                            filter: 'brightness(1.15)',
+                            zIndex: -1
+                          },
+                          '&::after': {
+                            content: '""',
+                            position: 'absolute',
+                            top: '-50%',
+                            left: '-50%',
+                            width: '200%',
+                            height: '200%',
+                            background: 'linear-gradient(45deg, transparent, rgba(255,255,255,0.25), transparent)',
+                            transform: 'rotate(45deg)',
+                            animation: 'shine 3s infinite',
+                          }
+                        }}>
+                          {grade.label}
                         </Box>
+                      </TableCell>
+                      <TableCell sx={{ pl: { xs: 1, sm: 3 } }}>
+                        <Box display="flex" alignItems="center" gap={{ xs: 1, sm: 2 }}>
+                          <Box
+                            component="a"
+                            href={getPesdbInfoUrl(player.playerId)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{ textDecoration: "none", display: "flex", alignItems: "center" }}
+                          >
+                            <PlayerAvatar playerId={player.playerId} gradeColor={grade.color} />
+                          </Box>
                         <Box>
                           <Typography
                             component="a"
@@ -808,7 +881,8 @@ const ClubSquadPage = () => {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                );
+              })}
               </TableBody>
             </Table>
           </TableContainer>
