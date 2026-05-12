@@ -9,3 +9,10 @@ public class ReportResultDto
     public int AwayYellow { get; set; } = 0;
     public int AwayRed { get; set; } = 0;
 }
+
+public class BatchResultDto
+{
+    public string FixtureId { get; set; } = null!;
+    public int HomeScore { get; set; }
+    public int AwayScore { get; set; }
+}

@@ -652,7 +652,7 @@ const AppLayout = () => {
             "radial-gradient(circle at top right, rgba(99,102,241,0.05), transparent 40%), #f1f5f9",
         }}
       >
-        <Box sx={{ width: "100%", maxWidth: 1680, mx: "auto" }}>
+        <Box sx={{ width: "100%", maxWidth: 'none', mx: 0 }}>
           <Outlet />
         </Box>
       </Box>

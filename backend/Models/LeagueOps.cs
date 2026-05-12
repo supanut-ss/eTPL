@@ -76,11 +76,11 @@ namespace eTPL.API.Models.LeagueOps
         public string user_id { get; set; } = null!;
         public int played_count { get; set; }
         public int ready_days { get; set; }
-        public decimal p_score { get; set; }
-        public decimal r_score { get; set; }
-        public decimal ei_score { get; set; }
-        public string tier { get; set; } = null!;
-        public int multiplier { get; set; }
-        public decimal est_bonus { get; set; }
+        public decimal? p_score { get; set; }
+        public decimal? r_score { get; set; }
+        public decimal? ei_score { get; set; }
+        public string? tier { get; set; }
+        public int? multiplier { get; set; }
+        public decimal? est_bonus { get; set; }
     }
 }
