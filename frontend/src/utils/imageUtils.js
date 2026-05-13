@@ -30,6 +30,26 @@ export const getLogoUrl = (teamName) => {
 };
 
 /**
+ * Generates the local URL for a club's logo image from the public folder
+ * @param {string} teamName - The name of the team (current_team)
+ * @returns {string}
+ */
+export const getTeamLogoUrl = (teamName) => {
+  if (!teamName) return "/_image/CLUB_LOGO/default.png";
+  return `/_image/CLUB_LOGO/${teamName}.png`;
+};
+
+/**
+ * Generates the URL to fetch a user's team logo via the backend API
+ * @param {string} userId - The user ID
+ * @returns {string}
+ */
+export const getUserLogoUrl = (userId) => {
+  if (!userId) return "/_image/CLUB_LOGO/default.png";
+  return `${API_BASE_URL}/api/users/${encodeURIComponent(userId)}/logo`;
+};
+
+/**
  * Generates the URL for a player's face image (Defaults to PESDB)
  * @param {number|string} playerId - The player's ID
  * @returns {string}

@@ -27,7 +27,9 @@ namespace eTPL.API.Data
         public DbSet<CupFixture> CupFixtures { get; set; }
         public DbSet<LeagueCycle> LeagueCycles { get; set; }
         public DbSet<DailyCheckin> DailyCheckins { get; set; }
-        public DbSet<PlayerLeagueStat> PlayerLeagueStats { get; set; }
+        public DbSet<LeagueOpsStatResult> LeagueOpsStatResults { get; set; }
+        public DbSet<JudgeHistory> JudgeHistories { get; set; }
+        public DbSet<QaInformation> QaInformation { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -271,7 +273,7 @@ namespace eTPL.API.Data
                 entity.HasIndex(e => new { e.MenuKey, e.UserLevel }).IsUnique();
             });
 
-            modelBuilder.Entity<PlayerLeagueStat>().HasNoKey();
+            modelBuilder.Entity<LeagueOpsStatResult>().HasNoKey();
         }
     }
 }

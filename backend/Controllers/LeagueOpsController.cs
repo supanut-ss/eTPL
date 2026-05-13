@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using System.Data;
 using Microsoft.Data.SqlClient;
 using System;
+using System.Text.Json;
 
 namespace eTPL.API.Controllers
 {
@@ -63,12 +64,13 @@ namespace eTPL.API.Controllers
             try
             {
                 var cycleIdParam = new SqlParameter("@in_int_cycle_id", id);
-                var stats = await _context.Set<PlayerLeagueStat>().FromSqlRaw("EXEC sp_calculate_league_ops @in_int_cycle_id", cycleIdParam).ToListAsync();
+                var stats = await _context.Set<LeagueOpsStatResult>().FromSqlRaw("EXEC sp_calculate_league_ops @in_int_cycle_id", cycleIdParam).ToListAsync();
                 return Ok(stats);
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                var details = ex.Message + (ex.InnerException != null ? " -> " + ex.InnerException.Message : "");
+                return BadRequest(new { message = "Query Stats Error", details = details });
             }
         }
 
@@ -88,11 +90,11 @@ namespace eTPL.API.Controllers
                 var cycle = await _context.LeagueCycles.FindAsync(cycleId);
                 if (cycle == null) return NotFound(new { message = "Cycle not found" });
 
-                var stats = await _context.Set<PlayerLeagueStat>()
+                var rawStats = await _context.Set<LeagueOpsStatResult>()
                     .FromSqlRaw("EXEC sp_calculate_league_ops @in_int_cycle_id", new SqlParameter("@in_int_cycle_id", cycleId))
                     .ToListAsync();
                 
-                var statsDict = stats.GroupBy(s => s.user_id, StringComparer.OrdinalIgnoreCase)
+                var statsDict = rawStats.GroupBy(s => s.user_id, StringComparer.OrdinalIgnoreCase)
                     .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
                 var pendingMatches = await _scaffoldedContext.TbmFixtureAlls
@@ -135,10 +137,59 @@ namespace eTPL.API.Controllers
             }
         }
 
-        [HttpPost("batch-apply")]
-        public async Task<IActionResult> ApplyBatchResults([FromBody] List<BatchResultDto> results)
+        [HttpGet("history/{cycleId}")]
+        public async Task<IActionResult> GetHistory(int cycleId)
         {
+            try
+            {
+                var history = await _context.JudgeHistories
+                    .Where(h => h.CycleId == cycleId)
+                    .OrderByDescending(h => h.JudgeDate)
+                    .ToListAsync();
+                return Ok(history);
+            }
+            catch (Exception ex)
+            {
+                // Most likely table doesn't exist
+                return BadRequest(new { message = "History Query Error", details = ex.Message });
+            }
+        }
+
+        [HttpDelete("history/{id}")]
+        public async Task<IActionResult> DeleteHistory(int id)
+        {
+            var history = await _context.JudgeHistories.FindAsync(id);
+            if (history == null) return NotFound();
+
+            _context.JudgeHistories.Remove(history);
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "History deleted" });
+        }
+
+        [HttpPost("batch-apply")]
+        public async Task<IActionResult> ApplyBatchResults([FromBody] BatchApplyRequest request)
+        {
+            var results = request.Results;
+            var cycleId = request.CycleId;
+
             if (results == null || !results.Any()) return BadRequest("No results provided");
+
+            // Record history before applying (to capture the snapshot)
+            var cycle = await _context.LeagueCycles.FindAsync(cycleId);
+            if (cycle != null)
+            {
+                var adminId = User.Identity?.Name ?? "system";
+                var history = new JudgeHistory
+                {
+                    CycleId = cycleId,
+                    JudgeDate = DateTime.Now,
+                    ConfigSnapshot = request.ConfigSnapshot ?? JsonSerializer.Serialize(cycle),
+                    MatchCount = results.Count,
+                    AdminId = adminId
+                };
+                _context.JudgeHistories.Add(history);
+                await _context.SaveChangesAsync();
+            }
 
             foreach (var item in results)
             {

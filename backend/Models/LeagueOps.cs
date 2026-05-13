@@ -1,6 +1,8 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Collections.Generic;
+using eTPL.API.Models.DTOs;
 
 namespace eTPL.API.Models.LeagueOps
 {
@@ -71,7 +73,30 @@ namespace eTPL.API.Models.LeagueOps
         public bool IsReady { get; set; }
     }
 
-    public class PlayerLeagueStat
+    [Table("tbs_judge_history")]
+    public class JudgeHistory
+    {
+        [Key]
+        [Column("id")]
+        public int Id { get; set; }
+
+        [Column("cycle_id")]
+        public int CycleId { get; set; }
+
+        [Column("judge_date")]
+        public DateTime JudgeDate { get; set; } = DateTime.Now;
+
+        [Column("config_snapshot")]
+        public string ConfigSnapshot { get; set; } = null!; // JSON string of the config at that time
+
+        [Column("match_count")]
+        public int MatchCount { get; set; }
+        
+        [Column("admin_id")]
+        public string AdminId { get; set; } = null!;
+    }
+
+    public class LeagueOpsStatResult
     {
         public string user_id { get; set; } = null!;
         public int played_count { get; set; }
@@ -82,5 +107,12 @@ namespace eTPL.API.Models.LeagueOps
         public string? tier { get; set; }
         public int? multiplier { get; set; }
         public decimal? est_bonus { get; set; }
+    }
+
+    public class BatchApplyRequest
+    {
+        public int CycleId { get; set; }
+        public List<BatchResultDto> Results { get; set; } = null!;
+        public string? ConfigSnapshot { get; set; }
     }
 }

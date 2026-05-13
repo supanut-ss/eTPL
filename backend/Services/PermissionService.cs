@@ -25,6 +25,7 @@ namespace eTPL.API.Services
             ("admin-manage-data", "Data Management"),
             ("admin-league-setting", "League Setting"),
             ("announcements",  "Announcements"),
+            ("admin-league-ops", "League Ops"),
 
         };
 

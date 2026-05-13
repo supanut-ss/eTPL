@@ -6,7 +6,14 @@ const leagueOpsService = {
   getCycleStats: (cycleId) => api.get(`/api/leagueops/cycle/${cycleId}/stats`),
   runAutoJudge: (cycleId) => api.post(`/api/leagueops/autojudge/${cycleId}`),
   getAutoJudgePreview: (cycleId) => api.get(`/api/leagueops/autojudge/${cycleId}/preview`),
-  applyBatchResults: (results) => api.post("/api/leagueops/batch-apply", results),
+  applyBatchResults: (cycleId, results, configSnapshot) =>
+    api.post("/api/leagueops/batch-apply", {
+      cycleId,
+      results,
+      configSnapshot,
+    }),
+  getJudgeHistory: (cycleId) => api.get(`/api/leagueops/history/${cycleId}`),
+  deleteJudgeHistory: (id) => api.delete(`/api/leagueops/history/${id}`),
   addCheckin: (data) => api.post("/api/leagueops/checkin", data),
 };
 

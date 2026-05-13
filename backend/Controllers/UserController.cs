@@ -34,6 +34,36 @@ namespace eTPL.API.Controllers
             return Ok(ApiResponse<UserDto>.Ok(user));
         }
 
+        [HttpGet("{userId}/logo")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetLogo(string userId)
+        {
+            var user = await _userService.GetByUserIdAsync(userId);
+            string teamName = user?.CurrentTeam ?? "";
+            
+            var folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "_image", "CLUB_LOGO");
+            var filePath = Path.Combine(folderPath, $"{teamName}.png");
+
+            if (!string.IsNullOrEmpty(teamName) && !System.IO.File.Exists(filePath))
+            {
+                // Try case-insensitive match
+                var files = Directory.GetFiles(folderPath, "*.png");
+                var matchedFile = files.FirstOrDefault(f => 
+                    Path.GetFileNameWithoutExtension(f).Equals(teamName, StringComparison.OrdinalIgnoreCase));
+                if (matchedFile != null) filePath = matchedFile;
+            }
+
+            if (!System.IO.File.Exists(filePath))
+            {
+                // Fallback to league logo if team logo not found
+                filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "logo-etpl.png");
+            }
+
+            if (!System.IO.File.Exists(filePath)) return NotFound();
+
+            return PhysicalFile(filePath, "image/png");
+        }
+
         [HttpPost]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Create([FromBody] CreateUserRequest request)

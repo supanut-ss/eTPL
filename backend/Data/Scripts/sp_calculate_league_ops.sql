@@ -43,15 +43,15 @@ BEGIN
         (SELECT COUNT(*) FROM tbm_fixture_all f 
          WHERE (UPPER(f.HOME) = UPPER(u.user_id) OR UPPER(f.AWAY) = UPPER(u.user_id)) 
          AND f.MATCH_DATE IS NOT NULL
-         AND f.HOME_SCORE IS NOT NULL AND f.AWAY_SCORE IS NOT NULL
-         AND f.MATCH BETWEEN @v_int_match_start AND @v_int_match_end),
+         AND (f.HOME_SCORE IS NOT NULL AND f.AWAY_SCORE IS NOT NULL)
+         AND f.MATCH BETWEEN ISNULL(@v_int_match_start, 0) AND ISNULL(@v_int_match_end, 999999)),
         (SELECT COUNT(*) FROM tbs_daily_checkins c 
          WHERE c.user_id = u.user_id AND c.cycle_id = @in_int_cycle_id AND c.is_ready = 1)
     FROM tbm_user u
     WHERE EXISTS (
         SELECT 1 FROM tbm_fixture_all f 
         WHERE (UPPER(f.HOME) = UPPER(u.user_id) OR UPPER(f.AWAY) = UPPER(u.user_id))
-        AND f.MATCH BETWEEN @v_int_match_start AND @v_int_match_end
+        AND f.MATCH BETWEEN ISNULL(@v_int_match_start, 0) AND ISNULL(@v_int_match_end, 999999)
     );
 
     -- Calculate EI and Tiers

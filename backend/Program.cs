@@ -112,6 +112,8 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IAiService, AiService>();
 builder.Services.AddScoped<IDiscordService, DiscordService>();
 builder.Services.AddScoped<IFacebookService, FacebookService>();
+builder.Services.AddHttpClient<LineWebhookService>();
+builder.Services.AddScoped<LineWebhookService>();
 
 
 var app = builder.Build();

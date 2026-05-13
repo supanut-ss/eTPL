@@ -57,6 +57,7 @@ import {
   SwitchAccount,
   CompareArrows,
   Tune,
+  ManageHistory,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -181,7 +182,7 @@ const navItems = [
       {
         label: "League Ops",
         path: "/admin/league-ops",
-        icon: <Gavel />,
+        icon: <ManageHistory />,
         key: "admin-league-ops",
       },
       {

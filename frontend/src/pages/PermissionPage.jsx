@@ -35,6 +35,7 @@ const ALL_MENUS = [
   { key: "admin-auction", label: "Auction Settings", description: "System financial & timer rules" },
   { key: "admin-manage-data", label: "Data Management", description: "Scrape players & HOF entry" },
   { key: "admin-league-setting", label: "League Setting", description: "Prize settings & tournament rules" },
+  { key: "admin-league-ops", label: "League Ops", description: "Admin tools for league operations" },
   { key: "announcements", label: "Announcements", description: "Manage news and updates" },
 ];
 
