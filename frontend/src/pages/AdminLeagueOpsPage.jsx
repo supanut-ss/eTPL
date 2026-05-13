@@ -577,7 +577,7 @@ const AdminLeagueOpsPage = () => {
               </Box>
             </Box>
             <TableContainer sx={{ maxHeight: 600 }}>
-              <Table stickyHeader size="small">
+              <Table stickyHeader size="small" sx={{ width: '100%' }}>
                 <TableHead>
                   <TableRow>
                     {['USER ID', 'P-SCORE', 'R-SCORE', 'EI SCORE', 'TIER STATUS', 'EST. BONUS'].map((head) => (
@@ -685,7 +685,7 @@ const AdminLeagueOpsPage = () => {
 
           <DialogContent sx={{ p: 3, bgcolor: '#f8fafc' }}>
             <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.02)', border: '1px solid #e2e8f0', maxHeight: '100%' }}>
-              <Table stickyHeader>
+              <Table stickyHeader sx={{ width: '100%' }}>
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ fontWeight: '800', color: '#475569', fontSize: 11, letterSpacing: '0.05em', pl: 3, bgcolor: '#f1f5f9' }}>MATCHUP & EI SCORES</TableCell>
