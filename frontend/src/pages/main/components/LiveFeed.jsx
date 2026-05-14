@@ -40,7 +40,7 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
       color: "#10b981",
       date: f.matchDate || f.date,
       data: f,
-      msg: `${extractPlayer(f.home) || f.homeTeamName || "?"} ${f.homeScore ?? "-"} - ${f.awayScore ?? "-"} ${extractPlayer(f.away) || f.awayTeamName || "?"}`,
+      msg: `${extractPlayer(f.home) || f.homeTeamName || "?"} ${f.HomeScore ?? f.homeScore ?? "-"} - ${f.AwayScore ?? f.awayScore ?? "-"} ${extractPlayer(f.away) || f.awayTeamName || "?"}`,
       detail: null,
       time: (() => {
         const rawDate = f.matchDate || f.MatchDate || f.createDate || f.CreateDate || f.date || f.Date;
@@ -178,36 +178,64 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
           if (feed.type === "RESULT") {
             const hName = extractPlayer(feed.data?.home || feed.homeTeamName || "?");
             const aName = extractPlayer(feed.data?.away || feed.awayTeamName || "?");
-            const hScore = feed.data?.homeScore ?? feed.homeScore ?? 0;
-            const aScore = feed.data?.awayScore ?? feed.awayScore ?? 0;
+            const hScore = feed.data?.HomeScore ?? feed.data?.homeScore ?? feed.homeScore ?? 0;
+            const aScore = feed.data?.AwayScore ?? feed.data?.awayScore ?? feed.awayScore ?? 0;
             const isDraw = hScore === aScore;
+            const diff = Math.abs(hScore - aScore);
             const winner = hScore > aScore ? hName : aName;
             const loser = hScore > aScore ? aName : hName;
             const wScore = Math.max(hScore, aScore);
             const lScore = Math.min(hScore, aScore);
-            const templates = [
-              `จบเกมสุดมันส์! ${hName} ${hScore} - ${aScore} ${aName}`,
-              !isDraw ? `ชัยชนะเป็นของ ${winner}! เอาชนะ ${loser} ไปได้ ${wScore}-${lScore}` : `แบ่งแต้มกันไป! ${hName} เสมอกับ ${aName} ${hScore}-${aScore} แบบสุดระทึก`,
-              !isDraw ? `${winner} โชว์ฟอร์มดุ! ถล่ม ${loser} เก็บ 3 แต้มสำคัญ ${wScore}-${lScore}` : `ศึกศักดิ์ศรีจบลงที่ ${hScore}-${aScore}! ${hName} และ ${aName} สู้กันได้สมศักดิ์ศรี`,
+
+            const drawTemplates = [
+              `แบ่งแต้มกันไป! ${hName} เสมอกับ ${aName} ${hScore}-${aScore} แบบสุดระทึก`,
+              `ศึกศักดิ์ศรีจบลงที่ ${hScore}-${aScore}! ${hName} และ ${aName} สู้กันได้สมศักดิ์ศรี`,
               `คะแนนเท่ากัน! ${hName} และ ${aName} จบเกมที่สกอร์ ${hScore}-${aScore}`,
-              !isDraw ? `${winner} เก็บชัยได้สำเร็จ! เฉือนเอาชนะ ${loser} ไปอย่างหวุดหวิด ${wScore}-${lScore}` : `เกมรับเหนียวแน่น! ${hName} และ ${aName} ทำอะไรกันไม่ได้มากจบที่ ${hScore}-${aScore}`,
-              `แฟนบอลเฮลั่น! ${hName} และ ${aName} สู้กันยิบตาจบที่ ${hScore}-${aScore}`,
-              !isDraw ? `ผลการแข่งขัน: ${winner} คว้าชัยเหนือ ${loser} ${wScore}-${lScore}` : `เจ๊ากันไป! ${hName} และ ${aName} กอดคอแบ่งแต้ม ${hScore}-${aScore}`,
-              `ศึกบิ๊กแมตช์จบลงแล้ว! ${hName} ${hScore} - ${aScore} ${aName}`,
-              !isDraw ? `${winner} แกร่งเกินต้าน! ถล่มเอาชนะ ${loser} ไปได้ ${wScore}-${lScore}` : `สู้กันจนนาทีสุดท้าย! ${hName} เสมอ ${aName} ${hScore}-${aScore}`,
-              `รายงานผล: ${hName} ${hScore} - ${aScore} ${aName} ท่ามกลางเสียงเชียร์กึกก้อง`,
-              `เกมรับสุดแกร่ง! ${hName} และ ${aName} สู้กันจนนาทีสุดท้ายที่ ${hScore}-${aScore}`,
-              !isDraw ? `บุกแหลก! ${winner} ถล่ม ${loser} ไปแบบขาดลอย ${wScore}-${lScore}` : `ผลเสมอที่น่าทึ่ง! ${hName} และ ${aName} แบ่งแต้มกันไป ${hScore}-${aScore}`,
-              `จบแมตช์หยุดโลก! ${hName} ${hScore} - ${aScore} ${aName} สู้กันได้สมศักดิ์ศรี`,
-              !isDraw ? `ชัยชนะอันล้ำค่า! ${winner} เฉือนเอาชนะ ${loser} ไปได้ ${wScore}-${lScore}` : `ไม่มีใครยอมใคร! ${hName} และ ${aName} จบที่สกอร์ ${hScore}-${aScore}`,
-              !isDraw ? `เกมรุกดุดัน! ${winner} ไล่ต้อน ${loser} จนมุม จบที่ ${wScore}-${lScore}` : `เสียงนกหวีดดังขึ้น! ${hName} ${hScore} - ${aScore} ${aName} แบ่งแต้มกันไป`,
-              !isDraw ? `พลิกนรก! ${winner} ฮึดสู้เอาชนะ ${loser} ไปอย่างสุดมันส์ ${wScore}-${lScore}` : `สู้กันได้สูสี! ${hName} และ ${aName} แบ่งคะแนนกันที่ ${hScore}-${aScore}`,
-              `เกมคุณภาพ! ${hName} และ ${aName} โชว์ฟอร์มเยี่ยมจบที่ ${hScore}-${aScore}`,
-              `จบการรายงาน: ${hName} ${hScore} - ${aScore} ${aName} แฟนบอลลุ้นกันตัวโก่ง`,
-              !isDraw ? `ฟอร์มแชมป์! ${winner} จัดหนักถล่ม ${loser} คาบ้าน ${wScore}-${lScore}` : `จบแมตช์ด้วยผลเสมอ! ${hName} และ ${aName} กินกันไม่ลง ${hScore}-${aScore}`,
+              `เกมรับเหนียวแน่น! ${hName} และ ${aName} ทำอะไรกันไม่ได้มากจบที่ ${hScore}-${aScore}`,
+              `เจ๊ากันไป! ${hName} และ ${aName} กอดคอแบ่งแต้ม ${hScore}-${aScore}`,
+              `สู้กันจนนาทีสุดท้าย! ${hName} เสมอ ${aName} ${hScore}-${aScore}`,
+              `ผลเสมอที่น่าทึ่ง! ${hName} และ ${aName} แบ่งแต้มกันไป ${hScore}-${aScore}`,
+              `ไม่มีใครยอมใคร! ${hName} และ ${aName} จบที่สกอร์ ${hScore}-${aScore}`,
+              `กินกันไม่ลง! ${hName} และ ${aName} จบเกมที่สกอร์ ${hScore}-${aScore}`,
+              `จบแมตช์ด้วยผลเสมอ! ${hName} และ ${aName} กินกันไม่ลง ${hScore}-${aScore}`,
+              `จบเกมสุดมันส์! ${hName} ${hScore} - ${aScore} ${aName} แบ่งแต้มกันไป`,
+              `ศึกบิ๊กแมตช์จบลงแล้ว! ${hName} ${hScore} - ${aScore} ${aName} สู้กันยิบตา`,
               `สรุปผลสดๆ: ${hName} ${hScore} - ${aScore} ${aName} สนุกตื่นเต้นทุกวินาที`
             ];
-            displayMsg = templates[(idx * 3) % 20];
+
+            const closeWinTemplates = [
+              `ชัยชนะเป็นของ ${winner}! เอาชนะ ${loser} ไปได้ ${wScore}-${lScore}`,
+              `${winner} เก็บชัยได้สำเร็จ! เฉือนเอาชนะ ${loser} ไปอย่างหวุดหวิด ${wScore}-${lScore}`,
+              `ผลการแข่งขัน: ${winner} คว้าชัยเหนือ ${loser} ${wScore}-${lScore}`,
+              `ชัยชนะอันล้ำค่า! ${winner} เฉือนเอาชนะ ${loser} ไปได้ ${wScore}-${lScore}`,
+              `แฟนบอลเฮลั่น! ${winner} เก็บ 3 แต้มสำคัญเหนือ ${loser} ${wScore}-${lScore}`,
+              `เกมคุณภาพ! ${winner} ฮึดสู้จนวินาทีสุดท้ายเอาชนะ ${loser} ${wScore}-${lScore}`,
+              `${winner} แกร่งพอที่จะคว้าชัย! ชนะ ${loser} ไปได้ ${wScore}-${lScore}`,
+              `จบเกม! ${winner} ทำได้ตามเป้า เอาชนะ ${loser} ${wScore}-${lScore}`,
+              `สามแต้มเข้ากระเป๋า! ${winner} เบียดเอาชนะ ${loser} ไปอย่างสนุก ${wScore}-${lScore}`,
+              `${winner} เฉือนคม! คว้าชัยเหนือ ${loser} ในแมตช์ที่สูสีที่สุด ${wScore}-${lScore}`
+            ];
+
+            const crushingWinTemplates = [
+              `${winner} โชว์ฟอร์มดุ! ถล่ม ${loser} เก็บ 3 แต้มสำคัญ ${wScore}-${lScore}`,
+              `${winner} แกร่งเกินต้าน! ถล่มเอาชนะ ${loser} ไปได้ ${wScore}-${lScore}`,
+              `บุกแหลก! ${winner} ถล่ม ${loser} ไปแบบขาดลอย ${wScore}-${lScore}`,
+              `ฟอร์มแชมป์! ${winner} จัดหนักถล่ม ${loser} คาบ้าน ${wScore}-${lScore}`,
+              `${winner} ระเบิดฟอร์มเทพ! ถล่มเอาชนะ ${loser} ไปอย่างเหนือชั้น ${wScore}-${lScore}`,
+              `ขาดลอย! ${winner} โชว์เหนือชั้นถล่ม ${loser} เละเทะ ${wScore}-${lScore}`,
+              `${winner} ไร้ปรานี! เดินหน้าทำสกอร์ถล่ม ${loser} ${wScore}-${lScore}`,
+              `วันของ ${winner}! ถล่ม ${loser} เก็บชัยชนะที่ยิ่งใหญ่ที่สุด ${wScore}-${lScore}`,
+              `${winner} เครื่องจักรสังหาร! ถล่มเอาชนะ ${loser} ไปได้แบบสบายๆ ${wScore}-${lScore}`,
+              `จบเกมที่สกอร์ขาดลอย! ${winner} ถล่ม ${loser} ยับเยิน ${wScore}-${lScore}`
+            ];
+
+            if (isDraw) {
+              displayMsg = drawTemplates[idx % drawTemplates.length];
+            } else if (diff >= 3) {
+              displayMsg = crushingWinTemplates[idx % crushingWinTemplates.length];
+            } else {
+              displayMsg = closeWinTemplates[idx % closeWinTemplates.length];
+            }
           } else if (feed.type === "MARKET") {
             const manager = feed.data?.manager || "สโมสร";
             const player = feed.data?.player || "นักเตะ";

@@ -389,7 +389,9 @@ const AuctionPage = () => {
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
-        alignItems: 'center', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 2, sm: 0 },
         mb: 4,
         px: { xs: 1, sm: 0 }
       }}>
@@ -403,9 +405,9 @@ const AuctionPage = () => {
           </Box>
         </Box>
 
-        <Box display="flex" gap={1}>
-
+        <Box display="flex" gap={1} width={{ xs: '100%', sm: 'auto' }}>
           <Button 
+            fullWidth={isMobile}
             variant="contained" 
             disableElevation
             startIcon={<Search />} 
@@ -715,7 +717,14 @@ const AuctionPage = () => {
       )}
 
       {/* Active Auctions Section */}
-      <Box mb={2} display="flex" alignItems="center" justifyContent="space-between" width="100%">
+      <Box mb={2} sx={{ 
+        display: "flex", 
+        flexDirection: { xs: "column", sm: "row" },
+        alignItems: { xs: "flex-start", sm: "center" }, 
+        justifyContent: "space-between", 
+        gap: 2,
+        width: "100%" 
+      }}>
         <Box display="flex" alignItems="center" gap={1}>
           <Gavel color="warning" fontSize="small" />
           <Typography variant="h6" fontWeight="bold">🔥 Live Auctions</Typography>
@@ -730,18 +739,15 @@ const AuctionPage = () => {
             py: 0.4, 
             borderRadius: '4px',
             border: '1px solid',
-            borderColor: 'grey.200'
+            borderColor: 'grey.200',
+            width: { xs: '100%', sm: 'auto' },
+            justifyContent: { xs: 'center', sm: 'flex-start' }
           }}>
             <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.5px' }}>
               MARKET HOURS
             </Typography>
             <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 900, fontSize: '0.75rem' }}>
               {summary.marketStartTime} - {summary.marketEndTime}
-              {summary.marketStartDate && summary.marketStartDate !== "N/A" && (
-                <span style={{ marginLeft: '8px', opacity: 0.6, fontWeight: 600, fontSize: '0.7rem' }}>
-                  ({summary.marketStartDate} - {summary.marketEndDate})
-                </span>
-              )}
             </Typography>
           </Box>
         )}
@@ -951,7 +957,7 @@ const AuctionPage = () => {
       <Dialog 
         open={searchOpen} 
         onClose={() => setSearchOpen(false)} 
-        maxWidth="md" 
+        maxWidth="lg" 
         fullWidth
         fullScreen={isMobile}
       >

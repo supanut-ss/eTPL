@@ -268,7 +268,7 @@ const AdminAuctionPage = () => {
                 <Typography variant="h6" fontWeight="bold">Schedule & Hours</Typography>
               </Box>
               <Stack spacing={3}>
-                <Box display="flex" gap={3}>
+                <Box display="flex" gap={3} flexDirection={{ xs: "column", sm: "row" }}>
                   <TextField
                     fullWidth
                     label="Start Date"
@@ -288,7 +288,7 @@ const AdminAuctionPage = () => {
                     InputLabelProps={{ shrink: true }}
                   />
                 </Box>
-                <Box display="flex" gap={3}>
+                <Box display="flex" gap={3} flexDirection={{ xs: "column", sm: "row" }}>
                   <TextField
                     fullWidth
                     label="Daily Start Time"

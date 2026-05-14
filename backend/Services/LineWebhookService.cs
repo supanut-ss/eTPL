@@ -15,10 +15,25 @@ namespace eTPL.API.Services
         private readonly HttpClient _httpClient;
         private readonly string _accessToken;
 
+        public bool IsTokenConfigured => !string.IsNullOrEmpty(_accessToken);
+
         public LineWebhookService(HttpClient httpClient, IConfiguration configuration)
         {
             _httpClient = httpClient;
-            _accessToken = configuration["LineBot:ChannelAccessToken"] ?? "";
+            // Check multiple possible keys
+            _accessToken = configuration["LineBot:ChannelAccessToken"] 
+                        ?? configuration["Line:ChannelAccessToken"] 
+                        ?? configuration["LINE_CHANNEL_ACCESS_TOKEN"]
+                        ?? "";
+            
+            if (string.IsNullOrEmpty(_accessToken))
+            {
+                Console.WriteLine("CRITICAL: LINE ChannelAccessToken is MISSING in configuration!");
+            }
+            else
+            {
+                Console.WriteLine($"LINE ChannelAccessToken loaded (Prefix: {(_accessToken.Length > 10 ? _accessToken.Substring(0, 10) : "...")})");
+            }
         }
 
         public async Task<LineProfileResponse?> GetUserProfileAsync(string userId)
@@ -143,7 +158,7 @@ namespace eTPL.API.Services
                                                 text = "Ready",
                                                 color = "#ffffff",
                                                 align = "center",
-                                                size = "xs",
+                                               size = "xs",
                                                 offsetTop = "3px"
                                             }
                                         }

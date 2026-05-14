@@ -31,6 +31,11 @@ const adminService = {
   // AI Generation
   generateAiPrompt: (data) => api.post("/api/ai/generate-prompt", data),
   generateAiImage: (data) => api.post("/api/ai/generate-image", data),
+ 
+  // Bot Q&A
+  getQa: () => api.get("/api/admin/qa"),
+  addQa: (data) => api.post("/api/admin/qa", data),
+  deleteQa: (id) => api.delete(`/api/admin/qa/${id}`),
 };
 
 export default adminService;

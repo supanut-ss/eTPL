@@ -45,9 +45,11 @@ import {
   Shield,
   AutoAwesome,
   Refresh,
+  CalendarMonth,
 } from "@mui/icons-material";
 import { checkMarketOpen } from "../utils/marketUtils";
 import auctionService from "../services/auctionService";
+import fixtureService from "../services/fixtureService";
 import { useSnackbar } from "notistack";
 import { useAuth } from "../store/AuthContext";
 import {
@@ -55,6 +57,8 @@ import {
   getPesdbInfoUrl,
   getPlayerCardUrl,
   getPlayerFaceUrlPesmaster,
+  getUserLogoUrl,
+  getLogoUrl,
 } from "../utils/imageUtils";
 import adminService from "../services/adminService";
 
@@ -308,6 +312,11 @@ const ClubSquadPage = () => {
   const [quotaData, setQuotaData] = useState(null);
   const [loadingQuota, setLoadingQuota] = useState(false);
 
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [fixtures, setFixtures] = useState([]);
+  const [fixtureLoading, setFixtureLoading] = useState(false);
+  const [fixtureFilter, setFixtureFilter] = useState("unplayed");
+
   useEffect(() => {
     if (currentUser) {
       fetchClubs();
@@ -410,6 +419,27 @@ const ClubSquadPage = () => {
     } else {
       setSquadData(null);
     }
+  };
+
+  const fetchFixtures = async (userId) => {
+    try {
+      setFixtureLoading(true);
+      const res = await fixtureService.getFixtures(userId);
+      const data = res?.data?.data || [];
+      setFixtures(data);
+    } catch (err) {
+      console.error("Fetch fixtures error:", err);
+      enqueueSnackbar("Failed to fetch match schedule", { variant: "error" });
+    } finally {
+      setFixtureLoading(false);
+    }
+  };
+
+  const handleOpenSchedule = () => {
+    if (!selectedClub) return;
+    fetchFixtures(selectedClub.userId);
+    setFixtureFilter("unplayed");
+    setScheduleModalOpen(true);
   };
 
   const handleOpenNegotiate = (player) => {
@@ -566,6 +596,22 @@ const ClubSquadPage = () => {
             }}
           >
             Quota Summary
+          </Button>
+
+          <Button
+            variant="outlined"
+            startIcon={<CalendarMonth />}
+            fullWidth={isMobile}
+            onClick={handleOpenSchedule}
+            disabled={!selectedClub}
+            sx={{ 
+              borderRadius: '12px', 
+              textTransform: 'none', 
+              fontWeight: 600,
+              height: 40
+            }}
+          >
+            Match Schedule
           </Button>
 
           <Autocomplete
@@ -1305,6 +1351,175 @@ const ClubSquadPage = () => {
             AUTO-REFRESH IS ACTIVE ON MAIN PAGE ONLY • DATA SYNCED WITH AUCTION SETTINGS
           </Typography>
         </Box>
+      </Dialog>
+
+      {/* Match Schedule Modal */}
+      <Dialog 
+        open={scheduleModalOpen} 
+        onClose={() => setScheduleModalOpen(false)}
+        maxWidth="md"
+        fullWidth
+        fullScreen={isMobile}
+        TransitionComponent={Transition}
+        PaperProps={{
+          sx: { borderRadius: isMobile ? 0 : 4, bgcolor: '#f8fafc' }
+        }}
+      >
+        <DialogTitle sx={{ 
+          p: 3, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+          color: 'white'
+        }}>
+          <Box display="flex" alignItems="center" gap={1.5}>
+            <CalendarMonth sx={{ color: '#fbbf24' }} />
+            <Box>
+              <Typography variant="h6" fontWeight={1000} sx={{ lineHeight: 1.2 }}>
+                Match Schedule
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 700, letterSpacing: 0.5 }}>
+                {selectedClub?.userId}&apos;S FIXTURES
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton onClick={() => setScheduleModalOpen(false)} sx={{ color: 'white', opacity: 0.7, '&:hover': { opacity: 1 } }}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          <Box sx={{ px: 3, py: 2, bgcolor: 'white', borderBottom: '1px solid rgba(0,0,0,0.05)', position: 'sticky', top: 0, zIndex: 10 }}>
+            <ToggleButtonGroup
+              value={fixtureFilter}
+              exclusive
+              onChange={(e, val) => val && setFixtureFilter(val)}
+              size="small"
+              fullWidth
+              sx={{
+                '& .MuiToggleButton-root': {
+                  borderRadius: '10px',
+                  py: 1,
+                  fontWeight: 800,
+                  textTransform: 'none',
+                  border: '1px solid rgba(0,0,0,0.08)',
+                  '&.Mui-selected': {
+                    bgcolor: '#0f172a',
+                    color: 'white',
+                    '&:hover': { bgcolor: '#1e293b' }
+                  }
+                }
+              }}
+            >
+              <ToggleButton value="unplayed">Not Played</ToggleButton>
+              <ToggleButton value="played">Results</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+
+          <Box sx={{ p: { xs: 1.5, sm: 3 } }}>
+            {fixtureLoading ? (
+              <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>
+            ) : (
+              <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.05)', borderRadius: 3, bgcolor: 'white', overflow: 'hidden' }}>
+                <Table size="small">
+                  <TableHead sx={{ bgcolor: 'rgba(0,0,0,0.02)' }}>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 1000, width: 40 }}>M</TableCell>
+                      <TableCell sx={{ fontWeight: 1000 }}>MATCHUP</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 1000 }}>SCORE</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {fixtures
+                      .filter(f => {
+                        const hasScore = f.homeScore !== null && f.awayScore !== null;
+                        return fixtureFilter === 'played' ? hasScore : !hasScore;
+                      })
+                      .map((f, i) => {
+                        const isHome = f.home === selectedClub?.userId;
+                        
+                        return (
+                          <TableRow key={f.fixtureId} sx={{ '& td': { py: 2 }, bgcolor: i % 2 === 0 ? 'white' : 'rgba(0,0,0,0.01)' }}>
+                            <TableCell sx={{ fontWeight: 1000, color: 'text.secondary' }}>{f.match}</TableCell>
+                            <TableCell>
+                              <Box display="flex" alignItems="center" gap={1.5}>
+                                {/* Home Team */}
+                                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1.5 }}>
+                                  <Box sx={{ textAlign: 'right' }}>
+                                    <Typography variant="body2" fontWeight={isHome ? 1000 : 800} sx={{ color: isHome ? 'primary.main' : 'text.primary', lineHeight: 1.2, fontSize: '0.95rem' }}>
+                                      {f.home}
+                                    </Typography>
+                                  </Box>
+                                  <Avatar 
+                                    src={getUserLogoUrl(f.home)} 
+                                    sx={{ width: 36, height: 36, bgcolor: 'rgba(0,0,0,0.04)', p: 0.5 }} 
+                                    variant="rounded"
+                                  >
+                                    <Shield sx={{ fontSize: 18, color: 'primary.main', opacity: 0.4 }} />
+                                  </Avatar>
+                                </Box>
+
+                                <Typography variant="caption" fontWeight={900} color="text.disabled">VS</Typography>
+
+                                {/* Away Team */}
+                                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                  <Avatar 
+                                    src={getUserLogoUrl(f.away)} 
+                                    sx={{ width: 36, height: 36, bgcolor: 'rgba(0,0,0,0.04)', p: 0.5 }} 
+                                    variant="rounded"
+                                  >
+                                    <Shield sx={{ fontSize: 18, color: 'primary.main', opacity: 0.4 }} />
+                                  </Avatar>
+                                  <Box sx={{ textAlign: 'left' }}>
+                                    <Typography variant="body2" fontWeight={!isHome ? 1000 : 800} sx={{ color: !isHome ? 'primary.main' : 'text.primary', lineHeight: 1.2, fontSize: '0.95rem' }}>
+                                      {f.away}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              </Box>
+                            </TableCell>
+                            <TableCell align="center">
+                              {f.homeScore !== null ? (
+                                <Box sx={{ 
+                                  display: 'inline-flex', 
+                                  gap: 1, 
+                                  px: 1.5, 
+                                  py: 0.5, 
+                                  borderRadius: 1.5, 
+                                  bgcolor: 'rgba(0,0,0,0.04)',
+                                  fontWeight: 1000,
+                                  fontFamily: 'monospace',
+                                  fontSize: '1rem'
+                                }}>
+                                  <span style={{ color: f.homeScore > f.awayScore ? '#22c55e' : (f.homeScore < f.awayScore ? '#ef4444' : 'inherit') }}>{f.homeScore}</span>
+                                  <span style={{ opacity: 0.3 }}>-</span>
+                                  <span style={{ color: f.awayScore > f.homeScore ? '#22c55e' : (f.awayScore < f.homeScore ? '#ef4444' : 'inherit') }}>{f.awayScore}</span>
+                                </Box>
+                              ) : (
+                                <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.disabled', letterSpacing: 1 }}>TBD</Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    {fixtures.filter(f => {
+                        const hasScore = f.homeScore !== null && f.awayScore !== null;
+                        return fixtureFilter === 'played' ? hasScore : !hasScore;
+                      }).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} align="center" sx={{ py: 8 }}>
+                          <Typography variant="body2" color="text.secondary" fontWeight={700}>
+                            No matches found for this category
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Box>
+        </DialogContent>
       </Dialog>
     </Box>
   );

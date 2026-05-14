@@ -13,6 +13,8 @@ import {
   CircularProgress,
   TextField,
   IconButton,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {
   Facebook,
@@ -26,6 +28,8 @@ import {
 import { getFacebookSettings, getFacebookAppConfig, updateFacebookToken, testFacebookPost } from "../api/facebookApi";
 
 const FacebookSettingsPage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [settings, setSettings] = useState(null);
   const [appConfig, setAppConfig] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -134,7 +138,13 @@ const FacebookSettingsPage = () => {
 
   return (
     <Box>
-      <Box display="flex" alignItems="center" gap={2} mb={4}>
+      <Box sx={{ 
+        display: "flex", 
+        alignItems: { xs: "flex-start", sm: "center" }, 
+        flexDirection: { xs: "column", sm: "row" },
+        gap: 2, 
+        mb: 4 
+      }}>
         <Settings color="primary" sx={{ fontSize: 32 }} />
         <Box>
           <Typography variant="h5" fontWeight="bold">Facebook Automation Settings</Typography>
@@ -185,8 +195,9 @@ const FacebookSettingsPage = () => {
             Page Access Token and save it to the secure database for automated posting.
           </Typography>
           
-          <Stack direction="row" spacing={2}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <Button
+              fullWidth={isMobile}
               variant="contained"
               size="large"
               startIcon={actionLoading ? <CircularProgress size={20} color="inherit" /> : <Facebook />}
@@ -198,6 +209,7 @@ const FacebookSettingsPage = () => {
             </Button>
             
             <Button
+              fullWidth={isMobile}
               variant="outlined"
               size="large"
               startIcon={<Refresh />}

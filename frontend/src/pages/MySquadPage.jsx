@@ -554,11 +554,12 @@ const MySquadPage = () => {
 
   return (
     <Box sx={{ pb: 6 }}>
-      {/* Header */}
-      <Box sx={{ 
+      {/* Header */}      <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
-        alignItems: 'center', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 2, sm: 0 },
         mb: 4,
         px: { xs: 1, sm: 0 }
       }}>
@@ -719,7 +720,7 @@ const MySquadPage = () => {
           sx={{ position: "relative", zIndex: 1 }}
         >
           {/* Balance Section */}
-          <Grid item xs={12} md={2} sx={{ minWidth: 0 }}>
+          <Grid item xs={12} sm={6} md={2} sx={{ minWidth: 0 }}>
             <Box
               sx={{
                 display: "flex",
@@ -801,7 +802,7 @@ const MySquadPage = () => {
           </Grid>
 
           {/* Investment Section */}
-          <Grid item xs={12} md={2} sx={{ minWidth: 0 }}>
+          <Grid item xs={12} sm={6} md={2} sx={{ minWidth: 0 }}>
             <Box
               sx={{
                 display: "flex",
@@ -870,7 +871,7 @@ const MySquadPage = () => {
           </Grid>
 
           {/* Grade Section */}
-          <Grid item xs={12} md={3} sx={{ minWidth: 0 }}>
+          <Grid item xs={12} sm={6} md={3} sx={{ minWidth: 0 }}>
             <Box
               sx={{
                 p: 1.2,
@@ -950,7 +951,7 @@ const MySquadPage = () => {
           </Grid>
 
           {/* Position Section */}
-          <Grid item xs={12} md={3} sx={{ minWidth: 0 }}>
+          <Grid item xs={12} sm={6} md={3} sx={{ minWidth: 0 }}>
             <Box
               sx={{
                 p: 1.2,
@@ -1043,7 +1044,7 @@ const MySquadPage = () => {
           </Grid>
 
           {/* Renewal Section */}
-          <Grid item xs={12} md={2} sx={{ minWidth: 0 }}>
+          <Grid item xs={12} sm={6} md={2} sx={{ minWidth: 0 }}>
             <Box
               onClick={() => setRenewalOpen(true)}
               sx={{

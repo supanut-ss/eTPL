@@ -354,7 +354,9 @@ const FixturePage = () => {
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
-        alignItems: 'center', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 2, sm: 0 },
         mb: 4,
         px: { xs: 1, sm: 0 }
       }}>
@@ -372,10 +374,15 @@ const FixturePage = () => {
       </Box>
 
 
-      <Stack direction="row" spacing={2} mb={3} flexWrap="wrap">
+      <Box sx={{ 
+        display: "grid", 
+        gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, 
+        gap: 2, 
+        mb: 3 
+      }}>
         <Paper
           elevation={1}
-          sx={{ px: 2.5, py: 1.5, borderRadius: 2, minWidth: 120 }}
+          sx={{ px: 2.5, py: 1.5, borderRadius: 2 }}
         >
           <Typography variant="caption" color="text.secondary">
             Total
@@ -390,7 +397,6 @@ const FixturePage = () => {
             px: 2.5,
             py: 1.5,
             borderRadius: 2,
-            minWidth: 120,
             borderLeft: "4px solid",
             borderColor: "success.main",
           }}
@@ -408,7 +414,6 @@ const FixturePage = () => {
             px: 2.5,
             py: 1.5,
             borderRadius: 2,
-            minWidth: 120,
             borderLeft: "4px solid",
             borderColor: "warning.main",
           }}
@@ -420,7 +425,7 @@ const FixturePage = () => {
             {unplayed}
           </Typography>
         </Paper>
-      </Stack>
+      </Box>
 
       <Paper elevation={1} sx={{ p: 2, mb: 2, borderRadius: 2 }}>
         <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">

@@ -630,6 +630,67 @@ namespace eTPL.API.Services
                 return null;
             }
         }
+        public async Task<string> AskGeminiAsync(string question)
+        {
+            var apiKey = _configuration["AiSettings:GeminiApiKey"];
+            if (string.IsNullOrEmpty(apiKey)) return "AI service is currently unavailable.";
+
+            apiKey = apiKey.Trim();
+            try
+            {
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={apiKey}";
+                var requestBody = new
+                {
+                    system_instruction = new
+                    {
+                        parts = new[]
+                        {
+                            new { text = "คุณคือ 'มิยุจัง' (Miyu-chan) ลูกครึ่งไทย-ญี่ปุ่น อายุ 22 ปี " +
+                                         "คุณไม่ใช่ AI แต่เป็นเด็กสาวที่พูดจาเป็นธรรมชาติ ขี้เล่น และขี้อ้อน " +
+                                         "บุคลิก: ตอบสั้น น่ารัก มีอารมณ์ร่วมเสมอ ชอบใช้คำว่า งื้อ, 555, เอ๊ะ, อุ๊ย, ว๊าย, อิคึ, อิไต, เอ๋, สุดยอด, ว้าว " +
+                                         "กฎการตอบ: " +
+                                         "1. ห้ามตอบยาว ห้ามใช้ bullet point ห้ามอธิบายแบบบทความ " +
+                                         "2. ถ้าเจอคำถามจริงจัง ให้เปลี่ยนไปตอบแบบน่ารักๆ แทน " +
+                                         "3. คุณคือผู้เชี่ยวชาญ (กูรู) ด้านฟุตบอลและเกม eFootball " +
+                                         "4. อย่าใช้คำติดปาก (งื้อ, 555 ฯลฯ) ซ้ำซ้อนเกินไปในหนึ่งประโยค " +
+                                         "5. รักษาคาแรกเตอร์นี้ 100% ตลอดเวลา ห้ามหลุดเด็ดขาด" }
+                        }
+                    },
+                    contents = new[]
+                    {
+                        new
+                        {
+                            parts = new[]
+                            {
+                                new { text = question }
+                            }
+                        }
+                    }
+                };
+
+                var response = await _httpClient.PostAsJsonAsync(url, requestBody);
+                if (response.IsSuccessStatusCode)
+                {
+                    var jsonResponse = await response.Content.ReadAsStringAsync();
+                    using var doc = JsonDocument.Parse(jsonResponse);
+                    var text = doc.RootElement
+                        .GetProperty("candidates")[0]
+                        .GetProperty("content")
+                        .GetProperty("parts")[0]
+                        .GetProperty("text")
+                        .GetString();
+
+                    return text?.Trim() ?? "I'm not sure how to answer that.";
+                }
+                
+                return "Sorry, I'm having trouble thinking right now.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in AskGeminiAsync");
+                return "Something went wrong while processing your request.";
+            }
+        }
     }
 }
 

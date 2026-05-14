@@ -164,17 +164,9 @@ function Upload-File {
             # No skip logic, proceed to Ensure-RemoteDirectory
         }
         else {
-            # Rule 4: System files (DLLs, etc.) - use size match to prevent timeout
-            $request = New-FtpRequest -Uri $remoteUri -Method ([System.Net.WebRequestMethods+Ftp]::GetFileSize)
-            $response = $request.GetResponse()
-            $remoteSize = $response.ContentLength
-            $response.Close()
-
-            $localSize = (Get-Item $SourceFile).Length
-            if ($remoteSize -eq $localSize) {
-                Write-Host "Skipped (Size Match): $RelativePath" -ForegroundColor Gray
-                return
-            }
+            # Rule 4: System files (DLLs, etc.) - ALWAYS UPLOAD to ensure code changes are reflected
+            # (Size match is unreliable for small code changes)
+            # Skip logic removed.
         }
     }
     catch {

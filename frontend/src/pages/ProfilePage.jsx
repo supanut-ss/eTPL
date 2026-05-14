@@ -17,6 +17,8 @@ import {
   LinearProgress,
   Tooltip,
   Divider,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
 import {
   Edit,
@@ -37,6 +39,8 @@ import { getLogoUrl } from "../utils/imageUtils";
 import { API_BASE_URL } from "../api/axiosInstance";
 
 const ProfilePage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { user, updateUserData } = useAuth();
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -185,7 +189,16 @@ const ProfilePage = () => {
 
             <Box component="form" onSubmit={handleSubmit} sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
               {/* Avatar + name row */}
-              <Box sx={{ display: "flex", alignItems: "center", gap: 3, mb: 4, pb: 4, borderBottom: "1px solid #f1f5f9" }}>
+              <Box sx={{ 
+                display: "flex", 
+                flexDirection: { xs: "column", sm: "row" },
+                alignItems: "center", 
+                textAlign: { xs: "center", sm: "left" },
+                gap: 3, 
+                mb: 4, 
+                pb: 4, 
+                borderBottom: "1px solid #f1f5f9" 
+              }}>
                 <Box sx={{ position: "relative", flexShrink: 0 }}>
                   <Avatar
                     src={resolvedAvatar}
@@ -236,7 +249,7 @@ const ProfilePage = () => {
                 </Box>
 
                 <Box sx={{ flex: 1 }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: { xs: "center", sm: "flex-start" }, gap: 1.5, mb: 0.5 }}>
                     <Typography variant="h6" fontWeight={800} color="#0f172a">
                       {form.lineName || user?.lineName || "Manager"}
                     </Typography>
@@ -246,7 +259,7 @@ const ProfilePage = () => {
                       sx={{ fontWeight: 800, fontSize: 9, letterSpacing: 0.5, bgcolor: levelBg, color: levelColor, borderRadius: "5px", height: 20 }}
                     />
                   </Box>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: { xs: "center", sm: "flex-start" }, gap: 1 }}>
                     {teamLogo
                       ? <Box component="img" src={teamLogo} sx={{ width: 16, height: 16, objectFit: "contain" }} />
                       : <Shield sx={{ fontSize: 14, color: "#94a3b8" }} />
@@ -257,7 +270,7 @@ const ProfilePage = () => {
                   </Box>
                 </Box>
 
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 2, py: 1, bgcolor: "#f0fdf4", borderRadius: 2 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 2, py: 1, bgcolor: "#f0fdf4", borderRadius: 2, alignSelf: { xs: "center", sm: "flex-start" } }}>
                   <CheckCircle sx={{ fontSize: 16, color: "#10b981" }} />
                   <Typography variant="caption" fontWeight={700} color="#10b981">Status Active</Typography>
                 </Box>
@@ -347,8 +360,17 @@ const ProfilePage = () => {
               </Grid>
 
               {/* Actions */}
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 6, pt: 4, borderTop: "1px solid #f1f5f9" }}>
+              <Box sx={{ 
+                display: "flex", 
+                flexDirection: { xs: "column", sm: "row" },
+                alignItems: "center", 
+                gap: 1.5, 
+                mt: 6, 
+                pt: 4, 
+                borderTop: "1px solid #f1f5f9" 
+              }}>
                 <Button
+                  fullWidth={isMobile}
                   type="submit"
                   variant="contained"
                   disabled={saving}
@@ -362,6 +384,7 @@ const ProfilePage = () => {
                   {saving ? "Saving..." : "Save Changes"}
                 </Button>
                 <Button
+                  fullWidth={isMobile}
                   onClick={handleCancel}
                   variant="text"
                   sx={{ px: 2, py: 1.1, borderRadius: 2.5, fontWeight: 600, textTransform: "none", fontSize: 14, color: "#64748b", "&:hover": { bgcolor: "#f8fafc" } }}

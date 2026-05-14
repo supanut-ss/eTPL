@@ -7,33 +7,63 @@ using eTPL.API.Data;
 using eTPL.API.Services;
 using eTPL.API.Models.DTOs;
 using eTPL.API.Models.LeagueOps;
+using eTPL.API.Services.Interfaces;
 using System.Collections.Generic;
 
 namespace eTPL.API.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/linewebhook")]
     [ApiController]
     public class LineWebhookController : ControllerBase
     {
         private readonly MsSqlDbContext _context;
         private readonly LineWebhookService _lineService;
+        private readonly IAiService _aiService;
 
-        public LineWebhookController(MsSqlDbContext context, LineWebhookService lineService)
+        public LineWebhookController(MsSqlDbContext context, LineWebhookService lineService, IAiService aiService)
         {
             _context = context;
             _lineService = lineService;
+            _aiService = aiService;
+        }
+
+        [HttpGet("check")]
+        public IActionResult Check()
+        {
+            return Ok(new
+            {
+                Status = "Active",
+                TimeICT = DateTime.UtcNow.AddHours(7),
+                Message = "LineWebhookController is reachable!",
+                AccessTokenConfigured = _lineService.IsTokenConfigured
+            });
         }
 
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] LineWebhookRequest request)
         {
-            if (request?.Events == null) return Ok();
+            if (request == null)
+            {
+                Console.WriteLine("LINE Webhook: Request is null");
+                return Ok();
+            }
+
+            if (request.Events == null || request.Events.Count == 0)
+            {
+                Console.WriteLine("LINE Webhook: No events received (Verification request?)");
+                return Ok();
+            }
 
             foreach (var @event in request.Events)
             {
+                Console.WriteLine($"Incoming LINE Event: {@event.Type} (Token: {@event.ReplyToken})");
                 if (@event.Type == "message" && @event.Message?.Type == "text")
                 {
                     await HandleTextMessage(@event);
+                }
+                else
+                {
+                    Console.WriteLine($"Skipping non-text event: {@event.Type}");
                 }
             }
 
@@ -45,8 +75,38 @@ namespace eTPL.API.Controllers
             string userMessage = @event.Message!.Text!.Trim();
             string replyToken = @event.ReplyToken;
             string? lineUserId = @event.Source.UserId;
+            string sourceType = @event.Source.Type;
 
-            if (string.IsNullOrEmpty(lineUserId)) return;
+            Console.WriteLine($"LINE Message from {lineUserId} (Source: {sourceType}): {userMessage}");
+
+            if (string.IsNullOrEmpty(lineUserId))
+            {
+                Console.WriteLine("Warning: lineUserId is null or empty. Cannot process command.");
+                return;
+            }
+
+            // A. Check "มิยุ" prefix (Gemini AI Chat)
+            if (userMessage.StartsWith("มิยุ", StringComparison.OrdinalIgnoreCase))
+            {
+                string question = userMessage.Trim();
+                if (!string.IsNullOrEmpty(question))
+                {
+                    string aiResponse = await _aiService.AskGeminiAsync(question);
+                    await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
+                        new { type = "text", text = aiResponse } 
+                    });
+                }
+                return;
+            }
+
+            // 0. Check "!test" command
+            if (userMessage.Equals("!test", StringComparison.OrdinalIgnoreCase))
+            {
+                await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
+                    new { type = "text", text = $"Bot is working! Server ICT Time: {DateTime.UtcNow.AddHours(7):HH:mm:ss}" } 
+                });
+                return;
+            }
 
             // 1. Check "!ready" command
             if (userMessage.Equals("!ready", StringComparison.OrdinalIgnoreCase))
@@ -56,93 +116,126 @@ namespace eTPL.API.Controllers
             }
 
             // 2. Fallback to Q&A database
-            await HandleQA(userMessage, replyToken);
+            bool handled = await HandleQA(userMessage, replyToken);
+
+            // 3. Default Response if not handled
+            if (!handled)
+            {
+                Console.WriteLine($"Message not handled: {userMessage}");
+                /*
+                await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
+                    new { type = "text", text = $"[BOT DEBUG] ได้รับข้อความ: {userMessage}\n(ไม่พบใน Q&A หรือคำสั่งระบบ)" } 
+                });
+                */
+            }
         }
 
         private async Task HandleCheckIn(string lineUserId, string replyToken)
         {
-            // Check time: 17:45 - 23:45
-            var now = DateTime.Now;
-            var startTime = new TimeSpan(17, 45, 0);
-            var endTime = new TimeSpan(23, 45, 0);
-            var currentTime = now.TimeOfDay;
-
-            if (currentTime < startTime || currentTime > endTime)
+            try
             {
-                // Optional: Notify user that it's not check-in time? 
-                // The PHP script didn't seem to reply if outside rounds, it just returned false in checkUserCheckedInToday.
-                // But it's better to provide feedback.
-                /*
-                await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
-                    new { type = "text", text = "ไม่อยู่ในช่วงเวลาการรายงานตัว (17:45 - 23:45)" } 
-                });
-                */
-                return;
-            }
+                // Use ICT Time (GMT+7)
+                var now = DateTime.UtcNow.AddHours(7);
+                var startTime = new TimeSpan(17, 45, 0);
+                var endTime = new TimeSpan(23, 45, 0);
+                var currentTime = now.TimeOfDay;
 
-            // Find User by LineId
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.LineId == lineUserId);
-            if (user == null)
-            {
-                await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
-                    new { type = "text", text = "ไม่พบข้อมูลผู้ใช้ที่ผูกกับ LINE ID นี้ กรุณาผูกบัญชีก่อนรายงานตัว" } 
-                });
-                return;
-            }
-
-            // Find Active Cycle
-            var activeCycle = await _context.LeagueCycles.FirstOrDefaultAsync(c => c.Status == "active");
-            if (activeCycle == null)
-            {
-                await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
-                    new { type = "text", text = "ยังไม่มีการเปิดรอบการแข่งขันในขณะนี้" } 
-                });
-                return;
-            }
-
-            // Check if already checked in today for this cycle
-            var today = now.Date;
-            var alreadyCheckedIn = await _context.DailyCheckins.AnyAsync(c => 
-                c.UserId == user.UserId && 
-                c.CycleId == activeCycle.Id && 
-                c.CheckinDate == today);
-
-            if (!alreadyCheckedIn)
-            {
-                var checkin = new DailyCheckin
+                if (currentTime < startTime || currentTime > endTime)
                 {
-                    UserId = user.UserId,
-                    CycleId = activeCycle.Id,
-                    CheckinDate = today,
-                    IsReady = true
-                };
-                _context.DailyCheckins.Add(checkin);
-                await _context.SaveChangesAsync();
+                    await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
+                        new { type = "text", text = $"ไม่อยู่ในช่วงเวลาการรายงานตัว (17:45 - 23:45)\nเวลาเซิร์ฟเวอร์ (ICT): {now:HH:mm:ss}" } 
+                    });
+                    return;
+                }
+
+                // Find User by LineId
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.LineId == lineUserId);
+                if (user == null)
+                {
+                    await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
+                        new { type = "text", text = "ไม่พบข้อมูลผู้ใช้ที่ผูกกับ LINE ID นี้ กรุณาผูกบัญชีก่อนรายงานตัว" } 
+                    });
+                    return;
+                }
+
+                // Find Active Cycle
+                var activeCycle = await _context.LeagueCycles.FirstOrDefaultAsync(c => c.Status == "active");
+                if (activeCycle == null)
+                {
+                    await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
+                        new { type = "text", text = "ยังไม่มีการเปิดรอบการแข่งขันในขณะนี้" } 
+                    });
+                    return;
+                }
+
+                // Check if already checked in today for this cycle
+                var today = now.Date;
+                var alreadyCheckedIn = await _context.DailyCheckins.AnyAsync(c => 
+                    c.UserId == user.UserId && 
+                    c.CycleId == activeCycle.Id && 
+                    c.CheckinDate == today);
+
+                if (!alreadyCheckedIn)
+                {
+                    var checkin = new DailyCheckin
+                    {
+                        UserId = user.UserId,
+                        CycleId = activeCycle.Id,
+                        CheckinDate = today,
+                        IsReady = true
+                    };
+                    _context.DailyCheckins.Add(checkin);
+                    await _context.SaveChangesAsync();
+                }
+
+                // Send Flex Message
+                var profile = await _lineService.GetUserProfileAsync(lineUserId);
+                string userName = profile?.DisplayName ?? user.LineName ?? user.UserId;
+                string picUrl = profile?.PictureUrl ?? user.LinePic ?? "";
+                string datetimeStr = now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                var flexMsg = _lineService.GetCheckInFlexMessage(userName, picUrl, datetimeStr);
+                await _lineService.ReplyMessageAsync(replyToken, new List<object> { flexMsg });
             }
-
-            // Send Flex Message
-            var profile = await _lineService.GetUserProfileAsync(lineUserId);
-            string userName = profile?.DisplayName ?? user.LineName ?? user.UserId;
-            string picUrl = profile?.PictureUrl ?? user.LinePic ?? "";
-            string datetimeStr = now.ToString("yyyy-MM-dd HH:mm:ss");
-
-            var flexMsg = _lineService.GetCheckInFlexMessage(userName, picUrl, datetimeStr);
-            await _lineService.ReplyMessageAsync(replyToken, new List<object> { flexMsg });
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in HandleCheckIn: {ex.Message}");
+                await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
+                    new { type = "text", text = "ขออภัย เกิดข้อผิดพลาดในระบบรายงานตัว" } 
+                });
+            }
         }
 
-        private async Task HandleQA(string question, string replyToken)
+        private async Task<bool> HandleQA(string question, string replyToken)
         {
-            // Search Q&A database for a match (using RAND() equivalent in EF Core if needed, or just first)
-            var answer = await _context.QaInformation
-                .Where(q => EF.Functions.Like(q.Question, $"%{question}%"))
-                .Select(q => q.Answer)
-                .FirstOrDefaultAsync();
-
-            if (!string.IsNullOrEmpty(answer))
+            try
             {
-                await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
-                    new { type = "text", text = answer } 
-                });
+                // Search Q&A database for all matches
+                var answers = await _context.QaInformation
+                    .Where(q => EF.Functions.Like(q.Question, $"%{question}%"))
+                    .Select(q => q.Answer)
+                    .ToListAsync();
+
+                if (answers.Count > 0)
+                {
+                    // Randomly select one if multiple matches
+                    var rnd = new Random();
+                    var answer = answers[rnd.Next(answers.Count)];
+
+                    if (!string.IsNullOrEmpty(answer))
+                    {
+                        await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
+                            new { type = "text", text = answer } 
+                        });
+                        return true;
+                    }
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in HandleQA: {ex.Message}");
+                return false;
             }
         }
     }

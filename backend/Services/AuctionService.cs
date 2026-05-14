@@ -1618,7 +1618,7 @@ namespace eTPL.API.Services
                 AcquiredAt = DateTime.SpecifyKind(s.AcquiredAt, DateTimeKind.Utc),
                 Status = s.Status,
                 OwnerId = s.UserId,
-                OwnerName = s.User?.LineName ?? s.User?.UserId ?? "Unknown"
+                OwnerName = s.User?.UserId ?? s.User?.LineName ?? "Unknown"
             }).OrderByDescending(s => s.PlayerOvr).ToList();
         }
 
@@ -2571,7 +2571,8 @@ namespace eTPL.API.Services
                     UserLevel = u.UserLevel,
                     LineId = u.LineId,
                     LinePic = u.LinePic,
-                    LineName = u.LineName
+                    LineName = u.LineName,
+                    CurrentTeam = u.CurrentTeam
                 })
                 .ToListAsync();
 

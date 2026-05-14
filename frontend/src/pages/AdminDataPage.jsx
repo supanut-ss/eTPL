@@ -31,7 +31,9 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Collapse
+  Collapse,
+  useMediaQuery,
+  useTheme
 } from "@mui/material";
 import {
   PersonAdd,
@@ -61,6 +63,8 @@ import { useNavigate } from "react-router-dom";
 import { getPlayerCardUrl } from "../utils/imageUtils";
 
 const AdminDataPage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -104,11 +108,18 @@ const AdminDataPage = () => {
   const [showAiSection, setShowAiSection] = useState(false);
   const [aiProvider, setAiProvider] = useState("Leonardo");
 
+  // Bot Q&A State
+  const [qaList, setQaList] = useState([]);
+  const [qaModalOpen, setQaModalOpen] = useState(false);
+  const [newQa, setNewQa] = useState({ question: "", answer: "" });
+  const [addingQa, setAddingQa] = useState(false);
+
 
   // --- Effects ---
   useEffect(() => {
     fetchUsers();
     fetchBonuses();
+    fetchQa();
   }, []);
 
   useEffect(() => {
@@ -132,20 +143,52 @@ const AdminDataPage = () => {
   const fetchUsers = async () => {
     try {
       const res = await adminService.getUsers();
-      setUsers(Array.isArray(res.data) ? res.data : []);
+      // Robust unpacking: handle [item1, ...] or { data: [...] }
+      const resData = res.data;
+      if (Array.isArray(resData)) {
+        setUsers(resData);
+      } else if (resData && Array.isArray(resData.data)) {
+        setUsers(resData.data);
+      } else {
+        setUsers([]);
+      }
     } catch (err) {
       console.error("Failed to fetch users", err);
       setUsers([]);
     }
   };
 
-
   const fetchBonuses = async () => {
     try {
       const res = await adminService.getBonuses();
-      setBonuses(Array.isArray(res.data) ? res.data : []);
+      const resData = res.data;
+      if (Array.isArray(resData)) {
+        setBonuses(resData);
+      } else if (resData && Array.isArray(resData.data)) {
+        setBonuses(resData.data);
+      } else {
+        setBonuses([]);
+      }
     } catch (err) {
       console.error("Failed to fetch bonuses", err);
+      setBonuses([]);
+    }
+  };
+
+  const fetchQa = async () => {
+    try {
+      const res = await adminService.getQa();
+      const resData = res.data;
+      if (Array.isArray(resData)) {
+        setQaList(resData);
+      } else if (resData && Array.isArray(resData.data)) {
+        setQaList(resData.data);
+      } else {
+        setQaList([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch Q&A", err);
+      setQaList([]);
     }
   };
 
@@ -194,6 +237,36 @@ const AdminDataPage = () => {
       fetchBonuses();
     } catch (err) {
       enqueueSnackbar("Failed to reject bonus", { variant: "error" });
+    }
+  };
+
+  const handleAddQa = async () => {
+    if (!newQa.question || !newQa.answer) {
+      enqueueSnackbar("Please fill both question and answer", { variant: "warning" });
+      return;
+    }
+    try {
+      setAddingQa(true);
+      await adminService.addQa(newQa);
+      enqueueSnackbar("Auto-response added!", { variant: "success" });
+      setNewQa({ question: "", answer: "" });
+      setQaModalOpen(false);
+      fetchQa();
+    } catch (err) {
+      enqueueSnackbar("Failed to add auto-response", { variant: "error" });
+    } finally {
+      setAddingQa(false);
+    }
+  };
+
+  const handleDeleteQa = async (id) => {
+    if (!window.confirm("Delete this auto-response?")) return;
+    try {
+      await adminService.deleteQa(id);
+      enqueueSnackbar("Deleted successfully", { variant: "info" });
+      fetchQa();
+    } catch (err) {
+      enqueueSnackbar("Failed to delete", { variant: "error" });
     }
   };
 
@@ -348,7 +421,6 @@ const AdminDataPage = () => {
     try {
       setGeneratingImage(true);
       
-      // Collect all image URLs
       const allImageUrls = [];
       if (aiUser?.linePic) allImageUrls.push(aiUser.linePic);
       additionalImages.forEach(url => {
@@ -387,7 +459,6 @@ const AdminDataPage = () => {
   };
 
 
-  // --- Render ---
   return (
     <Box sx={{ width: '100%', px: { xs: 0, sm: 0 } }}>
       <GlobalStyles styles={{
@@ -402,7 +473,9 @@ const AdminDataPage = () => {
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
-        alignItems: 'center', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 2, sm: 0 },
         mb: 4, 
         px: { xs: 1, sm: 0 } 
       }}>
@@ -416,7 +489,6 @@ const AdminDataPage = () => {
       </Box>
 
       <Stack spacing={4} sx={{ width: '100%' }}>
-        {/* Top Sections: Add Player & HOF */}
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, width: '100%' }}>
           {/* Scrape Player Section */}
           <Paper elevation={2} sx={{ p: 4, borderRadius: 3, border: "1px solid", borderColor: "divider", height: "100%", display: 'flex', flexDirection: 'column' }}>
@@ -431,14 +503,41 @@ const AdminDataPage = () => {
                   <Button size="small" variant={importMode === "manual" ? "contained" : "text"} onClick={() => setImportMode("manual")} disableElevation sx={{ borderRadius: 1.5, textTransform: 'none', px: 2 }}>Manual</Button>
                 </Box>
               </Box>
-
               <Divider />
-
               <Stack spacing={2} flexGrow={1}>
-                <TextField fullWidth label={importMode === "auto" ? "PesDB Player ID" : "Paste HTML Source"} placeholder={importMode === "auto" ? "e.g. 123456" : "Paste player source code here..."} variant="outlined" size="small" multiline={importMode === "manual"} rows={importMode === "manual" ? 4 : 1} value={importMode === "auto" ? playerId : pastedHtml} onChange={(e) => importMode === "auto" ? setPlayerId(e.target.value) : setPastedHtml(e.target.value)} onKeyPress={(e) => e.key === "Enter" && importMode === "auto" && handleScrape()} disabled={scraping} />
-                <Button variant="contained" disableElevation fullWidth startIcon={scraping ? null : <Search />} onClick={importMode === "auto" ? handleScrape : handleManualParse} disabled={scraping || (importMode === "auto" ? !playerId : !pastedHtml)} sx={{ borderRadius: '12px', fontWeight: 700, py: 1.5, textTransform: 'none', bgcolor: '#0f172a', "&:hover": { bgcolor: '#1e293b' }, boxShadow: "0 4px 12px rgba(15, 23, 42, 0.2)" }}>{scraping ? <CircularProgress size={24} /> : "Process Player"}</Button>
+                <TextField 
+                  fullWidth 
+                  label={importMode === "auto" ? "PesDB Player ID" : "Paste HTML Source"} 
+                  placeholder={importMode === "auto" ? "e.g. 123456" : "Paste player source code here..."} 
+                  variant="outlined" 
+                  size="small" 
+                  multiline={importMode === "manual"} 
+                  rows={importMode === "manual" ? 4 : 1} 
+                  value={importMode === "auto" ? playerId : pastedHtml} 
+                  onChange={(e) => importMode === "auto" ? setPlayerId(e.target.value) : setPastedHtml(e.target.value)} 
+                  onKeyDown={(e) => e.key === "Enter" && importMode === "auto" && handleScrape()} 
+                  disabled={scraping} 
+                />
+                <Button 
+                  variant="contained" 
+                  disableElevation 
+                  fullWidth 
+                  startIcon={scraping ? null : <Search />} 
+                  onClick={importMode === "auto" ? handleScrape : handleManualParse} 
+                  disabled={scraping || (importMode === "auto" ? !playerId : !pastedHtml)} 
+                  sx={{ 
+                    borderRadius: '12px', 
+                    fontWeight: 700, 
+                    py: 1.5, 
+                    textTransform: 'none', 
+                    bgcolor: '#0f172a', 
+                    "&:hover": { bgcolor: '#1e293b' }, 
+                    boxShadow: "0 4px 12px rgba(15, 23, 42, 0.2)" 
+                  }}
+                >
+                  {scraping ? <CircularProgress size={24} /> : "Process Player"}
+                </Button>
               </Stack>
-
               {scrapedData && (
                 <Card variant="outlined" sx={{ borderRadius: 3, bgcolor: importMode === "manual" ? "rgba(76, 175, 80, 0.04)" : "rgba(25, 118, 210, 0.04)", mt: 1, border: '1px solid', borderColor: importMode === "manual" ? 'success.light' : 'primary.light' }}>
                   <CardContent>
@@ -475,7 +574,7 @@ const AdminDataPage = () => {
           {/* Hall of Fame Section */}
           <Paper elevation={2} sx={{ p: 4, borderRadius: 3, border: "1px solid", borderColor: "divider", height: "100%" }}>
             <Stack spacing={3} sx={{ height: '100%' }}>
-              <Box display="flex" alignItems="center" gap={1.5} mb={1}>
+              <Box display="flex" alignItems="center" gap={1.5} mb={{ xs: 2, sm: 1 }}>
                 <EmojiEvents color="primary" sx={{ fontSize: 28 }} />
                 <Typography variant="h6" fontWeight="bold">Hall of Fame Entry</Typography>
               </Box>
@@ -496,17 +595,16 @@ const AdminDataPage = () => {
           </Paper>
         </Box>
 
-
         {/* Special Bonus Management Section */}
         <Paper elevation={2} sx={{ p: 4, borderRadius: 3, border: "1px solid", borderColor: "divider", width: '100%' }}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+          <Box display="flex" justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} flexDirection={{ xs: 'column', sm: 'row' }} gap={{ xs: 2, sm: 0 }} mb={3}>
             <Box display="flex" alignItems="center" gap={1.5}>
               <Payments color="primary" sx={{ fontSize: 28 }} />
               <Typography variant="h6" fontWeight="bold">Special Bonus Management</Typography>
             </Box>
-            <Button variant="contained" startIcon={<PersonAdd />} onClick={() => setBonusModalOpen(true)} sx={{ borderRadius: 2, textTransform: 'none', px: 4 }}>Add Special Bonus</Button>
+            <Button fullWidth={isMobile} variant="contained" startIcon={<PersonAdd />} onClick={() => setBonusModalOpen(true)} sx={{ borderRadius: 2, textTransform: 'none', px: 4 }}>Add Special Bonus</Button>
           </Box>
-          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', overflowX: 'auto' }}>
             <Table size="small">
               <TableHead sx={{ bgcolor: 'rgba(0,0,0,0.02)' }}>
                 <TableRow>
@@ -518,19 +616,41 @@ const AdminDataPage = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {(bonuses || []).length === 0 ? (
+                {(!bonuses || bonuses.length === 0) ? (
                   <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}>No bonus records found</TableCell></TableRow>
                 ) : bonuses.map((b) => (
-                  <TableRow key={b.id} hover>
-                    <TableCell><Box display="flex" alignItems="center" gap={1}><Avatar src={b.user?.linePic} sx={{ width: 24, height: 24 }} /><Typography variant="body2" fontWeight="bold">{b.user?.userId || b.userId}</Typography></Box></TableCell>
-                    <TableCell><Typography variant="body2" fontWeight="bold">+{Number(b.amount || 0).toLocaleString()}</Typography></TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem' }}>{b.reason}</TableCell>
-                    <TableCell><Chip label={b.status} size="small" color={b.status === "Approved" ? "success" : "warning"} sx={{ fontWeight: 'bold' }} /></TableCell>
+                  <TableRow key={b?.id || Math.random()} hover>
+                    <TableCell>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Avatar src={b?.user?.linePic} sx={{ width: 24, height: 24 }} />
+                        <Typography variant="body2" fontWeight="bold">
+                          {b?.user?.userId || b?.userId || "Unknown"}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="bold">
+                        +{Number(b?.amount || 0).toLocaleString()}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem' }}>{b?.reason || "-"}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={b?.status || "Pending"} 
+                        size="small" 
+                        color={b?.status === "Approved" ? "success" : "warning"} 
+                        sx={{ fontWeight: 'bold' }} 
+                      />
+                    </TableCell>
                     <TableCell align="right">
-                      {b.status === "Pending" && (
+                      {b?.status === "Pending" && (
                         <Stack direction="row" spacing={1} justifyContent="flex-end">
-                          <IconButton size="small" color="success" onClick={() => { setSelectedBonusId(b.id); setModalMode("bonus"); setApproveModalOpen(true); }}><ThumbUp fontSize="small" /></IconButton>
-                          <IconButton size="small" color="error" onClick={() => handleRejectBonus(b.id)}><ThumbDown fontSize="small" /></IconButton>
+                          <IconButton size="small" color="success" onClick={() => { setSelectedBonusId(b.id); setModalMode("bonus"); setApproveModalOpen(true); }}>
+                            <ThumbUp fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => handleRejectBonus(b.id)}>
+                            <ThumbDown fontSize="small" />
+                          </IconButton>
                         </Stack>
                       )}
                     </TableCell>
@@ -541,42 +661,100 @@ const AdminDataPage = () => {
           </TableContainer>
         </Paper>
 
-        {/* AI Image Generation Section - Hidden until quality is ready */}
-        {/* 
+        {/* Bot Auto-Response Management Section */}
         <Paper elevation={2} sx={{ p: 4, borderRadius: 3, border: "1px solid", borderColor: "divider", width: '100%' }}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={showAiSection ? 3 : 0}>
+          <Box display="flex" justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} flexDirection={{ xs: 'column', sm: 'row' }} gap={{ xs: 2, sm: 0 }} mb={3}>
             <Box display="flex" alignItems="center" gap={1.5}>
               <AutoAwesome color="primary" sx={{ fontSize: 28 }} />
-              <Typography variant="h6" fontWeight="bold">AI Image Generation (Character Reference)</Typography>
+              <Box>
+                <Typography variant="h6" fontWeight="bold">Bot Auto-Response (Q&A)</Typography>
+                <Typography variant="caption" color="text.secondary">MANAGE BOT REPLIES BASED ON KEYWORDS</Typography>
+              </Box>
             </Box>
-            <IconButton onClick={() => setShowAiSection(!showAiSection)} sx={{ bgcolor: 'action.hover' }}>
-              <ExpandMore sx={{ transform: showAiSection ? 'rotate(180deg)' : 'rotate(0deg)', transition: '0.3s' }} />
-            </IconButton>
+            <Button fullWidth={isMobile} variant="contained" startIcon={<PersonAdd />} onClick={() => setQaModalOpen(true)} sx={{ borderRadius: 2, textTransform: 'none', px: 4, bgcolor: '#0f172a', "&:hover": { bgcolor: '#1e293b' } }}>Add New Q&A</Button>
           </Box>
-          
-          <Collapse in={showAiSection}>
-            ... [Rest of AI section code] ...
-          </Collapse>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, maxHeight: '300px', overflowY: 'auto', overflowX: 'auto' }}>
+            <Table size="small" stickyHeader>
+              <TableHead sx={{ bgcolor: 'rgba(0,0,0,0.02)' }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', width: '30%' }}>Question Keyword</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Bot Answer</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '80px' }} align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(!qaList || qaList.length === 0) ? (
+                  <TableRow><TableCell colSpan={3} align="center" sx={{ py: 4 }}>No auto-responses configured</TableCell></TableRow>
+                ) : qaList.map((qa) => (
+                  <TableRow key={qa?.id || Math.random()} hover>
+                    <TableCell><Typography variant="body2" fontWeight="bold" color="primary">{qa?.question || "No Keyword"}</Typography></TableCell>
+                    <TableCell><Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{qa?.answer || "No Answer"}</Typography></TableCell>
+                    <TableCell align="right">
+                      <IconButton size="small" color="error" onClick={() => handleDeleteQa(qa?.id)}>
+                        <Close fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </Paper>
-        */}
       </Stack>
 
-      {/* Modals */}
-      <Dialog open={bonusModalOpen} onClose={() => setBonusModalOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={bonusModalOpen} onClose={() => setBonusModalOpen(false)} fullWidth maxWidth="sm" fullScreen={isMobile}>
         <DialogTitle sx={{ fontWeight: 'bold', borderBottom: '1px solid #eee' }}>Request Special Bonus</DialogTitle>
-        <DialogContent sx={{ pt: 3 }}><Stack spacing={3} sx={{ mt: 1 }}>
-          <FormControl fullWidth size="small"><InputLabel>Target User</InputLabel><Select value={bonusRequest.userId} label="Target User" onChange={(e) => setBonusRequest(p => ({ ...p, userId: e.target.value }))}>{(users || []).map((u, i) => <MenuItem key={u.id || i} value={u.id}>{u.userId} ({u.lineName || ""})</MenuItem>)}</Select></FormControl>
-          <TextField fullWidth label="Bonus Amount (TP)" type="number" size="small" value={bonusRequest.amount} onChange={(e) => setBonusRequest(p => ({ ...p, amount: e.target.value }))} />
-          <TextField fullWidth label="Reason / Note" multiline rows={3} size="small" value={bonusRequest.reason} onChange={(e) => setBonusRequest(p => ({ ...p, reason: e.target.value }))} />
-        </Stack></DialogContent>
+        <DialogContent sx={{ pt: 3 }}>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Target User</InputLabel>
+              <Select 
+                value={bonusRequest.userId} 
+                label="Target User" 
+                onChange={(e) => setBonusRequest(p => ({ ...p, userId: e.target.value }))}
+              >
+                {(users || []).map((u, i) => (
+                  <MenuItem key={u?.id || i} value={u?.id}>
+                    {u?.userId || "Unknown"} ({u?.lineName || ""})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField fullWidth label="Bonus Amount (TP)" type="number" size="small" value={bonusRequest.amount} onChange={(e) => setBonusRequest(p => ({ ...p, amount: e.target.value }))} />
+            <TextField fullWidth label="Reason / Note" multiline rows={3} size="small" value={bonusRequest.reason} onChange={(e) => setBonusRequest(p => ({ ...p, reason: e.target.value }))} />
+          </Stack>
+        </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}><Button onClick={() => setBonusModalOpen(false)}>Cancel</Button><Button variant="contained" onClick={handleBonusRequest}>Submit Request</Button></DialogActions>
       </Dialog>
 
-      <Dialog open={approveModalOpen} onClose={() => setApproveModalOpen(false)} fullWidth maxWidth="xs">
+      <Dialog open={approveModalOpen} onClose={() => setApproveModalOpen(false)} fullWidth maxWidth="xs" fullScreen={isMobile}>
         <DialogTitle sx={{ fontWeight: 'bold', color: 'warning.main' }}>Super Admin Authorization</DialogTitle>
-        <DialogContent><Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>Enter Super Admin password to approve this bonus:</Typography><TextField fullWidth type="password" size="small" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleApproveBonus()} /></DialogContent>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>Enter Super Admin password to approve this bonus:</Typography>
+          <TextField 
+            fullWidth 
+            type="password" 
+            size="small" 
+            value={adminPassword} 
+            onChange={(e) => setAdminPassword(e.target.value)} 
+            onKeyDown={(e) => e.key === 'Enter' && handleApproveBonus()} 
+          />
+        </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#fff9f0' }}><Button onClick={() => setApproveModalOpen(false)}>Cancel</Button><Button variant="contained" color="warning" onClick={handleApproveBonus}>Approve & Pay</Button></DialogActions>
+      </Dialog>
 
+      <Dialog open={qaModalOpen} onClose={() => setQaModalOpen(false)} fullWidth maxWidth="sm" fullScreen={isMobile}>
+        <DialogTitle sx={{ fontWeight: 'bold', borderBottom: '1px solid #eee' }}>Add Bot Auto-Response</DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            <TextField fullWidth label="Question Keyword (e.g. !ready)" size="small" value={newQa.question} onChange={(e) => setNewQa(p => ({ ...p, question: e.target.value }))} helperText="The bot will respond if the user message contains this keyword." />
+            <TextField fullWidth label="Bot Answer" multiline rows={4} size="small" value={newQa.answer} onChange={(e) => setNewQa(p => ({ ...p, answer: e.target.value }))} />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
+          <Button onClick={() => setQaModalOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleAddQa} disabled={addingQa} sx={{ bgcolor: '#0f172a', "&:hover": { bgcolor: '#1e293b' } }}>{addingQa ? "Adding..." : "Save Response"}</Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

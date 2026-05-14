@@ -327,7 +327,9 @@ const StandingPage = () => {
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
-        alignItems: 'center', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 2, sm: 0 },
         mb: 4,
         px: { xs: 1, sm: 0 }
       }}>
@@ -362,25 +364,30 @@ const StandingPage = () => {
             <CircularProgress />
           </Box>
         ) : (
-          <DataGrid
-            rows={rows}
-            columns={columns}
-            getRowId={(row) => row.id}
-            hideFooter
-            disableRowSelectionOnClick
-            disableColumnMenu
-            rowHeight={56}
-            sx={{
-              border: "none",
-              "& .MuiDataGrid-cell": {
-                display: "flex",
-                alignItems: "center",
-              },
-              "& .MuiDataGrid-row:nth-of-type(even)": {
-                bgcolor: "#fafafa",
-              },
-            }}
-          />
+          <Box sx={{ width: "100%", overflowX: "auto" }}>
+            <Box sx={{ minWidth: isMobile ? 800 : "auto" }}>
+              <DataGrid
+                rows={rows}
+                columns={columns}
+                getRowId={(row) => row.id}
+                hideFooter
+                autoHeight
+                disableRowSelectionOnClick
+                disableColumnMenu
+                rowHeight={56}
+                sx={{
+                  border: "none",
+                  "& .MuiDataGrid-cell": {
+                    display: "flex",
+                    alignItems: "center",
+                  },
+                  "& .MuiDataGrid-row:nth-of-type(even)": {
+                    bgcolor: "#fafafa",
+                  },
+                }}
+              />
+            </Box>
+          </Box>
         )}
       </Paper>
 

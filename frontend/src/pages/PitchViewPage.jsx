@@ -723,11 +723,11 @@ const PitchViewPage = () => {
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
-        alignItems: 'center', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 2, sm: 0 },
         mb: 4,
-        px: { xs: 1, sm: 0 },
-        flexWrap: 'wrap', 
-        gap: 2 
+        px: { xs: 1, sm: 0 }
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <AutoAwesome color="primary" sx={{ fontSize: 32 }} />
@@ -736,10 +736,10 @@ const PitchViewPage = () => {
             <Typography variant="body2" color="text.secondary">VISUAL SQUAD BUILDER</Typography>
           </Box>
         </Box>
-        <Box display="flex" gap={1}>
-          <Button variant="outlined" size={isMobile ? "small" : "medium"} startIcon={<RestartAlt />} onClick={handleResetLineup}>Reset</Button>
-          <Button variant="outlined" size={isMobile ? "small" : "medium"} startIcon={<Save />} onClick={handleSaveLineup}>Save</Button>
-          <Button variant="contained" size={isMobile ? "small" : "medium"} startIcon={<Download />} onClick={handleExport}>Export PNG</Button>
+        <Box display="flex" gap={1} width={{ xs: '100%', sm: 'auto' }}>
+          <Button fullWidth variant="outlined" size={isMobile ? "small" : "medium"} startIcon={<RestartAlt />} onClick={handleResetLineup}>Reset</Button>
+          <Button fullWidth variant="outlined" size={isMobile ? "small" : "medium"} startIcon={<Save />} onClick={handleSaveLineup}>Save</Button>
+          <Button fullWidth variant="contained" size={isMobile ? "small" : "medium"} startIcon={<Download />} onClick={handleExport}>Export PNG</Button>
         </Box>
       </Box>
 

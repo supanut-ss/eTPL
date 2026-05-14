@@ -24,6 +24,8 @@ import {
   TextField,
   Typography,
   CircularProgress,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
 import { Add, Campaign, Delete, Edit, Image, Refresh, Upload, Close, Facebook, Check } from "@mui/icons-material";
 import {
@@ -69,6 +71,8 @@ const AnnouncementPage = () => {
   const [form, setForm] = useState(emptyForm);
   const [masterTab, setMasterTab] = useState(0); // 0 = News, 1 = Event, 2 = Magazine
   const [uploading, setUploading] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -227,7 +231,9 @@ const AnnouncementPage = () => {
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
-        alignItems: 'center', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 2, sm: 0 },
         mb: 4,
         px: { xs: 1, sm: 0 }
       }}>
@@ -246,6 +252,7 @@ const AnnouncementPage = () => {
 
         <Box display="flex" gap={1}>
           <Button
+            fullWidth={isMobile}
             variant="contained"
             disableElevation
             startIcon={<Add />}
@@ -270,7 +277,13 @@ const AnnouncementPage = () => {
       </Box>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={masterTab} onChange={(e, v) => setMasterTab(v)} aria-label="master tabs">
+        <Tabs 
+          value={masterTab} 
+          onChange={(e, v) => setMasterTab(v)} 
+          aria-label="master tabs"
+          variant={isMobile ? "scrollable" : "standard"}
+          scrollButtons="auto"
+        >
           <Tab label="System Announcements" icon={<Campaign />} iconPosition="start" />
           <Tab label="Event Updates" icon={<Image />} iconPosition="start" />
           <Tab label="AI Magazine" icon={<Image />} iconPosition="start" />
@@ -302,8 +315,8 @@ const AnnouncementPage = () => {
               {infoMessage}
             </Alert>
 
-            <Paper elevation={0} sx={{ borderRadius: 3, border: "1px solid", borderColor: "divider" }}>
-              <TableContainer>
+            <Paper elevation={0} sx={{ borderRadius: 3, border: "1px solid", borderColor: "divider", overflow: "hidden" }}>
+              <TableContainer sx={{ overflowX: "auto" }}>
                 <Table>
                   <TableHead>
                     <TableRow sx={{ bgcolor: "grey.50" }}>
@@ -394,6 +407,7 @@ const AnnouncementPage = () => {
         onClose={() => setOpenDialog(false)}
         fullWidth
         maxWidth="sm"
+        fullScreen={isMobile}
       >
         <DialogTitle>
           {editing 
@@ -506,9 +520,14 @@ const AnnouncementPage = () => {
             />
           </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave}>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={() => setOpenDialog(false)} sx={{ fontWeight: 'bold' }}>Cancel</Button>
+          <Button 
+            fullWidth={isMobile}
+            variant="contained" 
+            onClick={handleSave}
+            sx={{ borderRadius: 2, fontWeight: 'bold', px: 4 }}
+          >
             Save
           </Button>
         </DialogActions>

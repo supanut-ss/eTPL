@@ -12,8 +12,11 @@ import {
 } from "@mui/icons-material";
 import adminService from "../services/adminService";
 import { useSnackbar } from "notistack";
+import { useMediaQuery, useTheme } from "@mui/material";
 
 const AdminLeagueSetting = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { enqueueSnackbar } = useSnackbar();
 
   // ── Prize Settings ──────────────────────────────────────
@@ -223,7 +226,15 @@ const AdminLeagueSetting = () => {
       <GlobalStyles styles={{ "@keyframes pulse": { "0%": { opacity: 1, transform: "scale(1)" }, "50%": { opacity: 0.5, transform: "scale(1.2)" }, "100%": { opacity: 1, transform: "scale(1)" } } }} />
 
       {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 4, px: { xs: 1, sm: 0 } }}>
+      <Box sx={{ 
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: { xs: "flex-start", sm: "center" }, 
+        flexDirection: { xs: "column", sm: "row" },
+        gap: { xs: 2, sm: 0 },
+        mb: 4, 
+        px: { xs: 1, sm: 0 } 
+      }}>
         <Box display="flex" alignItems="center" gap={1.5}>
           <EmojiEvents color="primary" sx={{ fontSize: 32 }} />
           <Box>
@@ -267,6 +278,7 @@ const AdminLeagueSetting = () => {
 
               <Box display="flex" justifyContent="flex-end">
                 <Button 
+                  fullWidth={isMobile}
                   variant="contained" 
                   startIcon={<Save />} 
                   onClick={handleSavePrizes} 
@@ -317,7 +329,7 @@ const AdminLeagueSetting = () => {
             {!loadingPreview && preview && (
               <Stack spacing={3}>
                 {/* Stats Row — Unified with Prize Style */}
-                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 2 }}>
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, gap: 2 }}>
                   {[
                     { icon: <CalendarMonth sx={{ fontSize: 28 }} />, label: "Season", value: preview.season },
                     { icon: <Groups sx={{ fontSize: 28 }} />, label: "Players", value: preview.playerCount },
@@ -384,7 +396,7 @@ const AdminLeagueSetting = () => {
                   </Typography>
                   <Box sx={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(5, 1fr)",
+                    gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(3, 1fr)", md: "repeat(5, 1fr)" },
                     gap: 1.5
                   }}>
                     {(preview.players || []).map((p, i) => (
@@ -416,7 +428,7 @@ const AdminLeagueSetting = () => {
                 </Box>
 
                 {/* Action Buttons — Style matched with Prize Save button */}
-                <Box display="flex" gap={2} justifyContent="flex-end" sx={{ mt: 1 }}>
+                <Box display="flex" gap={2} justifyContent="flex-end" sx={{ mt: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
                   <Button 
                     variant="outlined" 
                     color="primary"
@@ -449,6 +461,7 @@ const AdminLeagueSetting = () => {
                   )}
 
                   <Button
+                    fullWidth={isMobile}
                     variant="contained"
                     color="primary"
                     size="large"
@@ -518,6 +531,7 @@ const AdminLeagueSetting = () => {
                 </Button>
 
                 <Button
+                  fullWidth={isMobile}
                   variant="contained"
                   color="primary"
                   size="large"
@@ -632,7 +646,7 @@ const AdminLeagueSetting = () => {
       </Stack>
 
       {/* ── Reset Confirmation Dialog ────────────────────── */}
-      <Dialog open={resetConfirmOpen} onClose={() => setResetConfirmOpen(false)}>
+      <Dialog open={resetConfirmOpen} onClose={() => setResetConfirmOpen(false)} fullScreen={isMobile}>
         <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, color: "error.main" }}>
           <DeleteForever />
           <Typography fontWeight="bold">เลือกข้อมูลที่ต้องการลบ (Season {preview?.season})</Typography>
@@ -699,7 +713,7 @@ const AdminLeagueSetting = () => {
       </Dialog>
 
       {/* ── Confirmation Dialog ───────────────────────────── */}
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Warning color="warning" />
           <Typography fontWeight="bold">ยืนยันการ Generate Fixture?</Typography>

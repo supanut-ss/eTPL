@@ -25,5 +25,10 @@ namespace eTPL.API.Services.Interfaces
         /// Processes the AI generation workflow for a HOF entry.
         /// </summary>
         Task ProcessHofAiImageAsync(string hofId);
+
+        /// <summary>
+        /// Asks Gemini a general question.
+        /// </summary>
+        Task<string> AskGeminiAsync(string question);
     }
 }

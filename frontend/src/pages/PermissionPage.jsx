@@ -20,6 +20,7 @@ import {
 } from "@mui/material";
 import { Security, Save, Info } from "@mui/icons-material";
 import { getPermissions, updatePermissions } from "../api/permissionApi";
+import { useMediaQuery, useTheme } from "@mui/material";
 
 // List of menus matching backend PermissionService.AllMenus
 const ALL_MENUS = [
@@ -58,6 +59,8 @@ const getFixedValue = (menuKey, userLevel) => {
 
 
 const PermissionPage = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [matrix, setMatrix] = useState({}); // { "dashboard|admin": true, ... }
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -142,7 +145,9 @@ const PermissionPage = () => {
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
-        alignItems: 'center', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 2, sm: 0 },
         mb: 4,
         px: { xs: 1, sm: 0 }
       }}>
@@ -158,6 +163,7 @@ const PermissionPage = () => {
           </Box>
         </Box>
         <Button
+          fullWidth={isMobile}
           variant="contained"
           disableElevation
           startIcon={
@@ -200,7 +206,7 @@ const PermissionPage = () => {
             <CircularProgress />
           </Box>
         ) : (
-          <TableContainer>
+          <TableContainer sx={{ overflowX: 'auto' }}>
             <Table>
               <TableHead>
                 <TableRow sx={{ bgcolor: "grey.50" }}>

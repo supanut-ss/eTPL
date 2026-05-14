@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using eTPL.API.Data;
+using eTPL.API.Models;
 using eTPL.API.Models.Auction;
 using eTPL.API.Models.Scaffolded;
 using eTPL.API.Data.Scaffolded;
@@ -360,6 +361,59 @@ namespace eTPL.API.Controllers
             var digits = new string(input.Where(char.IsDigit).ToArray());
             if (int.TryParse(digits, out int val)) return val;
             return null;
+        }
+
+        // --- Bot Q&A Management ---
+        [HttpGet("qa")]
+        public async Task<IActionResult> GetQa()
+        {
+            try
+            {
+                var qas = await _context.QaInformation.OrderBy(q => q.Id).ToListAsync();
+                return Ok(qas);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error fetching Q&A data: " + ex.Message });
+            }
+        }
+
+        [HttpPost("qa")]
+        public async Task<IActionResult> AddQa([FromBody] QaInformation qa)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(qa.Question) || string.IsNullOrWhiteSpace(qa.Answer))
+                {
+                    return BadRequest(new { message = "Question and Answer are required." });
+                }
+
+                _context.QaInformation.Add(qa);
+                await _context.SaveChangesAsync();
+                return Ok(qa);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error adding Q&A: " + ex.Message });
+            }
+        }
+
+        [HttpDelete("qa/{id}")]
+        public async Task<IActionResult> DeleteQa(int id)
+        {
+            try
+            {
+                var qa = await _context.QaInformation.FindAsync(id);
+                if (qa == null) return NotFound();
+
+                _context.QaInformation.Remove(qa);
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Q&A deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error deleting Q&A: " + ex.Message });
+            }
         }
     }
 

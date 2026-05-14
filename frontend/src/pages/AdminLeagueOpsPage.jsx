@@ -35,6 +35,7 @@ import {
   Divider,
   Stack,
   Avatar,
+  useMediaQuery,
 } from "@mui/material";
 import {
   Settings,
@@ -68,7 +69,7 @@ const StatCard = ({ title, value, color, subValue, trend }) => {
     <Box
       sx={{
         flex: 1,
-        minWidth: 180,
+        minWidth: { xs: 140, sm: 180 },
         px: 1,
         py: 0.5,
       }}
@@ -125,6 +126,9 @@ const StatCard = ({ title, value, color, subValue, trend }) => {
 
 const AdminLeagueOpsPage = () => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isTablet = useMediaQuery(theme.breakpoints.down("md"));
+
   const [cycles, setCycles] = useState([]);
   const [selectedCycleId, setSelectedCycleId] = useState("");
   const [stats, setStats] = useState([]);
@@ -529,8 +533,10 @@ const AdminLeagueOpsPage = () => {
       <Box
         sx={{
           display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
           justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: { xs: "flex-start", sm: "center" },
+          gap: { xs: 2, sm: 0 },
           mb: 1,
           px: { xs: 1, sm: 2 },
         }}
@@ -545,11 +551,11 @@ const AdminLeagueOpsPage = () => {
               border: "none",
             }}
           >
-            <ManageHistory sx={{ fontSize: 26 }} />
+            <ManageHistory sx={{ fontSize: { xs: 22, sm: 26 } }} />
           </Box>
           <Box>
             <Typography
-              variant="h5"
+              variant={isMobile ? "h6" : "h5"}
               sx={{
                 fontWeight: 900,
                 color: "#0f172a",
@@ -564,6 +570,7 @@ const AdminLeagueOpsPage = () => {
                 color: "#64748b",
                 fontWeight: 700,
                 letterSpacing: "0.04em",
+                fontSize: { xs: 10, sm: 12 },
               }}
             >
               ADMINISTRATIVE CONTROL CENTER
@@ -764,16 +771,17 @@ const AdminLeagueOpsPage = () => {
           px: { xs: 1, sm: 2 },
           pb: 2,
           alignItems: "stretch",
-          flexWrap: "nowrap",
+          flexWrap: { xs: "wrap", lg: "nowrap" },
         }}
       >
         <Grid
           item
-          xs={6}
+          xs={12}
+          lg={6}
           sx={{
             display: "flex",
             minWidth: 0,
-            flex: "1 1 0",
+            flex: { lg: "1 1 0" },
           }}
         >
           <Card
@@ -846,10 +854,11 @@ const AdminLeagueOpsPage = () => {
                   }}
                   sx={{
                     borderRadius: 1.75,
-                    px: 3,
+                    px: { xs: 2, sm: 3 },
                     py: 1,
                     fontWeight: "900",
                     textTransform: "none",
+                    fontSize: { xs: 12, sm: 14 },
                     boxShadow: "0 8px 20px rgba(37, 99, 235, 0.2)",
                     "&:hover": {
                       transform: "translateY(-2px)",
@@ -862,7 +871,7 @@ const AdminLeagueOpsPage = () => {
                 </Button>
               </Box>
             </Box>
-            <TableContainer>
+            <TableContainer sx={{ overflowX: "auto" }}>
               <Table stickyHeader size="small">
                 <TableHead>
                   <TableRow>
@@ -1005,11 +1014,13 @@ const AdminLeagueOpsPage = () => {
 
         <Grid
           item
-          xs={6}
+          xs={12}
+          lg={6}
           sx={{
             display: "flex",
             minWidth: 0,
-            flex: "1 1 0",
+            flex: { lg: "1 1 0" },
+            mt: { xs: 2, lg: 0 },
           }}
         >
           <Card
@@ -1079,7 +1090,7 @@ const AdminLeagueOpsPage = () => {
                 </IconButton>
               </Box>
             </Box>
-            <TableContainer>
+            <TableContainer sx={{ overflowX: "auto" }}>
               <Table stickyHeader size="small">
                 <TableHead>
                   <TableRow>
@@ -1215,8 +1226,9 @@ const AdminLeagueOpsPage = () => {
         onClose={() => setPreviewOpen(false)}
         maxWidth="lg"
         fullWidth
+        fullScreen={isMobile}
         PaperProps={{
-          sx: { borderRadius: 4, bgcolor: "#f8fafc", overflow: "hidden" },
+          sx: { borderRadius: isMobile ? 0 : 4, bgcolor: "#f8fafc", overflow: "hidden" },
         }}
       >
         <Box
@@ -1268,8 +1280,8 @@ const AdminLeagueOpsPage = () => {
                 </Typography>
               </Box>
             </Box>
-            <Box sx={{ display: "flex", gap: 1.5 }}>
-              {Object.keys(previewResults).length > 0 && (
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {Object.keys(previewResults).length > 0 && !isMobile && (
                 <Button
                   variant="outlined"
                   size="small"
@@ -1294,15 +1306,15 @@ const AdminLeagueOpsPage = () => {
                     <CheckCircle />
                   )
                 }
-                sx={{ borderRadius: 2, fontWeight: "900" }}
+                sx={{ borderRadius: 2, fontWeight: "900", fontSize: { xs: 10, sm: 12 } }}
               >
-                Apply All Results
+                {isMobile ? "Apply" : "Apply All Results"}
               </Button>
               <IconButton
                 onClick={() => setPreviewOpen(false)}
                 size="small"
                 sx={{
-                  ml: 1,
+                  ml: isMobile ? 0 : 1,
                   border: "none",
                   "&:hover": { bgcolor: "#f1f5f9" },
                 }}
@@ -1715,16 +1727,17 @@ const AdminLeagueOpsPage = () => {
         onClose={() => setConfigOpen(false)}
         maxWidth="md"
         fullWidth
+        fullScreen={isMobile}
         PaperProps={{
-          sx: { borderRadius: 3, boxShadow: "0 10px 40px rgba(0,0,0,0.1)" },
+          sx: { borderRadius: isMobile ? 0 : 3, boxShadow: "0 10px 40px rgba(0,0,0,0.1)" },
         }}
       >
         <DialogTitle sx={{ p: 0 }}>
           <Box
             sx={{
               background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
-              p: 4,
-              pb: 3,
+              p: { xs: 2, sm: 4 },
+              pb: { xs: 2, sm: 3 },
               borderBottom: "1px solid #e2e8f0",
               display: "flex",
               alignItems: "flex-start",
@@ -1740,7 +1753,7 @@ const AdminLeagueOpsPage = () => {
                 boxShadow: "none",
               }}
             >
-              <Settings sx={{ fontSize: 28 }} />
+              <Settings sx={{ fontSize: { xs: 24, sm: 28 } }} />
             </Box>
             <Box>
               <Typography
@@ -1760,7 +1773,7 @@ const AdminLeagueOpsPage = () => {
           </Box>
         </DialogTitle>
 
-        <DialogContent sx={{ p: 4, bgcolor: "#ffffff" }}>
+        <DialogContent sx={{ p: { xs: 2, sm: 4 }, bgcolor: "#ffffff" }}>
           <Stack spacing={4}>
             {/* Cycle Identity & Timeline Group */}
             <Box>
@@ -1803,7 +1816,7 @@ const AdminLeagueOpsPage = () => {
                     }
                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
                   />
-                  <Stack direction="row" spacing={3}>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={3}>
                     <TextField
                       fullWidth
                       type="date"
@@ -1841,7 +1854,7 @@ const AdminLeagueOpsPage = () => {
                       }}
                     />
                   </Stack>
-                  <Stack direction="row" spacing={3}>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={3}>
                     <TextField
                       fullWidth
                       type="number"
@@ -1909,7 +1922,7 @@ const AdminLeagueOpsPage = () => {
                 }}
               >
                 <Stack spacing={3}>
-                  <Stack direction="row" spacing={3}>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={3}>
                     <TextField
                       fullWidth
                       type="number"
@@ -1962,7 +1975,7 @@ const AdminLeagueOpsPage = () => {
                       }}
                     />
                   </Stack>
-                  <Stack direction="row" spacing={3}>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={3}>
                     {[
                       { label: "Elite (%)", key: "rateElite" },
                       { label: "Active (%)", key: "rateActive" },
@@ -1995,7 +2008,7 @@ const AdminLeagueOpsPage = () => {
         </DialogContent>
         <DialogActions
           sx={{
-            p: 4,
+            p: { xs: 2, sm: 4 },
             pt: 2,
             borderTop: "1px solid #e2e8f0",
             bgcolor: "#f8fafc",
@@ -2052,9 +2065,10 @@ const AdminLeagueOpsPage = () => {
         onClose={() => setHistoryDetailOpen(false)}
         maxWidth="xs"
         fullWidth
+        fullScreen={isMobile}
         PaperProps={{
           sx: {
-            borderRadius: 4,
+            borderRadius: isMobile ? 0 : 4,
             overflow: "hidden",
             boxShadow: "0 20px 50px rgba(0,0,0,0.12)",
           },
@@ -2098,7 +2112,8 @@ const AdminLeagueOpsPage = () => {
           >
             <Close fontSize="small" />
           </IconButton>
-        </DialogTitle>        <DialogContent sx={{ p: 4, bgcolor: "#ffffff" }}>
+        </DialogTitle>
+        <DialogContent sx={{ p: { xs: 2, sm: 4 }, bgcolor: "#ffffff" }}>
           {selectedHistory && (
             <Stack spacing={4}>
               {/* Section 1: Identity & Timing */}
@@ -2226,7 +2241,6 @@ const AdminLeagueOpsPage = () => {
             </Stack>
           )}
         </DialogContent>
-ntent>
         <DialogActions sx={{ p: 2.5, bgcolor: "white", borderTop: "1px solid #f1f5f9" }}>
           <Button
             fullWidth

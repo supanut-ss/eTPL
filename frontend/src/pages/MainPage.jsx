@@ -443,11 +443,13 @@ const MainPage = () => {
               maxWidth: 1100,
               px: 4,
               display: "flex",
+              flexDirection: { xs: "column", sm: "row" },
               justifyContent: "space-between",
               alignItems: "center",
+              gap: { xs: 3, sm: 0 }
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexDirection: { xs: "column", sm: "row" }, textAlign: { xs: "center", sm: "left" } }}>
               <Box 
                 component="img"
                 src="/logo-etpl.png"
