@@ -1,20 +1,20 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using eTPL.API.Data.Scaffolded;
+using eTPL.API.Data;
 using eTPL.API.Models.Scaffolded;
 
+using eTPL.API.Models;
 namespace eTPL.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
     public class HofController : ControllerBase
     {
-        private readonly ScaffoldedDbContext _context;
+        private readonly MsSqlDbContext _context;
 
-        public HofController(ScaffoldedDbContext context)
+        public HofController(MsSqlDbContext context)
         {
             _context = context;
-            try { EnsureTableExists(); } catch (Exception ex) { Console.WriteLine("HOF Init Error: " + ex.Message); }
         }
 
         [HttpGet]
@@ -22,7 +22,6 @@ namespace eTPL.API.Controllers
         {
             try 
             {
-                EnsureTableExists();
                 var data = await _context.TbmHofs.ToListAsync();
                 
                 // Auto seed if empty
@@ -43,7 +42,6 @@ namespace eTPL.API.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateHof(string id, TbmHof hofUpdate)
         {
-            EnsureTableExists();
             
             var existing = await _context.TbmHofs.FindAsync(id);
             if (existing == null) return NotFound("HOF record not found");
@@ -67,53 +65,11 @@ namespace eTPL.API.Controllers
         [HttpPost("seed")]
         public async Task<IActionResult> Seed()
         {
-            EnsureTableExists();
             await SeedMockData();
             return Ok("Mock data seeded successfully.");
         }
 
-        private void EnsureTableExists()
-        {
-            // Check if table exists and has the new structure in dbo schema
-            var checkSql = "SELECT COUNT(*) FROM sys.columns WHERE Name = 'TournamentTitle' AND Object_ID = OBJECT_ID(N'[dbo].[tbs_hof]')";
-            var count = 0;
-            
-            try {
-                // We use a safe way to check column existence
-                var conn = _context.Database.GetDbConnection();
-                if (conn.State != System.Data.ConnectionState.Open) conn.Open();
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = checkSql;
-                    count = Convert.ToInt32(cmd.ExecuteScalar());
-                }
-            } catch {
-                // If query fails, table might not exist
-            }
 
-            if (count == 0)
-            {
-                // Drop if old table exists to avoid conflicts with new schema
-                var dropSql = "IF OBJECT_ID(N'[dbo].[tbs_hof]', 'U') IS NOT NULL DROP TABLE [dbo].[tbs_hof]";
-                _context.Database.ExecuteSqlRaw(dropSql);
-
-                var createSql = @"
-                CREATE TABLE [dbo].[tbs_hof](
-                    [hof_id] [varchar](50) NOT NULL DEFAULT (newid()),
-                    [Platform] [nvarchar](50) NULL,
-                    [Season] [nvarchar](50) NULL,
-                    [TournamentTitle] [nvarchar](255) NULL,
-                    [TournamentSubtitle] [nvarchar](255) NULL,
-                    [WinnerName] [nvarchar](255) NULL,
-                    [WinnerTeam] [nvarchar](255) NULL,
-                    [WinnerImage] [nvarchar](500) NULL,
-                    [RunnerUpName] [nvarchar](255) NULL,
-                    [DisplayColor] [nvarchar](50) NULL,
-                    PRIMARY KEY CLUSTERED ([hof_id] ASC)
-                )";
-                _context.Database.ExecuteSqlRaw(createSql);
-            }
-        }
 
         private async Task SeedMockData()
         {
@@ -143,3 +99,4 @@ namespace eTPL.API.Controllers
         }
     }
 }
+

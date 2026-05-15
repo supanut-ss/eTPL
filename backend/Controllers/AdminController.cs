@@ -5,7 +5,6 @@ using eTPL.API.Data;
 using eTPL.API.Models;
 using eTPL.API.Models.Auction;
 using eTPL.API.Models.Scaffolded;
-using eTPL.API.Data.Scaffolded;
 using HtmlAgilityPack;
 using System.Net.Http;
 
@@ -17,11 +16,11 @@ namespace eTPL.API.Controllers
     public class AdminController : ControllerBase
     {
         private readonly MsSqlDbContext _context;
-        private readonly ScaffoldedDbContext _scaffoldedContext;
+        private readonly MsSqlDbContext _scaffoldedContext;
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _config;
 
-        public AdminController(MsSqlDbContext context, ScaffoldedDbContext scaffoldedContext, IConfiguration config)
+        public AdminController(MsSqlDbContext context, MsSqlDbContext scaffoldedContext, IConfiguration config)
         {
             _context = context;
             _scaffoldedContext = scaffoldedContext;
@@ -423,3 +422,4 @@ namespace eTPL.API.Controllers
         public string Password { get; set; } = string.Empty;
     }
 }
+

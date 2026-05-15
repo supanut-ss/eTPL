@@ -21,12 +21,14 @@ namespace eTPL.API.Controllers
         private readonly IAuctionService _auctionService;
         private readonly IHubContext<AuctionHub> _hubContext;
         private readonly MsSqlDbContext _db;
+        private readonly IConfiguration _config;
 
-        public AuctionController(IAuctionService auctionService, IHubContext<AuctionHub> hubContext, MsSqlDbContext db)
+        public AuctionController(IAuctionService auctionService, IHubContext<AuctionHub> hubContext, MsSqlDbContext db, IConfiguration config)
         {
             _auctionService = auctionService;
             _hubContext = hubContext;
             _db = db;
+            _config = config;
         }
 
         private async Task<int> GetCurrentUserIdAsync()
@@ -262,12 +264,6 @@ namespace eTPL.API.Controllers
         {
             try
             {
-                // Ensure columns exist (Manual migration check)
-                try {
-                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tbs_auction_settings') AND name = 'NormalBidDurationMinutes') ALTER TABLE tbs_auction_settings ADD NormalBidDurationMinutes INT NOT NULL DEFAULT 1200;");
-                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tbs_auction_settings') AND name = 'FinalBidDurationMinutes') ALTER TABLE tbs_auction_settings ADD FinalBidDurationMinutes INT NOT NULL DEFAULT 1440;");
-                } catch { /* Silent */ }
-
                 var settings = await _db.AuctionSettings.FirstOrDefaultAsync();
                 return Ok(ApiResponse<object>.Ok(settings!));
             }
@@ -285,12 +281,6 @@ namespace eTPL.API.Controllers
                 var userStrId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userStrId);
                 if (user == null || user.UserLevel != "admin") throw new UnauthorizedAccessException("สำหรับ Admin เท่านั้น");
-
-                // Ensure columns exist (Manual migration check) - MUST BE BEFORE ANY EF QUERY TO THIS TABLE
-                try {
-                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tbs_auction_settings') AND name = 'NormalBidDurationMinutes') ALTER TABLE tbs_auction_settings ADD NormalBidDurationMinutes INT NOT NULL DEFAULT 1200;");
-                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('tbs_auction_settings') AND name = 'FinalBidDurationMinutes') ALTER TABLE tbs_auction_settings ADD FinalBidDurationMinutes INT NOT NULL DEFAULT 1440;");
-                } catch { /* Silent */ }
 
                 var settings = await _db.AuctionSettings.FirstOrDefaultAsync();
                 if (settings == null) throw new Exception("Not found");
@@ -330,13 +320,6 @@ namespace eTPL.API.Controllers
         {
             try
             {
-                // Ensure columns exist (Manual migration check)
-                try {
-                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_auction_grade_quota') AND name = 'RenewalPercent') ALTER TABLE tbs_auction_grade_quota ADD RenewalPercent INT NOT NULL DEFAULT 0;");
-                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_auction_grade_quota') AND name = 'ReleasePercent') ALTER TABLE tbs_auction_grade_quota ADD ReleasePercent INT NOT NULL DEFAULT 0;");
-                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_auction_grade_quota') AND name = 'MaxSeasonsPerTeam') ALTER TABLE tbs_auction_grade_quota ADD MaxSeasonsPerTeam INT NOT NULL DEFAULT 0;");
-                } catch { /* Silent */ }
-
                 var quotas = await _db.AuctionGradeQuotas.OrderBy(q => q.MinOVR).ToListAsync();
                 return Ok(ApiResponse<object>.Ok(quotas));
             }
@@ -354,13 +337,6 @@ namespace eTPL.API.Controllers
                 var userStrId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userStrId);
                 if (user == null || user.UserLevel != "admin") throw new UnauthorizedAccessException("สำหรับ Admin เท่านั้น");
-
-                // Ensure columns exist
-                try {
-                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_auction_grade_quota') AND name = 'RenewalPercent') ALTER TABLE tbs_auction_grade_quota ADD RenewalPercent INT NOT NULL DEFAULT 0;");
-                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_auction_grade_quota') AND name = 'ReleasePercent') ALTER TABLE tbs_auction_grade_quota ADD ReleasePercent INT NOT NULL DEFAULT 0;");
-                    await _db.Database.ExecuteSqlRawAsync("IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_auction_grade_quota') AND name = 'MaxSeasonsPerTeam') ALTER TABLE tbs_auction_grade_quota ADD MaxSeasonsPerTeam INT NOT NULL DEFAULT 0;");
-                } catch { /* Silent */ }
 
                 foreach (var q in updatedQuotas)
                 {
@@ -685,7 +661,8 @@ namespace eTPL.API.Controllers
                 var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userStrId);
                 if (user == null || user.UserLevel != "admin") throw new UnauthorizedAccessException("สำหรับ Admin เท่านั้น");
 
-                if (user.Password != req.Password) throw new UnauthorizedAccessException("รหัสผ่านสำหรับยืนยันการ Reset ไม่ถูกต้อง");
+                var superAdminPass = _config["AdminSettings:SuperAdminPassword"];
+                if (superAdminPass != req.Password) throw new UnauthorizedAccessException("รหัสผ่าน Super Admin สำหรับยืนยันการ Reset ไม่ถูกต้อง");
 
                 await _auctionService.ResetMarketAsync();
                 return Ok(ApiResponse<object>.Ok(new object(), "ล้างข้อมูลตลาดเทรดทั้งหมดเรียบร้อยแล้ว"));

@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using eTPL.API.Data;
 using eTPL.API.Models.LeagueOps;
-using eTPL.API.Data.Scaffolded;
+
 using eTPL.API.Models.Scaffolded;
 using eTPL.API.Models.DTOs;
 using System.Collections.Generic;
@@ -14,6 +14,7 @@ using Microsoft.Data.SqlClient;
 using System;
 using System.Text.Json;
 
+using eTPL.API.Models;
 namespace eTPL.API.Controllers
 {
     [Route("api/[controller]")]
@@ -22,9 +23,9 @@ namespace eTPL.API.Controllers
     public class LeagueOpsController : ControllerBase
     {
         private readonly MsSqlDbContext _context;
-        private readonly ScaffoldedDbContext _scaffoldedContext;
+        private readonly MsSqlDbContext _scaffoldedContext;
 
-        public LeagueOpsController(MsSqlDbContext context, ScaffoldedDbContext scaffoldedContext)
+        public LeagueOpsController(MsSqlDbContext context, MsSqlDbContext scaffoldedContext)
         {
             _context = context;
             _scaffoldedContext = scaffoldedContext;
@@ -264,3 +265,4 @@ namespace eTPL.API.Controllers
         }
     }
 }
+

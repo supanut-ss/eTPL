@@ -63,6 +63,8 @@ import {
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
 import NotificationMenu from "../NotificationMenu";
+import ManagerOnboarding from "../onboarding/ManagerOnboarding";
+
 
 const DRAWER_WIDTH = 240;
 
@@ -654,6 +656,7 @@ const AppLayout = () => {
         <Box sx={{ width: "100%", maxWidth: 'none', mx: 0 }}>
           <Outlet />
         </Box>
+        {/* <ManagerOnboarding /> */}
       </Box>
     </Box>
   );

@@ -1,11 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
+using eTPL.API.Models;
 namespace eTPL.API.Migrations
 {
     /// <inheritdoc />
-    public partial class CreateTbmUser : Migration
+    public partial class CreateUser : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -35,3 +36,4 @@ namespace eTPL.API.Migrations
         }
     }
 }
+

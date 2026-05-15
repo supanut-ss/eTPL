@@ -29,6 +29,8 @@ import {
   Shield,
   CheckCircle,
   PhotoCamera,
+  Visibility,
+  VisibilityOff
 } from "@mui/icons-material";
 import { Link as RouterLink } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
@@ -37,6 +39,7 @@ import { uploadProfileImage } from "../api/uploadApi";
 import auctionService from "../services/auctionService";
 import { getLogoUrl } from "../utils/imageUtils";
 import { API_BASE_URL } from "../api/axiosInstance";
+import { InputAdornment } from "@mui/material";
 
 const ProfilePage = () => {
   const theme = useTheme();
@@ -56,6 +59,7 @@ const ProfilePage = () => {
     password: "",
     confirmPassword: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
 
   useEffect(() => {
@@ -340,9 +344,18 @@ const ProfilePage = () => {
                     New Password
                   </Typography>
                   <TextField
-                    fullWidth size="small" name="password" type="password"
+                    fullWidth size="small" name="password" type={showPassword ? "text" : "password"}
                     value={form.password} onChange={handleChange} placeholder="••••••••"
                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
+                            {showPassword ? <VisibilityOff sx={{ fontSize: 18 }} /> : <Visibility sx={{ fontSize: 18 }} />}
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -350,11 +363,20 @@ const ProfilePage = () => {
                     Confirm Password
                   </Typography>
                   <TextField
-                    fullWidth size="small" name="confirmPassword" type="password"
+                    fullWidth size="small" name="confirmPassword" type={showPassword ? "text" : "password"}
                     value={form.confirmPassword} onChange={handleChange} placeholder="••••••••"
                     error={form.confirmPassword && form.password !== form.confirmPassword}
                     helperText={form.confirmPassword && form.password !== form.confirmPassword ? "Passwords do not match" : ""}
                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
+                            {showPassword ? <VisibilityOff sx={{ fontSize: 18 }} /> : <Visibility sx={{ fontSize: 18 }} />}
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }}
                   />
                 </Grid>
               </Grid>

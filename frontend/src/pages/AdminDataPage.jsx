@@ -55,12 +55,15 @@ import {
   ThumbDown,
   Lock,
   Close,
-  ExpandMore
+  ExpandMore,
+  Visibility,
+  VisibilityOff
 } from "@mui/icons-material";
 import adminService from "../services/adminService";
 import { useSnackbar } from "notistack";
 import { useNavigate } from "react-router-dom";
 import { getPlayerCardUrl } from "../utils/imageUtils";
+import { InputAdornment } from "@mui/material";
 
 const AdminDataPage = () => {
   const theme = useTheme();
@@ -94,6 +97,7 @@ const AdminDataPage = () => {
   const [selectedBonusId, setSelectedBonusId] = useState(null);
   const [modalMode, setModalMode] = useState("bonus"); // "bonus" | "prizes"
   const [adminPassword, setAdminPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submittingBonus, setSubmittingBonus] = useState(false);
 
   // AI Image Generation State
@@ -733,11 +737,20 @@ const AdminDataPage = () => {
           <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>Enter Super Admin password to approve this bonus:</Typography>
           <TextField 
             fullWidth 
-            type="password" 
+            type={showPassword ? "text" : "password"} 
             size="small" 
             value={adminPassword} 
             onChange={(e) => setAdminPassword(e.target.value)} 
             onKeyDown={(e) => e.key === 'Enter' && handleApproveBonus()} 
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
+                    {showPassword ? <VisibilityOff sx={{ fontSize: 20 }} /> : <Visibility sx={{ fontSize: 20 }} />}
+                  </IconButton>
+                </InputAdornment>
+              )
+            }}
           />
         </DialogContent>
         <DialogActions sx={{ p: 2, bgcolor: '#fff9f0' }}><Button onClick={() => setApproveModalOpen(false)}>Cancel</Button><Button variant="contained" color="warning" onClick={handleApproveBonus}>Approve & Pay</Button></DialogActions>

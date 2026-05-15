@@ -256,6 +256,7 @@ const HallOfFamePage = () => {
   const [selectedLegend, setSelectedLegend] = useState(null);
   const [hofData, setHofData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -335,6 +336,16 @@ const HallOfFamePage = () => {
     return Object.values(legends).sort((a, b) => b.totalTitles - a.totalTitles);
   }, [hofData]);
 
+  // Filter legends by search term
+  const filteredLegends = useMemo(() => {
+    if (!searchTerm) return legendsData;
+    const term = searchTerm.toLowerCase();
+    return legendsData.filter(legend => 
+      legend.name.toLowerCase().includes(term) ||
+      legend.latestTeam?.toLowerCase().includes(term)
+    );
+  }, [legendsData, searchTerm]);
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
@@ -392,6 +403,28 @@ const HallOfFamePage = () => {
                 </Typography>
               </Box>
             </Box>
+
+            <TextField
+              size="small"
+              placeholder="Search legend..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{
+                width: { xs: "100%", sm: 250 },
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "12px",
+                  bgcolor: "white",
+                  "& fieldset": { borderColor: alpha(theme.palette.divider, 0.1) },
+                },
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search sx={{ color: "text.disabled", fontSize: 20 }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
           </Box>
 
 
@@ -502,13 +535,13 @@ const HallOfFamePage = () => {
               gap: { xs: 2.5, md: 3 },
             }}
           >
-            {legendsData.length === 0 ? (
+            {filteredLegends.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 10, gridColumn: "1 / -1" }}>
                 <History sx={{ fontSize: 80, color: 'text.disabled', opacity: 0.2, mb: 2 }} />
                 <Typography variant="h6" color="text.disabled">No managers found matching "{searchTerm}"</Typography>
               </Box>
             ) : (
-              legendsData.map((legend, idx) => (
+              filteredLegends.map((legend, idx) => (
                 <LegendCard 
                   key={legend.name} 
                   legend={legend} 

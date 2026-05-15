@@ -22,10 +22,11 @@ import {
   useTheme,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
-import { Add, Edit, Delete, Refresh, Person, ManageAccounts, Badge } from "@mui/icons-material";
+import { Add, Edit, Delete, Refresh, Person, ManageAccounts, Badge, Visibility, VisibilityOff } from "@mui/icons-material";
 import { getUsers, createUser, updateUser, deleteUser } from "../api/userApi";
 import { useAuth } from "../store/AuthContext";
 import auctionService from "../services/auctionService";
+import { InputAdornment } from "@mui/material";
 
 const LEVELS = ["admin", "moderator", "user"];
 const defaultForm = {
@@ -50,6 +51,7 @@ const UserMasterPage = () => {
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [form, setForm] = useState(defaultForm);
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -134,8 +136,8 @@ const UserMasterPage = () => {
       showSnackbar("User deleted successfully");
       setDeleteDialogOpen(false);
       fetchUsers();
-    } catch {
-      showSnackbar("Delete failed", "error");
+    } catch (err) {
+      showSnackbar(err.response?.data?.message || "Delete failed", "error");
     } finally {
       setSaving(false);
     }
@@ -426,13 +428,22 @@ const UserMasterPage = () => {
                   ? "New Password (leave blank to keep unchanged)"
                   : "Password"
               }
-              type="password"
+              type={showPassword ? "text" : "password"}
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               fullWidth
               required={!editTarget}
               error={!!errors.password}
               helperText={errors.password}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
+                      {showPassword ? <VisibilityOff sx={{ fontSize: 20 }} /> : <Visibility sx={{ fontSize: 20 }} />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
             <TextField
               label="User Level"

@@ -1,9 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using eTPL.API.Data.Scaffolded;
+using eTPL.API.Data;
 using eTPL.API.Models.DTOs;
 
+using eTPL.API.Models;
 namespace eTPL.API.Controllers
 {
     [ApiController]
@@ -11,9 +12,9 @@ namespace eTPL.API.Controllers
     [Authorize]
     public class StandingController : ControllerBase
     {
-        private readonly ScaffoldedDbContext _db;
+        private readonly MsSqlDbContext _db;
 
-        public StandingController(ScaffoldedDbContext db)
+        public StandingController(MsSqlDbContext db)
         {
             _db = db;
         }
@@ -100,3 +101,4 @@ namespace eTPL.API.Controllers
         }
     }
 }
+

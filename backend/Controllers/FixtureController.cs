@@ -3,22 +3,23 @@ using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using eTPL.API.Data.Scaffolded;
+using eTPL.API.Data;
 using eTPL.API.Models.DTOs;
 using eTPL.API.Models.Scaffolded;
 using eTPL.API.Services.Interfaces;
 
+using eTPL.API.Models;
 namespace eTPL.API.Controllers
 {
     [Route("api/fixtures")]
     [ApiController]
     public class FixtureController : ControllerBase
     {
-        private readonly ScaffoldedDbContext _db;
+        private readonly MsSqlDbContext _db;
         private readonly IAuctionService _auctionService;
         private readonly IDiscordService _discordService;
 
-        public FixtureController(ScaffoldedDbContext db, IAuctionService auctionService, IDiscordService discordService)
+        public FixtureController(MsSqlDbContext db, IAuctionService auctionService, IDiscordService discordService)
         {
             _db = db;
             _auctionService = auctionService;
@@ -457,7 +458,7 @@ namespace eTPL.API.Controllers
             try
             {
                 var vFixture = await _db.VFixtureAlls.FirstOrDefaultAsync(v => v.FixtureId == fixtureId);
-                var reportUser = await _db.TbmUsers.FirstOrDefaultAsync(u => u.UserId == userId);
+                var reportUser = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId);
                 var reportUserName = reportUser?.LineName ?? userId;
 
                 string? homeName = vFixture?.HomeTeamName ?? fixture.Home;
@@ -621,7 +622,7 @@ namespace eTPL.API.Controllers
             {
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Unknown";
                 var vFixture = await _db.VFixtureAlls.FirstOrDefaultAsync(v => v.FixtureId == fixtureId);
-                var reportUser = await _db.TbmUsers.FirstOrDefaultAsync(u => u.UserId == userId);
+                var reportUser = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId);
                 var reportUserName = reportUser?.LineName ?? userId ?? "Admin";
 
                 string homeName = vFixture?.HomeTeamName ?? fixture.Home ?? "Home";
@@ -654,7 +655,7 @@ namespace eTPL.API.Controllers
             if (!season.HasValue)
                 return BadRequest(ApiResponse<object>.Fail("ไม่พบ Season ปัจจุบัน"));
 
-            var players = await _db.TbmUsers
+            var players = await _db.Users
                 .Where(u => u.UserLevel != "admin")
                 .ToListAsync();
 
@@ -717,7 +718,7 @@ namespace eTPL.API.Controllers
             }
 
             // ดึงผู้เล่นทั้งหมดที่ไม่ใช่ admin พร้อมข้อมูลทีม
-            var users = await _db.TbmUsers
+            var users = await _db.Users
                 .Where(u => u.UserLevel != "admin")
                 .ToListAsync();
 
@@ -926,4 +927,5 @@ namespace eTPL.API.Controllers
         }
     }
 }
+
 

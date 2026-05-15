@@ -1,11 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
+using eTPL.API.Models;
 namespace eTPL.API.Migrations
 {
     /// <inheritdoc />
-    public partial class AddTbmPermission : Migration
+    public partial class AddPermission : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -41,3 +42,4 @@ namespace eTPL.API.Migrations
         }
     }
 }
+

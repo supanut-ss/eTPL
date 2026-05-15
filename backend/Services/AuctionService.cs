@@ -7,7 +7,6 @@ using eTPL.API.Data;
 using eTPL.API.Models.Auction;
 using eTPL.API.Models.DTOs;
 using eTPL.API.Services.Interfaces;
-using eTPL.API.Data.Scaffolded;
 using eTPL.API.Models;
 
 
@@ -16,7 +15,7 @@ namespace eTPL.API.Services
     public class AuctionService : IAuctionService
     {
         private readonly MsSqlDbContext _context;
-        private readonly ScaffoldedDbContext _scaffoldedContext;
+        private readonly MsSqlDbContext _scaffoldedContext;
         private readonly INotificationService _notificationService;
         private readonly IAiService _aiService;
         private readonly IDiscordService _discordService;
@@ -48,7 +47,7 @@ namespace eTPL.API.Services
 
         public AuctionService(
             MsSqlDbContext context, 
-            ScaffoldedDbContext scaffoldedContext, 
+            MsSqlDbContext scaffoldedContext, 
             INotificationService notificationService,
             IAiService aiService,
             IDiscordService discordService)
@@ -2938,3 +2937,4 @@ namespace eTPL.API.Services
         }
     }
 }
+

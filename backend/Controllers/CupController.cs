@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using eTPL.API.Data;
 using eTPL.API.Models;
 using eTPL.API.Models.Scaffolded;
-using eTPL.API.Data.Scaffolded;
 using eTPL.API.Services.Interfaces;
 
 namespace eTPL.API.Controllers
@@ -15,10 +14,10 @@ namespace eTPL.API.Controllers
     public class CupController : ControllerBase
     {
         private readonly MsSqlDbContext _context;
-        private readonly ScaffoldedDbContext _scaffoldedContext;
+        private readonly MsSqlDbContext _scaffoldedContext;
         private readonly IAuctionService _auctionService;
 
-        public CupController(MsSqlDbContext context, ScaffoldedDbContext scaffoldedContext, IAuctionService auctionService)
+        public CupController(MsSqlDbContext context, MsSqlDbContext scaffoldedContext, IAuctionService auctionService)
         {
             _context = context;
             _scaffoldedContext = scaffoldedContext;
@@ -323,3 +322,4 @@ namespace eTPL.API.Controllers
         public int AwayScore { get; set; }
     }
 }
+

@@ -5,10 +5,11 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
-using eTPL.API.Data.Scaffolded;
+using eTPL.API.Data;
 using eTPL.API.Models.Scaffolded;
 using eTPL.API.Services.Interfaces;
 
+using eTPL.API.Models;
 namespace eTPL.API.Services
 {
     public class FacebookService : IFacebookService
@@ -18,10 +19,10 @@ namespace eTPL.API.Services
         private readonly string _appId;
         private readonly string _appSecret;
         private readonly HttpClient _httpClient;
-        private readonly ScaffoldedDbContext _db;
+        private readonly MsSqlDbContext _db;
         private readonly string _apiVersion = "v20.0";
 
-        public FacebookService(IConfiguration configuration, HttpClient httpClient, ScaffoldedDbContext db)
+        public FacebookService(IConfiguration configuration, HttpClient httpClient, MsSqlDbContext db)
         {
             _appId = configuration["Facebook:AppId"] ?? string.Empty;
             _appSecret = configuration["Facebook:AppSecret"] ?? string.Empty;
@@ -203,3 +204,4 @@ namespace eTPL.API.Services
         }
     }
 }
+

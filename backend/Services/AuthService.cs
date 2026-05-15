@@ -157,6 +157,7 @@ namespace eTPL.API.Services
             var channelId = FirstConfiguredValue(
                 "Line:ChannelId",
                 "LineLogin:ChannelId",
+                "LineBot:ChannelId",
                 "LINE__CHANNELID",
                 "LINE_CHANNELID",
                 "LINE_CHANNEL_ID",
@@ -165,6 +166,7 @@ namespace eTPL.API.Services
             var channelSecret = FirstConfiguredValue(
                 "Line:ChannelSecret",
                 "LineLogin:ChannelSecret",
+                "LineBot:ChannelSecret",
                 "LINE__CHANNELSECRET",
                 "LINE_CHANNELSECRET",
                 "LINE_CHANNEL_SECRET");

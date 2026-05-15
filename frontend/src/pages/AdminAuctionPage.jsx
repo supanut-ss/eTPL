@@ -26,7 +26,9 @@ import {
   Timelapse,
   DeleteForever,
   History,
-  RestartAlt
+  RestartAlt,
+  Visibility,
+  VisibilityOff
 } from "@mui/icons-material";
 import {
   Dialog,
@@ -35,6 +37,7 @@ import {
   DialogActions,
   useMediaQuery,
   useTheme,
+  InputAdornment
 } from "@mui/material";
 
 const AdminAuctionPage = () => {
@@ -48,6 +51,7 @@ const AdminAuctionPage = () => {
   const [resetting, setResetting] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -437,12 +441,25 @@ const AdminAuctionPage = () => {
             </Typography>
             <TextField
               fullWidth
-              type="password"
+              type={showPassword ? "text" : "password"}
               size="small"
-              placeholder="Enter your password"
+              placeholder="Enter Super Admin password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={resetting}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword(!showPassword)}
+                      edge="end"
+                      size="small"
+                    >
+                      {showPassword ? <VisibilityOff sx={{ fontSize: 20 }} /> : <Visibility sx={{ fontSize: 20 }} />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
           </Box>
         </DialogContent>

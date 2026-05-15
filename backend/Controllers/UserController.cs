@@ -95,9 +95,16 @@ namespace eTPL.API.Controllers
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(string userId)
         {
-            var success = await _userService.DeleteByUserIdAsync(userId);
-            if (!success) return NotFound(ApiResponse<string>.Fail("ไม่พบผู้ใช้"));
-            return Ok(ApiResponse<string>.Ok("ลบสำเร็จ", "ลบผู้ใช้สำเร็จ"));
+            try
+            {
+                var success = await _userService.DeleteByUserIdAsync(userId);
+                if (!success) return NotFound(ApiResponse<string>.Fail("ไม่พบผู้ใช้ หรือไม่สามารถลบได้เนื่องจากมีข้อมูลผูกพัน"));
+                return Ok(ApiResponse<string>.Ok("ลบสำเร็จ", "ลบผู้ใช้สำเร็จ"));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<string>.Fail("ลบไม่สำเร็จ: " + ex.Message));
+            }
         }
 
         [HttpPost("change-password")]

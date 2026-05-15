@@ -2,11 +2,12 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using eTPL.API.Data.Scaffolded;
+using eTPL.API.Data;
 using eTPL.API.Models.DTOs;
 using eTPL.API.Models.Scaffolded;
 using eTPL.API.Services.Interfaces;
 
+using eTPL.API.Models;
 namespace eTPL.API.Controllers
 {
     [ApiController]
@@ -21,12 +22,12 @@ namespace eTPL.API.Controllers
         private const string ActiveMagazine = "MAGAZINE_ACTIVE";
         private const string InactiveMagazine = "MAGAZINE_HIDE";
 
-        private readonly ScaffoldedDbContext _db;
+        private readonly MsSqlDbContext _db;
         private readonly IDiscordService _discordService;
         private readonly IFacebookService _facebookService;
         private readonly IWebHostEnvironment _environment;
 
-        public AnnouncementController(ScaffoldedDbContext db, IDiscordService discordService, IFacebookService facebookService, IWebHostEnvironment environment)
+        public AnnouncementController(MsSqlDbContext db, IDiscordService discordService, IFacebookService facebookService, IWebHostEnvironment environment)
         {
             _db = db;
             _discordService = discordService;
@@ -254,3 +255,4 @@ namespace eTPL.API.Controllers
         }
     }
 }
+

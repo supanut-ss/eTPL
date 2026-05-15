@@ -4,10 +4,11 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using eTPL.API.Services.Interfaces;
 using eTPL.API.Models.DTOs;
-using eTPL.API.Data.Scaffolded;
+using eTPL.API.Data;
 using eTPL.API.Models.Scaffolded;
 using Microsoft.Extensions.Configuration;
 
+using eTPL.API.Models;
 namespace eTPL.API.Controllers
 {
     [Route("api/[controller]")]
@@ -17,10 +18,10 @@ namespace eTPL.API.Controllers
     {
         private readonly IFacebookService _facebookService;
         private readonly IWebHostEnvironment _environment;
-        private readonly ScaffoldedDbContext _db;
+        private readonly MsSqlDbContext _db;
         private readonly IConfiguration _configuration;
 
-        public FacebookController(IFacebookService facebookService, IWebHostEnvironment environment, ScaffoldedDbContext db, IConfiguration configuration)
+        public FacebookController(IFacebookService facebookService, IWebHostEnvironment environment, MsSqlDbContext db, IConfiguration configuration)
         {
             _facebookService = facebookService;
             _environment = environment;
@@ -168,3 +169,4 @@ namespace eTPL.API.Controllers
         public string? PageId { get; set; }
     }
 }
+
