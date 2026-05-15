@@ -58,6 +58,7 @@ import {
   CompareArrows,
   Tune,
   ManageHistory,
+  Info,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -142,6 +143,7 @@ const navItems = [
     children: [
       { label: "Members", path: "/members", icon: <SwitchAccount /> },
       { label: "User Manual", path: "/manual", icon: <MenuBook /> },
+      { label: "About Us", path: "/about", icon: <Info /> },
     ],
   },
   {
@@ -566,20 +568,16 @@ const AppLayout = () => {
               <Divider />
 
               {user ? (
-                <>
-{/* <MenuItem onClick={() => { setAnchorEl(null); navigate("/profile"); }}>
-                    <Person sx={{ mr: 1 }} fontSize="small" />
-                    My Profile
-                  </MenuItem> */}
-                  <MenuItem onClick={handleChangePassword}>
+                [
+                  <MenuItem key="change-password" onClick={handleChangePassword}>
                     <LockReset sx={{ mr: 1 }} fontSize="small" />
                     Change Password
-                  </MenuItem>
-                  <MenuItem onClick={handleLogout}>
+                  </MenuItem>,
+                  <MenuItem key="logout" onClick={handleLogout}>
                     <Logout sx={{ mr: 1 }} fontSize="small" />
                     Logout
                   </MenuItem>
-                </>
+                ]
               ) : (
                 <MenuItem onClick={handleLogin}>
                   <Login sx={{ mr: 1 }} fontSize="small" />

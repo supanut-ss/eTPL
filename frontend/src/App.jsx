@@ -31,6 +31,7 @@ import ProfilePage from "./pages/ProfilePage";
 import UserManualPage from "./pages/UserManualPage";
 import FacebookSettingsPage from "./pages/FacebookSettingsPage";
 import PitchViewPage from "./pages/PitchViewPage";
+import AboutUsPage from "./pages/AboutUsPage";
 
 
 import LineCallbackPage from "./pages/LineCallbackPage";
@@ -127,6 +128,7 @@ function App() {
                 }
               />
               <Route path="manual" element={<UserManualPage />} />
+              <Route path="about" element={<AboutUsPage />} />
 
 
               {/* Admin-only pages */}

@@ -1486,6 +1486,9 @@ namespace eTPL.API.Services
                 if (squad.IsLoan)
                     throw new Exception("ไม่สามารถขายนักเตะที่ยืมตัวมาได้");
 
+                if (squad.SeasonsWithTeam <= 1)
+                    throw new Exception("ไม่สามารถขาย/โอนย้ายนักเตะที่เพิ่งได้มาในฤดูกาลเดียวกันได้ (ต้องผ่านอย่างน้อย 1 ฤดูกาล)");
+
                 var buyerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == request.BuyerUserId)
                     ?? throw new Exception("Wallet ของผู้ซื้อไม่พบ");
 
@@ -1558,6 +1561,10 @@ namespace eTPL.API.Services
             
             if (squad == null) throw new Exception("ไม่พบนักเตะในทีม");
             if (squad.IsLoan) throw new Exception("นักเตะยืมตัว ไม่สามารถตั้งขายได้");
+            
+            if (squad.SeasonsWithTeam <= 1)
+                throw new Exception("ไม่สามารถขายนักเตะที่เพิ่งได้มาในฤดูกาลเดียวกันได้ (ต้องผ่านอย่างน้อย 1 ฤดูกาล)");
+
             if (listingPrice <= 0) throw new Exception("ราคาตั้งขายต้องมากกว่า 0");
 
             squad.Status = "Listed";
@@ -1631,6 +1638,9 @@ namespace eTPL.API.Services
             if (squad.UserId == buyerUserId) throw new Exception("คุณเป็นเจ้าของนักเตะนี้อยู่แล้ว");
             if (squad.IsLoan) throw new Exception("ไม่สามารถยื่นข้อเสนอสำหรับนักเตะที่อยู่ระหว่างการยืมตัวได้");
             if (squad.Status == "Loaned") throw new Exception("นักเตะคนนี้ถูกปล่อยยืมตัวอยู่ ไม่สามารถทำรายการได้");
+
+            if (request.OfferType == "Transfer" && squad.SeasonsWithTeam <= 1)
+                throw new Exception("ไม่สามารถยื่นข้อเสนอซื้อนักเตะที่เพิ่งย้ายเข้าทีมได้ในฤดูกาลเดียวกัน (กรุณาส่งข้อเสนอแบบยืมตัวแทน)");
             
             // Allow offering for unlisted players too, but enforce check for active offers so we don't spam
             var existingOffer = await _context.TransferOffers
@@ -1810,6 +1820,9 @@ namespace eTPL.API.Services
 
                 if (offer.OfferType == "Transfer")
                 {
+                    if (offer.Squad?.SeasonsWithTeam <= 1)
+                        throw new Exception("ไม่สามารถขาย/โอนย้ายนักเตะที่เพิ่งได้มาในฤดูกาลเดียวกันได้");
+
                     // Deduct from buyer, credit to seller
                     buyerWallet.AvailableBalance -= offer.Amount;
                     sellerWallet.AvailableBalance += offer.Amount;

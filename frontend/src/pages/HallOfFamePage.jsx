@@ -284,7 +284,7 @@ const HallOfFamePage = () => {
     });
 
     const currentYear = new Date().getFullYear();
-    const startYear = 2019;
+    const startYear = 2018;
     const yearsOfGlory = currentYear - startYear; // Or +1 if you want to count 2019 as year 1
 
     return {

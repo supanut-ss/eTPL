@@ -229,7 +229,20 @@ const UserManualPage = () => {
           {children}
         </Box>
       </Paper>
-    )
+    ),
+    code: ({node, inline, ...props}) => 
+      inline ? 
+      <Box component="code" sx={{ 
+        bgcolor: "#f1f5f9", 
+        px: 0.8, py: 0.2, 
+        borderRadius: 1.5, 
+        color: "#2563eb", 
+        fontWeight: 700, 
+        fontSize: "0.95em",
+        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+        border: "1px solid rgba(0,0,0,0.05)"
+      }} {...props} /> :
+      <Box component="pre" sx={{ bgcolor: "#0f172a", p: 2, borderRadius: 2, overflowX: "auto", my: 3 }}><code {...props} /></Box>
   };
 
   if (loading) {
@@ -426,13 +439,15 @@ const UserManualPage = () => {
               </Typography>
               <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
                 {[
-                  { icon: <Info sx={{ fontSize: 20 }} />, text: "1. ข้อมูลพื้นฐาน", id: "1-ข้อมูลพื้นฐานและเมนูหลัก-public-menus" },
-                  { icon: <Gavel sx={{ fontSize: 20 }} />, text: "2. ระบบการประมูล", id: "2-ระบบการประมูลนักเตะ-auction-system" },
-                  { icon: <Storefront sx={{ fontSize: 20 }} />, text: "3. ระบบการซื้อขาย", id: "3-ระบบการซื้อขายและตลาดนักเตะ-transfer-market" },
-                  { icon: <Handshake sx={{ fontSize: 20 }} />, text: "4. ระบบการยืมตัว", id: "4-ระบบการยืมตัวนักเตะ-loan-system" },
-                  { icon: <Groups sx={{ fontSize: 20 }} />, text: "5. การจัดการทีม", id: "5-การจัดการทีม-squad-management" },
-                  { icon: <SportsSoccer sx={{ fontSize: 20 }} />, text: "6. การรายงานผล", id: "6-การรายงานผลการแข่งขัน-match-reporting" },
-                  { icon: <Lightbulb sx={{ fontSize: 20 }} />, text: "7. Pro-Tips", id: "7-เกร็ดความรู้และเงื่อนไขทางเทคนิค-pro-tips" },
+                  { icon: <Groups sx={{ fontSize: 20 }} />, text: "1. การสมัครสมาชิก", id: "1-การสมัครสมาชิก-registration" },
+                  { icon: <Gavel sx={{ fontSize: 20 }} />, text: "2. กฎการแข่งขัน", id: "2-กฎการแข่งขัน-etpl-competition-rules" },
+                  { icon: <Info sx={{ fontSize: 20 }} />, text: "3. ข้อมูลพื้นฐาน", id: "3-ข้อมูลพื้นฐานและเมนูหลัก-public-menus" },
+                  { icon: <Gavel sx={{ fontSize: 20 }} />, text: "4. ระบบการประมูล", id: "4-ระบบการประมูลนักเตะ-auction-system" },
+                  { icon: <Storefront sx={{ fontSize: 20 }} />, text: "5. ระบบการซื้อขาย", id: "5-ระบบการซื้อขายและตลาดนักเตะ-transfer-market" },
+                  { icon: <Handshake sx={{ fontSize: 20 }} />, text: "6. ระบบการยืมตัว", id: "6-ระบบการยืมตัว-loan-system" },
+                  { icon: <Groups sx={{ fontSize: 20 }} />, text: "7. การจัดการทีม", id: "7-การจัดการทีมและหน้า-my-squad-squad--finance" },
+                  { icon: <SportsSoccer sx={{ fontSize: 20 }} />, text: "8. การรายงานผล", id: "8-การรายงานผลการแข่งขัน-match-reporting" },
+                  { icon: <Lightbulb sx={{ fontSize: 20 }} />, text: "9. Pro-Tips", id: "9-เกร็ดความรู้และเงื่อนไขทางเทคนิค-pro-tips" },
                 ].map((item, idx) => (
                   <Button
                     key={idx}
@@ -483,20 +498,7 @@ const UserManualPage = () => {
               <Box className="markdown-body">
                 <ReactMarkdown 
                   remarkPlugins={[remarkGfm]}
-                  components={{
-                    h1: ({node, ...props}) => <Typography variant="h3" fontWeight={900} gutterBottom sx={{ color: "#0f172a", mt: 4, mb: 3, letterSpacing: -0.5 }} {...props} />,
-                    h2: ({node, ...props}) => {
-                      const id = generateId(props.children);
-                      return <Typography id={id} variant="h4" fontWeight={800} gutterBottom sx={{ color: "#1e293b", mt: 6, mb: 3, scrollMarginTop: "120px", pb: 1, borderBottom: "2px solid #f1f5f9" }} {...props} />;
-                    },
-                    h3: ({node, ...props}) => <Typography variant="h5" fontWeight={700} gutterBottom sx={{ color: "#334155", mt: 4, mb: 2 }} {...props} />,
-                    p: ({node, ...props}) => <Typography variant="body1" paragraph sx={{ color: "#475569", lineHeight: 1.8, fontSize: "1.05rem" }} {...props} />,
-                    li: ({node, ...props}) => <Box component="li" sx={{ color: "#475569", mb: 1, lineHeight: 1.7, fontSize: "1.05rem" }} {...props} />,
-                    code: ({node, inline, ...props}) => 
-                      inline ? 
-                      <Box component="code" sx={{ bgcolor: "#f1f5f9", px: 0.8, py: 0.2, borderRadius: 1, color: "#e11d48", fontWeight: 600, fontSize: "0.9em" }} {...props} /> :
-                      <Box component="pre" sx={{ bgcolor: "#0f172a", p: 2, borderRadius: 2, overflowX: "auto", my: 3 }}><code {...props} /></Box>
-                  }}
+                  components={markdownComponents}
                 >
                   {content}
                 </ReactMarkdown>
