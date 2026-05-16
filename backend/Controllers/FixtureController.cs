@@ -461,11 +461,10 @@ namespace eTPL.API.Controllers
                 var reportUser = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId);
                 var reportUserName = reportUser?.LineName ?? userId;
 
-                string? homeName = vFixture?.HomeTeamName ?? fixture.Home;
-                string? awayName = vFixture?.AwayTeamName ?? fixture.Away;
+                string homeName = vFixture?.HomeTeamName ?? fixture.Home ?? "Unknown";
+                string awayName = vFixture?.AwayTeamName ?? fixture.Away ?? "Unknown";
 
-                string resultMsg = "แจ้งผลการแข่งขัน " + fixture.Division + " : " + homeName + " " + dto.HomeScore.ToString() + " - " + dto.AwayScore.ToString() + " " + awayName + " \n\nREPORT BY " + reportUserName;
-                _ = _discordService.SendMatchResultAsync(resultMsg);
+                _ = _discordService.SendMatchResultAsync(homeName, awayName, dto.HomeScore, dto.AwayScore, fixture.Division, reportUserName);
             }
             catch (Exception ex)
             {
@@ -672,8 +671,7 @@ namespace eTPL.API.Controllers
                 string homeName = vFixture?.HomeTeamName ?? fixture.Home ?? "Home";
                 string awayName = vFixture?.AwayTeamName ?? fixture.Away ?? "Away";
 
-                string resultMsg = "แก้ไขผลการแข่งขัน " + fixture.Division + " : " + homeName + " " + dto.HomeScore.ToString() + " - " + dto.AwayScore.ToString() + " " + awayName + " \n\nEDIT BY " + reportUserName;
-                _ = _discordService.SendMatchResultAsync(resultMsg, isEdit: true);
+                _ = _discordService.SendMatchResultAsync(homeName, awayName, dto.HomeScore, dto.AwayScore, fixture.Division, reportUserName, isEdit: true);
             }
             catch (Exception ex)
             {

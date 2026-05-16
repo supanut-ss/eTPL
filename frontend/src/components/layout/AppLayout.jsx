@@ -300,6 +300,7 @@ const AppLayout = () => {
       return acc;
     }, []);
     
+    if (location.pathname === "/profile") return "Profile";
     const current = allItems.find(item => item.path === location.pathname);
     return current?.label || "eTPL";
   };
@@ -571,6 +572,10 @@ const AppLayout = () => {
 
               {user ? (
                 [
+                  <MenuItem key="profile-card" onClick={() => { setAnchorEl(null); navigate("/profile"); }}>
+                    <Person sx={{ mr: 1 }} fontSize="small" />
+                    Profile
+                  </MenuItem>,
                   <MenuItem key="change-password" onClick={handleChangePassword}>
                     <LockReset sx={{ mr: 1 }} fontSize="small" />
                     Change Password
@@ -653,7 +658,7 @@ const AppLayout = () => {
             "radial-gradient(circle at top right, rgba(99,102,241,0.05), transparent 40%), #f1f5f9",
         }}
       >
-        <Box sx={{ width: "100%", maxWidth: 'none', mx: 0 }}>
+        <Box sx={{ width: "100%", maxWidth: 'none', mx: 0, position: 'relative', minHeight: '100%' }}>
           <Outlet />
         </Box>
         {/* <ManagerOnboarding /> */}

@@ -64,6 +64,56 @@ namespace eTPL.API.Services
             await SendCustomEmbedAsync(title, message, color);
         }
 
+        public async Task SendMatchResultAsync(string homeTeam, string awayTeam, int homeScore, int awayScore, string? division = null, string? reporter = null, bool isEdit = false)
+        {
+            // 1. Calculate outcome category
+            string category = "MATCH_DRAW";
+            if (homeScore != awayScore)
+            {
+                int diff = Math.Abs(homeScore - awayScore);
+                category = diff >= 3 ? "MATCH_WIN_CRUSHING" : "MATCH_WIN_CLOSE";
+            }
+
+            // 2. Get Template (Fallback to clean defaults)
+            string defaultTemplate = homeScore == awayScore 
+                ? "**DRAW:** {home} เสมอกับ {away} {hScore}-{aScore}" 
+                : "**WINNER:** {winner} เอาชนะ {loser} ไปได้ {wScore}-{lScore}";
+
+            string template = await GetRandomTemplateAsync(category, defaultTemplate);
+
+            // 3. Prepare placeholders
+            string winner = homeScore > awayScore ? homeTeam : awayTeam;
+            string loser = homeScore > awayScore ? awayTeam : homeTeam;
+            int wScore = Math.Max(homeScore, awayScore);
+            int lScore = Math.Min(homeScore, awayScore);
+
+            // 4. Construct message
+            string message = template
+                .Replace("{home}", homeTeam)
+                .Replace("{away}", awayTeam)
+                .Replace("{hScore}", homeScore.ToString())
+                .Replace("{aScore}", awayScore.ToString())
+                .Replace("{winner}", winner)
+                .Replace("{loser}", loser)
+                .Replace("{wScore}", wScore.ToString())
+                .Replace("{lScore}", lScore.ToString());
+
+            if (!string.IsNullOrEmpty(division))
+            {
+                message = $"[{division}] {message}";
+            }
+
+            if (!string.IsNullOrEmpty(reporter))
+            {
+                message += $"\n\n👤 **Reported by:** {reporter}";
+            }
+
+            int color = isEdit ? 0xF1C40F : 0x2ECC71;
+            string title = isEdit ? "MATCH RESULT UPDATED" : "MATCH RESULT";
+            
+            await SendCustomEmbedAsync(title, message, color);
+        }
+
         public async Task SendAuctionConfirmAsync(string playerName, string teamName, int price, string? pesPlayerId = null)
         {
             string headlineTemplate = await GetRandomTemplateAsync("AUCTION_CONFIRM", DEFAULT_AUCTION_HEADLINE);
@@ -85,7 +135,7 @@ namespace eTPL.API.Services
                 bodyText += $"\n\n[ดูข้อมูลนักเตะเพิ่มเติม](https://pesdb.net/efootball/?id={pesPlayerId})";
             }
 
-            await SendCustomEmbedAsync("AUCTION CONFIRMED", $"**{headline}**\n\n{bodyText}", 0xEC7063, imageUrl);
+            await SendCustomEmbedAsync("AUCTION CONFIRMED", $"{headline}\n\n{bodyText}", 0xEC7063, imageUrl);
         }
 
         public async Task SendTransferAsync(string playerName, string fromTeam, string toTeam, int price, bool isLoan = false, string? pesPlayerId = null)
@@ -116,7 +166,7 @@ namespace eTPL.API.Services
             }
 
             int color = isLoan ? 0x9B59B6 : 0xE67E22;
-            await SendCustomEmbedAsync("TRANSFER UPDATE", $"**{headline}**\n\n{bodyText}", color, imageUrl);
+            await SendCustomEmbedAsync("TRANSFER UPDATE", $"{headline}\n\n{bodyText}", color, imageUrl);
         }
 
         public async Task SendNewsAnnouncementAsync(string message)
@@ -158,7 +208,7 @@ namespace eTPL.API.Services
                 bodyText += $"\n\n[ดูข้อมูลนักเตะเพิ่มเติม](https://pesdb.net/efootball/?id={pesPlayerId})";
             }
 
-            await SendCustomEmbedAsync("MARKET UPDATE", $"**{headline}**\n\n{bodyText}", 0xF1C40F, imageUrl);
+            await SendCustomEmbedAsync("MARKET UPDATE", $"{headline}\n\n{bodyText}", 0xF1C40F, imageUrl);
         }
 
         public async Task SendCustomEmbedAsync(string title, string description, int color, string? imageUrl = null)

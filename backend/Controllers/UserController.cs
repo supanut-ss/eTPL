@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using eTPL.API.Models.DTOs;
 using eTPL.API.Services.Interfaces;
 
@@ -26,9 +27,18 @@ namespace eTPL.API.Controllers
         }
 
         [HttpGet("{userId}")]
-        [Authorize(Roles = "admin")]
+        [Authorize]
         public async Task<IActionResult> GetByUserId(string userId)
         {
+            var currentUserId = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+            var userLevel = User.FindFirstValue("UserLevel") ?? ""; // Fallback check
+            
+            // Allow if it's the user themselves OR if it's an admin
+            if (currentUserId != userId && !User.IsInRole("admin") && userLevel != "admin") 
+            {
+                return Forbid();
+            }
+
             var user = await _userService.GetByUserIdAsync(userId);
             if (user == null) return NotFound(ApiResponse<string>.Fail("ไม่พบผู้ใช้"));
             return Ok(ApiResponse<UserDto>.Ok(user));
