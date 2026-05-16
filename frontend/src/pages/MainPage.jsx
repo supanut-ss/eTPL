@@ -89,20 +89,36 @@ const MainPage = () => {
         setMembers(uRes.data.data || []);
 
         // Elite Players (Top Unique by Price)
-        const allElite = ePlayersRes.data || ePlayersRes || [];
+        let allElite = [];
+        if (ePlayersRes) {
+          if (Array.isArray(ePlayersRes.data)) {
+            allElite = ePlayersRes.data;
+          } else if (Array.isArray(ePlayersRes)) {
+            allElite = ePlayersRes;
+          }
+        }
+
         const uniqueEliteMap = new Map();
         allElite.forEach(player => {
-          const pId = player.idPlayer || player.playerId || player.id;
+          const pId = player.playerId || player.idPlayer || player.id;
+          if (!pId) return;
           const existing = uniqueEliteMap.get(pId);
-          if (!existing || new Date(player.createDate || player.createdAt) > new Date(existing.createDate || existing.createdAt)) {
+          const currentPrice = player.currentPrice || player.CurrentPrice || player.pricePaid || 0;
+          const existingPrice = existing ? (existing.currentPrice || existing.CurrentPrice || existing.pricePaid || 0) : -1;
+          
+          if (!existing || currentPrice > existingPrice) {
             uniqueEliteMap.set(pId, player);
           }
         });
-        const sortedElite = Array.from(uniqueEliteMap.values()).sort((a, b) => {
-          const bPrice = b.currentPrice || b.CurrentPrice || b.pricePaid || 0;
-          const aPrice = a.currentPrice || a.CurrentPrice || a.pricePaid || 0;
-          return bPrice !== aPrice ? bPrice - aPrice : (b.playerOvr || b.PlayerOvr || 0) - (a.playerOvr || a.PlayerOvr || 0);
-        }).slice(0, 12);
+
+        const sortedElite = Array.from(uniqueEliteMap.values())
+          .sort((a, b) => {
+            const bPrice = b.currentPrice || b.CurrentPrice || b.pricePaid || 0;
+            const aPrice = a.currentPrice || a.CurrentPrice || a.pricePaid || 0;
+            if (bPrice !== aPrice) return bPrice - aPrice;
+            return (b.playerOvr || b.PlayerOvr || 0) - (a.playerOvr || a.PlayerOvr || 0);
+          })
+          .slice(0, 12);
         setElitePlayers(sortedElite);
 
         // --- Live Activity Feed Data ---
@@ -349,7 +365,7 @@ const MainPage = () => {
           </Paper>
 
           {/* Row 2: Elite showcase, Top Score, Hof, Active Member */}
-          <Paper elevation={0} sx={{ ...panelSx, p: 0, minHeight: DASHBOARD_ROW_HEIGHT * 6 }}>
+          <Paper elevation={0} sx={{ ...panelSx, p: 0, height: 395 }}>
             <EliteShowcaseBox elitePlayers={elitePlayers} loading={loading} clubs={clubs} />
           </Paper>
 

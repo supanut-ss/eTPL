@@ -1,24 +1,60 @@
 using System;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using eTPL.API.Data;
 using eTPL.API.Services.Interfaces;
 
 namespace eTPL.API.Services
 {
     public class DiscordService : IDiscordService
     {
+        private readonly MsSqlDbContext _context;
         private readonly string _webhookUrl;
         private readonly HttpClient _httpClient;
         private readonly Random _random = new Random();
 
-        public DiscordService(IConfiguration configuration)
+        // Fallback Templates (Clean Code)
+        private const string DEFAULT_AUCTION_HEADLINE = "**OFFICIAL:** {team} ปิดดีลคว้า {player} ร่วมทัพ!";
+        private const string DEFAULT_AUCTION_BODY = "👤 **ผู้คว้าตัว:** {team}\n⚽ **นักเตะ:** {player}\n💰 **ราคา:** {price} TP";
+        private const string DEFAULT_TRANSFER_HEADLINE = "**TRANSFER:** {to} คว้าตัว {player} จาก {from} เรียบร้อย!";
+        private const string DEFAULT_LOAN_HEADLINE = "**LOAN DEAL:** {to} ยืมตัว {player} จาก {from} ใช้งานชั่วคราว";
+        private const string DEFAULT_TRANSFER_BODY = "👤 **ผู้ซื้อ:** {to}\n👤 **ผู้ขาย:** {from}\n⚽ **นักเตะ:** {player}\n💰 **ค่าตัว:** {price} TP";
+        private const string DEFAULT_LOAN_BODY = "👤 **ผู้ยืม:** {to}\n👤 **เจ้าของ:** {from}\n⚽ **นักเตะ:** {player}\n💰 **ค่ายืม:** {price} TP";
+        private const string DEFAULT_MARKET_HEADLINE = "**MARKET:** {team} ขึ้นบัญชีขาย {player} แล้ว!";
+        private const string DEFAULT_MARKET_BODY = "👤 **ผู้ขาย:** {team}\n⚽ **นักเตะ:** {player}\n💰 **ราคาเริ่มต้น:** {price} TP";
+
+        public DiscordService(IConfiguration configuration, MsSqlDbContext context)
         {
             _webhookUrl = configuration["Discord:WebhookUrl"] ?? string.Empty;
             _httpClient = new HttpClient();
+            _context = context;
+        }
+
+        private async Task<string> GetRandomTemplateAsync(string category, string defaultTemplate)
+        {
+            try
+            {
+                var templates = await _context.NotificationTemplates
+                    .Where(t => t.Category == category && t.IsActive && (t.TargetPlatform == "DISCORD" || t.TargetPlatform == "BOTH"))
+                    .Select(t => t.TemplateText)
+                    .ToListAsync();
+
+                if (templates.Count > 0)
+                {
+                    return templates[_random.Next(templates.Count)];
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error fetching template for {category}: {ex.Message}");
+            }
+            return defaultTemplate;
         }
 
         public async Task SendMatchResultAsync(string message, bool isEdit = false)
@@ -30,37 +66,14 @@ namespace eTPL.API.Services
 
         public async Task SendAuctionConfirmAsync(string playerName, string teamName, int price, string? pesPlayerId = null)
         {
-            string[] headlines = {
-                "OFFICIAL: ปิดดีลประมูล!", "ชูเสื้อทางการ!", "คว้าตัวสำเร็จ!", "เปิดตัวสมาชิกใหม่!",
-                "ดีลเสร็จสมบูรณ์!", "ยินดีต้อนรับสู่ทีม!", "ปิดจ๊อบประมูล!", "ได้ตัวแล้ว!",
-                "เสริมทัพรายใหม่!", "HERE WE GO: ประมูลจบแล้ว!"
-            };
+            string headlineTemplate = await GetRandomTemplateAsync("AUCTION_CONFIRM", DEFAULT_AUCTION_HEADLINE);
+            
+            string headline = headlineTemplate
+                .Replace("{player}", playerName)
+                .Replace("{team}", teamName)
+                .Replace("{price}", price.ToString("N0"));
 
-            string[] bodies = {
-                "**{player}** ตอบตกลงย้ายร่วมทัพ **{team}** ด้วยค่าตัว **{price} TP** เรียบร้อยแล้ว",
-                "ทัพ **{team}** ประกาศคว้าตัว **{player}** เสริมแกร่งด้วยงบ **{price} TP**",
-                "ประมูลดุเดือด! **{team}** ปาดหน้าคว้า **{player}** เข้าทีมด้วยราคา **{price} TP**",
-                "ยินดีต้อนรับ **{player}** สู่ครอบครัว **{team}**! ดีลนี้จบที่ **{price} TP**",
-                "สโมสร **{team}** บรรลุข้อตกลงส่วนตัวกับ **{player}** หลังชนะประมูลที่ **{price} TP**",
-                "**{player}** พร้อมลงสนามให้ **{team}** แล้ว หลังปิดดีลประมูล **{price} TP**",
-                "แฟนบอล **{team}** เฮ! ทีมคว้าตัว **{player}** ร่วมทัพด้วยราคา **{price} TP**",
-                "**{player}** จรดปากกาเซ็นสัญญากับ **{team}** หลังจบการประมูลที่ **{price} TP**",
-                "ดีลนี้แฟนๆ รอคอย! **{team}** เปิดตัว **{player}** ค่าตัว **{price} TP**",
-                "**{player}** กลายเป็นสมาชิกใหม่ของ **{team}** อย่างเป็นทางการด้วยราคา **{price} TP**",
-                "บอร์ดบริหาร **{team}** ยันคว้า **{player}** เสริมทัพ หลังทุ่มงบ **{price} TP**",
-                "**{player}** เลือกย้ายซบ **{team}** หลังจบศึกประมูลอันยาวนานที่ราคา **{price} TP**",
-                "เพชรเม็ดงาม! **{team}** คว้าตัว **{player}** ร่วมทัพในราคา **{price} TP**",
-                "**{player}** เตรียมสวมเสื้อ **{team}** สู้ศึกฤดูกาลนี้ หลังดีลจบที่ **{price} TP**",
-                "ความท้าทายใหม่! **{player}** ตอบรับข้อเสนอจาก **{team}** ด้วยค่าตัว **{price} TP**",
-                "**{team}** ทุ่มสุดตัว! คว้า **{player}** ร่วมทีมสำเร็จที่ราคา **{price} TP**",
-                "ดีลประวัติศาสตร์! **{player}** ย้ายสู่ **{team}** หลังประมูลจบที่ **{price} TP**",
-                "สายเลือดใหม่! **{team}** ดึง **{player}** มาเสริมทัพด้วยงบ **{price} TP**",
-                "**{player}** พร้อมล่าตาข่ายให้ **{team}** หลังปิดดีล **{price} TP**",
-                "ปิดตลาดประมูลสวยงาม! **{team}** ได้ตัว **{player}** ราคา **{price} TP**"
-            };
-
-            string headline = headlines[_random.Next(headlines.Length)];
-            string bodyText = bodies[_random.Next(bodies.Length)]
+            string bodyText = DEFAULT_AUCTION_BODY
                 .Replace("{player}", playerName)
                 .Replace("{team}", teamName)
                 .Replace("{price}", price.ToString("N0"));
@@ -77,73 +90,19 @@ namespace eTPL.API.Services
 
         public async Task SendTransferAsync(string playerName, string fromTeam, string toTeam, int price, bool isLoan = false, string? pesPlayerId = null)
         {
-            string type = isLoan ? "ยืมตัว (Loan)" : "ซื้อขาย (Transfer)";
-            string[] headlines;
-            string[] transferBodies;
+            string headlineCategory = isLoan ? "LOAN" : "TRANSFER";
+            string defaultHeadline = isLoan ? DEFAULT_LOAN_HEADLINE : DEFAULT_TRANSFER_HEADLINE;
+            
+            string headlineTemplate = await GetRandomTemplateAsync(headlineCategory, defaultHeadline);
+            string bodyTemplate = isLoan ? DEFAULT_LOAN_BODY : DEFAULT_TRANSFER_BODY;
 
-            if (isLoan)
-            {
-                headlines = new[] {
-                    "LOAN DEAL: ยืมตัวสำเร็จ!", "เสริมทัพชั่วคราว!", "มาหาประสบการณ์!", "ตกลงสัญญายืมตัว!",
-                    "สัญญาระยะสั้น!", "ย้ายทีมชั่วคราว!", "พร้อมช่วยทีม!", "ดีลยืมตัวเสร็จสิ้น!",
-                    "ร่วมทัพแบบยืมตัว!", "ดีลลับยืมตัว!"
-                };
-                transferBodies = new[] {
-                    "**{player}** ตอบรับสัญญายืมตัวจาก **{from}** สู่ **{to}** ด้วยค่าเหนื่อย **{price} TP**",
-                    "ทัพ **{to}** บรรลุข้อตกลงยืมตัว **{player}** จาก **{from}** มาใช้งานด้วยงบ **{price} TP**",
-                    "**{player}** เตรียมหาความท้าทายใหม่แบบยืมตัวที่ **{to}** หลังตกลงกับ **{from}** ที่ราคา **{price} TP**",
-                    "ดีลช่วยทีม! **{to}** ดึง **{player}** มาเสริมแกร่งชั่วคราวจาก **{from}** ด้วยงบ **{price} TP**",
-                    "**{player}** พร้อมลงสนามให้ **{to}** ในสัญญายืมตัวจาก **{from}** ราคา **{price} TP**",
-                    "สโมสร **{from}** ปล่อยตัว **{player}** ให้ **{to}** ยืมใช้งานด้วยค่าตัว **{price} TP**",
-                    "โอกาสโชว์ของ! **{player}** ย้ายไป **{to}** แบบยืมตัวจาก **{from}** งบ **{price} TP**",
-                    "**{to}** ประกาศเปิดตัว **{player}** สัญญายืมตัวจาก **{from}** มูลค่า **{price} TP**",
-                    "**{player}** จรดปากกาเซ็นยืมตัวกับ **{to}** โดยย้ายมาจาก **{from}** ด้วยงบ **{price} TP**",
-                    "ร่วมทัพชั่วคราว! **{player}** ย้ายซบ **{to}** จาก **{from}** ในราคา **{price} TP**",
-                    "**{from}** ยันปล่อย **{player}** ให้ **{to}** ยืมตัวสู้ศึกในราคา **{price} TP**",
-                    "**{player}** เลือกไปเก็บเลเวลกับ **{to}** หลังดีลยืมตัวจาก **{from}** จบที่ **{price} TP**",
-                    "ดีลนี้ลงตัว! **{to}** ได้ **{player}** มาช่วยทีมจาก **{from}** งบ **{price} TP**",
-                    "**{player}** เตรียมสวมเสื้อ **{to}** แบบชั่วคราว หลังย้ายจาก **{from}** ราคา **{price} TP**",
-                    "ความท้าทายระยะสั้น! **{player}** ย้ายสู่ **{to}** จาก **{from}** ด้วยค่าตัว **{price} TP**",
-                    "**{to}** คว้า **{player}** เสริมทัพแบบยืมตัวจาก **{from}** สำเร็จที่ราคา **{price} TP**",
-                    "ดีลยืมตัวสายฟ้าแลบ! **{player}** ย้ายซบ **{to}** จาก **{from}** งบ **{price} TP**",
-                    "**{from}** ยอมปล่อย **{player}** ให้ **{to}** ยืมใช้งานชั่วคราวด้วยงบ **{price} TP**",
-                    "**{player}** พร้อมล่าตาข่ายให้ **{to}** ในสัญญายืมตัวจาก **{from}** ราคา **{price} TP**",
-                    "ปิดดีลยืมตัวสวยงาม! **{to}** ได้ตัว **{player}** มาจาก **{from}** งบ **{price} TP**"
-                };
-            }
-            else
-            {
-                headlines = new[] {
-                    "TRANSFER: ย้ายค่ายทางการ!", "ปิดดีลสนั่นลีก!", "อำลาทีมเก่า!", "ดีลประวัติศาสตร์!",
-                    "ย้ายทีมทางการ!", "ปิดดีลสายฟ้าแลบ!", "ชูเสื้อสโมสรใหม่!", "ย้ายร่วมทัพ!",
-                    "โบกมือลาทีมเก่า!", "ดีลใหญ่จบแล้ว!"
-                };
-                transferBodies = new[] {
-                    "**{player}** บรรลุข้อตกลงย้ายจาก **{from}** สู่ **{to}** ถาวรด้วยค่าตัว **{price} TP**",
-                    "ทัพ **{to}** ประกาศคว้าตัว **{player}** จาก **{from}** มาร่วมทีมด้วยงบ **{price} TP**",
-                    "ปิดฉากกับทีมเก่า! **{player}** ย้ายซบ **{to}** จาก **{from}** เรียบร้อยในราคา **{price} TP**",
-                    "ดีลใหญ่แห่งปี! **{to}** ทุ่มงบ **{price} TP** ดึง **{player}** มาจาก **{from}** สำเร็จ",
-                    "**{player}** เตรียมเริ่มต้นชีวิตใหม่ที่ **{to}** หลังย้ายจาก **{from}** ด้วยค่าตัว **{price} TP**",
-                    "สโมสร **{from}** ยืนยันขาย **{player}** ให้กับ **{to}** ในราคา **{price} TP**",
-                    "อำลาแฟนบอล! **{player}** ย้ายไปร่วมทัพ **{to}** จาก **{from}** ด้วยงบ **{price} TP**",
-                    "**{to}** เปิดตัว **{player}** อย่างเป็นทางการ หลังย้ายมาจาก **{from}** ราคา **{price} TP**",
-                    "**{player}** จรดปากกาเซ็นสัญญากับ **{to}** หลังปิดดีลซื้อขาดจาก **{from}** มูลค่า **{price} TP**",
-                    "ร่วมทัพถาวร! **{player}** ย้ายซบ **{to}** จาก **{from}** ในราคา **{price} TP**",
-                    "**{from}** ปล่อยตัวหลัก! **{player}** ย้ายสู่ **{to}** ด้วยงบ **{price} TP**",
-                    "**{player}** เลือกเดินตามฝันกับ **{to}** หลังดีลจาก **{from}** จบที่ **{price} TP**",
-                    "ดีลนี้จบสวย! **{to}** ได้ **{player}** มาคุมทัพจาก **{from}** งบ **{price} TP**",
-                    "**{player}** สวมเสื้อตัวใหม่! ย้ายจาก **{from}** สู่ **{to}** ในราคา **{price} TP**",
-                    "ความท้าทายครั้งใหม่! **{player}** ย้ายถาวรไป **{to}** จาก **{from}** ด้วยค่าตัว **{price} TP**",
-                    "**{to}** คว้าตัวรุกระดับโลก! **{player}** ย้ายมาจาก **{from}** สำเร็จที่ราคา **{price} TP**",
-                    "ดีลสนั่นเมือง! **{player}** ย้ายจาก **{from}** ซบ **{to}** งบ **{price} TP**",
-                    "**{from}** ยอมปล่อยตัวเก่ง! **{player}** ไปร่วมทีม **{to}** ด้วยงบ **{price} TP**",
-                    "**{player}** พร้อมล่าความสำเร็จกับ **{to}** หลังย้ายจาก **{from}** ราคา **{price} TP**",
-                    "ปิดตลาดซื้อขายสวยงาม! **{to}** คว้า **{player}** มาจาก **{from}** งบ **{price} TP**"
-                };
-            }
+            string headline = headlineTemplate
+                .Replace("{player}", playerName)
+                .Replace("{from}", fromTeam)
+                .Replace("{to}", toTeam)
+                .Replace("{price}", price.ToString("N0"));
 
-            string headline = headlines[_random.Next(headlines.Length)];
-            string bodyText = transferBodies[_random.Next(transferBodies.Length)]
+            string bodyText = bodyTemplate
                 .Replace("{player}", playerName)
                 .Replace("{from}", fromTeam)
                 .Replace("{to}", toTeam)
@@ -167,7 +126,6 @@ namespace eTPL.API.Services
             if (imageMatch.Success)
             {
                 imageUrl = imageMatch.Groups[1].Value;
-                // Remove the image URL from the message body
                 message = message.Replace(imageUrl, "").Trim();
             }
 
@@ -181,37 +139,14 @@ namespace eTPL.API.Services
 
         public async Task SendPlayerListedAsync(string playerName, string teamName, int price, string? pesPlayerId = null)
         {
-            string[] headlines = {
-                "MARKET: นักเตะใหม่ในตลาด!", "พร้อมรับข้อเสนอ!", "เตรียมย้ายทีม?", "ตลาดขยับแล้ว!",
-                "ประกาศขายสายฟ้าแลบ!", "นักเตะว่างงานรอดีล!", "ขึ้นบัญชีขาย!", "ดีลนี้ใครจะเอา?",
-                "พร้อมปล่อยตัว!", "สโมสรเปิดไฟเขียว!"
-            };
+            string headlineTemplate = await GetRandomTemplateAsync("MARKET_LISTED", DEFAULT_MARKET_HEADLINE);
 
-            string[] bodies = {
-                "สโมสร **{team}** ประกาศตั้งขาย **{player}** ในราคาเริ่มต้น **{price} TP**",
-                "ใครสนใจบ้าง? **{team}** พร้อมปล่อย **{player}** ออกจากทีมที่ราคา **{price} TP**",
-                "ตลาดนักเตะเริ่มคึกคัก! **{player}** ถูกขึ้นบัญชีขายโดย **{team}** ราคา **{price} TP**",
-                "**{team}** เปิดรับข้อเสนอสำหรับ **{player}** ราคาที่ต้องการคือ **{price} TP**",
-                "พร้อมย้าย! **{player}** เตรียมลา **{team}** หลังถูกตั้งค่าตัวไว้ที่ **{price} TP**",
-                "ดีลดีต้องรีบคว้า! **{team}** ปล่อย **{player}** ลงตลาดด้วยงบ **{price} TP**",
-                "**{player}** ตกเป็นข่าวเตรียมย้ายทีม หลัง **{team}** ตั้งขายที่ราคา **{price} TP**",
-                "สโมสร **{team}** ยันพร้อมปล่อย **{player}** หากได้ข้อเสนอระดับ **{price} TP**",
-                "ขึ้นป้ายขาย! **{player}** พร้อมออกจาก **{team}** ในราคา **{price} TP**",
-                "**{team}** เปิดไฟเขียวให้ **{player}** ย้ายทีมได้ที่ราคา **{price} TP**",
-                "ข่าวลือเป็นจริง! **{team}** ตั้งขาย **{player}** เรียบร้อยที่งบ **{price} TP**",
-                "พร้อมเจรจา! **{player}** ถูก **{team}** วางขายในตลาดด้วยราคา **{price} TP**",
-                "ด่วน! **{team}** ประกาศขาย **{player}** หวังระดมทุนที่ราคา **{price} TP**",
-                "ใครจะเป็นเจ้าของใหม่? **{player}** ถูกปล่อยลงตลาดโดย **{team}** ราคา **{price} TP**",
-                "**{player}** เตรียมเก็บกระเป๋า! หลัง **{team}** ตั้งราคาขายไว้ที่ **{price} TP**",
-                "ตลาดนักเตะเดือด! **{team}** ปล่อย **{player}** ในราคาสุดคุ้ม **{price} TP**",
-                "**{player}** พร้อมหาความท้าทายใหม่ หลัง **{team}** ตั้งขายที่ **{price} TP**",
-                "ยืนยันทางการ! **{team}** ปล่อย **{player}** สู่ตลาดนักเตะในงบ **{price} TP**",
-                "สโมสร **{team}** พร้อมแยกทางกับ **{player}** หากได้รับข้อเสนอ **{price} TP**",
-                "ปิดดีลรอคนมาซื้อ! **{team}** วางขาย **{player}** ในราคา **{price} TP**"
-            };
-
-            string headline = headlines[_random.Next(headlines.Length)];
-            string bodyText = bodies[_random.Next(bodies.Length)]
+            string headline = headlineTemplate
+                .Replace("{player}", playerName)
+                .Replace("{team}", teamName)
+                .Replace("{price}", price.ToString("N0"));
+                
+            string bodyText = DEFAULT_MARKET_BODY
                 .Replace("{player}", playerName)
                 .Replace("{team}", teamName)
                 .Replace("{price}", price.ToString("N0"));

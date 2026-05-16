@@ -23,7 +23,7 @@ import { useAuth } from "../store/AuthContext";
 import { getLogoUrl } from "../utils/imageUtils";
 
 // ─── Layout constants ────────────────────────────────────────────────────────
-const MATCH_HEIGHT = 90;
+const MATCH_HEIGHT = 103; // Actual rendered card height: 2 rows × ~50px + 1px inner border + 2px Paper border
 const BASE_GAP = 20;
 const BASE_SLOT_H = MATCH_HEIGHT + BASE_GAP; // 110 px
 const CARD_WIDTH = 210;

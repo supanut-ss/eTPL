@@ -732,7 +732,7 @@ namespace eTPL.API.Controllers
             var teamInsert = new List<TbmTeam>();
 
             // 1. เตรียมข้อมูล Fixtures (ใช้ UserId สำหรับ Home/Away)
-            // Leg 1 — ACTIVE='YES'
+            // Leg 1 — ACTIVE='NO' (Default to hidden/not open)
             foreach (var (home, away, matchday) in fixtures)
             {
                 fixtureInsert.Add(new TbmFixtureAll
@@ -742,7 +742,7 @@ namespace eTPL.API.Controllers
                     Match = matchday,
                     Home = home, // UserId
                     Away = away, // UserId
-                    Active = "YES",
+                    Active = "NO",
                     Season = season.Value,
                     Platform = "PC",
                     Leg = 1

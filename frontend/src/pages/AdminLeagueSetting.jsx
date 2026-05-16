@@ -726,7 +726,7 @@ const AdminLeagueSetting = () => {
                 <Typography variant="body2">• Season: <strong>{preview.season}</strong></Typography>
                 <Typography variant="body2">• Division: <strong>D1</strong></Typography>
                 <Typography variant="body2">• Players: <strong>{preview.playerCount} คน</strong></Typography>
-                <Typography variant="body2">• Leg 1: <strong>{preview.leg1MatchCount} fixtures</strong> (ACTIVE=YES)</Typography>
+                <Typography variant="body2">• Leg 1: <strong>{preview.leg1MatchCount} fixtures</strong> (ACTIVE=NO)</Typography>
                 <Typography variant="body2">• Leg 2: <strong>{preview.leg1MatchCount} fixtures</strong> (ACTIVE=NO)</Typography>
                 <Typography variant="body2">• Total: <strong>{preview.totalMatchCount} fixtures</strong></Typography>
               </Box>

@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
+import axiosInstance from "../../../api/axiosInstance";
 import {
   Box,
   Typography,
@@ -32,7 +33,36 @@ const scanline = keyframes`
   100% { transform: translateY(100%); }
 `;
 
+const FALLBACK_TEMPLATES = {
+  MATCH_DRAW: "แบ่งแต้มกันไป! {home} เสมอกับ {away} {hScore}-{aScore}",
+  MATCH_WIN_CLOSE: "ชัยชนะเป็นของ {winner}! เอาชนะ {loser} ไปได้ {wScore}-{lScore}",
+  MATCH_WIN_CRUSHING: "{winner} โชว์ฟอร์มดุ! ถล่ม {loser} เก็บ 3 แต้มสำคัญ {wScore}-{lScore}",
+  MARKET_ACTIVITY: "{manager} ประกาศขึ้นบัญชีขาย {player} ลงสู่ตลาด!",
+  DEAL_ACTIVITY: "ปิดดีลสายฟ้าแลบ! {manager} คว้าตัว {player} สำเร็จ!"
+};
+
+const getTemplate = (templates, category, index) => {
+  const filtered = templates.filter(t => t.category === category).map(t => t.templateText);
+  if (filtered.length > 0) return filtered[index % filtered.length];
+  return FALLBACK_TEMPLATES[category] || "";
+};
+
 const LiveFeed = ({ lastFixtures, marketActivity }) => {
+  const [dbTemplates, setDbTemplates] = useState([]);
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const response = await axiosInstance.get("/api/NotificationTemplate?platform=LIVE_FEED");
+        setDbTemplates(response.data || []);
+      } catch (error) {
+        console.error("Failed to fetch notification templates:", error);
+        setDbTemplates([]);
+      }
+    };
+    fetchTemplates();
+  }, []);
+
   const feedItems = useMemo(() => [
     ...(lastFixtures || []).map((f) => ({
       type: "RESULT",
@@ -173,8 +203,8 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
         }}
       >
         {feedItems.map((feed, idx) => {
-          // Dynamic message generation
           let displayMsg = "";
+          
           if (feed.type === "RESULT") {
             const hName = extractPlayer(feed.data?.home || feed.homeTeamName || "?");
             const aName = extractPlayer(feed.data?.away || feed.awayTeamName || "?");
@@ -187,111 +217,32 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
             const wScore = Math.max(hScore, aScore);
             const lScore = Math.min(hScore, aScore);
 
-            const drawTemplates = [
-              `แบ่งแต้มกันไป! ${hName} เสมอกับ ${aName} ${hScore}-${aScore} แบบสุดระทึก`,
-              `ศึกศักดิ์ศรีจบลงที่ ${hScore}-${aScore}! ${hName} และ ${aName} สู้กันได้สมศักดิ์ศรี`,
-              `คะแนนเท่ากัน! ${hName} และ ${aName} จบเกมที่สกอร์ ${hScore}-${aScore}`,
-              `เกมรับเหนียวแน่น! ${hName} และ ${aName} ทำอะไรกันไม่ได้มากจบที่ ${hScore}-${aScore}`,
-              `เจ๊ากันไป! ${hName} และ ${aName} กอดคอแบ่งแต้ม ${hScore}-${aScore}`,
-              `สู้กันจนนาทีสุดท้าย! ${hName} เสมอ ${aName} ${hScore}-${aScore}`,
-              `ผลเสมอที่น่าทึ่ง! ${hName} และ ${aName} แบ่งแต้มกันไป ${hScore}-${aScore}`,
-              `ไม่มีใครยอมใคร! ${hName} และ ${aName} จบที่สกอร์ ${hScore}-${aScore}`,
-              `กินกันไม่ลง! ${hName} และ ${aName} จบเกมที่สกอร์ ${hScore}-${aScore}`,
-              `จบแมตช์ด้วยผลเสมอ! ${hName} และ ${aName} กินกันไม่ลง ${hScore}-${aScore}`,
-              `จบเกมสุดมันส์! ${hName} ${hScore} - ${aScore} ${aName} แบ่งแต้มกันไป`,
-              `ศึกบิ๊กแมตช์จบลงแล้ว! ${hName} ${hScore} - ${aScore} ${aName} สู้กันยิบตา`,
-              `สรุปผลสดๆ: ${hName} ${hScore} - ${aScore} ${aName} สนุกตื่นเต้นทุกวินาที`
-            ];
+            const category = isDraw ? "MATCH_DRAW" : (diff >= 3 ? "MATCH_WIN_CRUSHING" : "MATCH_WIN_CLOSE");
+            const template = getTemplate(dbTemplates, category, idx);
+            
+            displayMsg = template
+              .replace("{home}", hName)
+              .replace("{away}", aName)
+              .replace("{winner}", winner)
+              .replace("{loser}", loser)
+              .replace("{hScore}", hScore)
+              .replace("{aScore}", aScore)
+              .replace("{wScore}", wScore)
+              .replace("{lScore}", lScore);
 
-            const closeWinTemplates = [
-              `ชัยชนะเป็นของ ${winner}! เอาชนะ ${loser} ไปได้ ${wScore}-${lScore}`,
-              `${winner} เก็บชัยได้สำเร็จ! เฉือนเอาชนะ ${loser} ไปอย่างหวุดหวิด ${wScore}-${lScore}`,
-              `ผลการแข่งขัน: ${winner} คว้าชัยเหนือ ${loser} ${wScore}-${lScore}`,
-              `ชัยชนะอันล้ำค่า! ${winner} เฉือนเอาชนะ ${loser} ไปได้ ${wScore}-${lScore}`,
-              `แฟนบอลเฮลั่น! ${winner} เก็บ 3 แต้มสำคัญเหนือ ${loser} ${wScore}-${lScore}`,
-              `เกมคุณภาพ! ${winner} ฮึดสู้จนวินาทีสุดท้ายเอาชนะ ${loser} ${wScore}-${lScore}`,
-              `${winner} แกร่งพอที่จะคว้าชัย! ชนะ ${loser} ไปได้ ${wScore}-${lScore}`,
-              `จบเกม! ${winner} ทำได้ตามเป้า เอาชนะ ${loser} ${wScore}-${lScore}`,
-              `สามแต้มเข้ากระเป๋า! ${winner} เบียดเอาชนะ ${loser} ไปอย่างสนุก ${wScore}-${lScore}`,
-              `${winner} เฉือนคม! คว้าชัยเหนือ ${loser} ในแมตช์ที่สูสีที่สุด ${wScore}-${lScore}`
-            ];
-
-            const crushingWinTemplates = [
-              `${winner} โชว์ฟอร์มดุ! ถล่ม ${loser} เก็บ 3 แต้มสำคัญ ${wScore}-${lScore}`,
-              `${winner} แกร่งเกินต้าน! ถล่มเอาชนะ ${loser} ไปได้ ${wScore}-${lScore}`,
-              `บุกแหลก! ${winner} ถล่ม ${loser} ไปแบบขาดลอย ${wScore}-${lScore}`,
-              `ฟอร์มแชมป์! ${winner} จัดหนักถล่ม ${loser} คาบ้าน ${wScore}-${lScore}`,
-              `${winner} ระเบิดฟอร์มเทพ! ถล่มเอาชนะ ${loser} ไปอย่างเหนือชั้น ${wScore}-${lScore}`,
-              `ขาดลอย! ${winner} โชว์เหนือชั้นถล่ม ${loser} เละเทะ ${wScore}-${lScore}`,
-              `${winner} ไร้ปรานี! เดินหน้าทำสกอร์ถล่ม ${loser} ${wScore}-${lScore}`,
-              `วันของ ${winner}! ถล่ม ${loser} เก็บชัยชนะที่ยิ่งใหญ่ที่สุด ${wScore}-${lScore}`,
-              `${winner} เครื่องจักรสังหาร! ถล่มเอาชนะ ${loser} ไปได้แบบสบายๆ ${wScore}-${lScore}`,
-              `จบเกมที่สกอร์ขาดลอย! ${winner} ถล่ม ${loser} ยับเยิน ${wScore}-${lScore}`
-            ];
-
-            if (isDraw) {
-              displayMsg = drawTemplates[idx % drawTemplates.length];
-            } else if (diff >= 3) {
-              displayMsg = crushingWinTemplates[idx % crushingWinTemplates.length];
-            } else {
-              displayMsg = closeWinTemplates[idx % closeWinTemplates.length];
-            }
           } else if (feed.type === "MARKET") {
             const manager = feed.data?.manager || "สโมสร";
             const player = feed.data?.player || "นักเตะ";
-            const templates = [
-              `${manager} ประกาศขึ้นบัญชีขาย ${player} ลงสู่ตลาด!`,
-              `ข่าวร้อน! ${manager} พร้อมเปิดรับข้อเสนอสำหรับ ${player}`,
-              `${manager} กำลังมองหาโอกาสปล่อยตัว ${player} ทันที!`,
-              `ดีลน่าสนใจ! ${manager} ตัดใจปล่อย ${player} ออกจากทีม`,
-              `${manager} ปักป้ายขาย ${player} แฟนๆ รอลุ้นสังกัดใหม่!`,
-              `ใครจะคว้าไป? ${manager} ปล่อย ${player} เข้าสู่ตลาดซื้อขาย`,
-              `${manager} เตรียมปรับทัพ! ประกาศขาย ${player} เรียบร้อย`,
-              `ข้อเสนอต้องโดน! ${manager} รอคนมาดึง ${player} ไปร่วมทีม`,
-              `${manager} ประกาศวางตัว ${player} ไว้ในรายการขาย!`,
-              `ตลาดเริ่มเดือด! ${manager} ส่ง ${player} ลงชิงชัยในตลาดนักเตะ`,
-              `${manager} เปิดไฟเขียว! ${player} พร้อมย้ายสังกัดแล้ว`,
-              `ดีลใหญ่กำลังมา? ${manager} ปล่อย ${player} ลงตลาดซื้อขาย`,
-              `${manager} ประกาศหาบ้านใหม่ให้ ${player} ทันที!`,
-              `โอกาสทอง! ${manager} พร้อมปล่อย ${player} ให้ทีมที่สนใจ`,
-              `${manager} ขยับทัพ! ขึ้นป้ายขาย ${player} เรียบร้อย`,
-              `จับตาให้ดี! ${manager} ปล่อย ${player} ลงสู่ตลาดนักเตะแล้ว`,
-              `${manager} ตัดสินใจเด็ดขาด! ประกาศปล่อย ${player} ออกจากทีม`,
-              `ตลาดสั่นสะเทือน! ${manager} พร้อมขาย ${player} ทันที`,
-              `${manager} เปิดรับทุกข้อเสนอสำหรับ ${player} ในเวลานี้`,
-              `ข่าววงใน! ${manager} เตรียมปล่อย ${player} เพื่อสมทบทุนเสริมทัพ`
-            ];
-            // If it's an actual listing from transfer board, use templates. 
-            // If it's a transaction (like release), use the original message.
-            // Filter out Season info for display
             const cleanMsg = (feed.msg || "").replace(/\s*\(Season\s*\d+\)\s*/gi, " ").trim();
-            displayMsg = feed.isListing ? templates[(idx * 3) % 20] : cleanMsg;
+            
+            displayMsg = feed.isListing 
+              ? getTemplate(dbTemplates, "MARKET_ACTIVITY", idx * 3).replace("{manager}", manager).replace("{player}", player)
+              : cleanMsg;
+
           } else if (feed.type === "DEAL") {
             const manager = feed.data?.manager || "สโมสร";
             const player = feed.data?.player || "นักเตะ";
-            const templates = [
-              `ปิดดีลสายฟ้าแลบ! ${manager} คว้าตัว ${player} สำเร็จ!`,
-              `ยินดีด้วยกับ ${manager}! เสริมทัพด้วย ${player} เรียบร้อย!`,
-              `บอร์ดบริหารปลื้ม! ${manager} เจรจาปิดดีล ${player} สำเร็จ!`,
-              `${manager} ประกาศเปิดตัว ${player} เสริมความแข็งแกร่ง!`,
-              `ดีลยักษ์จบลงแล้ว! ${manager} สอย ${player} เข้ารังสำเร็จ`,
-              `${manager} เดินเกมไว! คว้า ${player} เข้าสู่สโมสรเรียบร้อย`,
-              `แฟนคลับเฮ! ${manager} ประกาศความสำเร็จในการคว้า ${player}`,
-              `${manager} เสริมคม! ดีล ${player} เข้าทีมอย่างเป็นทางการ`,
-              `ปิดจ๊อบ! ${manager} เจรจาลงตัว คว้า ${player} ร่วมทัพ`,
-              `ข่าวดีของแฟนๆ! ${manager} จัดหนักคว้าตัว ${player} เสริมทีม`,
-              `บอร์ดบริหารเฮ! ${manager} ปิดดีล ${player} ระดับท็อปเสริมทัพ`,
-              `${manager} จัดหนัก! คว้าตัว ${player} เข้าสู่ทีมสำเร็จ`,
-              `ยินดีด้วยกับ ${manager}! ได้ ${player} มาเติมเต็มส่วนที่ขาด`,
-              `ดีลประวัติศาสตร์! ${manager} คว้า ${player} ร่วมทีมอย่างยิ่งใหญ่`,
-              `${manager} เสริมความโหด! เปิดตัว ${player} สู่แฟนบอล`,
-              `ปิดจ๊อบสุดสวย! ${manager} เจรจาคว้า ${player} สำเร็จเรียบร้อย`,
-              `ข่าวดีต่อเนื่อง! ${manager} เสริม ${player} เข้าสู่สโมสร`,
-              `${manager} เดินเครื่องเต็มสูบ! ปิดดีล ${player} ได้ทันท่วงที`,
-              `แฟนบอลปลื้ม! ${manager} จัดแจงคว้า ${player} เสริมความแข็งแกร่ง`,
-              `สำเร็จเสร็จสิ้น! ${manager} ประกาศปิดดีล ${player} เข้าทีม`
-            ];
-            displayMsg = templates[(idx * 3) % 20];
+            displayMsg = getTemplate(dbTemplates, "DEAL_ACTIVITY", idx * 3).replace("{manager}", manager).replace("{player}", player);
           }
 
           return (

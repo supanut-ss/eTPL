@@ -3,6 +3,7 @@ using eTPL.API.Data;
 using eTPL.API.Models;
 using eTPL.API.Models.DTOs;
 using eTPL.API.Services.Interfaces;
+using eTPL.API.Models.Scaffolded;
 
 namespace eTPL.API.Services
 {
@@ -87,47 +88,68 @@ namespace eTPL.API.Services
             if (user == null) return false;
 
             // Handle related data to prevent FK constraint violations
-            // 1. Wallets
+            // 1. Transfer Offers (Involving the user OR their squad)
+            var userSquadIds = await _db.AuctionSquads.Where(s => s.UserId == user.Id).Select(s => s.SquadId).ToListAsync();
+            var relatedOffers = await _db.TransferOffers
+                .Where(o => o.FromUserId == user.Id || o.ToUserId == user.Id || userSquadIds.Contains(o.SquadId))
+                .ToListAsync();
+            if (relatedOffers.Any()) _db.TransferOffers.RemoveRange(relatedOffers);
+
+            // 2. Wallets
             var wallet = await _db.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == user.Id);
             if (wallet != null) _db.AuctionUserWallets.Remove(wallet);
-
-            // 2. Squads (Release players back to free agency)
-            var squads = await _db.AuctionSquads.Where(s => s.UserId == user.Id).ToListAsync();
-            if (squads.Any()) _db.AuctionSquads.RemoveRange(squads);
 
             // 3. Transactions
             var trans = await _db.AuctionTransactions.Where(t => t.UserId == user.Id).ToListAsync();
             if (trans.Any()) _db.AuctionTransactions.RemoveRange(trans);
 
-            // 4. Bid Logs
-            var bids = await _db.AuctionBidLogs.Where(b => b.UserId == user.Id).ToListAsync();
-            if (bids.Any()) _db.AuctionBidLogs.RemoveRange(bids);
-
-            // 5. Special Bonuses
-            var bonuses = await _db.SpecialBonuses.Where(b => b.UserId == user.Id).ToListAsync();
-            if (bonuses.Any()) _db.SpecialBonuses.RemoveRange(bonuses);
-
-            // 6. Daily Checkins
-            var checkins = await _db.DailyCheckins.Where(c => c.UserId == user.UserId).ToListAsync();
-            if (checkins.Any()) _db.DailyCheckins.RemoveRange(checkins);
-
-            // 7. Transfer Offers
-            var offers = await _db.TransferOffers.Where(o => o.FromUserId == user.Id || o.ToUserId == user.Id).ToListAsync();
-            if (offers.Any()) _db.TransferOffers.RemoveRange(offers);
-
-            // 8. Auction Boards
-            // If the user initiated the auction, we might need to delete it or set initiator to someone else (e.g. system)
-            var initiatedAuctions = await _db.AuctionBoards.Where(a => a.InitiatorUserId == user.Id).ToListAsync();
-            if (initiatedAuctions.Any()) _db.AuctionBoards.RemoveRange(initiatedAuctions);
-
-            // If the user is the highest bidder, we should probably set it back to null or the previous bidder
-            // For simplicity, we'll set it to null and reduce current price back to start (or just let it be)
+            // 4. Bid Logs & Auction Boards
+            // 4a. If the user is the highest bidder, we must clear them first
             var winningAuctions = await _db.AuctionBoards.Where(a => a.HighestBidderId == user.Id).ToListAsync();
             foreach (var wa in winningAuctions)
             {
                 wa.HighestBidderId = null;
-                // Price remains as it was, but no leader
             }
+
+            // 4b. Clear user's own bid logs
+            var userBids = await _db.AuctionBidLogs.Where(b => b.UserId == user.Id).ToListAsync();
+            if (userBids.Any()) _db.AuctionBidLogs.RemoveRange(userBids);
+
+            // 4c. Handle auctions initiated by the user
+            var initiatedAuctions = await _db.AuctionBoards.Where(a => a.InitiatorUserId == user.Id).ToListAsync();
+            if (initiatedAuctions.Any())
+            {
+                var auctionIds = initiatedAuctions.Select(a => a.AuctionId).ToList();
+                // MUST clear ALL bid logs for these auctions before removing boards (due to Restrict FK)
+                var logsOnInitiatedAuctions = await _db.AuctionBidLogs.Where(b => auctionIds.Contains(b.AuctionId)).ToListAsync();
+                if (logsOnInitiatedAuctions.Any()) _db.AuctionBidLogs.RemoveRange(logsOnInitiatedAuctions);
+                
+                _db.AuctionBoards.RemoveRange(initiatedAuctions);
+            }
+
+            // 5. Squads (Now safe after clearing offers)
+            var squads = await _db.AuctionSquads.Where(s => s.UserId == user.Id).ToListAsync();
+            if (squads.Any()) _db.AuctionSquads.RemoveRange(squads);
+
+            // 6. Special Bonuses
+            var bonuses = await _db.SpecialBonuses.Where(b => b.UserId == user.Id).ToListAsync();
+            if (bonuses.Any()) _db.SpecialBonuses.RemoveRange(bonuses);
+
+            // 7. Daily Checkins (Using string UserId)
+            var checkins = await _db.DailyCheckins.Where(c => c.UserId == user.UserId).ToListAsync();
+            if (checkins.Any()) _db.DailyCheckins.RemoveRange(checkins);
+
+            // 8. Legacy Teams (TbmTeam)
+            var legacyTeams = await _db.TbmTeams.Where(t => t.UserId == user.Id).ToListAsync();
+            if (legacyTeams.Any()) _db.TbmTeams.RemoveRange(legacyTeams);
+
+            // 9. Cup Fixtures (Home or Away - Using string UserId)
+            var cupFixtures = await _db.CupFixtures.Where(f => f.HomeUserId == user.UserId || f.AwayUserId == user.UserId).ToListAsync();
+            if (cupFixtures.Any()) _db.CupFixtures.RemoveRange(cupFixtures);
+
+            // 10. Notifications
+            var notifications = await _db.Notifications.Where(n => n.UserId == user.Id).ToListAsync();
+            if (notifications.Any()) _db.Notifications.RemoveRange(notifications);
 
             // Finally delete the user
             _db.Users.Remove(user);
@@ -139,9 +161,9 @@ namespace eTPL.API.Services
             }
             catch (Exception ex)
             {
-                // Log the error or handle it as needed
-                // For now, we'll rethrow or return false if it's still blocked
                 System.Diagnostics.Debug.WriteLine($"Delete User Error: {ex.Message}");
+                if (ex.InnerException != null)
+                    System.Diagnostics.Debug.WriteLine($"Inner Error: {ex.InnerException.Message}");
                 return false;
             }
         }

@@ -36,6 +36,12 @@ const adminService = {
   getQa: () => api.get("/api/admin/qa"),
   addQa: (data) => api.post("/api/admin/qa", data),
   deleteQa: (id) => api.delete(`/api/admin/qa/${id}`),
+
+  // Notification Templates
+  getNotificationTemplates: () => api.get("/api/NotificationTemplate"),
+  addNotificationTemplate: (data) => api.post("/api/NotificationTemplate", data),
+  updateNotificationTemplate: (id, data) => api.put(`/api/NotificationTemplate/${id}`, data),
+  deleteNotificationTemplate: (id) => api.delete(`/api/NotificationTemplate/${id}`),
 };
 
 export default adminService;

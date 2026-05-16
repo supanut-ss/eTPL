@@ -1039,7 +1039,7 @@ namespace eTPL.API.Services
                 try
                 {
                     var winnerUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == winnerId.Value);
-                    string winTeam = winnerUser?.LineName ?? winnerUser?.UserId ?? "Unknown";
+                    string winTeam = winnerUser?.UserId ?? "Unknown";
                     _ = _discordService.SendAuctionConfirmAsync(playerName2, winTeam, winningPrice, auction.PlayerId.ToString());
                 }
                 catch { }
@@ -1455,8 +1455,8 @@ namespace eTPL.API.Services
                 {
                     var owner = await _context.Users.FirstOrDefaultAsync(u => u.Id == ownerUserId);
                     var borrower = await _context.Users.FirstOrDefaultAsync(u => u.Id == request.TargetUserId);
-                    string ownerName = owner?.LineName ?? owner?.UserId ?? "Unknown";
-                    string borrowerName = borrower?.LineName ?? borrower?.UserId ?? "Unknown";
+                    string ownerName = owner?.UserId ?? "Unknown";
+                    string borrowerName = borrower?.UserId ?? "Unknown";
                     _ = _discordService.SendTransferAsync(playerName, ownerName, borrowerName, request.LoanFee, isLoan: true, pesPlayerId: squad.PlayerId.ToString());
                 }
                 catch { }
@@ -1535,8 +1535,8 @@ namespace eTPL.API.Services
                 {
                     var seller = await _context.Users.FirstOrDefaultAsync(u => u.Id == sellerUserId);
                     var buyer = await _context.Users.FirstOrDefaultAsync(u => u.Id == request.BuyerUserId);
-                    string sellerName = seller?.LineName ?? seller?.UserId ?? "Unknown";
-                    string buyerName = buyer?.LineName ?? buyer?.UserId ?? "Unknown";
+                    string sellerName = seller?.UserId ?? "Unknown";
+                    string buyerName = buyer?.UserId ?? "Unknown";
                     _ = _discordService.SendTransferAsync(playerName, sellerName, buyerName, request.TransferFee, isLoan: false, pesPlayerId: squad.PlayerId.ToString());
                 }
                 catch { }
@@ -1574,7 +1574,7 @@ namespace eTPL.API.Services
             try
             {
                 string playerName = squad.Player?.PlayerName ?? "Unknown";
-                string teamName = squad.User?.LineName ?? squad.User?.UserId ?? "Unknown";
+                string teamName = squad.User?.UserId ?? "Unknown";
                 _ = _discordService.SendPlayerListedAsync(playerName, teamName, listingPrice, squad.PlayerId.ToString());
             }
             catch { }

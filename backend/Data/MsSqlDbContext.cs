@@ -30,6 +30,7 @@ namespace eTPL.API.Data
         public DbSet<LeagueOpsStatResult> LeagueOpsStatResults { get; set; }
         public DbSet<JudgeHistory> JudgeHistories { get; set; }
         public DbSet<QaInformation> QaInformation { get; set; }
+        public DbSet<NotificationTemplate> NotificationTemplates { get; set; }
 
         // --- Legacy / Scaffolded Models ---
         public virtual DbSet<ApiVFixtureAll> ApiVFixtureAlls { get; set; }
@@ -68,9 +69,8 @@ namespace eTPL.API.Data
             modelBuilder.Entity<User>(entity =>
             {
                 entity.ToTable("tbm_user", "dbo", t => t.ExcludeFromMigrations());
-                entity.HasKey(e => e.UserId);
+                entity.HasKey(e => e.Id); // Verified: 'id' (INT) is the Primary Key in DB
                 entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedOnAdd();
-                entity.HasAlternateKey(e => e.Id);
                 entity.Property(e => e.UserId).HasColumnName("user_id").HasMaxLength(100).IsRequired();
                 entity.Property(e => e.Password).HasColumnName("password").IsRequired();
                 entity.Property(e => e.UserLevel).HasColumnName("user_level").HasMaxLength(20).HasDefaultValue("user");
@@ -99,6 +99,18 @@ namespace eTPL.API.Data
                 entity.ToTable("pes_player_team", "dbo", t => t.ExcludeFromMigrations());
                 entity.HasKey(e => e.IdPlayer);
                 entity.Property(e => e.IdPlayer).HasColumnName("id_player");
+                entity.Property(e => e.PlayerName).HasColumnName("player_name");
+                entity.Property(e => e.IdTeam).HasColumnName("id_team");
+                entity.Property(e => e.TeamName).HasColumnName("team_name");
+                entity.Property(e => e.PlayerOvr).HasColumnName("player_ovr");
+                entity.Property(e => e.League).HasColumnName("league");
+                entity.Property(e => e.Position).HasColumnName("position");
+                entity.Property(e => e.PlayingStyle).HasColumnName("playing_style");
+                entity.Property(e => e.Foot).HasColumnName("foot");
+                entity.Property(e => e.Nationality).HasColumnName("nationality");
+                entity.Property(e => e.Height).HasColumnName("height");
+                entity.Property(e => e.Weight).HasColumnName("weight");
+                entity.Property(e => e.Age).HasColumnName("age");
             });
 
             // AuctionSetting — properties already camelCase-friendly, just configure table/key
@@ -106,6 +118,17 @@ namespace eTPL.API.Data
             {
                 entity.ToTable("tbs_auction_settings", "dbo");
                 entity.HasKey(e => e.SettingId);
+                entity.Property(e => e.SettingId).HasColumnName("setting_id");
+                entity.Property(e => e.StartingBudget).HasColumnName("StartingBudget");
+                entity.Property(e => e.MaxSquadSize).HasColumnName("MaxSquadSize");
+                entity.Property(e => e.MinBidPrice).HasColumnName("MinBidPrice");
+                entity.Property(e => e.AuctionStartDate).HasColumnName("AuctionStartDate");
+                entity.Property(e => e.AuctionEndDate).HasColumnName("AuctionEndDate");
+                entity.Property(e => e.DailyBidStartTime).HasColumnName("DailyBidStartTime");
+                entity.Property(e => e.DailyBidEndTime).HasColumnName("DailyBidEndTime");
+                entity.Property(e => e.NormalBidDurationMinutes).HasColumnName("NormalBidDurationMinutes");
+                entity.Property(e => e.FinalBidDurationMinutes).HasColumnName("FinalBidDurationMinutes");
+                entity.Property(e => e.CurrentSeason).HasColumnName("CurrentSeason");
             });
 
             // AuctionGradeQuota — uses [Column] annotations in model
@@ -113,16 +136,25 @@ namespace eTPL.API.Data
             {
                 entity.ToTable("tbs_auction_grade_quota", "dbo");
                 entity.HasKey(e => e.GradeId);
+                entity.Property(e => e.GradeId).HasColumnName("grade_id");
+                entity.Property(e => e.GradeName).HasColumnName("GradeName");
+                entity.Property(e => e.MinOVR).HasColumnName("MinOVR");
+                entity.Property(e => e.MaxOVR).HasColumnName("MaxOVR");
+                entity.Property(e => e.MaxAllowedPerUser).HasColumnName("MaxAllowedPerUser");
+                entity.Property(e => e.RenewalPercent).HasColumnName("RenewalPercent");
+                entity.Property(e => e.ReleasePercent).HasColumnName("ReleasePercent");
+                entity.Property(e => e.MaxSeasonsPerTeam).HasColumnName("MaxSeasonsPerTeam");
             });
 
             modelBuilder.Entity<AuctionUserWallet>(entity =>
             {
                 entity.ToTable("tbs_auction_user_wallet", "dbo");
                 entity.HasKey(e => e.WalletId);
-                entity.Property(e => e.WalletId).HasColumnName("wallet_id");
-                entity.Property(e => e.UserId).HasColumnName("user_id");
-                entity.Property(e => e.AvailableBalance).HasColumnName("available_balance");
-                entity.Property(e => e.ReservedBalance).HasColumnName("reserved_balance");
+                entity.Property(e => e.WalletId).HasColumnName("wallet_id"); // Verified: snake_case PK
+                // NOTE: The following columns are PascalCase in the database. DO NOT change to snake_case.
+                entity.Property(e => e.UserId).HasColumnName("UserId");
+                entity.Property(e => e.AvailableBalance).HasColumnName("AvailableBalance");
+                entity.Property(e => e.ReservedBalance).HasColumnName("ReservedBalance");
                 entity.HasIndex(e => e.UserId).IsUnique();
                 entity.HasOne(e => e.User).WithOne()
                     .HasForeignKey<AuctionUserWallet>(e => e.UserId)
@@ -134,17 +166,18 @@ namespace eTPL.API.Data
             {
                 entity.ToTable("tbs_auction_squad", "dbo");
                 entity.HasKey(e => e.SquadId);
-                entity.Property(e => e.SquadId).HasColumnName("squad_id");
-                entity.Property(e => e.UserId).HasColumnName("user_id");
-                entity.Property(e => e.PlayerId).HasColumnName("play_id");
-                entity.Property(e => e.PricePaid).HasColumnName("price_paid");
-                entity.Property(e => e.AcquiredAt).HasColumnName("acquired_at");
-                entity.Property(e => e.SeasonsWithTeam).HasColumnName("seasons_with_team");
-                entity.Property(e => e.IsLoan).HasColumnName("is_loan");
-                entity.Property(e => e.LoanedFromUserId).HasColumnName("loaned_from_user_id");
-                entity.Property(e => e.LoanExpiry).HasColumnName("loan_expiry");
-                entity.Property(e => e.Status).HasColumnName("status");
-                entity.Property(e => e.ListingPrice).HasColumnName("listing_price");
+                entity.Property(e => e.SquadId).HasColumnName("squad_id"); // Verified: snake_case PK
+                // NOTE: The following columns are PascalCase in the database. DO NOT change to snake_case.
+                entity.Property(e => e.UserId).HasColumnName("UserId");
+                entity.Property(e => e.PlayerId).HasColumnName("PlayerId");
+                entity.Property(e => e.PricePaid).HasColumnName("PricePaid");
+                entity.Property(e => e.AcquiredAt).HasColumnName("AcquiredAt");
+                entity.Property(e => e.SeasonsWithTeam).HasColumnName("SeasonsWithTeam");
+                entity.Property(e => e.IsLoan).HasColumnName("IsLoan");
+                entity.Property(e => e.LoanedFromUserId).HasColumnName("LoanedFromUserId");
+                entity.Property(e => e.LoanExpiry).HasColumnName("LoanExpiry");
+                entity.Property(e => e.Status).HasColumnName("Status");
+                entity.Property(e => e.ListingPrice).HasColumnName("ListingPrice");
                 entity.HasOne(e => e.User).WithMany()
                     .HasForeignKey(e => e.UserId)
                     .HasPrincipalKey(e => e.Id)
@@ -158,16 +191,17 @@ namespace eTPL.API.Data
             {
                 entity.ToTable("tbs_auction_transactions", "dbo");
                 entity.HasKey(e => e.TransactionId);
-                entity.Property(e => e.TransactionId).HasColumnName("transaction_id");
-                entity.Property(e => e.UserId).HasColumnName("user_id");
-                entity.Property(e => e.Amount).HasColumnName("amount");
-                entity.Property(e => e.Direction).HasColumnName("direction");
-                entity.Property(e => e.Type).HasColumnName("type");
-                entity.Property(e => e.Description).HasColumnName("description");
-                entity.Property(e => e.BalanceAfter).HasColumnName("balance_after");
-                entity.Property(e => e.RelatedAuctionId).HasColumnName("related_auction_id");
-                entity.Property(e => e.RelatedPlayerId).HasColumnName("related_player_id");
-                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+                entity.Property(e => e.TransactionId).HasColumnName("transaction_id"); // Verified: snake_case PK
+                // NOTE: The following columns are PascalCase in the database. DO NOT change to snake_case.
+                entity.Property(e => e.UserId).HasColumnName("UserId");
+                entity.Property(e => e.Amount).HasColumnName("Amount");
+                entity.Property(e => e.Direction).HasColumnName("Direction");
+                entity.Property(e => e.Type).HasColumnName("Type");
+                entity.Property(e => e.Description).HasColumnName("Description");
+                entity.Property(e => e.BalanceAfter).HasColumnName("BalanceAfter");
+                entity.Property(e => e.RelatedAuctionId).HasColumnName("RelatedAuctionId");
+                entity.Property(e => e.RelatedPlayerId).HasColumnName("RelatedPlayerId");
+                entity.Property(e => e.CreatedAt).HasColumnName("CreatedAt");
                 entity.HasOne(e => e.User).WithMany()
                     .HasForeignKey(e => e.UserId)
                     .HasPrincipalKey(e => e.Id)
@@ -178,15 +212,16 @@ namespace eTPL.API.Data
             {
                 entity.ToTable("tbs_auction_board", "dbo");
                 entity.HasKey(e => e.AuctionId);
-                entity.Property(e => e.AuctionId).HasColumnName("auction_id");
-                entity.Property(e => e.PlayerId).HasColumnName("play_id");
-                entity.Property(e => e.InitiatorUserId).HasColumnName("initiator_user_id");
-                entity.Property(e => e.HighestBidderId).HasColumnName("highest_bidder_id");
-                entity.Property(e => e.CurrentPrice).HasColumnName("current_price");
-                entity.Property(e => e.NormalEndTime).HasColumnName("normal_end_time");
-                entity.Property(e => e.FinalEndTime).HasColumnName("final_end_time");
-                entity.Property(e => e.DbStatus).HasColumnName("status");
-                entity.Property(e => e.RowVersion).HasColumnName("row_version").IsRowVersion();
+                entity.Property(e => e.AuctionId).HasColumnName("auction_id"); // Verified: snake_case PK
+                // NOTE: The following columns are PascalCase in the database. DO NOT change to snake_case.
+                entity.Property(e => e.PlayerId).HasColumnName("PlayerId");
+                entity.Property(e => e.InitiatorUserId).HasColumnName("InitiatorUserId");
+                entity.Property(e => e.HighestBidderId).HasColumnName("HighestBidderId");
+                entity.Property(e => e.CurrentPrice).HasColumnName("CurrentPrice");
+                entity.Property(e => e.NormalEndTime).HasColumnName("NormalEndTime");
+                entity.Property(e => e.FinalEndTime).HasColumnName("FinalEndTime");
+                entity.Property(e => e.DbStatus).HasColumnName("DbStatus");
+                entity.Property(e => e.RowVersion).HasColumnName("RowVersion").IsRowVersion();
                 entity.HasOne(e => e.Player).WithMany()
                     .HasForeignKey(e => e.PlayerId)
                     .OnDelete(DeleteBehavior.Restrict);
@@ -204,12 +239,13 @@ namespace eTPL.API.Data
             {
                 entity.ToTable("tbs_auction_bid_log", "dbo");
                 entity.HasKey(e => e.LogId);
-                entity.Property(e => e.LogId).HasColumnName("log_id");
-                entity.Property(e => e.AuctionId).HasColumnName("auction_id");
-                entity.Property(e => e.UserId).HasColumnName("user_id");
-                entity.Property(e => e.BidAmount).HasColumnName("bid_amount");
-                entity.Property(e => e.Phase).HasColumnName("phase");
-                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+                entity.Property(e => e.LogId).HasColumnName("log_id"); // Verified: snake_case PK
+                // NOTE: The following columns are PascalCase in the database. DO NOT change to snake_case.
+                entity.Property(e => e.AuctionId).HasColumnName("AuctionId");
+                entity.Property(e => e.UserId).HasColumnName("UserId");
+                entity.Property(e => e.BidAmount).HasColumnName("BidAmount");
+                entity.Property(e => e.Phase).HasColumnName("Phase");
+                entity.Property(e => e.CreatedAt).HasColumnName("CreatedAt");
                 entity.HasOne(e => e.Auction).WithMany()
                     .HasForeignKey(e => e.AuctionId)
                     .OnDelete(DeleteBehavior.Restrict);
@@ -223,15 +259,16 @@ namespace eTPL.API.Data
             {
                 entity.ToTable("tbs_transfer_offer", "dbo");
                 entity.HasKey(e => e.OfferId);
-                entity.Property(e => e.OfferId).HasColumnName("offer_id");
-                entity.Property(e => e.SquadId).HasColumnName("squad_id");
-                entity.Property(e => e.FromUserId).HasColumnName("from_user_id");
-                entity.Property(e => e.ToUserId).HasColumnName("to_user_id");
-                entity.Property(e => e.OfferType).HasColumnName("offer_type");
-                entity.Property(e => e.Amount).HasColumnName("amount");
-                entity.Property(e => e.Status).HasColumnName("status");
-                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
-                entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+                entity.Property(e => e.OfferId).HasColumnName("offer_id"); // Verified: snake_case PK
+                // NOTE: The following columns are PascalCase in the database. DO NOT change to snake_case.
+                entity.Property(e => e.SquadId).HasColumnName("SquadId");
+                entity.Property(e => e.FromUserId).HasColumnName("FromUserId");
+                entity.Property(e => e.ToUserId).HasColumnName("ToUserId");
+                entity.Property(e => e.OfferType).HasColumnName("OfferType");
+                entity.Property(e => e.Amount).HasColumnName("Amount");
+                entity.Property(e => e.Status).HasColumnName("Status");
+                entity.Property(e => e.CreatedAt).HasColumnName("CreatedAt");
+                entity.Property(e => e.UpdatedAt).HasColumnName("UpdatedAt");
                 entity.HasOne(e => e.Squad).WithMany()
                     .HasForeignKey(e => e.SquadId)
                     .OnDelete(DeleteBehavior.Restrict);
@@ -250,13 +287,13 @@ namespace eTPL.API.Data
                 entity.ToTable("tbs_special_bonus", "dbo");
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).HasColumnName("id");
-                entity.Property(e => e.UserId).HasColumnName("user_id");
-                entity.Property(e => e.Amount).HasColumnName("amount");
-                entity.Property(e => e.Reason).HasColumnName("reason");
-                entity.Property(e => e.Status).HasColumnName("status").HasDefaultValue("Pending");
-                entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("GETDATE()");
-                entity.Property(e => e.ApprovedAt).HasColumnName("approved_at");
-                entity.Property(e => e.ApprovedBy).HasColumnName("approved_by");
+                entity.Property(e => e.UserId).HasColumnName("UserId");
+                entity.Property(e => e.Amount).HasColumnName("Amount");
+                entity.Property(e => e.Reason).HasColumnName("Reason");
+                entity.Property(e => e.Status).HasColumnName("Status").HasDefaultValue("Pending");
+                entity.Property(e => e.CreatedAt).HasColumnName("CreatedAt").HasDefaultValueSql("GETDATE()");
+                entity.Property(e => e.ApprovedAt).HasColumnName("ApprovedAt");
+                entity.Property(e => e.ApprovedBy).HasColumnName("ApprovedBy");
                 entity.HasOne(e => e.User)
                       .WithMany()
                       .HasForeignKey(e => e.UserId)
@@ -271,12 +308,12 @@ namespace eTPL.API.Data
                 entity.ToTable("tbs_notifications", "dbo");
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).HasColumnName("id");
-                entity.Property(e => e.UserId).HasColumnName("user_id");
-                entity.Property(e => e.Title).HasColumnName("title");
-                entity.Property(e => e.Message).HasColumnName("message");
-                entity.Property(e => e.TargetUrl).HasColumnName("target_url");
-                entity.Property(e => e.IsRead).HasColumnName("is_read");
-                entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+                entity.Property(e => e.UserId).HasColumnName("UserId");
+                entity.Property(e => e.Title).HasColumnName("Title");
+                entity.Property(e => e.Message).HasColumnName("Message");
+                entity.Property(e => e.TargetUrl).HasColumnName("TargetUrl");
+                entity.Property(e => e.IsRead).HasColumnName("IsRead");
+                entity.Property(e => e.CreatedAt).HasColumnName("CreatedAt");
                 entity.HasOne(e => e.User).WithMany()
                     .HasForeignKey(e => e.UserId)
                     .HasPrincipalKey(e => e.Id)
@@ -302,6 +339,12 @@ namespace eTPL.API.Data
             modelBuilder.Entity<TbsPrizeSetting>(entity =>
             {
                 entity.ToTable("tbs_prize_setting", "dbo");
+                entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<NotificationTemplate>(entity =>
+            {
+                entity.ToTable("tbs_notification_template", "dbo");
                 entity.HasKey(e => e.Id);
             });
 

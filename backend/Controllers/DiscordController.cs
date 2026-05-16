@@ -36,16 +36,16 @@ namespace eTPL.API.Controllers
             await _discordService.SendMatchResultAsync("แจ้งผลการแข่งขัน D1 : FC Barcelona 2 - 0 Real Madrid \n\nGoal by R. Lewandowski (2)");
             
             // 2. Auction Confirm (Light Red + Lewan)
-            await _discordService.SendAuctionConfirmAsync("R. Lewandowski", "FC Barcelona", 6500, "40240");
+            await _discordService.SendAuctionConfirmAsync("R. Lewandowski", "FC Barcelona (laporta_id)", 6500, "40240");
             
             // 3. Transfer (Orange + Lewan)
-            await _discordService.SendTransferAsync("R. Lewandowski", "Bayern Munchen", "FC Barcelona", 7000, isLoan: false, pesPlayerId: "40240");
+            await _discordService.SendTransferAsync("R. Lewandowski", "Bayern Munchen (kahn_id)", "FC Barcelona (laporta_id)", 7000, isLoan: false, pesPlayerId: "40240");
             
             // 4. Loan (Purple + Lewan)
-            await _discordService.SendTransferAsync("R. Lewandowski", "FC Barcelona", "Dortmund", 1500, isLoan: true, pesPlayerId: "40240");
+            await _discordService.SendTransferAsync("R. Lewandowski", "FC Barcelona (laporta_id)", "Dortmund (watzke_id)", 1500, isLoan: true, pesPlayerId: "40240");
             
             // 5. Market Update (Yellow + Lewan)
-            await _discordService.SendPlayerListedAsync("R. Lewandowski", "FC Barcelona", 6000, "40240");
+            await _discordService.SendPlayerListedAsync("R. Lewandowski", "FC Barcelona (laporta_id)", 6000, "40240");
             
             // 6. News (Pink)
             await _discordService.SendNewsAnnouncementAsync("BREAKING NEWS: Lewandowski ย้ายซบบาร์ซ่าทางการ! แฟนบอลแห่ต้อนรับคับคั่ง");

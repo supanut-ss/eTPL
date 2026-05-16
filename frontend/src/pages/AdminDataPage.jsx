@@ -118,12 +118,25 @@ const AdminDataPage = () => {
   const [newQa, setNewQa] = useState({ question: "", answer: "" });
   const [addingQa, setAddingQa] = useState(false);
 
+  // Notification Template State
+  const [templates, setTemplates] = useState([]);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [templateData, setTemplateData] = useState({
+    category: "AUCTION_CONFIRM",
+    templateText: "",
+    targetPlatform: "DISCORD",
+    isActive: true
+  });
+  const [savingTemplate, setSavingTemplate] = useState(false);
+
 
   // --- Effects ---
   useEffect(() => {
     fetchUsers();
     fetchBonuses();
     fetchQa();
+    fetchTemplates();
   }, []);
 
   useEffect(() => {
@@ -272,6 +285,62 @@ const AdminDataPage = () => {
     } catch (err) {
       enqueueSnackbar("Failed to delete", { variant: "error" });
     }
+  };
+
+  const fetchTemplates = async () => {
+    try {
+      const res = await adminService.getNotificationTemplates();
+      setTemplates(res.data || []);
+    } catch (err) {
+      console.error("Failed to fetch templates", err);
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!templateData.templateText) {
+      enqueueSnackbar("Please enter template text", { variant: "warning" });
+      return;
+    }
+    try {
+      setSavingTemplate(true);
+      if (editingTemplate) {
+        await adminService.updateNotificationTemplate(editingTemplate.id, templateData);
+        enqueueSnackbar("Template updated!", { variant: "success" });
+      } else {
+        await adminService.addNotificationTemplate(templateData);
+        enqueueSnackbar("Template added!", { variant: "success" });
+      }
+      setTemplateModalOpen(false);
+      setEditingTemplate(null);
+      setTemplateData({ category: "AUCTION_CONFIRM", templateText: "", targetPlatform: "DISCORD", isActive: true });
+      fetchTemplates();
+    } catch (err) {
+      enqueueSnackbar("Failed to save template", { variant: "error" });
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (id) => {
+    if (!window.confirm("Delete this template?")) return;
+    try {
+      await adminService.deleteNotificationTemplate(id);
+      enqueueSnackbar("Template deleted", { variant: "info" });
+      fetchTemplates();
+    } catch (err) {
+      enqueueSnackbar("Failed to delete template", { variant: "error" });
+    }
+  };
+
+  const handleEditTemplate = (template) => {
+    setEditingTemplate(template);
+    setTemplateData({
+      category: template.category,
+      templateText: template.templateText,
+      targetPlatform: template.targetPlatform,
+      isActive: template.isActive
+    });
+    setTemplateModalOpen(true);
   };
 
   const handleScrape = async () => {
@@ -704,6 +773,57 @@ const AdminDataPage = () => {
             </Table>
           </TableContainer>
         </Paper>
+
+        {/* Notification Templates Section */}
+        <Paper elevation={2} sx={{ p: 4, borderRadius: 3, border: "1px solid", borderColor: "divider", width: '100%' }}>
+          <Box display="flex" justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} flexDirection={{ xs: 'column', sm: 'row' }} gap={{ xs: 2, sm: 0 }} mb={3}>
+            <Box display="flex" alignItems="center" gap={1.5}>
+              <Public color="primary" sx={{ fontSize: 28 }} />
+              <Box>
+                <Typography variant="h6" fontWeight="bold">Notification Headlines</Typography>
+                <Typography variant="caption" color="text.secondary">MANAGE RANDOMIZED HEADLINES FOR DISCORD & LIVE FEED</Typography>
+              </Box>
+            </Box>
+            <Button fullWidth={isMobile} variant="contained" startIcon={<PersonAdd />} onClick={() => { setEditingTemplate(null); setTemplateData({ category: "AUCTION_CONFIRM", templateText: "", targetPlatform: "DISCORD", isActive: true }); setTemplateModalOpen(true); }} sx={{ borderRadius: 2, textTransform: 'none', px: 4, bgcolor: '#0f172a', "&:hover": { bgcolor: '#1e293b' } }}>Add New Template</Button>
+          </Box>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, maxHeight: '500px', overflowY: 'auto', overflowX: 'auto' }}>
+            <Table size="small" stickyHeader>
+              <TableHead sx={{ bgcolor: 'rgba(0,0,0,0.02)' }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Category</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Platform</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Template Text</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '80px' }} align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(!templates || templates.length === 0) ? (
+                  <TableRow><TableCell colSpan={4} align="center" sx={{ py: 4 }}>No templates configured</TableCell></TableRow>
+                ) : templates.map((t) => (
+                  <TableRow key={t?.id || Math.random()} hover>
+                    <TableCell>
+                      <Chip label={t.category} size="small" variant="outlined" sx={{ fontWeight: 'bold', fontSize: '0.65rem' }} />
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={t.targetPlatform} size="small" color={t.targetPlatform === 'DISCORD' ? 'primary' : 'secondary'} sx={{ fontWeight: 'bold', fontSize: '0.65rem' }} />
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.85rem' }}>{t.templateText}</TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        <IconButton size="small" color="primary" onClick={() => handleEditTemplate(t)}>
+                          <ManageHistory fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" color="error" onClick={() => handleDeleteTemplate(t.id)}>
+                          <Close fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
       </Stack>
 
       <Dialog open={bonusModalOpen} onClose={() => setBonusModalOpen(false)} fullWidth maxWidth="sm" fullScreen={isMobile}>
@@ -767,6 +887,55 @@ const AdminDataPage = () => {
         <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
           <Button onClick={() => setQaModalOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleAddQa} disabled={addingQa} sx={{ bgcolor: '#0f172a', "&:hover": { bgcolor: '#1e293b' } }}>{addingQa ? "Adding..." : "Save Response"}</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={templateModalOpen} onClose={() => setTemplateModalOpen(false)} fullWidth maxWidth="sm" fullScreen={isMobile}>
+        <DialogTitle sx={{ fontWeight: 'bold', borderBottom: '1px solid #eee' }}>
+          {editingTemplate ? "Edit Template" : "Add New Template"}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Category</InputLabel>
+                <Select value={templateData.category} label="Category" onChange={(e) => setTemplateData(p => ({ ...p, category: e.target.value }))}>
+                  <MenuItem value="AUCTION_CONFIRM">AUCTION_CONFIRM</MenuItem>
+                  <MenuItem value="TRANSFER">TRANSFER</MenuItem>
+                  <MenuItem value="LOAN">LOAN</MenuItem>
+                  <MenuItem value="MARKET_LISTED">MARKET_LISTED</MenuItem>
+                  <MenuItem value="MATCH_DRAW">MATCH_DRAW</MenuItem>
+                  <MenuItem value="MATCH_WIN_CLOSE">MATCH_WIN_CLOSE</MenuItem>
+                  <MenuItem value="MATCH_WIN_CRUSHING">MATCH_WIN_CRUSHING</MenuItem>
+                  <MenuItem value="MARKET_ACTIVITY">MARKET_ACTIVITY</MenuItem>
+                  <MenuItem value="DEAL_ACTIVITY">DEAL_ACTIVITY</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel>Platform</InputLabel>
+                <Select value={templateData.targetPlatform} label="Platform" onChange={(e) => setTemplateData(p => ({ ...p, targetPlatform: e.target.value }))}>
+                  <MenuItem value="DISCORD">DISCORD</MenuItem>
+                  <MenuItem value="LIVE_FEED">LIVE_FEED</MenuItem>
+                  <MenuItem value="BOTH">BOTH</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+            <TextField fullWidth label="Template Text" multiline rows={4} size="small" value={templateData.templateText} onChange={(e) => setTemplateData(p => ({ ...p, templateText: e.target.value }))} placeholder="e.g. {team} ปิดดีลคว้า {player} ร่วมทัพ!" />
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>AVAILABLE PLACEHOLDERS:</Typography>
+              <Typography variant="caption" display="block" color="text.disabled">
+                • {`{player}, {team}, {price}, {from}, {to}`} (for Transfer/Auction)<br />
+                • {`{home}, {away}, {hScore}, {aScore}, {winner}, {loser}, {wScore}, {lScore}`} (for Match Results)<br />
+                • {`{manager}, {player}`} (for Market Activity)
+              </Typography>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
+          <Button onClick={() => setTemplateModalOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSaveTemplate} disabled={savingTemplate} sx={{ bgcolor: '#0f172a', "&:hover": { bgcolor: '#1e293b' } }}>
+            {savingTemplate ? "Saving..." : "Save Template"}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
