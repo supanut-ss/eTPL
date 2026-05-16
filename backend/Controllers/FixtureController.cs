@@ -7,8 +7,8 @@ using eTPL.API.Data;
 using eTPL.API.Models.DTOs;
 using eTPL.API.Models.Scaffolded;
 using eTPL.API.Services.Interfaces;
+using eTPL.API.Models.Auction;
 
-using eTPL.API.Models;
 namespace eTPL.API.Controllers
 {
     [Route("api/fixtures")]
@@ -472,6 +472,50 @@ namespace eTPL.API.Controllers
                 System.Diagnostics.Debug.WriteLine(ex.Message);
             }
 
+            // Award Bonus TP if users have checked in today
+            try
+            {
+                var nowIct = DateTime.UtcNow.AddHours(7);
+                var todayIct = nowIct.Date;
+
+                // Home User
+                var homeUser = await _db.Users.FirstOrDefaultAsync(u => u.UserId == fixture.Home);
+                if (homeUser != null)
+                {
+                    var hasCheckin = await _db.DailyCheckins.AnyAsync(c => c.UserId == homeUser.UserId && c.CheckinDate == todayIct);
+                    if (hasCheckin)
+                    {
+                        await _auctionService.GiveBonusAsync(0, new GiveBonusRequest
+                        {
+                            TargetUserId = homeUser.Id,
+                            Amount = 1,
+                            Reason = $"Match Bonus (Match #{fixture.Match}) - Daily Check-in verified"
+                        });
+                    }
+                }
+
+                // Away User
+                var awayUser = await _db.Users.FirstOrDefaultAsync(u => u.UserId == fixture.Away);
+                if (awayUser != null)
+                {
+                    var hasCheckin = await _db.DailyCheckins.AnyAsync(c => c.UserId == awayUser.UserId && c.CheckinDate == todayIct);
+                    if (hasCheckin)
+                    {
+                        await _auctionService.GiveBonusAsync(0, new GiveBonusRequest
+                        {
+                            TargetUserId = awayUser.Id,
+                            Amount = 1,
+                            Reason = $"Match Bonus (Match #{fixture.Match}) - Daily Check-in verified"
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Silently fail bonus if error occurs to not break result reporting
+                System.Diagnostics.Debug.WriteLine($"Bonus Error: {ex.Message}");
+            }
+
             return Ok(ApiResponse<object>.Ok(new { message = "บันทึกผลสำเร็จ" }));
         }
 
@@ -927,5 +971,3 @@ namespace eTPL.API.Controllers
         }
     }
 }
-
-

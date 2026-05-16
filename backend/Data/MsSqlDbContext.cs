@@ -78,6 +78,7 @@ namespace eTPL.API.Data
                 entity.Property(e => e.LinePic).HasColumnName("line_pic").HasMaxLength(500);
                 entity.Property(e => e.LineName).HasColumnName("line_name").HasMaxLength(200);
                 entity.Property(e => e.CurrentTeam).HasColumnName("current_team").HasMaxLength(100);
+                entity.Property(e => e.TeamNickname).HasColumnName("team_nickname").HasMaxLength(100);
             });
 
             modelBuilder.Entity<Permission>(entity =>

@@ -37,6 +37,7 @@ const defaultForm = {
   linePic: "",
   lineName: "",
   currentTeam: "",
+  teamNickname: "",
 };
 
 const UserMasterPage = () => {
@@ -104,6 +105,7 @@ const UserMasterPage = () => {
       linePic: row.linePic || "",
       lineName: row.lineName || "",
       currentTeam: row.currentTeam || "",
+      teamNickname: row.teamNickname || "",
     });
     setErrors({});
     setDialogOpen(true);
@@ -237,6 +239,16 @@ const UserMasterPage = () => {
             {params.value || "No Team"}
           </Typography>
         </Box>
+      )
+    },
+    {
+      field: "teamNickname",
+      headerName: "Team Nickname",
+      width: 150,
+      renderCell: (params) => (
+        <Typography variant="body2" color={params.value ? "text.primary" : "text.disabled"}>
+          {params.value || "—"}
+        </Typography>
       )
     },
     {
@@ -464,6 +476,13 @@ const UserMasterPage = () => {
               onChange={(e) => setForm({ ...form, currentTeam: e.target.value })}
               fullWidth
               helperText="Assign user to a club"
+            />
+            <TextField
+              label="Team Nickname"
+              value={form.teamNickname}
+              onChange={(e) => setForm({ ...form, teamNickname: e.target.value })}
+              fullWidth
+              helperText="Nickname or short name for the team"
             />
             <Divider textAlign="left">
               <Typography variant="caption" color="text.secondary">

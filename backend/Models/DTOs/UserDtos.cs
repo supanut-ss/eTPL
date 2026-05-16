@@ -21,6 +21,7 @@ namespace eTPL.API.Models.DTOs
         public string? LinePic { get; set; }
         public string? LineName { get; set; }
         public string? CurrentTeam { get; set; }
+        public string? TeamNickname { get; set; }
     }
 
     public class CreateUserRequest
@@ -32,6 +33,7 @@ namespace eTPL.API.Models.DTOs
         public string? LinePic { get; set; }
         public string? LineName { get; set; }
         public string? CurrentTeam { get; set; }
+        public string? TeamNickname { get; set; }
     }
     
     public class UpdateUserRequest
@@ -42,6 +44,7 @@ namespace eTPL.API.Models.DTOs
         public string? LinePic { get; set; }
         public string? LineName { get; set; }
         public string? CurrentTeam { get; set; }
+        public string? TeamNickname { get; set; }
     }
 
     public class LineLoginRequest

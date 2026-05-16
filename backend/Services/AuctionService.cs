@@ -2605,6 +2605,9 @@ namespace eTPL.API.Services
                     _context.AuctionBidLogs.RemoveRange(_context.AuctionBidLogs);
                     _context.AuctionBoards.RemoveRange(_context.AuctionBoards);
                     _context.TransferOffers.RemoveRange(_context.TransferOffers);
+                    _context.SpecialBonuses.RemoveRange(_context.SpecialBonuses);
+                    _context.DailyCheckins.RemoveRange(_context.DailyCheckins);
+                    _context.Notifications.RemoveRange(_context.Notifications);
 
                     await _context.SaveChangesAsync();
 

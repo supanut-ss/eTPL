@@ -887,6 +887,22 @@ const PitchViewPage = () => {
                   <Typography variant="h6" fontWeight="1000" sx={{ color: 'white', lineHeight: 1, letterSpacing: '-0.02em', fontSize: '1.15rem' }}>
                     {teamName}
                   </Typography>
+                  {userProfile?.teamNickname && (
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        color: 'rgba(255,255,255,0.8)', 
+                        fontWeight: '800', 
+                        fontSize: '0.7rem', 
+                        display: 'block', 
+                        mt: 0.5,
+                        textTransform: 'uppercase',
+                        letterSpacing: 1
+                      }}
+                    >
+                      {userProfile.teamNickname}
+                    </Typography>
+                  )}
                 </Box>
               </Box>
 

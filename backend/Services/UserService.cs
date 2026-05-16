@@ -31,7 +31,7 @@ namespace eTPL.API.Services
 
         public async Task<UserDto?> GetByUserIdAsync(string userId)
         {
-            var user = await _db.Users.FindAsync(userId);
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId);
             return user == null ? null : ToDto(user);
         }
 
@@ -46,6 +46,7 @@ namespace eTPL.API.Services
                 LinePic = request.LinePic,
                 LineName = request.LineName,
                 CurrentTeam = request.CurrentTeam,
+                TeamNickname = request.TeamNickname,
             };
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
@@ -60,7 +61,7 @@ namespace eTPL.API.Services
 
         public async Task<UserDto?> UpdateByUserIdAsync(string userId, UpdateUserRequest request)
         {
-            var user = await _db.Users.FindAsync(userId);
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId);
             if (user == null) return null;
 
             user.UserLevel = request.UserLevel;
@@ -68,6 +69,7 @@ namespace eTPL.API.Services
             user.LinePic = request.LinePic;
             user.LineName = request.LineName;
             user.CurrentTeam = request.CurrentTeam;
+            user.TeamNickname = request.TeamNickname;
 
             if (!string.IsNullOrWhiteSpace(request.Password))
                 user.Password = request.Password;
@@ -170,7 +172,7 @@ namespace eTPL.API.Services
 
         public async Task<bool> ChangePasswordAsync(string userId, ChangePasswordRequest request)
         {
-            var user = await _db.Users.FindAsync(userId);
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId);
             if (user == null) return false;
 
             // Verify current password
@@ -192,6 +194,7 @@ namespace eTPL.API.Services
             LinePic = u.LinePic,
             LineName = u.LineName,
             CurrentTeam = u.CurrentTeam,
+            TeamNickname = u.TeamNickname,
         };
     }
 }

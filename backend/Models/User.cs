@@ -10,5 +10,6 @@ namespace eTPL.API.Models
         public string? LinePic { get; set; }                   // line_pic
         public string? LineName { get; set; }                  // line_name
         public string? CurrentTeam { get; set; }               // current_team
+        public string? TeamNickname { get; set; }              // team_nickname
     }
 }

@@ -431,6 +431,9 @@ const AdminAuctionPage = () => {
             <li>All transaction history (Transactions) will be cleared</li>
             <li>All auction history and biddings will be cleared</li>
             <li>All transfer offers will be cleared</li>
+            <li>All special bonuses will be cleared</li>
+            <li>All daily check-in records will be cleared</li>
+            <li>All user notifications will be cleared</li>
           </ul>
           <Typography variant="body2" sx={{ mt: 2, fontStyle: 'italic', color: 'text.secondary' }}>
             * Grade Quotas and Market Settings will remain unchanged.
