@@ -31,6 +31,7 @@ namespace eTPL.API.Data
         public DbSet<JudgeHistory> JudgeHistories { get; set; }
         public DbSet<QaInformation> QaInformation { get; set; }
         public DbSet<NotificationTemplate> NotificationTemplates { get; set; }
+        public DbSet<ClubLogo> ClubLogos { get; set; }
 
         // --- Legacy / Scaffolded Models ---
         public virtual DbSet<ApiVFixtureAll> ApiVFixtureAlls { get; set; }

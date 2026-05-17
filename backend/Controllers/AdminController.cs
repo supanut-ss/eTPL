@@ -227,6 +227,23 @@ namespace eTPL.API.Controllers
             }
         }
 
+        [HttpGet("club-logos")]
+        public async Task<IActionResult> GetClubLogos()
+        {
+            try
+            {
+                var logos = await _context.ClubLogos
+                    .OrderBy(l => l.LogoName)
+                    .Select(l => l.LogoName)
+                    .ToListAsync();
+                return Ok(logos);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error fetching club logos: " + ex.Message });
+            }
+        }
+
 
         [HttpGet("quota-summary")]
         public async Task<IActionResult> GetQuotaSummary()

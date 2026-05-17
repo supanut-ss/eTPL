@@ -23,9 +23,6 @@ namespace eTPL.API.Controllers
         [HttpGet("suarez")]
         public async Task<IActionResult> CheckSuarez()
         {
-            var count = await _db.Database.ExecuteSqlRawAsync("SELECT COUNT(*) FROM pes_player_team"); // This won't work for return value, use FromSqlRaw or similar
-            
-            // Better:
             var players = await _db.PesPlayerTeams
                 .Where(p => p.PlayerName.ToLower().Contains("suar"))
                 .ToListAsync();

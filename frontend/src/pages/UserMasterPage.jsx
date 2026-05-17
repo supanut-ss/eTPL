@@ -23,10 +23,10 @@ import {
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import { Add, Edit, Delete, Refresh, Person, ManageAccounts, Badge, Visibility, VisibilityOff } from "@mui/icons-material";
-import { getUsers, createUser, updateUser, deleteUser } from "../api/userApi";
+import { getUsers, createUser, updateUser, deleteUser, getClubLogos } from "../api/userApi";
 import { useAuth } from "../store/AuthContext";
 import auctionService from "../services/auctionService";
-import { InputAdornment } from "@mui/material";
+import { InputAdornment, Autocomplete } from "@mui/material";
 
 const LEVELS = ["admin", "moderator", "user"];
 const defaultForm = {
@@ -54,6 +54,7 @@ const UserMasterPage = () => {
   const [form, setForm] = useState(defaultForm);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [clubLogos, setClubLogos] = useState([]);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -79,11 +80,37 @@ const UserMasterPage = () => {
     fetchUsers();
   }, [fetchUsers]);
 
+  useEffect(() => {
+    const loadLogos = async () => {
+      try {
+        const res = await getClubLogos();
+        setClubLogos(res.data || []);
+      } catch (err) {
+        console.error("Failed to load club logos", err);
+      }
+    };
+    loadLogos();
+  }, []);
+
   const validate = () => {
     const e = {};
     if (!editTarget && !form.userId.trim()) e.userId = "Please enter User ID";
     if (!editTarget && !form.password.trim())
       e.password = "Please enter password";
+
+    // Validate currentTeam uniqueness
+    const teamVal = form.currentTeam?.trim();
+    if (teamVal && teamVal.toLowerCase() !== "no team" && teamVal !== "—") {
+      const isDuplicate = rows.some((row) => {
+        // If editing, skip the current user being edited
+        if (editTarget && row.userId === editTarget.userId) return false;
+        return row.currentTeam?.trim().toLowerCase() === teamVal.toLowerCase();
+      });
+      if (isDuplicate) {
+        e.currentTeam = "สโมสรนี้ถูกใช้งานโดยสมาชิกท่านอื่นแล้ว!";
+      }
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -470,12 +497,24 @@ const UserMasterPage = () => {
                 </MenuItem>
               ))}
             </TextField>
-            <TextField
-              label="Current Team"
-              value={form.currentTeam}
-              onChange={(e) => setForm({ ...form, currentTeam: e.target.value })}
+            <Autocomplete
+              options={clubLogos}
+              value={form.currentTeam || null}
+              onChange={(event, newValue) => {
+                setForm({ ...form, currentTeam: newValue || "" });
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Current Team"
+                  helperText={errors.currentTeam || "Search and select a club logo"}
+                  placeholder="Type to search..."
+                  error={!!errors.currentTeam}
+                />
+              )}
+              isOptionEqualToValue={(option, value) => option === value}
               fullWidth
-              helperText="Assign user to a club"
+              freeSolo
             />
             <TextField
               label="Team Nickname"

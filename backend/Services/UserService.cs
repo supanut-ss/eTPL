@@ -37,6 +37,17 @@ namespace eTPL.API.Services
 
         public async Task<UserDto> CreateAsync(CreateUserRequest request)
         {
+            if (!string.IsNullOrWhiteSpace(request.CurrentTeam) && 
+                request.CurrentTeam.Trim().ToLower() != "no team" && 
+                request.CurrentTeam.Trim() != "—")
+            {
+                var teamExists = await _db.Users.AnyAsync(u => u.CurrentTeam == request.CurrentTeam);
+                if (teamExists)
+                {
+                    throw new InvalidOperationException($"สโมสร {request.CurrentTeam} ถูกใช้งานโดยสมาชิกท่านอื่นแล้ว");
+                }
+            }
+
             var user = new User
             {
                 UserId = request.UserId,
@@ -63,6 +74,17 @@ namespace eTPL.API.Services
         {
             var user = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId);
             if (user == null) return null;
+
+            if (!string.IsNullOrWhiteSpace(request.CurrentTeam) && 
+                request.CurrentTeam.Trim().ToLower() != "no team" && 
+                request.CurrentTeam.Trim() != "—")
+            {
+                var teamExists = await _db.Users.AnyAsync(u => u.CurrentTeam == request.CurrentTeam && u.UserId != userId);
+                if (teamExists)
+                {
+                    throw new InvalidOperationException($"สโมสร {request.CurrentTeam} ถูกใช้งานโดยสมาชิกท่านอื่นแล้ว");
+                }
+            }
 
             user.UserLevel = request.UserLevel;
             user.LineId = request.LineId;

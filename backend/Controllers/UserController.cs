@@ -87,18 +87,32 @@ namespace eTPL.API.Controllers
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
         {
-            var user = await _userService.CreateAsync(request);
-            return CreatedAtAction(nameof(GetByUserId), new { userId = user.UserId },
-                ApiResponse<UserDto>.Ok(user, "เพิ่มผู้ใช้สำเร็จ"));
+            try
+            {
+                var user = await _userService.CreateAsync(request);
+                return CreatedAtAction(nameof(GetByUserId), new { userId = user.UserId },
+                    ApiResponse<UserDto>.Ok(user, "เพิ่มผู้ใช้สำเร็จ"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<string>.Fail(ex.Message));
+            }
         }
 
         [HttpPut("{userId}")]
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Update(string userId, [FromBody] UpdateUserRequest request)
         {
-            var user = await _userService.UpdateByUserIdAsync(userId, request);
-            if (user == null) return NotFound(ApiResponse<string>.Fail("ไม่พบผู้ใช้"));
-            return Ok(ApiResponse<UserDto>.Ok(user, "แก้ไขผู้ใช้สำเร็จ"));
+            try
+            {
+                var user = await _userService.UpdateByUserIdAsync(userId, request);
+                if (user == null) return NotFound(ApiResponse<string>.Fail("ไม่พบผู้ใช้"));
+                return Ok(ApiResponse<UserDto>.Ok(user, "แก้ไขผู้ใช้สำเร็จ"));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<string>.Fail(ex.Message));
+            }
         }
 
         [HttpDelete("{userId}")]

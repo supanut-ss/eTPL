@@ -28,6 +28,7 @@ import {
   CircularProgress,
   useMediaQuery,
   useTheme,
+  Autocomplete,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { Gavel, Refresh, Search, SearchOff, SportsSoccer, AccountBalanceWallet, Groups, HelpOutline, Campaign, History, Timer, EmojiEvents, ArrowBack, Close } from "@mui/icons-material";
@@ -1027,66 +1028,85 @@ const AuctionPage = () => {
                   {/* Row 1: League & Team */}
                   <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: '1 1 40%', minWidth: 250 }}>
-                      <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
-                        <InputLabel>League</InputLabel>
-                        <Select value={filterLeague} label="League" onChange={(e) => setFilterLeague(e.target.value)}>
-                          <MenuItem value="">Any</MenuItem>
-                          {filterOptions.leagues?.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
-                        </Select>
-                      </FormControl>
+                      <Autocomplete
+                        options={filterOptions.leagues || []}
+                        value={filterLeague || null}
+                        onChange={(event, newValue) => setFilterLeague(newValue || "")}
+                        renderInput={(params) => (
+                          <TextField {...params} label="League" size="small" sx={{ bgcolor: 'white' }} />
+                        )}
+                        isOptionEqualToValue={(option, value) => option === value}
+                        fullWidth
+                      />
                     </Box>
                     <Box sx={{ flex: '1 1 40%', minWidth: 250 }}>
-                      <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
-                        <InputLabel>Team Name</InputLabel>
-                        <Select value={filterTeam} label="Team Name" onChange={(e) => setFilterTeam(e.target.value)}>
-                          <MenuItem value="">Any</MenuItem>
-                          {filterOptions.teams?.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
-                        </Select>
-                      </FormControl>
+                      <Autocomplete
+                        options={filterOptions.teams || []}
+                        value={filterTeam || null}
+                        onChange={(event, newValue) => setFilterTeam(newValue || "")}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Team Name" size="small" sx={{ bgcolor: 'white' }} />
+                        )}
+                        isOptionEqualToValue={(option, value) => option === value}
+                        fullWidth
+                      />
                     </Box>
                   </Box>
 
                   {/* Row 2: Nationality, Style, Position, Foot */}
                   <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: '1 1 45%', minWidth: 250 }}>
-                      <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
-                        <InputLabel>Nationality</InputLabel>
-                        <Select value={filterNationality} label="Nationality" onChange={(e) => setFilterNationality(e.target.value)}>
-                          <MenuItem value="">Any</MenuItem>
-                          {filterOptions.nationalities?.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
-                        </Select>
-                      </FormControl>
+                      <Autocomplete
+                        options={filterOptions.nationalities || []}
+                        value={filterNationality || null}
+                        onChange={(event, newValue) => setFilterNationality(newValue || "")}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Nationality" size="small" sx={{ bgcolor: 'white' }} />
+                        )}
+                        isOptionEqualToValue={(option, value) => option === value}
+                        fullWidth
+                      />
                     </Box>
                     <Box sx={{ flex: '1 1 45%', minWidth: 250 }}>
-                      <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
-                        <InputLabel>Playing Style</InputLabel>
-                        <Select value={filterPlayingStyle} label="Playing Style" onChange={(e) => setFilterPlayingStyle(e.target.value)}>
-                          <MenuItem value="">Any</MenuItem>
-                          {filterOptions.playingStyles?.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
-                        </Select>
-                      </FormControl>
+                      <Autocomplete
+                        options={filterOptions.playingStyles || []}
+                        value={filterPlayingStyle || null}
+                        onChange={(event, newValue) => setFilterPlayingStyle(newValue || "")}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Playing Style" size="small" sx={{ bgcolor: 'white' }} />
+                        )}
+                        isOptionEqualToValue={(option, value) => option === value}
+                        fullWidth
+                      />
                     </Box>
                   </Box>
 
                   {/* Row 3: Position, Foot, Age */}
                   <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <Box sx={{ flex: '1 1 120px', minWidth: 100 }}>
-                      <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
-                        <InputLabel>Pos</InputLabel>
-                        <Select value={filterPosition} label="Pos" onChange={(e) => setFilterPosition(e.target.value)}>
-                          <MenuItem value="">Any</MenuItem>
-                          {filterOptions.positions?.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
-                        </Select>
-                      </FormControl>
+                      <Autocomplete
+                        options={filterOptions.positions || []}
+                        value={filterPosition || null}
+                        onChange={(event, newValue) => setFilterPosition(newValue || "")}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Pos" size="small" sx={{ bgcolor: 'white' }} />
+                        )}
+                        isOptionEqualToValue={(option, value) => option === value}
+                        fullWidth
+                      />
                     </Box>
                     <Box sx={{ flex: '1 1 120px', minWidth: 100 }}>
-                      <FormControl size="small" fullWidth sx={{ bgcolor: 'white' }}>
-                        <InputLabel>Foot</InputLabel>
-                        <Select value={filterFoot} label="Foot" onChange={(e) => setFilterFoot(e.target.value)}>
-                          <MenuItem value="">Any</MenuItem>
-                          {filterOptions.feet?.map(opt => <MenuItem key={opt} value={opt}>{opt.replace(' foot', '')}</MenuItem>)}
-                        </Select>
-                      </FormControl>
+                      <Autocomplete
+                        options={filterOptions.feet || []}
+                        value={filterFoot || null}
+                        getOptionLabel={(option) => option ? option.replace(' foot', '') : ""}
+                        onChange={(event, newValue) => setFilterFoot(newValue || "")}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Foot" size="small" sx={{ bgcolor: 'white' }} />
+                        )}
+                        isOptionEqualToValue={(option, value) => option === value}
+                        fullWidth
+                      />
                     </Box>
                     <Box sx={{ flex: '1 1 120px', minWidth: 100 }}>
                       <TextField

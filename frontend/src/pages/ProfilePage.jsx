@@ -335,7 +335,7 @@ const ProfilePage = () => {
   const themes = {
     admin: { primary: "#fbbf24", secondary: "#fbbf24", accent: "#fbbf24", bg: "linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)", glow: "rgba(251, 191, 36, 0.4)", label: "ELITE ADMIN" },
     mod: { primary: "#818cf8", secondary: "#818cf8", accent: "#818cf8", bg: "linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)", glow: "rgba(129, 140, 248, 0.3)", label: "COMMUNITY MOD" },
-    default: { primary: "#60a5fa", secondary: "#60a5fa", accent: "#60a5fa", bg: "linear-gradient(135deg, #0f172a 0%, #020617 100%)", glow: "rgba(96, 165, 250, 0.2)", label: "OFFICIAL MANAGER" }
+    default: { primary: "#60a5fa", secondary: "#60a5fa", accent: "#60a5fa", bg: "linear-gradient(135deg, #0f172a 0%, #020617 100%)", glow: "rgba(96, 165, 250, 0.2)", label: "PRO MANAGER" }
   };
   const currentTheme = isLevel("admin") ? themes.admin : (isLevel("mod") || isLevel("moderator") ? themes.mod : themes.default);
   const resolvedTeam = userProfile?.currentTeam || "Free Agent";
@@ -488,7 +488,7 @@ const ProfilePage = () => {
             <Box sx={{ mt: 'auto', mb: 4, width: '100%', px: 2, opacity: 0.6 }}>
               <Box sx={{ height: '1px', width: '40px', bgcolor: currentTheme.primary, mb: 1.5, mx: 'auto', opacity: 0.5 }} />
               <Typography sx={{ color: 'white', fontSize: '0.55rem', fontWeight: 900, letterSpacing: 1.5, textAlign: 'center', mb: 0.5 }}>
-                OFFICIALLY CERTIFIED BY
+                CERTIFIED BY
               </Typography>
               <Typography sx={{ color: currentTheme.primary, fontSize: '0.65rem', fontWeight: 950, letterSpacing: 2, textAlign: 'center' }}>
                 THAI PES LEAGUE
@@ -503,7 +503,7 @@ const ProfilePage = () => {
             <Box sx={{ textAlign: 'center', width: '100%', mb: 1 }}>
               <Box component="img" src="/logo-etpl.png" sx={{ width: 65, mb: 1, filter: 'brightness(1.5) drop-shadow(0 0 10px rgba(251,191,36,0.5))' }} />
               <Typography variant="caption" sx={{ color: currentTheme.primary, fontWeight: 900, letterSpacing: 3, fontSize: '0.45rem', display: 'block', textTransform: 'uppercase', opacity: 0.8 }}>
-                OFFICIAL ELITE PRO CARD
+                ELITE PRO CARD
               </Typography>
             </Box>
           </Box>

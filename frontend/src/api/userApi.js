@@ -10,3 +10,5 @@ export const deleteUser = (userId) =>
   axiosInstance.delete(`/api/users/${userId}`);
 export const changePassword = (data) =>
   axiosInstance.post("/api/users/change-password", data);
+
+export const getClubLogos = () => axiosInstance.get("/api/admin/club-logos");
