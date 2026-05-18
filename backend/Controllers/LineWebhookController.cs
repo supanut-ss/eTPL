@@ -78,6 +78,16 @@ namespace eTPL.API.Controllers
                 foreach (var @event in request.Events)
                 {
                     if (@event == null) continue;
+                    
+                    // Immediately skip dummy verification events to guarantee sub-millisecond response times
+                    if (string.IsNullOrEmpty(@event.ReplyToken) || 
+                        @event.ReplyToken.Equals("00000000000000000000000000000000", StringComparison.OrdinalIgnoreCase) || 
+                        @event.ReplyToken.Equals("ffffffffffffffffffffffffffffffff", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine("LINE Webhook: Ignoring dummy verification event.");
+                        continue;
+                    }
+
                     Console.WriteLine($"Incoming LINE Event: {@event.Type ?? "unknown"} (Token: {@event.ReplyToken ?? "none"})");
                     if (@event.Type == "message" && @event.Message?.Type == "text")
                     {
@@ -111,12 +121,6 @@ namespace eTPL.API.Controllers
 
             Console.WriteLine($"LINE Message from {lineUserId} (Source: {sourceType}): {userMessage}");
 
-            if (string.IsNullOrEmpty(lineUserId))
-            {
-                Console.WriteLine("Warning: lineUserId is null or empty. Cannot process command.");
-                return;
-            }
-
             // A. Check "มิยุ" prefix (Gemini AI Chat)
             if (userMessage.StartsWith("มิยุ", StringComparison.OrdinalIgnoreCase))
             {
@@ -143,6 +147,13 @@ namespace eTPL.API.Controllers
             // 1. Check "!ready" command
             if (userMessage.Equals("!ready", StringComparison.OrdinalIgnoreCase))
             {
+                if (string.IsNullOrEmpty(lineUserId))
+                {
+                    await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
+                        new { type = "text", text = "ไม่สามารถรายงานตัวได้ เนื่องจากบอตไม่สามารถเข้าถึง LINE ID ของคุณได้ (กรุณาเพิ่มเพื่อนกับแชทบอตก่อน)" } 
+                    });
+                    return;
+                }
                 await HandleCheckIn(lineUserId, replyToken);
                 return;
             }
