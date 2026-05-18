@@ -138,12 +138,18 @@ const MainPage = () => {
             const txDate = tx.createdAt || tx.CreatedAt || tx.createDate || tx.CreateDate || tx.date || tx.Date;
             const txType = tx.type || tx.Type || "";
             
-            // HIDE sensitive/secret items from Live Feed
+            // HIDE sensitive/secret items from Live Feed (including cash prizes/rewards)
             const secretTypes = ["AUCTION_BID", "AUCTION_REFUND", "CONTRACT_RENEWAL", "CONTRACT_RENEWAL_AUTO", "BONUS"];
-            if (secretTypes.includes(txType)) return;
+            const lowerDesc = rawDesc.toLowerCase();
+            if (
+              secretTypes.includes(txType) || 
+              txType.toUpperCase().includes("PRIZE") || 
+              lowerDesc.includes("รางวัล") || 
+              lowerDesc.includes("prize") || 
+              lowerDesc.includes("reward")
+            ) return;
 
             if (txDate) {
-              const lowerDesc = rawDesc.toLowerCase();
               const isDeal = txType.includes("WIN") || txType.includes("BUY") || txType.includes("SELL") || 
                              lowerDesc.includes("won") || lowerDesc.includes("ชนะ") || lowerDesc.includes("signed") || lowerDesc.includes("ปิดดีล");
 

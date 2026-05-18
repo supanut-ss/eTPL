@@ -2070,24 +2070,10 @@ namespace eTPL.API.Services
                                         $"รางวัลพิเศษ Top Scorer (หาร {winners.Count} ทีม: {team.Gf} Goals) (Season {currentSeason})",
                                         wallet.AvailableBalance);
 
-                                    // Add to HOF under "League Awards"
-                                    var topScorerHof = new eTPL.API.Models.Scaffolded.TbmHof
-                                    {
-                                        HofId = Guid.NewGuid().ToString(),
-                                        Platform = platform,
-                                        Season = $"Season {currentSeason - 22}",
-                                        TournamentTitle = "League Awards",
-                                        TournamentSubtitle = "Golden Boot · Top Scorer",
-                                        WinnerName = user.UserId,
-                                        WinnerTeam = team.TeamName,
-                                        WinnerImage = user.LinePic != null && user.LinePic.Length > 500 ? user.LinePic.Substring(0, 500) : user.LinePic,
-                                        DisplayColor = "#fbbf24"
-                                    };
-                                    _scaffoldedContext.TbmHofs.Add(topScorerHof);
-                                    hofIdsToProcess.Add(topScorerHof.HofId);
+                                    
                                 }
                             }
-                            logs.Add($"แจกรางวัลพิเศษ Top Scorer และบันทึก HOF สำเร็จ");
+                            logs.Add($"แจกรางวัลพิเศษ Top Scorer สำเร็จ");
                         }
                     }
 
@@ -2113,24 +2099,10 @@ namespace eTPL.API.Services
                                         $"รางวัลพิเศษ Best Defense (หาร {winners.Count} ทีม: {team.Ga} GA) (Season {currentSeason})",
                                         wallet.AvailableBalance);
 
-                                    // Add to HOF under "League Awards"
-                                    var bestDefHof = new eTPL.API.Models.Scaffolded.TbmHof
-                                    {
-                                        HofId = Guid.NewGuid().ToString(),
-                                        Platform = platform,
-                                        Season = $"Season {currentSeason - 22}",
-                                        TournamentTitle = "League Awards",
-                                        TournamentSubtitle = "Golden Glove · Best Defense",
-                                        WinnerName = user.UserId,
-                                        WinnerTeam = team.TeamName,
-                                        WinnerImage = user.LinePic != null && user.LinePic.Length > 500 ? user.LinePic.Substring(0, 500) : user.LinePic,
-                                        DisplayColor = "#fbbf24"
-                                    };
-                                    _scaffoldedContext.TbmHofs.Add(bestDefHof);
-                                    hofIdsToProcess.Add(bestDefHof.HofId);
+                                    
                                 }
                             }
-                            logs.Add($"แจกรางวัลพิเศษ Best Defense และบันทึก HOF สำเร็จ");
+                            logs.Add($"แจกรางวัลพิเศษ Best Defense สำเร็จ");
                         }
                     }
 
@@ -2269,11 +2241,7 @@ namespace eTPL.API.Services
                     // SEND DISCORD NOTIFICATION
                     _ = _discordService.SendSeasonEventAsync("SEASON CLOSED", $"ฤดูกาลที่ {currentSeason} ได้สิ้นสุดลงแล้ว! กำลังเตรียมการสำหรับฤดูกาลถัดไป...");
 
-                    // 9. Trigger AI Image Generation (Background)
-                    foreach (var id in hofIdsToProcess)
-                    {
-                        _ = Task.Run(() => _aiService.ProcessHofAiImageAsync(id));
-                    }
+
 
                     logs.Add($"บันทึกการเปลี่ยนแปลงทั้งหมดลงฐานข้อมูลเรียบร้อย");
 
@@ -2367,70 +2335,77 @@ namespace eTPL.API.Services
                         .Where(s => s.Status == "Active" && s.IsLoan == false)
                         .ToListAsync();
                     
-                    var quotas = await _context.AuctionGradeQuotas.ToListAsync();
-                    var users = await _context.Users.ToListAsync();
-                    var wallets = await _context.AuctionUserWallets.ToListAsync();
-
-                    var failedUsers = new List<string>();
-                    var renewalMap = new Dictionary<int, List<(AuctionSquad Squad, int Cost)>>();
-
-                    foreach (var squad in activeSquads)
+                    if (!activeSquads.Any())
                     {
-                        if (squad.Player == null) continue;
-                        var quota = quotas.FirstOrDefault(q => squad.Player.PlayerOvr >= q.MinOVR && squad.Player.PlayerOvr <= q.MaxOVR);
-                        if (quota == null) continue;
-
-                        int cost = squad.PricePaid * quota.RenewalPercent / 100;
-                        if (!renewalMap.ContainsKey(squad.UserId)) renewalMap[squad.UserId] = new List<(AuctionSquad, int)>();
-                        renewalMap[squad.UserId].Add((squad, cost));
+                        logs.Add("ไม่พบนักเตะที่ใช้งานในระบบ ข้ามขั้นตอนการต่อสัญญาอัตโนมัติ");
                     }
-
-                    foreach (var kvp in renewalMap)
+                    else
                     {
-                        int userId = kvp.Key;
-                        int totalCost = kvp.Value.Sum(x => x.Cost);
-                        var wallet = wallets.FirstOrDefault(w => w.UserId == userId);
-                        var user = users.FirstOrDefault(u => u.Id == userId);
+                        var quotas = await _context.AuctionGradeQuotas.ToListAsync();
+                        var users = await _context.Users.ToListAsync();
+                        var wallets = await _context.AuctionUserWallets.ToListAsync();
 
-                        if (wallet == null || wallet.AvailableBalance < totalCost)
+                        var failedUsers = new List<string>();
+                        var renewalMap = new Dictionary<int, List<(AuctionSquad Squad, int Cost)>>();
+
+                        foreach (var squad in activeSquads)
                         {
-                            failedUsers.Add(user?.UserId ?? $"User ID: {userId}");
+                            if (squad.Player == null) continue;
+                            var quota = quotas.FirstOrDefault(q => squad.Player.PlayerOvr >= q.MinOVR && squad.Player.PlayerOvr <= q.MaxOVR);
+                            if (quota == null) continue;
+
+                            int cost = squad.PricePaid * quota.RenewalPercent / 100;
+                            if (!renewalMap.ContainsKey(squad.UserId)) renewalMap[squad.UserId] = new List<(AuctionSquad, int)>();
+                            renewalMap[squad.UserId].Add((squad, cost));
                         }
-                    }
 
-                    if (failedUsers.Any())
-                    {
-                        logs.Add($"ตรวจสอบยอดเงินไม่ผ่าน: พบ {failedUsers.Count} ทีมที่มีเงินไม่พอ");
-                        return new SeasonTransitionResultDto
+                        foreach (var kvp in renewalMap)
                         {
-                            Success = false,
-                            Message = "ไม่สามารถเปิดฤดูกาลได้เนื่องจากมีทีมที่มีเงินไม่พอต่อสัญญานักเตะ",
-                            FailedUsers = failedUsers,
-                            Logs = logs
-                        };
-                    }
-                    logs.Add($"ตรวจสอบงบประมาณของทุกทีม ({renewalMap.Count} ทีม) ผ่านเรียบร้อย");
+                            int userId = kvp.Key;
+                            int totalCost = kvp.Value.Sum(x => x.Cost);
+                            var wallet = wallets.FirstOrDefault(w => w.UserId == userId);
+                            var user = users.FirstOrDefault(u => u.Id == userId);
 
-                    // 3. Apply Deductions & Increment SeasonsWithTeam
-                    int renewalCount = 0;
-                    
-                    foreach (var kvp in renewalMap)
-                    {
-                        int userId = kvp.Key;
-                        var wallet = wallets.First(w => w.UserId == userId);
-
-                        foreach (var item in kvp.Value)
-                        {
-                            wallet.AvailableBalance -= item.Cost;
-                            item.Squad.SeasonsWithTeam += 1;
-
-                            await RecordTransactionAsync(userId, item.Cost, "DEBIT", "CONTRACT_RENEWAL_AUTO",
-                                $"{renewalSearchTag}{item.Squad.Player?.PlayerName} {renewalSeasonTag} เพิ่มเป็น {item.Squad.SeasonsWithTeam} ปี",
-                                wallet.AvailableBalance, relatedPlayerId: item.Squad.PlayerId);
-                            renewalCount++;
+                            if (wallet == null || wallet.AvailableBalance < totalCost)
+                            {
+                                failedUsers.Add(user?.UserId ?? $"User ID: {userId}");
+                            }
                         }
+
+                        if (failedUsers.Any())
+                        {
+                            logs.Add($"ตรวจสอบยอดเงินไม่ผ่าน: พบ {failedUsers.Count} ทีมที่มีเงินไม่พอ");
+                            return new SeasonTransitionResultDto
+                            {
+                                Success = false,
+                                Message = "ไม่สามารถเปิดฤดูกาลได้เนื่องจากมีทีมที่มีเงินไม่พอต่อสัญญานักเตะ",
+                                FailedUsers = failedUsers,
+                                Logs = logs
+                            };
+                        }
+                        logs.Add($"ตรวจสอบงบประมาณของทุกทีม ({renewalMap.Count} ทีม) ผ่านเรียบร้อย");
+
+                        // 3. Apply Deductions & Increment SeasonsWithTeam
+                        int renewalCount = 0;
+                        
+                        foreach (var kvp in renewalMap)
+                        {
+                            int userId = kvp.Key;
+                            var wallet = wallets.First(w => w.UserId == userId);
+
+                            foreach (var item in kvp.Value)
+                            {
+                                wallet.AvailableBalance -= item.Cost;
+                                item.Squad.SeasonsWithTeam += 1;
+
+                                await RecordTransactionAsync(userId, item.Cost, "DEBIT", "CONTRACT_RENEWAL_AUTO",
+                                    $"{renewalSearchTag}{item.Squad.Player?.PlayerName} {renewalSeasonTag} เพิ่มเป็น {item.Squad.SeasonsWithTeam} ปี",
+                                    wallet.AvailableBalance, relatedPlayerId: item.Squad.PlayerId);
+                                renewalCount++;
+                            }
+                        }
+                        logs.Add($"ดำเนินการต่อสัญญาและหักเงินสำเร็จ ({renewalCount} รายการ)");
                     }
-                    logs.Add($"ดำเนินการต่อสัญญาและหักเงินสำเร็จ ({renewalCount} รายการ)");
 
                     // 4. Increment Season (only if not already at target)
                     if (!alreadyIncremented)
@@ -2454,15 +2429,10 @@ namespace eTPL.API.Services
                     ");
                     logs.Add($"สำรองข้อมูลตารางคะแนนเดิมลง tbt_result_log สำเร็จ");
 
-                    // Clear tables
-                    await _scaffoldedContext.Database.ExecuteSqlRawAsync("DELETE FROM dbo.tbt_result");
-                    await _scaffoldedContext.Database.ExecuteSqlRawAsync("DELETE FROM dbo.tbm_fixture_all");
-                    logs.Add($"ล้างตารางผลการแข่งขันและตารางแข่งลีกเดิมสำเร็จ");
-                    
-                    // Reset Fixture SP
+                    // Reset Fixture & Result via Stored Procedure
                     try {
                         await _scaffoldedContext.Database.ExecuteSqlRawAsync("EXEC ResetFixture");
-                        logs.Add($"เรียกใช้งาน Stored Procedure: ResetFixture สำเร็จ");
+                        logs.Add($"เรียกใช้งาน Stored Procedure: ResetFixture เพื่อล้างข้อมูลโปรแกรมแข่งขันและตารางคะแนนสำเร็จ");
                     } catch { 
                         logs.Add($"หมายเหตุ: ไม่พบ Stored Procedure 'ResetFixture' ในระบบ (ข้ามขั้นตอน)");
                     }
@@ -2730,11 +2700,7 @@ namespace eTPL.API.Services
                     await _scaffoldedContext.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    // Trigger AI Image Generation (Background)
-                    foreach (var id in hofIdsToProcess)
-                    {
-                        _ = Task.Run(() => _aiService.ProcessHofAiImageAsync(id));
-                    }
+
                 }
                 catch
                 {

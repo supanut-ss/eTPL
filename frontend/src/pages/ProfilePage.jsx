@@ -115,16 +115,6 @@ const PlayerMiniCard = ({ player, label, value, color, icon }) => {
             />
           )}
         </Box>
-        <Box sx={{
-          position: 'absolute', bottom: -2, right: -2,
-          width: 20, height: 20, borderRadius: '50%',
-          bgcolor: '#0f172a', border: `2px solid ${color}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '0.65rem', fontWeight: 900, color: 'white',
-          boxShadow: `0 0 10px ${color}66`
-        }}>
-          {ovr}
-        </Box>
       </Box>
       <Box flex={1} overflow="hidden">
         <Typography sx={{ 
@@ -205,8 +195,27 @@ const ProfilePage = () => {
     if (!element) return;
     setExporting(true);
 
-    const restoreActions = [];
     const blobUrls = [];
+
+    // Create temporary hidden container
+    const tempContainer = document.createElement("div");
+    tempContainer.style.position = "fixed";
+    tempContainer.style.left = "-9999px";
+    tempContainer.style.top = "-9999px";
+    tempContainer.style.width = "1000px";
+    tempContainer.style.height = "560px";
+    tempContainer.style.zIndex = "-9999";
+    document.body.appendChild(tempContainer);
+
+    // Clone element and lock size to exact desktop resolution (1000x560)
+    const clonedElement = element.cloneNode(true);
+    clonedElement.style.width = "1000px";
+    clonedElement.style.height = "560px";
+    clonedElement.style.minHeight = "560px";
+    clonedElement.style.position = "relative";
+    clonedElement.style.boxShadow = "none";
+    clonedElement.style.transform = "none";
+    tempContainer.appendChild(clonedElement);
 
     // Normalize a URL for export (same as PitchViewPage)
     const toProxyUrlExport = (url) => {
@@ -249,25 +258,23 @@ const ProfilePage = () => {
       setTimeout(resolve, 4000);
     });
 
-    // 1. Swap all <img> src to blob URLs
-    const allImgs = Array.from(element.querySelectorAll("img"));
-    console.log("[Export] Found", allImgs.length, "img elements");
+    // 1. Swap all <img> src to blob URLs on clonedElement
+    const allImgs = Array.from(clonedElement.querySelectorAll("img"));
+    console.log("[Export] Found", allImgs.length, "img elements in clone");
     await Promise.all(allImgs.map(async (img) => {
       // Use data-export-url if set (preserves original URL even after onError changed src)
       const urlToFetch = img.dataset.exportUrl || img.src;
       if (!urlToFetch) return;
       const blobUrl = await toBlob(urlToFetch);
       if (blobUrl) {
-        const prevSrc = img.src;
         img.src = blobUrl;
-        restoreActions.push(() => { img.src = prevSrc; });
         await waitForLoad(img);
       }
     }));
 
-    // 2. Swap inline-style background-images
-    const allBoxes = Array.from(element.querySelectorAll("[style*='background-image']"));
-    console.log("[Export] Found", allBoxes.length, "inline background-image elements");
+    // 2. Swap inline-style background-images on clonedElement
+    const allBoxes = Array.from(clonedElement.querySelectorAll("[style*='background-image']"));
+    console.log("[Export] Found", allBoxes.length, "inline background-image elements in clone");
     await Promise.all(allBoxes.map(async (box) => {
       const originalStyle = box.style.backgroundImage;
       const match = originalStyle.match(/url\(["']?([^"')]+)["']?\)/);
@@ -275,35 +282,37 @@ const ProfilePage = () => {
         const blobUrl = await toBlob(match[1]);
         if (blobUrl) {
           box.style.backgroundImage = `url(${blobUrl})`;
-          restoreActions.push(() => { box.style.backgroundImage = originalStyle; });
         }
       }
     }));
 
-    // 3. Scan computed styles for background-images set via CSS classes (MUI sx/emotion)
-    const allEls = Array.from(element.querySelectorAll("*"));
-    await Promise.all(allEls.map(async (el) => {
-      const bg = getComputedStyle(el).backgroundImage;
+    // 3. Scan computed styles of all elements inside the ORIGINAL element
+    // and apply their background images as inline style blobs on the CLONED element!
+    const originalEls = Array.from(element.querySelectorAll("*"));
+    const clonedEls = Array.from(clonedElement.querySelectorAll("*"));
+    await Promise.all(originalEls.map(async (origEl, idx) => {
+      const bg = getComputedStyle(origEl).backgroundImage;
       if (!bg || bg === "none") return;
       const match = bg.match(/url\(["']?(https?:[^"')]+)["']?\)/);
       if (!match || !match[1]) return;
       const url = match[1];
       const blobUrl = await toBlob(url);
-      if (blobUrl) {
-        const prev = el.style.backgroundImage;
-        el.style.backgroundImage = `url(${blobUrl})`;
-        restoreActions.push(() => { el.style.backgroundImage = prev; });
+      if (blobUrl && clonedEls[idx]) {
+        clonedEls[idx].style.backgroundImage = `url(${blobUrl})`;
       }
     }));
 
     try {
-      const canvas = await html2canvas(element, {
+      // Give a tiny timeout for layout rendering
+      await new Promise(r => setTimeout(r, 100));
+
+      const canvas = await html2canvas(clonedElement, {
         useCORS: false,     // All sources are now same-origin blob URLs
         allowTaint: false,  // No taint possible with blob URLs
         backgroundColor: "#020617",
         scale: 2,
-        width: element.offsetWidth,
-        height: element.offsetHeight,
+        width: 1000,
+        height: 560,
         logging: false,
         ignoreElements: (el) => el.classList?.contains("no-export"),
       });
@@ -316,8 +325,8 @@ const ProfilePage = () => {
       console.error("[Export] Failed:", err);
       enqueueSnackbar(`Export failed: ${err?.message || "unknown error"}`, { variant: "error" });
     } finally {
-      // Always restore original src and free blob memory
-      restoreActions.forEach(fn => fn());
+      // Remove temporary hidden container and revoke blob URLs
+      document.body.removeChild(tempContainer);
       blobUrls.forEach(url => URL.revokeObjectURL(url));
       setExporting(false);
     }
