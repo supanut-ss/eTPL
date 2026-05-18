@@ -9,6 +9,7 @@ using eTPL.API.Models.DTOs;
 using eTPL.API.Models.LeagueOps;
 using eTPL.API.Services.Interfaces;
 using System.Collections.Generic;
+using System.Text.Json;
 
 namespace eTPL.API.Controllers
 {
@@ -39,32 +40,58 @@ namespace eTPL.API.Controllers
             });
         }
 
-        [HttpPost]
-        public async Task<IActionResult> Post([FromBody] LineWebhookRequest request)
+        [HttpGet]
+        public IActionResult Get()
         {
-            if (request == null)
+            return Ok("Line Webhook is Active!");
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Post([FromBody] System.Text.Json.Nodes.JsonNode? payload)
+        {
+            if (payload == null)
             {
-                Console.WriteLine("LINE Webhook: Request is null");
+                Console.WriteLine("LINE Webhook: Payload is null");
                 return Ok();
             }
 
-            if (request.Events == null || request.Events.Count == 0)
+            try
             {
-                Console.WriteLine("LINE Webhook: No events received (Verification request?)");
-                return Ok();
-            }
+                var options = new JsonSerializerOptions 
+                { 
+                    PropertyNameCaseInsensitive = true 
+                };
+                var request = JsonSerializer.Deserialize<LineWebhookRequest>(payload, options);
 
-            foreach (var @event in request.Events)
+                if (request == null)
+                {
+                    Console.WriteLine("LINE Webhook: Request is null after deserialization");
+                    return Ok();
+                }
+
+                if (request.Events == null || request.Events.Count == 0)
+                {
+                    Console.WriteLine("LINE Webhook: No events received (Verification request?)");
+                    return Ok();
+                }
+
+                foreach (var @event in request.Events)
+                {
+                    if (@event == null) continue;
+                    Console.WriteLine($"Incoming LINE Event: {@event.Type ?? "unknown"} (Token: {@event.ReplyToken ?? "none"})");
+                    if (@event.Type == "message" && @event.Message?.Type == "text")
+                    {
+                        await HandleTextMessage(@event);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Skipping non-text event: {@event.Type}");
+                    }
+                }
+            }
+            catch (Exception ex)
             {
-                Console.WriteLine($"Incoming LINE Event: {@event.Type} (Token: {@event.ReplyToken})");
-                if (@event.Type == "message" && @event.Message?.Type == "text")
-                {
-                    await HandleTextMessage(@event);
-                }
-                else
-                {
-                    Console.WriteLine($"Skipping non-text event: {@event.Type}");
-                }
+                Console.WriteLine($"LINE Webhook Exception during parsing: {ex.Message}");
             }
 
             return Ok();
@@ -72,10 +99,15 @@ namespace eTPL.API.Controllers
 
         private async Task HandleTextMessage(LineEvent @event)
         {
-            string userMessage = @event.Message!.Text!.Trim();
+            if (@event == null || @event.Message == null || string.IsNullOrEmpty(@event.Message.Text) || string.IsNullOrEmpty(@event.ReplyToken) || @event.Source == null)
+            {
+                return;
+            }
+
+            string userMessage = @event.Message.Text.Trim();
             string replyToken = @event.ReplyToken;
             string? lineUserId = @event.Source.UserId;
-            string sourceType = @event.Source.Type;
+            string sourceType = @event.Source.Type ?? "";
 
             Console.WriteLine($"LINE Message from {lineUserId} (Source: {sourceType}): {userMessage}");
 

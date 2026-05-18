@@ -6,19 +6,19 @@ namespace eTPL.API.Models.DTOs
     public class LineWebhookRequest
     {
         [JsonPropertyName("events")]
-        public List<LineEvent> Events { get; set; } = new();
+        public List<LineEvent>? Events { get; set; } = new();
     }
 
     public class LineEvent
     {
         [JsonPropertyName("type")]
-        public string Type { get; set; } = null!;
+        public string? Type { get; set; }
 
         [JsonPropertyName("source")]
-        public LineSource Source { get; set; } = null!;
+        public LineSource? Source { get; set; }
 
         [JsonPropertyName("replyToken")]
-        public string ReplyToken { get; set; } = null!;
+        public string? ReplyToken { get; set; }
 
         [JsonPropertyName("message")]
         public LineMessage? Message { get; set; }
@@ -27,7 +27,7 @@ namespace eTPL.API.Models.DTOs
     public class LineSource
     {
         [JsonPropertyName("type")]
-        public string Type { get; set; } = null!;
+        public string? Type { get; set; }
 
         [JsonPropertyName("userId")]
         public string? UserId { get; set; }
@@ -39,7 +39,7 @@ namespace eTPL.API.Models.DTOs
     public class LineMessage
     {
         [JsonPropertyName("type")]
-        public string Type { get; set; } = null!;
+        public string? Type { get; set; }
 
         [JsonPropertyName("text")]
         public string? Text { get; set; }
