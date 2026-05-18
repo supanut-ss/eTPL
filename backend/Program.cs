@@ -101,6 +101,7 @@ builder.Services.AddScoped<IDiscordService, DiscordService>();
 builder.Services.AddScoped<IFacebookService, FacebookService>();
 builder.Services.AddHttpClient<LineWebhookService>();
 builder.Services.AddScoped<LineWebhookService>();
+builder.Services.AddHostedService<AuctionSweepHostedService>();
 
 
 var app = builder.Build();

@@ -225,7 +225,8 @@ namespace eTPL.API.Tests
                 Password = "p",
                 UserLevel = "user",
                 LineId = "Uabc999",
-                LineName = "Alice"
+                LineName = "Alice Old",
+                LinePic = "https://example.com/old.jpg"
             });
             await db.SaveChangesAsync();
 
@@ -242,7 +243,7 @@ namespace eTPL.API.Tests
                         Content = new System.Net.Http.StringContent(body, System.Text.Encoding.UTF8, "application/json")
                     };
                 }
-                var profile = "{\"userId\":\"Uabc999\",\"displayName\":\"Alice\"}";
+                var profile = "{\"userId\":\"Uabc999\",\"displayName\":\"Alice New\",\"pictureUrl\":\"https://example.com/new.jpg\"}";
                 return new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
                 {
                     Content = new System.Net.Http.StringContent(profile, System.Text.Encoding.UTF8, "application/json")
@@ -268,6 +269,14 @@ namespace eTPL.API.Tests
             Assert.NotEmpty(result.Token);
             Assert.Equal("user1", result.User.UserId);
             Assert.Equal("Uabc999", result.User.LineId);
+            Assert.Equal("Alice New", result.User.LineName);
+            Assert.Equal("https://example.com/new.jpg", result.User.LinePic);
+
+            // Verify database update
+            var dbUser = await db.Users.FirstOrDefaultAsync(u => u.UserId == "user1");
+            Assert.NotNull(dbUser);
+            Assert.Equal("Alice New", dbUser.LineName);
+            Assert.Equal("https://example.com/new.jpg", dbUser.LinePic);
         }
     }
 

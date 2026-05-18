@@ -157,6 +157,7 @@ namespace eTPL.API.Data
                 entity.Property(e => e.UserId).HasColumnName("UserId");
                 entity.Property(e => e.AvailableBalance).HasColumnName("AvailableBalance");
                 entity.Property(e => e.ReservedBalance).HasColumnName("ReservedBalance");
+                entity.Property(e => e.RowVersion).HasColumnName("RowVersion").IsRowVersion();
                 entity.HasIndex(e => e.UserId).IsUnique();
                 entity.HasOne(e => e.User).WithOne()
                     .HasForeignKey<AuctionUserWallet>(e => e.UserId)

@@ -68,6 +68,10 @@ namespace eTPL.API.Services
 
             if (user != null)
             {
+                user.LinePic = profile.PictureUrl;
+                user.LineName = profile.DisplayName;
+                await _db.SaveChangesAsync();
+
                 return new LineAuthResponse
                 {
                     IsLinked = true,

@@ -82,11 +82,11 @@ namespace eTPL.API.Services
         {
             var now = DateTime.UtcNow;
             
-            // Get all active auctions where user is highest bidder OR has a final bid
+            // Get all active auctions where user is highest bidder OR has bid in this auction
             var involvedAuctions = await _context.AuctionBoards
                 .Include(b => b.Player)
                 .Where(b => b.DbStatus == "Active" && 
-                       (b.HighestBidderId == userId || _context.AuctionBidLogs.Any(l => l.AuctionId == b.AuctionId && l.UserId == userId && l.Phase == "Final")))
+                       (b.HighestBidderId == userId || _context.AuctionBidLogs.Any(l => l.AuctionId == b.AuctionId && l.UserId == userId)))
                 .ToListAsync();
 
             if (!involvedAuctions.Any()) return new List<AuctionBoard>();
@@ -99,12 +99,17 @@ namespace eTPL.API.Services
             var winnersList = new List<AuctionBoard>();
             foreach (var board in involvedAuctions)
             {
-                int? winnerId = board.HighestBidderId;
-                
-                // If it's time for Final Bid or later, and there are multiple potential winners
-                // (Note: in our logic, we only care about real winners once Normal phase is over)
-                if (now >= board.NormalEndTime)
+                // If the final bid round has NOT ended yet, count this player as a potential win
+                // because the user has bid on this player and could win.
+                if (now < board.FinalEndTime)
                 {
+                    winnersList.Add(board);
+                }
+                else
+                {
+                    // The final bid round has ended. Only count if the user is the actual winner.
+                    int? winnerId = board.HighestBidderId;
+                    
                     var bidsForThis = allFinalBids.Where(l => l.AuctionId == board.AuctionId)
                         .OrderByDescending(l => l.BidAmount)
                         .ThenByDescending(l => l.UserId == board.HighestBidderId)
@@ -115,11 +120,11 @@ namespace eTPL.API.Services
                     {
                         winnerId = bidsForThis.First().UserId;
                     }
-                }
 
-                if (winnerId == userId)
-                {
-                    winnersList.Add(board);
+                    if (winnerId == userId)
+                    {
+                        winnersList.Add(board);
+                    }
                 }
             }
 

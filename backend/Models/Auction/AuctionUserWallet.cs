@@ -6,6 +6,7 @@ namespace eTPL.API.Models.Auction
         public int UserId { get; set; } // FK to tbm_user.id
         public int AvailableBalance { get; set; }
         public int ReservedBalance { get; set; } = 0;
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>(); // Concurrency token
 
         // Navigation property
         public User? User { get; set; }
