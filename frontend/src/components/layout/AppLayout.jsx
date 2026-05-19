@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   Box,
@@ -64,6 +64,9 @@ import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
 import NotificationMenu from "../NotificationMenu";
 import ManagerOnboarding from "../onboarding/ManagerOnboarding";
+import { useSnackbar } from "notistack";
+import leagueOpsService from "../../services/leagueOpsService";
+import { CheckCircle, LocationPin } from "@mui/icons-material";
 
 
 const DRAWER_WIDTH = 240;
@@ -215,6 +218,47 @@ const AppLayout = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState({ "admin-group": false });
+  const [checkinLoading, setCheckinLoading] = useState(false);
+  const [hasCheckedIn, setHasCheckedIn] = useState(false);
+  const [isWithinHours, setIsWithinHours] = useState(true);
+  const { enqueueSnackbar } = useSnackbar();
+
+  // Load check-in status of current user on mount and when user changes
+  useEffect(() => {
+    const fetchCheckinStatus = async () => {
+      if (!user) return;
+      try {
+        const res = await leagueOpsService.getUserCheckinStatus();
+        if (res?.data?.isCheckedIn) {
+          setHasCheckedIn(true);
+        } else {
+          setHasCheckedIn(false);
+        }
+        if (res?.data?.isWithinHours !== undefined) {
+          setIsWithinHours(res.data.isWithinHours);
+        }
+      } catch (err) {
+        console.error("Failed to fetch check-in status", err);
+      }
+    };
+    fetchCheckinStatus();
+  }, [user]);
+
+  const handleCheckin = async () => {
+    if (hasCheckedIn || checkinLoading || !user) return;
+    setCheckinLoading(true);
+    try {
+      const res = await leagueOpsService.userCheckin();
+      setHasCheckedIn(true);
+      enqueueSnackbar(res?.data?.message || "รายงานตัวประจำวันสำเร็จ! 🔥", { variant: "success" });
+    } catch (err) {
+      console.error("Check-in error", err);
+      const errMsg = err?.response?.data?.message || "เกิดข้อผิดพลาดในการรายงานตัว";
+      enqueueSnackbar(errMsg, { variant: "error" });
+    } finally {
+      setCheckinLoading(false);
+    }
+  };
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -510,7 +554,51 @@ const AppLayout = () => {
             eTPL
           </Typography>
 
-          {user && <NotificationMenu />}
+          {user && (
+            <>
+              {(isWithinHours || hasCheckedIn) && (
+                <Tooltip 
+                  title={
+                    hasCheckedIn 
+                      ? "รายงานตัวเรียบร้อยแล้ว!" 
+                      : "กดเพื่อรายงานตัวประจำวัน"
+                  }
+                >
+                  <span>
+                    <IconButton
+                      onClick={handleCheckin}
+                      disabled={hasCheckedIn || checkinLoading}
+                      sx={{
+                        mr: 1.5,
+                        color: hasCheckedIn ? "#10b981 !important" : "#f59e0b",
+                        border: hasCheckedIn 
+                          ? "1px solid rgba(16, 185, 129, 0.3)" 
+                          : "1px solid rgba(245, 158, 11, 0.3)",
+                        background: hasCheckedIn 
+                          ? "rgba(16, 185, 129, 0.1) !important" 
+                          : "rgba(245, 158, 11, 0.05)",
+                        animation: !hasCheckedIn ? "pulseGlow 2s infinite ease-in-out" : "none",
+                        "@keyframes pulseGlow": {
+                          "0%": { boxShadow: "0 0 0 0 rgba(245, 158, 11, 0.4)" },
+                          "70%": { boxShadow: "0 0 0 8px rgba(245, 158, 11, 0)" },
+                          "100%": { boxShadow: "0 0 0 0 rgba(245, 158, 11, 0)" }
+                        },
+                        "&:hover": {
+                          background: hasCheckedIn 
+                            ? "rgba(16, 185, 129, 0.1) !important" 
+                            : "rgba(245, 158, 11, 0.15)",
+                          borderColor: hasCheckedIn ? "rgba(16, 185, 129, 0.3)" : "#f59e0b",
+                        }
+                      }}
+                    >
+                      {hasCheckedIn ? <CheckCircle /> : <LocationPin />}
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              )}
+              <NotificationMenu />
+            </>
+          )}
 
           <>
             <Tooltip title={user?.userId || "Profile"}>

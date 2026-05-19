@@ -83,6 +83,109 @@ namespace eTPL.API.Controllers
             return Ok(checkin);
         }
 
+        [HttpPost("user-checkin")]
+        [AllowAnonymous]
+        public async Task<IActionResult> UserCheckin()
+        {
+            if (User.Identity == null || !User.Identity.IsAuthenticated)
+            {
+                return Unauthorized(new { message = "กรุณาเข้าสู่ระบบก่อนรายงานตัว" });
+            }
+
+            var userId = User.Identity.Name;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return BadRequest(new { message = "ไม่พบข้อมูลผู้ใช้" });
+            }
+
+            // Time check (17:45 - 23:45 ICT)
+            var now = DateTime.UtcNow.AddHours(7);
+            var startTime = new TimeSpan(17, 45, 0);
+            var endTime = new TimeSpan(23, 45, 0);
+            var currentTime = now.TimeOfDay;
+
+            if (currentTime < startTime || currentTime > endTime)
+            {
+                return BadRequest(new { message = $"ไม่อยู่ในช่วงเวลาการรายงานตัว (17:45 - 23:45)\nเวลาเซิร์ฟเวอร์ (ICT): {now:HH:mm:ss}" });
+            }
+
+            var activeCycle = await _context.LeagueCycles.FirstOrDefaultAsync(c => c.Status == "active");
+            if (activeCycle == null)
+            {
+                return BadRequest(new { message = "ยังไม่มีการเปิดรอบการแข่งขันในขณะนี้" });
+            }
+
+            var today = now.Date;
+
+            var alreadyCheckedIn = await _context.DailyCheckins.AnyAsync(c => 
+                c.UserId == userId && 
+                c.CycleId == activeCycle.Id && 
+                c.CheckinDate == today);
+
+            if (alreadyCheckedIn)
+            {
+                return BadRequest(new { message = "วันนี้คุณได้รายงานตัวไปแล้ว" });
+            }
+
+            var checkin = new DailyCheckin
+            {
+                UserId = userId,
+                CycleId = activeCycle.Id,
+                CheckinDate = today,
+                IsReady = true
+            };
+
+            _context.DailyCheckins.Add(checkin);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "รายงานตัวสำเร็จ", checkin = checkin });
+        }
+
+        [HttpGet("user-checkin-status")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetUserCheckinStatus()
+        {
+            if (User.Identity == null || !User.Identity.IsAuthenticated)
+            {
+                return Ok(new { isCheckedIn = false, isAuthenticated = false });
+            }
+
+            var userId = User.Identity.Name;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Ok(new { isCheckedIn = false, isAuthenticated = false });
+            }
+
+            var activeCycle = await _context.LeagueCycles.FirstOrDefaultAsync(c => c.Status == "active");
+            if (activeCycle == null)
+            {
+                return Ok(new { isCheckedIn = false, isAuthenticated = true, noActiveCycle = true });
+            }
+
+            var now = DateTime.UtcNow.AddHours(7);
+            var today = now.Date;
+            var currentTime = now.TimeOfDay;
+            var startTime = new TimeSpan(17, 45, 0);
+            var endTime = new TimeSpan(23, 45, 0);
+            var isWithinHours = currentTime >= startTime && currentTime <= endTime;
+
+            var alreadyCheckedIn = await _context.DailyCheckins.AnyAsync(c => 
+                c.UserId == userId && 
+                c.CycleId == activeCycle.Id && 
+                c.CheckinDate == today);
+
+            return Ok(new { 
+                isCheckedIn = alreadyCheckedIn, 
+                isAuthenticated = true,
+                isWithinHours = isWithinHours,
+                serverTime = now.ToString("HH:mm:ss")
+            });
+        }
+
+
+
+
+
         [HttpGet("autojudge/{cycleId}/preview")]
         public async Task<IActionResult> GetAutoJudgePreview(int cycleId)
         {
