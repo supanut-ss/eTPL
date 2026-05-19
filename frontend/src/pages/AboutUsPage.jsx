@@ -34,6 +34,7 @@ import {
   RssFeed
 } from "@mui/icons-material";
 import { Link as RouterLink } from "react-router-dom";
+import SEO from "../components/SEO";
 
 const timelineData = [
   { 
@@ -105,6 +106,11 @@ const AboutUsPage = () => {
 
   return (
     <Box sx={{ bgcolor: "#f8fafc", minHeight: "100vh", px: { xs: 1, md: 2 }, pb: 4 }}>
+      <SEO 
+        title="เกี่ยวกับเรา - ชุมชนนักแข่ง eFootball" 
+        description="ทำความรู้จักกับชุมชน eTPL (Thai PES League) ชุมชนนักแข่งเกม eFootball / PES ระดับพรีเมียมที่ก่อตั้งยาวนานกว่า 8 ปี ตั้งแต่ปี 2018 ปรัชญา และระบบการจัดการแข่งขันครบวงจร"
+        keywords="eTPL เกี่ยวกับเรา, ชุมชน eTPL, ประวัติ eTPL, eFootball PES Thailand, Thai PES League history"
+      />
       <div id="back-to-top-anchor" />
       
       {/* Top Level Page Header (Matched with UserManualPage) */}

@@ -6,8 +6,7 @@ import { Leaderboard, SquareRounded } from "@mui/icons-material";
 import { getStandings } from "../api/standingApi";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../store/AuthContext";
-
-
+import SEO from "../components/SEO";
 
 // Extract player name from parentheses, e.g. "AZ ALKMAAR (RREEF)" → "RREEF"
 const extractPlayer = (team) => {
@@ -323,6 +322,11 @@ const StandingPage = () => {
 
   return (
     <Box>
+      <SEO 
+        title={`ตารางคะแนน Division 1${season ? ` Season ${season}` : ""}`} 
+        description={`ตารางคะแนนล่าสุดสำหรับลีก eTPL Division 1 ของซีซั่น ${season || "ปัจจุบัน"} สรุปผลงาน ฟอร์มการเล่นล่าสุดของนักแข่ง และประมวลผลคะแนนแข่งขันแบบเรียลไทม์`}
+        keywords="ตารางคะแนน eTPL, eTPL Standings, eFootball Thailand, PES League Standings, eTPL D1"
+      />
       {/* Header */}
       <Box sx={{ 
         display: 'flex', 

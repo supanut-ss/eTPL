@@ -21,6 +21,7 @@ import cupService from "../services/cupService";
 import { useSnackbar } from "notistack";
 import { useAuth } from "../store/AuthContext";
 import { getLogoUrl } from "../utils/imageUtils";
+import SEO from "../components/SEO";
 
 // ─── Layout constants ────────────────────────────────────────────────────────
 const MATCH_HEIGHT = 103; // Actual rendered card height: 2 rows × ~50px + 1px inner border + 2px Paper border
@@ -132,6 +133,11 @@ const CupBracketPage = () => {
     <Box
       sx={{ width: "100%", bgcolor: "background.default", minHeight: "100vh" }}
     >
+      <SEO 
+        title="ตารางสายการแข่งขันฟุตบอลถ้วย Cup Bracket" 
+        description="สายการจับคู่และอันดับล่วงหน้าของทัวร์นาเมนต์บอลถ้วยแบบแพ้คัดออก (Knockout Cup) ในรายการ eTPL ประจำฤดูกาล ติดตามดูคู่แข่งขัน รายงานผลการแข่งขัน และผู้ผ่านเข้ารอบต่อไป"
+        keywords="สายแข่งบอลถ้วย eTPL, Cup Bracket eTPL, บอลถ้วย eTPL, eFootball PES Knockout, ตารางการแข่งขัน eTPL Cup"
+      />
       {/* Header */}
       <Box
         sx={{

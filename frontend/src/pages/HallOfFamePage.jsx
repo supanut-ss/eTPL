@@ -27,6 +27,7 @@ import {
 } from "@mui/icons-material";
 import { getLogoUrl } from "../utils/imageUtils";
 import { hofApi } from "../api/hofApi";
+import SEO from "../components/SEO";
 
 const LegendCard = ({ legend }) => {
   const theme = useTheme();
@@ -362,6 +363,11 @@ const HallOfFamePage = () => {
       overflow: 'hidden',
       pb: 10 
     }}>
+      <SEO 
+        title="ทำเนียบแชมป์ Hall of Fame" 
+        description="ทำเนียบแชมป์และบอร์ดเกียรติยศ (Hall of Fame) ลีกฟุตบอล eTPL รวบรวมรายชื่อผู้จัดการทีมระดับตำนานที่เคยครองแชมป์ดิวิชั่นสูงสุด ถ้วยรางวัลลีกล่าสุด และสถิติความสำเร็จในหน้าประวัติศาสตร์"
+        keywords="ทำเนียบแชมป์ eTPL, Hall of Fame eTPL, ทำเนียบเกียรติยศ eTPL, eFootball PES Champions, สถิติแชมป์ eTPL"
+      />
       <Box sx={{ 
           position: 'absolute', 
           top: -150, 

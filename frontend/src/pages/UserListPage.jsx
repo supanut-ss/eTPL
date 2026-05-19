@@ -29,6 +29,7 @@ import { getUsers } from "../api/userApi";
 import auctionService from "../services/auctionService";
 import { getLogoUrl } from "../utils/imageUtils";
 import { panelSx } from "./main/components/shared/designTokens";
+import SEO from "../components/SEO";
 
 const UserListPage = () => {
   const theme = useTheme();
@@ -64,7 +65,8 @@ const UserListPage = () => {
         return (
           u.userId?.toLowerCase().includes(search) ||
           u.lineName?.toLowerCase().includes(search) ||
-          u.currentTeam?.toLowerCase().includes(search)
+          u.currentTeam?.toLowerCase().includes(search) ||
+          u.teamNickname?.toLowerCase().includes(search)
         );
       })
       .sort((a, b) => {
@@ -87,6 +89,11 @@ const UserListPage = () => {
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "#fcfcfd", pb: 10 }}>
+      <SEO 
+        title="รายชื่อผู้จัดการทีมและสโมสร" 
+        description="รายชื่อสมาชิกผู้จัดการทีมทั้งหมดในคอมมูนิตี้ eTPL ค้นหาโปรไฟล์สโมสร ค้นหาสมาชิกทีม รายชื่อผู้ดูแลระบบ และทีมชั้นนำในลีกไทยแลนด์"
+        keywords="eTPL สมาชิก, สโมสร eTPL, ผู้จัดการทีม eTPL, PES Thailand Community, รายชื่อทีม eTPL"
+      />
       {/* Hero Header */}
       <Box sx={{ position: 'relative', zIndex: 1, px: { xs: 1, md: 2 }, pt: 2 }}>
         <Box sx={{ 
@@ -507,6 +514,23 @@ const UserListPage = () => {
                             {user.currentTeam || "Free Agent"}
                           </Typography>
                         </Box>
+                        {user.teamNickname && (
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Stars sx={{ fontSize: 14, color: "#d1ad73" }} />
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                color: "#b45309", 
+                                fontWeight: 800,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap"
+                              }}
+                            >
+                              {user.teamNickname}
+                            </Typography>
+                          </Box>
+                        )}
                         <Box display="flex" alignItems="center" gap={1}>
                           <VerifiedUser 
                             sx={{ 

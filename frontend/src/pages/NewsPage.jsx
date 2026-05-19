@@ -30,6 +30,7 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import { getPublicAnnouncements } from "../api/announcementApi";
 import { getAnnouncementImageUrl } from "../utils/imageUtils";
+import SEO from "../components/SEO";
 
 const DESIGN_TOKENS = {
   background: "#ffffff",
@@ -119,6 +120,11 @@ const NewsPage = () => {
         pt: { xs: 2, md: 4 },
       }}
     >
+      <SEO 
+        title="ศูนย์ข่าวสารและนิตยสาร Media Center" 
+        description="ศูนย์รวมข่าวสารลีกลูกหนังดิจิทัล eTPL ข่าวประชาสัมพันธ์ทางการ นิตยสาร AI Magazine บทวิเคราะห์ฟุตบอล และอัปเดตกิจกรรมประจำสัปดาห์ในคอมมูนิตี้"
+        keywords="ข่าว eTPL, ข่าว PES Thailand, นิตยสาร eTPL, กิจกรรม eTPL, eFootball PES Media"
+      />
       {/* System Header */}
       <Box sx={{ 
         display: 'flex', 

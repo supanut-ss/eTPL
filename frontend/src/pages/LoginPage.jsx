@@ -16,6 +16,7 @@ import {
 import { Visibility, VisibilityOff, Lock } from "@mui/icons-material";
 import { useAuth } from "../store/AuthContext";
 import { getLineLoginUrl, getLineConfigStatus, login as loginApi } from "../api/authApi";
+import SEO from "../components/SEO";
 
 const LineIcon = () => (
   <svg
@@ -125,6 +126,11 @@ const LoginPage = () => {
       minHeight="100vh"
       sx={{ backgroundColor: "background.default" }}
     >
+      <SEO 
+        title="เข้าสู่ระบบ" 
+        description="เข้าสู่ระบบจัดการทีมฟุตบอลพรีเมียม eTPL eFootball (PES) ลีก จัดการทีมประมูล ซื้อขายนักเตะ และลงทะเบียนแข่งขันทัวร์นาเมนต์ที่ดีที่สุด"
+        keywords="eTPL เข้าสู่ระบบ, ล็อกอิน eTPL, eTPL Login, Thai PES League"
+      />
       <Card sx={{ width: 400, maxWidth: "90vw", p: 2, boxShadow: 4 }}>
         <CardContent>
           <Box display="flex" flexDirection="column" alignItems="center" mb={3}>

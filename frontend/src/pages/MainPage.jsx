@@ -25,6 +25,7 @@ import { getPublicAnnouncements } from "../api/announcementApi";
 import { getUsers } from "../api/userApi";
 import { hofApi } from "../api/hofApi";
 import auctionService from "../services/auctionService";
+import SEO from "../components/SEO";
 
 // Components
 import AiMagazineBox from "./main/components/AiMagazine";
@@ -282,6 +283,11 @@ const MainPage = () => {
 
   return (
     <>
+      <SEO 
+        title="หน้าแรก - ชุมชนลีกลูกหนังดิจิทัล" 
+        description="eTPL (Thai PES League) - ศูนย์กลางคอมมูนิตี้ลีกฟุตบอล eFootball (PES) ระดับพรีเมียมในไทย ติดตามข่าวสารแมกกาซีน กิจกรรมล่าสุด อันดับตารางคะแนน สถิตินักเตะ และตลาดซื้อขายนักเตะเรียลไทม์"
+        keywords="eTPL หน้าแรก, eFootball Thailand, PES Thailand, ลีก eFootball, ชุมชน PES ไทย"
+      />
       <Box
         sx={{
           width: "100%",

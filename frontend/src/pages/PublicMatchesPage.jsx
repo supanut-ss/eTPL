@@ -27,6 +27,7 @@ import {
   Close,
 } from "@mui/icons-material";
 import { getPublicFixtures, getPublicH2H } from "../api/fixtureApi";
+import SEO from "../components/SEO";
 
 
 
@@ -575,6 +576,11 @@ const PublicMatchesPage = () => {
 
   return (
     <Box>
+      <SEO 
+        title={`ตารางการแข่งขัน${selectedMatch ? ` Matchweek ${selectedMatch}` : ""}`} 
+        description={`ตารางการจับคู่และผลการแข่งขันฟุตบอล eFootball eTPL Division 1 ของสัปดาห์ Matchweek ${selectedMatch || ""} ผลคะแนนการแข่งขัน สถิติใบเหลืองใบแดง และปุ่มวิเคราะห์ Head-to-Head`}
+        keywords="ตารางแข่ง eTPL, ผลบอล eTPL, eTPL Matches, Matchweek eTPL, eFootball PES Fixtures"
+      />
       {/* Header */}
       <Box sx={{ 
         display: 'flex', 

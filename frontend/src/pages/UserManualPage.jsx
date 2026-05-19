@@ -36,6 +36,7 @@ import {
 import { Link as RouterLink } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import SEO from "../components/SEO";
 
 const ScrollTop = (props) => {
   const { children } = props;
@@ -255,6 +256,11 @@ const UserManualPage = () => {
 
   return (
     <Box sx={{ bgcolor: "#f8fafc", minHeight: "100vh", px: { xs: 1, md: 2 } }}>
+      <SEO 
+        title="คู่มือการใช้งานระบบ User Manual" 
+        description="คู่มือผู้ใช้งานอย่างเป็นทางการของระบบ eTPL รวบรวมทุกข้อมูลการใช้งาน กฎการแข่งขัน การสมัครสมาชิก ระบบประมูลนักเตะ และวิธีการลงบันทึกผลการแข่งขันฟุตบอล eFootball"
+        keywords="คู่มือ eTPL, กฎ eTPL, วิธีใช้ eTPL, eTPL User Manual, eTPL Guidebook"
+      />
       <div id="back-to-top-anchor" />
       
       {/* Top Level Page Header */}

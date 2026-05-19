@@ -25,6 +25,7 @@ import { alpha } from "@mui/material/styles";
 import { EmojiEvents, Groups, SportsSoccer, AccountBalanceWallet, History, TrendingUp, InfoOutlined, Search, SearchOff, MilitaryTech ,HotelClass } from "@mui/icons-material";
 import auctionService from "../services/auctionService";
 import { getPlayerCardUrl, getPlayerFaceUrl, getPesdbInfoUrl, getPlayerCardFUrl } from "../utils/imageUtils";
+import SEO from "../components/SEO";
 
 // --- Animations from Elite Section ---
 const dealCard = keyframes`
@@ -157,6 +158,11 @@ const CompletedAuctionPage = () => {
         overflow: 'hidden',
         py: { xs: 1 }
     }}>
+      <SEO 
+        title="ทำเนียบการปิดดีลประมูลนักเตะ" 
+        description="ประวัติและทำเนียบการประมูลนักเตะที่เสร็จสิ้นทั้งหมด สรุปการเซ็นสัญญานักเตะระดับท็อปของแต่ละสโมสร มูลค่าการปิดดีล (TP) สูงสุด และสถิติตลาดซื้อขายนักเตะในลีก eTPL"
+        keywords="ประมูุลนักเตะ eTPL, ปิดดีล eTPL, ตลาดซื้อขายนักเตะ eTPL, eTPL Auction Board, PES Auction History"
+      />
       {/* Mesh Gradient Background Elements */}
       <Box sx={{ 
           position: 'absolute', 
