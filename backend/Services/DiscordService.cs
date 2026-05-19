@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using eTPL.API.Data;
 using eTPL.API.Services.Interfaces;
 
@@ -14,7 +15,7 @@ namespace eTPL.API.Services
 {
     public class DiscordService : IDiscordService
     {
-        private readonly MsSqlDbContext _context;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly string _webhookUrl;
         private readonly HttpClient _httpClient;
         private readonly Random _random = new Random();
@@ -29,25 +30,29 @@ namespace eTPL.API.Services
         private const string DEFAULT_MARKET_HEADLINE = "**MARKET:** {team} ขึ้นบัญชีขาย {player} แล้ว!";
         private const string DEFAULT_MARKET_BODY = "👤 **ผู้ขาย:** {team}\n⚽ **นักเตะ:** {player}\n💰 **ราคาเริ่มต้น:** {price} TP";
 
-        public DiscordService(IConfiguration configuration, MsSqlDbContext context)
+        public DiscordService(IConfiguration configuration, IServiceScopeFactory scopeFactory)
         {
             _webhookUrl = configuration["Discord:WebhookUrl"] ?? string.Empty;
             _httpClient = new HttpClient();
-            _context = context;
+            _scopeFactory = scopeFactory;
         }
 
         private async Task<string> GetRandomTemplateAsync(string category, string defaultTemplate)
         {
             try
             {
-                var templates = await _context.NotificationTemplates
-                    .Where(t => t.Category == category && t.IsActive && (t.TargetPlatform == "DISCORD" || t.TargetPlatform == "BOTH"))
-                    .Select(t => t.TemplateText)
-                    .ToListAsync();
-
-                if (templates.Count > 0)
+                using (var scope = _scopeFactory.CreateScope())
                 {
-                    return templates[_random.Next(templates.Count)];
+                    var context = scope.ServiceProvider.GetRequiredService<MsSqlDbContext>();
+                    var templates = await context.NotificationTemplates
+                        .Where(t => t.Category == category && t.IsActive && (t.TargetPlatform == "DISCORD" || t.TargetPlatform == "BOTH"))
+                        .Select(t => t.TemplateText)
+                        .ToListAsync();
+
+                    if (templates.Count > 0)
+                    {
+                        return templates[_random.Next(templates.Count)];
+                    }
                 }
             }
             catch (Exception ex)

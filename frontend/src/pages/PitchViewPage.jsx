@@ -639,6 +639,90 @@ const PitchViewPage = () => {
       }
     }));
 
+    // 4. Force Desktop layout styles during export for consistent mobile rendering
+    const profileArea = element.querySelector(".export-profile-area");
+    const profilePicFrame = element.querySelector(".export-profile-pic-frame");
+    const pitch = pitchRef.current;
+    const playerTokens = Array.from(element.querySelectorAll(".pitch-player-token"));
+    const benchItems = Array.from(element.querySelectorAll(".bench-grid-item"));
+
+    // Save original styles
+    const originalDashboardStyle = {
+      flexDirection: element.style.flexDirection,
+      width: element.style.width,
+      padding: element.style.padding,
+      backgroundColor: element.style.backgroundColor
+    };
+
+    let originalProfileAreaStyle = null;
+    if (profileArea) {
+      originalProfileAreaStyle = {
+        flex: profileArea.style.flex,
+        width: profileArea.style.width,
+        minWidth: profileArea.style.minWidth
+      };
+    }
+
+    let originalProfilePicFrameStyle = null;
+    if (profilePicFrame) {
+      originalProfilePicFrameStyle = {
+        height: profilePicFrame.style.height
+      };
+    }
+
+    let originalPitchStyle = null;
+    if (pitch) {
+      originalPitchStyle = {
+        height: pitch.style.height,
+        width: pitch.style.width,
+        minHeight: pitch.style.minHeight
+      };
+    }
+
+    const originalTokensStyles = playerTokens.map(token => ({
+      element: token,
+      width: token.style.width,
+      height: token.style.height
+    }));
+
+    const originalBenchStyles = benchItems.map(item => ({
+      element: item,
+      width: item.style.width
+    }));
+
+    // Apply temporary desktop styling to force aspect ratio and structures
+    element.style.flexDirection = "row";
+    element.style.width = "1440px";
+    element.style.padding = "24px";
+    element.style.backgroundColor = "#0f172a";
+
+    if (profileArea) {
+      profileArea.style.flex = "0 0 300px";
+      profileArea.style.width = "300px";
+      profileArea.style.minWidth = "300px";
+    }
+
+    if (profilePicFrame) {
+      profilePicFrame.style.height = "340px";
+    }
+
+    if (pitch) {
+      pitch.style.height = "620px";
+      pitch.style.width = "465px";
+      pitch.style.minHeight = "620px";
+    }
+
+    playerTokens.forEach(token => {
+      token.style.width = "64px";
+      token.style.height = "64px";
+    });
+
+    benchItems.forEach(item => {
+      item.style.width = "20%";
+    });
+
+    // Give browser brief moment to repaint with new styles
+    await new Promise(r => setTimeout(r, 150));
 
     try {
       const canvas = await html2canvas(element, {
@@ -646,7 +730,7 @@ const PitchViewPage = () => {
         allowTaint: false,  // No taint possible with blob URLs
         backgroundColor: "#0f172a",
         scale: 2,
-        width: element.offsetWidth,
+        width: 1440,        // Match forced desktop width
         height: element.offsetHeight,
         logging: false,
         ignoreElements: (el) => el.classList?.contains("no-export"),
@@ -660,6 +744,37 @@ const PitchViewPage = () => {
       console.error("[Export] Failed:", err);
       enqueueSnackbar(`Export failed: ${err?.message || "unknown error"}`, { variant: "error" });
     } finally {
+      // Restore styles
+      element.style.flexDirection = originalDashboardStyle.flexDirection;
+      element.style.width = originalDashboardStyle.width;
+      element.style.padding = originalDashboardStyle.padding;
+      element.style.backgroundColor = originalDashboardStyle.backgroundColor;
+
+      if (profileArea && originalProfileAreaStyle) {
+        profileArea.style.flex = originalProfileAreaStyle.flex;
+        profileArea.style.width = originalProfileAreaStyle.width;
+        profileArea.style.minWidth = originalProfileAreaStyle.minWidth;
+      }
+
+      if (profilePicFrame && originalProfilePicFrameStyle) {
+        profilePicFrame.style.height = originalProfilePicFrameStyle.height;
+      }
+
+      if (pitch && originalPitchStyle) {
+        pitch.style.height = originalPitchStyle.height;
+        pitch.style.width = originalPitchStyle.width;
+        pitch.style.minHeight = originalPitchStyle.minHeight;
+      }
+
+      originalTokensStyles.forEach(ts => {
+        ts.element.style.width = ts.width;
+        ts.element.style.height = ts.height;
+      });
+
+      originalBenchStyles.forEach(bs => {
+        bs.element.style.width = bs.width;
+      });
+
       // Always restore original src and free blob memory
       restoreActions.forEach(fn => fn());
       blobUrls.forEach(url => URL.revokeObjectURL(url));
@@ -755,7 +870,7 @@ const PitchViewPage = () => {
         }}
       >
         {/* Left: Profile Area */}
-        <Box sx={{ flex: { xs: '1 1 auto', lg: '0 0 300px' }, width: { xs: '100%', lg: 300 } }}>
+        <Box className="export-profile-area" sx={{ flex: { xs: '1 1 auto', lg: '0 0 300px' }, width: { xs: '100%', lg: 300 } }}>
           <Paper 
             elevation={0} 
             sx={{ 
@@ -780,7 +895,7 @@ const PitchViewPage = () => {
             }}
           >
             {/* 1. Profile Pic - Cinematic Frame (Full Bleed Top) */}
-            <Box sx={{ 
+            <Box className="export-profile-pic-frame" sx={{ 
               width: '100%', 
               height: { xs: 240, md: 340 }, 
               position: 'relative', 
@@ -1067,6 +1182,7 @@ const PitchViewPage = () => {
                       draggable={!!player} 
                       onDragStart={e => onDragStart(e, player, index)} 
                       onClick={() => player && onRemoveFromLineup(index)}
+                      className="pitch-player-token"
                       sx={{ 
                         width: isMobile ? 50 : 64, 
                         height: isMobile ? 50 : 64, 
@@ -1203,7 +1319,7 @@ const PitchViewPage = () => {
                 {bench.sort((a,b) => b.playerOvr - a.playerOvr).map(player => {
                   const style = getPlayerStyle(player);
                   return (
-                    <Box key={player.squadId} sx={{ width: { xs: '50%', sm: '33.33%', md: '25%', lg: '20%' }, p: 0.8, mb: 1 }}>
+                    <Box key={player.squadId} className="bench-grid-item" sx={{ width: { xs: '50%', sm: '33.33%', md: '25%', lg: '20%' }, p: 0.8, mb: 1 }}>
                       <Box draggable onDragStart={e => onDragStart(e, player)}
                         sx={{ 
                           p: 0.2, 
