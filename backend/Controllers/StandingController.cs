@@ -19,10 +19,10 @@ namespace eTPL.API.Controllers
             _db = db;
         }
 
-        // GET api/standings — ตารางคะแนน PC · D1 · season ปัจจุบัน
+        // GET api/standings — ตารางคะแนน PC · ดีวิชันใด ๆ · season ปัจจุบัน
         [HttpGet]
         [AllowAnonymous]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] string division = "D1")
         {
             var currentSeason = await _db.TbmCurrentSeasons
                 .Where(s => s.Platform == "PC")
@@ -30,7 +30,7 @@ namespace eTPL.API.Controllers
                 .FirstOrDefaultAsync();
 
             var query = _db.VResultTableNews
-                .Where(r => r.Division == "D1" && r.Platform == "PC");
+                .Where(r => r.Division == division && r.Platform == "PC");
 
             if (currentSeason.HasValue)
                 query = query.Where(r => r.Season == currentSeason.Value);
@@ -43,7 +43,7 @@ namespace eTPL.API.Controllers
 
             // Aggregate yellow/red cards per team from tbl_fixture_log
             var logQuery = _db.TblFixtureLogs
-                .Where(l => l.Division == "D1" && l.Platform == "PC");
+                .Where(l => l.Division == division && l.Platform == "PC");
 
             if (currentSeason.HasValue)
                 logQuery = logQuery.Where(l => l.Season == currentSeason.Value);
@@ -101,4 +101,3 @@ namespace eTPL.API.Controllers
         }
     }
 }
-

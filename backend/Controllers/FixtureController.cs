@@ -30,12 +30,13 @@ namespace eTPL.API.Controllers
         {
             public bool ResetFixtures { get; set; }
             public bool ResetTeams { get; set; }
+            public string Division { get; set; } = "D1";
         }
 
         // GET api/fixtures?search=teamA
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetAll([FromQuery] string? search)
+        public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] string division = "D1")
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var userLevel = User.FindFirstValue(ClaimTypes.Role);
@@ -46,7 +47,7 @@ namespace eTPL.API.Controllers
                 .FirstOrDefaultAsync();
 
             var query = _db.VFixtureAlls
-                .Where(f => f.Platform == "PC" && f.Division == "D1" && f.Active == "YES");
+                .Where(f => f.Platform == "PC" && f.Division == division && f.Active == "YES");
 
             if (currentSeason.HasValue)
                 query = query.Where(f => f.Season == currentSeason.Value);
@@ -67,7 +68,7 @@ namespace eTPL.API.Controllers
 
             // Join with TbmFixtureAlls to include yellow/red card data
             var cardQuery = _db.TbmFixtureAlls
-                .Where(f => f.Platform == "PC" && f.Division == "D1" && f.Active == "YES");
+                .Where(f => f.Platform == "PC" && f.Division == division && f.Active == "YES");
 
             if (currentSeason.HasValue)
                 cardQuery = cardQuery.Where(f => f.Season == currentSeason.Value);
@@ -113,7 +114,7 @@ namespace eTPL.API.Controllers
         // GET api/fixtures/public  — no login required, returns all fixtures grouped by match
         [HttpGet("public")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetPublic()
+        public async Task<IActionResult> GetPublic([FromQuery] string division = "D1")
         {
             var currentSeason = await _db.TbmCurrentSeasons
                 .Where(s => s.Platform == "PC")
@@ -121,7 +122,7 @@ namespace eTPL.API.Controllers
                 .FirstOrDefaultAsync();
 
             var query = _db.VFixtureAlls
-                .Where(f => f.Platform == "PC" && f.Division == "D1" && f.Active == "YES");
+                .Where(f => f.Platform == "PC" && f.Division == division && f.Active == "YES");
 
             if (currentSeason.HasValue)
                 query = query.Where(f => f.Season == currentSeason.Value);
@@ -129,7 +130,7 @@ namespace eTPL.API.Controllers
             var data = await query.OrderBy(f => f.Match).ToListAsync();
 
             var cardQuery = _db.TbmFixtureAlls
-                .Where(f => f.Platform == "PC" && f.Division == "D1" && f.Active == "YES");
+                .Where(f => f.Platform == "PC" && f.Division == division && f.Active == "YES");
 
             if (currentSeason.HasValue)
                 cardQuery = cardQuery.Where(f => f.Season == currentSeason.Value);
@@ -169,7 +170,7 @@ namespace eTPL.API.Controllers
         // GET api/fixtures/last10 — no login required, latest 10 by match date (from v_fixture_all_log)
         [HttpGet("last10")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetLast10()
+        public async Task<IActionResult> GetLast10([FromQuery] string division = "D1")
         {
             var currentSeason = await _db.TbmCurrentSeasons
                 .Where(s => s.Platform == "PC")
@@ -179,7 +180,7 @@ namespace eTPL.API.Controllers
             var query = _db.VFixtureAllLogs
                 .Where(f =>
                     f.Platform == "PC" &&
-                    f.Division == "D1" &&
+                    f.Division == division &&
                     f.MatchDate != null);
 
             if (currentSeason.HasValue)
@@ -230,7 +231,7 @@ namespace eTPL.API.Controllers
         // GET api/fixtures/h2h?home=X&away=Y — no login required, returns all-time H2H history between two players
         [HttpGet("h2h")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetH2H([FromQuery] string home, [FromQuery] string away)
+        public async Task<IActionResult> GetH2H([FromQuery] string home, [FromQuery] string away, [FromQuery] string division = "D1")
         {
             if (string.IsNullOrWhiteSpace(home) || string.IsNullOrWhiteSpace(away))
                 return BadRequest(ApiResponse<object>.Fail("Both home and away parameters are required and cannot be empty"));
@@ -238,7 +239,7 @@ namespace eTPL.API.Controllers
             var data = await _db.VFixtureAllLogs
                 .Where(f =>
                     f.Platform == "PC" &&
-                    f.Division == "D1" &&
+                    f.Division == division &&
                     f.HomeScore != null &&
                     f.AwayScore != null &&
                     ((f.Home == home && f.Away == away) ||
@@ -249,7 +250,7 @@ namespace eTPL.API.Controllers
             var cardData = await _db.TbmFixtureAlls
                 .Where(f =>
                     f.Platform == "PC" &&
-                    f.Division == "D1" &&
+                    f.Division == division &&
                     ((f.Home == home && f.Away == away) ||
                      (f.Home == away && f.Away == home)))
                 .Select(f => new { f.FixtureId, f.HomeYellow, f.HomeRed, f.AwayYellow, f.AwayRed })
@@ -687,7 +688,7 @@ namespace eTPL.API.Controllers
         // ─────────────────────────────────────────────
         [HttpGet("generate-preview")]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> GetGeneratePreview()
+        public async Task<IActionResult> GetGeneratePreview([FromQuery] string division = "D1")
         {
             var season = await _db.TbmCurrentSeasons
                 .Where(s => s.Platform == "PC")
@@ -697,9 +698,33 @@ namespace eTPL.API.Controllers
             if (!season.HasValue)
                 return BadRequest(ApiResponse<object>.Fail("ไม่พบ Season ปัจจุบัน"));
 
-            var players = await _db.Users
-                .Where(u => u.UserLevel != "admin")
+            // Get registered players in tbm_team for this season/platform/division
+            var teamPlayers = await _db.TbmTeams
+                .Where(t => t.Season == season.Value && t.Platform == "PC" && t.Division == division)
+                .Select(t => t.Player)
                 .ToListAsync();
+
+            List<User> players;
+            if (teamPlayers.Any())
+            {
+                players = await _db.Users
+                    .Where(u => teamPlayers.Contains(u.UserId))
+                    .ToListAsync();
+            }
+            else
+            {
+                if (division == "D1")
+                {
+                    // Fallback to all non-admin users for D1 backwards compatibility
+                    players = await _db.Users
+                        .Where(u => u.UserLevel != "admin")
+                        .ToListAsync();
+                }
+                else
+                {
+                    players = new List<User>();
+                }
+            }
 
             int n = players.Count;
             bool isEven = n % 2 == 0;
@@ -708,7 +733,7 @@ namespace eTPL.API.Controllers
             int leg1Matches = rounds * perRound;
 
             var existingCount = await _db.TbmFixtureAlls
-                .CountAsync(f => f.Season == season && f.Platform == "PC" && f.Division == "D1");
+                .CountAsync(f => f.Season == season && f.Platform == "PC" && f.Division == division);
 
             // Check Quotas
             var quotaCheck = await _auctionService.ValidateAllQuotasAsync();
@@ -735,7 +760,7 @@ namespace eTPL.API.Controllers
         // ─────────────────────────────────────────────
         [HttpPost("generate")]
         [Authorize(Roles = "admin")]
-        public async Task<IActionResult> GenerateFixture()
+        public async Task<IActionResult> GenerateFixture([FromQuery] string division = "D1")
         {
             var season = await _db.TbmCurrentSeasons
                 .Where(s => s.Platform == "PC")
@@ -747,10 +772,10 @@ namespace eTPL.API.Controllers
 
             // Block if fixtures already exist in test table
             var existingCount = await _db.TbmFixtureAlls
-                .CountAsync(f => f.Season == season && f.Platform == "PC" && f.Division == "D1");
+                .CountAsync(f => f.Season == season && f.Platform == "PC" && f.Division == division);
 
             if (existingCount > 0)
-                return BadRequest(ApiResponse<object>.Fail($"Season {season.Value} มี Fixture อยู่แล้ว {existingCount} รายการ ไม่สามารถ Generate ซ้ำได้"));
+                return BadRequest(ApiResponse<object>.Fail($"Season {season.Value} มี Fixture ใน Division {division} อยู่แล้ว {existingCount} รายการ ไม่สามารถ Generate ซ้ำได้"));
 
             // Check Quotas before generating
             var quotaCheck = await _auctionService.ValidateAllQuotasAsync();
@@ -759,10 +784,33 @@ namespace eTPL.API.Controllers
                 return BadRequest(ApiResponse<object>.Fail(quotaCheck.Message, quotaCheck.FailedUsers));
             }
 
-            // ดึงผู้เล่นทั้งหมดที่ไม่ใช่ admin พร้อมข้อมูลทีม
-            var users = await _db.Users
-                .Where(u => u.UserLevel != "admin")
+            // ดึงข้อมูลผู้เล่นสำหรับดิวิชันนี้
+            var teamPlayers = await _db.TbmTeams
+                .Where(t => t.Season == season.Value && t.Platform == "PC" && t.Division == division)
+                .Select(t => t.Player)
                 .ToListAsync();
+
+            List<User> users;
+            if (teamPlayers.Any())
+            {
+                users = await _db.Users
+                    .Where(u => teamPlayers.Contains(u.UserId))
+                    .ToListAsync();
+            }
+            else
+            {
+                if (division == "D1")
+                {
+                    // Fallback to all non-admin users for D1 backwards compatibility
+                    users = await _db.Users
+                        .Where(u => u.UserLevel != "admin")
+                        .ToListAsync();
+                }
+                else
+                {
+                    return BadRequest(ApiResponse<object>.Fail($"ไม่มีทีมที่ลงทะเบียนใน Division {division} สำหรับ Season {season.Value}"));
+                }
+            }
 
             if (users.Count < 2)
                 return BadRequest(ApiResponse<object>.Fail("ต้องมีผู้เล่นอย่างน้อย 2 คน"));
@@ -780,7 +828,7 @@ namespace eTPL.API.Controllers
                 fixtureInsert.Add(new TbmFixtureAll
                 {
                     FixtureId = Guid.NewGuid().ToString(),
-                    Division = "D1",
+                    Division = division,
                     Match = matchday,
                     Home = home, // UserId
                     Away = away, // UserId
@@ -797,7 +845,7 @@ namespace eTPL.API.Controllers
                 fixtureInsert.Add(new TbmFixtureAll
                 {
                     FixtureId = Guid.NewGuid().ToString(),
-                    Division = "D1",
+                    Division = division,
                     Match = matchday,
                     Home = away, // UserId สลับ
                     Away = home, // UserId สลับ
@@ -815,14 +863,15 @@ namespace eTPL.API.Controllers
                 var exists = await _db.TbmTeams.AnyAsync(t => 
                     t.Player == u.UserId && 
                     t.Season == season.Value && 
-                    t.Platform == "PC");
+                    t.Platform == "PC" &&
+                    t.Division == division);
 
                 if (!exists)
                 {
                     teamInsert.Add(new TbmTeam
                     {
                         Player = u.UserId,
-                        Division = "D1",
+                        Division = division,
                         Season = season.Value,
                         Platform = "PC",
                         TeamName = !string.IsNullOrEmpty(u.CurrentTeam) ? u.CurrentTeam : (u.LineName ?? u.UserId)
@@ -887,7 +936,7 @@ namespace eTPL.API.Controllers
                         if (request.ResetFixtures)
                         {
                             var fixturesToDelete = await _db.TbmFixtureAlls
-                                .Where(f => f.Season == season.Value && f.Platform == "PC")
+                                .Where(f => f.Season == season.Value && f.Platform == "PC" && f.Division == request.Division)
                                 .ToListAsync();
                             
                             fixtureCount = fixturesToDelete.Count;
@@ -901,7 +950,7 @@ namespace eTPL.API.Controllers
                         if (request.ResetTeams)
                         {
                             var teamsToDelete = await _db.TbmTeams
-                                .Where(t => t.Season == season.Value && t.Platform == "PC")
+                                .Where(t => t.Season == season.Value && t.Platform == "PC" && t.Division == request.Division)
                                 .ToListAsync();
                             
                             teamCount = teamsToDelete.Count;

@@ -33,10 +33,11 @@ const publicAxios = axios.create({
   },
 });
 
-export const getPublicFixtures = () => publicAxios.get("/api/fixtures/public");
+export const getPublicFixtures = (division = "D1") =>
+  publicAxios.get("/api/fixtures/public", { params: { division } });
 
-export const getPublicLastFixtures = () =>
-  publicAxios.get("/api/fixtures/last10");
+export const getPublicLastFixtures = (division = "D1") =>
+  publicAxios.get("/api/fixtures/last10", { params: { division } });
 
-export const getPublicH2H = (home, away) =>
-  publicAxios.get("/api/fixtures/h2h", { params: { home, away } });
+export const getPublicH2H = (home, away, division = "D1") =>
+  publicAxios.get("/api/fixtures/h2h", { params: { home, away, division } });

@@ -3,7 +3,8 @@ import {
   Box, Typography, Paper, Divider, Button, TextField,
   IconButton, Collapse, Dialog, DialogTitle, DialogContent,
   DialogActions, GlobalStyles, Stack, Alert,
-  Avatar, CircularProgress, FormControlLabel, Checkbox
+  Avatar, CircularProgress, FormControlLabel, Checkbox,
+  Tabs, Tab
 } from "@mui/material";
 import {
   MilitaryTech, Save, KeyboardArrowDown, KeyboardArrowUp,
@@ -29,6 +30,7 @@ const AdminLeagueSetting = () => {
   const [savingPrizes, setSavingPrizes] = useState(false);
 
   // ── Fixture Generator ────────────────────────────────────
+  const [genDivision, setGenDivision] = useState("D1");
   const [showFixtureGen, setShowFixtureGen] = useState(false);
   const [preview, setPreview] = useState(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -47,6 +49,7 @@ const AdminLeagueSetting = () => {
   const [resetingCup, setResetingCup] = useState(false);
 
   // ── Season Lifecycle ──────────────────────────────────────
+  const [lifecycleDivision, setLifecycleDivision] = useState("D1");
   const [showSeasonLifecycle, setShowSeasonLifecycle] = useState(false);
   const [closingSeason, setClosingSeason] = useState(false);
   const [openingSeason, setOpeningSeason] = useState(false);
@@ -58,8 +61,8 @@ const AdminLeagueSetting = () => {
   useEffect(() => { fetchPrizes(); }, []);
 
   useEffect(() => {
-    if (showFixtureGen && !preview) fetchPreview();
-  }, [showFixtureGen]);
+    if (showFixtureGen) fetchPreview(genDivision);
+  }, [showFixtureGen, genDivision]);
 
   // ── API Handlers ─────────────────────────────────────────
   const fetchPrizes = async () => {
@@ -77,10 +80,10 @@ const AdminLeagueSetting = () => {
     } catch (err) { console.error("Failed to fetch prizes", err); }
   };
 
-  const fetchPreview = async () => {
+  const fetchPreview = async (division = genDivision) => {
     setLoadingPreview(true);
     try {
-      const res = await adminService.getFixtureGeneratePreview();
+      const res = await adminService.getFixtureGeneratePreview(division);
       setPreview(res.data?.data || res.data);
     } catch (err) {
       enqueueSnackbar("ไม่สามารถโหลด Preview ได้", { variant: "error" });
@@ -112,11 +115,11 @@ const AdminLeagueSetting = () => {
     setConfirmOpen(false);
     setGenerating(true);
     try {
-      const res = await adminService.generateFixture();
+      const res = await adminService.generateFixture(genDivision);
       const msg = res.data?.data?.message || "Generate สำเร็จ!";
       enqueueSnackbar(msg, { variant: "success" });
       setPreview(null);
-      await fetchPreview();
+      await fetchPreview(genDivision);
     } catch (err) {
       const msg = err.response?.data?.message || "Generate ไม่สำเร็จ";
       enqueueSnackbar(msg, { variant: "error" });
@@ -134,10 +137,10 @@ const AdminLeagueSetting = () => {
     setResetConfirmOpen(false);
     setReseting(true);
     try {
-      const res = await adminService.resetFixtures(resetOptions);
+      const res = await adminService.resetFixtures({ ...resetOptions, division: genDivision });
       enqueueSnackbar(res.data?.data?.message || "Reset สำเร็จ!", { variant: "success" });
       setPreview(null);
-      await fetchPreview();
+      await fetchPreview(genDivision);
     } catch (err) {
       enqueueSnackbar("Reset ไม่สำเร็จ", { variant: "error" });
     } finally {
@@ -172,12 +175,12 @@ const AdminLeagueSetting = () => {
   };
 
   const handleCloseSeason = async () => {
-    if (!window.confirm("คุณแน่ใจหรือไม่ว่าต้องการปิดฤดูกาลปัจจุบัน? ระบบจะแจกเงินรางวัลและปล่อยตัวนักเตะที่หมดสัญญาโดยอัตโนมัติ")) return;
+    if (!window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการปิดฤดูกาลปัจจุบันสำหรับ Division ${lifecycleDivision}? ระบบจะแจกเงินรางวัลและปล่อยตัวนักเตะที่หมดสัญญาโดยอัตโนมัติ`)) return;
     
     setClosingSeason(true);
     setSummaryLogs([]);
     try {
-      const res = await adminService.closeSeason();
+      const res = await adminService.closeSeason("PC", lifecycleDivision);
       if (res.data?.success) {
         setSummaryLogs(res.data.logs || []);
         setShowSummary(true);
@@ -191,13 +194,13 @@ const AdminLeagueSetting = () => {
   };
 
   const handleOpenSeason = async () => {
-    if (!window.confirm("คุณแน่ใจหรือไม่ว่าต้องการเปิดฤดูกาลใหม่? ระบบจะหักเงินต่อสัญญาอัตโนมัติและล้างข้อมูลการแข่งขันเดิมทั้งหมด")) return;
+    if (!window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการเปิดฤดูกาลใหม่สำหรับ Division ${lifecycleDivision}? ระบบจะหักเงินต่อสัญญาอัตโนมัติและล้างข้อมูลการแข่งขันเดิมทั้งหมด`)) return;
     
     setOpeningSeason(true);
     setFailedRenewalUsers([]);
     setSummaryLogs([]);
     try {
-      const res = await adminService.openSeason();
+      const res = await adminService.openSeason("PC", lifecycleDivision);
       if (res.data?.success) {
         setSummaryLogs(res.data.logs || []);
         setShowSummary(true);
@@ -317,6 +320,27 @@ const AdminLeagueSetting = () => {
           <Collapse in={showFixtureGen}>
             <Divider sx={{ my: 3 }} />
 
+            {/* Division Switcher */}
+            <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
+              <Tabs
+                value={genDivision}
+                onChange={(e, newDiv) => setGenDivision(newDiv)}
+                textColor="primary"
+                indicatorColor="primary"
+                sx={{
+                  "& .MuiTab-root": {
+                    fontWeight: "bold",
+                    fontSize: "0.95rem",
+                    textTransform: "none",
+                    minWidth: 100,
+                  }
+                }}
+              >
+                <Tab label="Division 1" value="D1" />
+                <Tab label="Division 2" value="D2" />
+              </Tabs>
+            </Box>
+
             {/* Loading */}
             {loadingPreview && (
               <Box display="flex" justifyContent="center" alignItems="center" py={4} gap={2}>
@@ -329,9 +353,10 @@ const AdminLeagueSetting = () => {
             {!loadingPreview && preview && (
               <Stack spacing={3}>
                 {/* Stats Row — Unified with Prize Style */}
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, gap: 2 }}>
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(4, 1fr)" }, gap: 2 }}>
                   {[
                     { icon: <CalendarMonth sx={{ fontSize: 28 }} />, label: "Season", value: preview.season },
+                    { icon: <Avatar sx={{ width: 28, height: 28, bgcolor: "primary.main", fontSize: 13, fontWeight: "bold", mx: "auto" }}>{genDivision}</Avatar>, label: "Division", value: genDivision },
                     { icon: <Groups sx={{ fontSize: 28 }} />, label: "Players", value: preview.playerCount },
                     { icon: <SportsSoccer sx={{ fontSize: 28 }} />, label: "Total Fixtures", value: `${preview.totalMatchCount}`, sub: `Leg1: ${preview.leg1MatchCount} | Leg2: ${preview.leg1MatchCount}` }
                   ].map((stat, i) => (
@@ -344,7 +369,7 @@ const AdminLeagueSetting = () => {
                       transition: "all 0.2s",
                       "&:hover": { borderColor: "primary.light", bgcolor: "rgba(0,0,0,0.04)" }
                     }}>
-                      <Box sx={{ color: "primary.main", mb: 0.5 }}>{stat.icon}</Box>
+                      <Box sx={{ color: "primary.main", mb: 0.5, display: "flex", justifyContent: "center", alignItems: "center", height: 28 }}>{stat.icon}</Box>
                       <Typography variant="h4" fontWeight="bold" sx={{ color: "primary.main" }}>{stat.value}</Typography>
                       <Typography variant="caption" color="text.secondary" fontWeight="bold">{stat.label}</Typography>
                       {stat.sub && <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>{stat.sub}</Typography>}
@@ -360,7 +385,7 @@ const AdminLeagueSetting = () => {
                     <Typography fontWeight="bold">ไม่สามารถ Generate ได้</Typography>
                     <Typography variant="body2">
                       {preview.existingFixtureCount > 0 
-                        ? `Season ${preview.season} มี Fixture อยู่แล้ว ${preview.existingFixtureCount} รายการ — กรุณาติดต่อ DBA เพื่อล้างข้อมูลก่อน`
+                        ? `Season ${preview.season} ใน Division ${genDivision} มี Fixture อยู่แล้ว ${preview.existingFixtureCount} รายการ — คุณสามารถกดปุ่ม Reset ด้านล่างเพื่อล้างข้อมูลเฉพาะดิวิชันนี้และลงตารางใหม่ได้`
                         : "มีบางทีมถือครองนักเตะเกินโควต้าที่กำหนด"}
                     </Typography>
                   </Alert>
@@ -382,10 +407,10 @@ const AdminLeagueSetting = () => {
                 )}
 
                 {/* Ready */}
-                {!isBlocked && !tableNotReady && (
+                {!isBlocked && (
                   <Alert severity="success" icon={<CheckCircle />} sx={{ borderRadius: 2 }}>
                     <Typography fontWeight="bold">พร้อม Generate</Typography>
-                    <Typography variant="body2">Season {preview.season} ยังไม่มี Fixture — สามารถ Generate ได้เลย</Typography>
+                    <Typography variant="body2">Season {preview.season} ใน Division {genDivision} ยังไม่มี Fixture — สามารถ Generate ได้เลย</Typography>
                   </Alert>
                 )}
 
@@ -578,10 +603,31 @@ const AdminLeagueSetting = () => {
           <Collapse in={showSeasonLifecycle}>
             <Divider sx={{ my: 3 }} />
             <Stack spacing={3}>
+              {/* Division Switcher */}
+              <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 1 }}>
+                <Tabs
+                  value={lifecycleDivision}
+                  onChange={(e, newDiv) => setLifecycleDivision(newDiv)}
+                  textColor="primary"
+                  indicatorColor="primary"
+                  sx={{
+                    "& .MuiTab-root": {
+                      fontWeight: "bold",
+                      fontSize: "0.95rem",
+                      textTransform: "none",
+                      minWidth: 100,
+                    }
+                  }}
+                >
+                  <Tab label="Division 1" value="D1" />
+                  <Tab label="Division 2" value="D2" />
+                </Tabs>
+              </Box>
+
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3 }}>
                 {/* Close Season Card */}
                 <Box sx={{ p: 3, borderRadius: 2, bgcolor: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.05)" }}>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="error">1. Close Season Actions</Typography>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="error">1. Close Season Actions ({lifecycleDivision})</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     • แจกรางวัลตามอันดับ (Standing) และรางวัลพิเศษ<br />
                     • บันทึกข้อมูลเข้า Hall of Fame<br />
@@ -597,13 +643,13 @@ const AdminLeagueSetting = () => {
                     startIcon={closingSeason ? <CircularProgress size={18} color="inherit" /> : <Block />}
                     sx={{ borderRadius: 2, fontWeight: "bold" }}
                   >
-                    {closingSeason ? "Closing..." : "Close Current Season"}
+                    {closingSeason ? "Closing..." : `Close Current Season (${lifecycleDivision})`}
                   </Button>
                 </Box>
 
                 {/* Open Season Card */}
                 <Box sx={{ p: 3, borderRadius: 2, bgcolor: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.05)" }}>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="primary">2. Open New Season Actions</Typography>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="primary">2. Open New Season Actions ({lifecycleDivision})</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     • หักเงินต่อสัญญาอัตโนมัติ และเพิ่มปีที่อยู่กับทีม<br />
                     • <strong>(Atomic) หากมีคนเงินไม่พอ ระบบจะไม่ทำงาน</strong><br />
@@ -619,7 +665,7 @@ const AdminLeagueSetting = () => {
                     startIcon={openingSeason ? <CircularProgress size={18} color="inherit" /> : <RocketLaunch />}
                     sx={{ borderRadius: 2, fontWeight: "bold" }}
                   >
-                    {openingSeason ? "Opening..." : "Open New Season"}
+                    {openingSeason ? "Opening..." : `Open New Season (${lifecycleDivision})`}
                   </Button>
                 </Box>
               </Box>
@@ -649,11 +695,11 @@ const AdminLeagueSetting = () => {
       <Dialog open={resetConfirmOpen} onClose={() => setResetConfirmOpen(false)} fullScreen={isMobile}>
         <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, color: "error.main" }}>
           <DeleteForever />
-          <Typography fontWeight="bold">เลือกข้อมูลที่ต้องการลบ (Season {preview?.season})</Typography>
+          <Typography fontWeight="bold">เลือกข้อมูลที่ต้องการลบ (Season {preview?.season} - Division {genDivision})</Typography>
         </DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            กรุณาเลือกรายการที่ต้องการลบออกจากระบบ (ข้อมูลจะหายไปถาวร):
+            กรุณาเลือกรายการที่ต้องการลบออกจากระบบสำหรับ Division {genDivision} (ข้อมูลจะหายไปถาวร):
           </Typography>
           
           <Stack spacing={1}>
@@ -724,7 +770,7 @@ const AdminLeagueSetting = () => {
               <Box sx={{ p: 2, borderRadius: 2, bgcolor: "warning.light", border: "1px solid", borderColor: "warning.main" }}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>สรุปการ Generate:</Typography>
                 <Typography variant="body2">• Season: <strong>{preview.season}</strong></Typography>
-                <Typography variant="body2">• Division: <strong>D1</strong></Typography>
+                <Typography variant="body2">• Division: <strong>{genDivision}</strong></Typography>
                 <Typography variant="body2">• Players: <strong>{preview.playerCount} คน</strong></Typography>
                 <Typography variant="body2">• Leg 1: <strong>{preview.leg1MatchCount} fixtures</strong> (ACTIVE=NO)</Typography>
                 <Typography variant="body2">• Leg 2: <strong>{preview.leg1MatchCount} fixtures</strong> (ACTIVE=NO)</Typography>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getLogoUrl } from "../utils/imageUtils";
-import { Box, Paper, Typography, Alert, CircularProgress, useTheme, useMediaQuery } from "@mui/material";
+import { Box, Paper, Typography, Alert, CircularProgress, useTheme, useMediaQuery, Tabs, Tab } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import { Leaderboard, SquareRounded } from "@mui/icons-material";
 import { getStandings } from "../api/standingApi";
@@ -87,6 +87,7 @@ const StandingPage = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [division, setDivision] = useState("D1");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -305,7 +306,7 @@ const StandingPage = () => {
   useEffect(() => {
     setLoading(true);
     setError("");
-    getStandings()
+    getStandings(division)
       .then((res) => {
         const data = res.data.data || [];
         // add rank
@@ -318,14 +319,14 @@ const StandingPage = () => {
       })
       .catch(() => setError("Failed to load standings"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [division]);
 
   return (
     <Box>
       <SEO 
-        title={`ตารางคะแนน Division 1${season ? ` Season ${season}` : ""}`} 
-        description={`ตารางคะแนนล่าสุดสำหรับลีก eTPL Division 1 ของซีซั่น ${season || "ปัจจุบัน"} สรุปผลงาน ฟอร์มการเล่นล่าสุดของนักแข่ง และประมวลผลคะแนนแข่งขันแบบเรียลไทม์`}
-        keywords="ตารางคะแนน eTPL, eTPL Standings, eFootball Thailand, PES League Standings, eTPL D1"
+        title={`ตารางคะแนน Division ${division === "D1" ? "1" : "2"}${season ? ` Season ${season}` : ""}`} 
+        description={`ตารางคะแนนล่าสุดสำหรับลีก eTPL Division ${division === "D1" ? "1" : "2"} ของซีซั่น ${season || "ปัจจุบัน"} สรุปผลงาน ฟอร์มการเล่นล่าสุดของนักแข่ง และประมวลผลคะแนนแข่งขันแบบเรียลไทม์`}
+        keywords={`ตารางคะแนน eTPL, eTPL Standings, eFootball Thailand, PES League Standings, eTPL ${division}`}
       />
       {/* Header */}
       <Box sx={{ 
@@ -344,10 +345,31 @@ const StandingPage = () => {
               Standings
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              EFOOTBALL · D1
+              EFOOTBALL · {division}
             </Typography>
           </Box>
         </Box>
+      </Box>
+
+      {/* Premium Tabs Division Switcher */}
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
+        <Tabs
+          value={division}
+          onChange={(e, newDiv) => setDivision(newDiv)}
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{
+            "& .MuiTab-root": {
+              fontWeight: "bold",
+              fontSize: "1rem",
+              textTransform: "none",
+              minWidth: 120,
+            }
+          }}
+        >
+          <Tab label="Division 1" value="D1" />
+          <Tab label="Division 2" value="D2" />
+        </Tabs>
       </Box>
 
 
@@ -403,7 +425,7 @@ const StandingPage = () => {
         display="block"
         textAlign="right"
       >
-        PC · D1{season ? ` · Season ${season}` : ""}
+        PC · {division}{season ? ` · Season ${season}` : ""}
       </Typography>
     </Box>
   );

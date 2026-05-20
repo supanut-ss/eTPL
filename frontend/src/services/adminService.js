@@ -11,8 +11,8 @@ const adminService = {
   savePrizes: (data) => api.post("/api/admin/prizes", data),
 
   // Fixture Generator
-  getFixtureGeneratePreview: () => api.get("/api/fixtures/generate-preview"),
-  generateFixture: () => api.post("/api/fixtures/generate", {}),
+  getFixtureGeneratePreview: (division = "D1") => api.get(`/api/fixtures/generate-preview?division=${division}`),
+  generateFixture: (division = "D1") => api.post(`/api/fixtures/generate?division=${division}`, {}),
   resetFixtures: (data) => api.post("/api/fixtures/reset", data),
 
   // Special Bonus

@@ -16,7 +16,9 @@ import {
   Divider,
   CircularProgress,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Tabs,
+  Tab
 } from "@mui/material";
 import {
   ChevronLeft,
@@ -180,7 +182,7 @@ const TeamBlock = ({
 };
 
 // ---- H2H Dialog ----
-const H2HDialog = ({ open, onClose, home, away, homeTeamName, awayTeamName }) => {
+const H2HDialog = ({ open, onClose, home, away, homeTeamName, awayTeamName, division = "D1" }) => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -189,11 +191,11 @@ const H2HDialog = ({ open, onClose, home, away, homeTeamName, awayTeamName }) =>
     if (!open || !home || !away) return;
     setLoading(true);
     setError("");
-    getPublicH2H(home, away)
+    getPublicH2H(home, away, division)
       .then((res) => setRecords(res.data.data || []))
       .catch(() => setError("Failed to load H2H history"))
       .finally(() => setLoading(false));
-  }, [open, home, away]);
+  }, [open, home, away, division]);
 
   const homeWins = records.filter(
     (r) =>
@@ -398,7 +400,7 @@ const H2HDialog = ({ open, onClose, home, away, homeTeamName, awayTeamName }) =>
 };
 
 // ---- Single Match Card ----
-const MatchCard = ({ fixture }) => {
+const MatchCard = ({ fixture, division = "D1" }) => {
   const played = fixture.homeScore != null && fixture.awayScore != null;
   const homeWin = played && fixture.homeScore > fixture.awayScore;
   const awayWin = played && fixture.awayScore > fixture.homeScore;
@@ -471,6 +473,7 @@ const MatchCard = ({ fixture }) => {
         away={fixture.away}
         homeTeamName={fixture.homeTeamName}
         awayTeamName={fixture.awayTeamName}
+        division={division}
       />
     </>
   );
@@ -480,6 +483,7 @@ const MatchCard = ({ fixture }) => {
 const PublicMatchesPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const [division, setDivision] = useState("D1");
   const [fixtures, setFixtures] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -487,7 +491,7 @@ const PublicMatchesPage = () => {
 
   useEffect(() => {
     setLoading(true);
-    getPublicFixtures()
+    getPublicFixtures(division)
       .then((res) => {
         const data = res.data.data || [];
         setFixtures(data);
@@ -508,7 +512,7 @@ const PublicMatchesPage = () => {
       })
       .catch(() => setError("Failed to load fixtures"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [division]);
 
   const matchNumbers = useMemo(
     () => [...new Set(fixtures.map((f) => f.match))].sort((a, b) => a - b),
@@ -554,7 +558,7 @@ const PublicMatchesPage = () => {
                 Matches
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                EFOOTBALL · D1
+                EFOOTBALL · {division}
               </Typography>
             </Box>
           </Box>
@@ -577,9 +581,9 @@ const PublicMatchesPage = () => {
   return (
     <Box>
       <SEO 
-        title={`ตารางการแข่งขัน${selectedMatch ? ` Matchweek ${selectedMatch}` : ""}`} 
-        description={`ตารางการจับคู่และผลการแข่งขันฟุตบอล eFootball eTPL Division 1 ของสัปดาห์ Matchweek ${selectedMatch || ""} ผลคะแนนการแข่งขัน สถิติใบเหลืองใบแดง และปุ่มวิเคราะห์ Head-to-Head`}
-        keywords="ตารางแข่ง eTPL, ผลบอล eTPL, eTPL Matches, Matchweek eTPL, eFootball PES Fixtures"
+        title={`ตารางการแข่งขัน ${division === "D1" ? "Division 1" : "Division 2"}${selectedMatch ? ` Matchweek ${selectedMatch}` : ""}`} 
+        description={`ตารางการจับคู่และผลการแข่งขันฟุตบอล eFootball eTPL Division ${division === "D1" ? "1" : "2"} ของสัปดาห์ Matchweek ${selectedMatch || ""} ผลคะแนนการแข่งขัน สถิติใบเหลืองใบแดง และปุ่มวิเคราะห์ Head-to-Head`}
+        keywords={`ตารางแข่ง eTPL, ผลบอล eTPL, eTPL Matches, Matchweek eTPL, eFootball PES Fixtures, eTPL ${division}`}
       />
       {/* Header */}
       <Box sx={{ 
@@ -596,10 +600,31 @@ const PublicMatchesPage = () => {
               Matches
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              EFOOTBALL · D1
+              EFOOTBALL · {division}
             </Typography>
           </Box>
         </Box>
+      </Box>
+
+      {/* Premium Tabs Division Switcher */}
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
+        <Tabs
+          value={division}
+          onChange={(e, newDiv) => setDivision(newDiv)}
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{
+            "& .MuiTab-root": {
+              fontWeight: "bold",
+              fontSize: "1rem",
+              textTransform: "none",
+              minWidth: 120,
+            }
+          }}
+        >
+          <Tab label="Division 1" value="D1" />
+          <Tab label="Division 2" value="D2" />
+        </Tabs>
       </Box>
 
 
@@ -678,7 +703,7 @@ const PublicMatchesPage = () => {
           }}
         >
           {matchFixtures.map((f) => (
-            <MatchCard key={f.fixtureId} fixture={f} />
+            <MatchCard key={f.fixtureId} fixture={f} division={division} />
           ))}
         </Box>
       )}
