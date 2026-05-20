@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using eTPL.API.Data;
+using eTPL.API.Models;
 using eTPL.API.Models.DTOs;
 using eTPL.API.Models.Scaffolded;
 using eTPL.API.Services.Interfaces;
