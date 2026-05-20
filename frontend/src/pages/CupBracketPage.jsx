@@ -125,9 +125,28 @@ const CupBracketPage = () => {
     return match.homeUserId === user.id || match.awayUserId === user.id;
   };
 
-  const rounds = [...new Set(bracketData.map((m) => m.round))].sort(
+  // 1. Calculate active players count (unique non-null/non-empty user IDs)
+  const uniqueUsers = new Set();
+  bracketData.forEach((m) => {
+    if (m.homeUserId && m.homeUserId !== "TBD" && m.homeUserId !== "null") uniqueUsers.add(m.homeUserId);
+    if (m.awayUserId && m.awayUserId !== "TBD" && m.awayUserId !== "null") uniqueUsers.add(m.awayUserId);
+  });
+  const totalUniqueUsers = uniqueUsers.size;
+
+  // 2. Identify rounds
+  const allRounds = [...new Set(bracketData.map((m) => m.round))].sort(
     (a, b) => b - a,
   );
+
+  // 3. Detect if play-in fallback should be active (< 70% of 64, i.e., < 45 players)
+  const isPlayInActive = allRounds.includes(64) && totalUniqueUsers < 45;
+  const playInMatches = isPlayInActive
+    ? bracketData.filter((m) => m.round === 64 && !m.isBye)
+    : [];
+
+  const rounds = isPlayInActive
+    ? allRounds.filter((r) => r <= 32)
+    : allRounds;
 
   return (
     <Box
@@ -160,6 +179,242 @@ const CupBracketPage = () => {
           </Box>
         </Box>
       </Box>
+
+      {/* Play-in Matches Section */}
+      {!loading && isPlayInActive && playInMatches.length > 0 && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            mb: 4,
+            borderRadius: 4,
+            background: "linear-gradient(135deg, rgba(255, 255, 255, 0.65) 0%, rgba(241, 245, 249, 0.65) 100%)",
+            backdropFilter: "blur(20px)",
+            border: "1px solid",
+            borderColor: "rgba(226, 232, 240, 0.8)",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,1)",
+            transition: "all 0.3s ease",
+            "&:hover": {
+              borderColor: "rgba(203, 213, 225, 0.8)",
+              boxShadow: "0 12px 36px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,1)",
+            }
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={1.5} mb={2.5}>
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: "12px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+              }}
+            >
+              <SportsSoccer sx={{ color: "white", fontSize: 22 }} />
+            </Box>
+            <Box>
+              <Typography variant="h6" fontWeight="800" sx={{ color: "#1e293b", letterSpacing: 0.5 }}>
+                รอบคัดเลือก / Play-in Matches
+              </Typography>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 500 }}>
+                ผู้เล่นในลีกที่ไม่มีสิทธิ์บายในรอบแรก ต้องแข่งขันรอบคัดเลือกเพื่อผ่านเข้าสู่รอบ 32 ทีมสุดท้าย
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 3,
+            }}
+          >
+            {playInMatches.map((match) => {
+              const isHomeWinner = match.isPlayed && match.homeScore > match.awayScore;
+              const isAwayWinner = match.isPlayed && match.awayScore > match.homeScore;
+              const hasReportPermission = canReport(match);
+              
+              return (
+                <Paper
+                  key={match.id}
+                  elevation={1}
+                  sx={{
+                    width: { xs: "100%", sm: 300 },
+                    borderRadius: 3.5,
+                    overflow: "hidden",
+                    background: "white",
+                    border: "1px solid",
+                    borderColor: match.isPlayed ? "rgba(34, 197, 94, 0.2)" : "rgba(226, 232, 240, 0.8)",
+                    boxShadow: match.isPlayed 
+                      ? "0 4px 12px rgba(34, 197, 94, 0.05)" 
+                      : "0 4px 12px rgba(0,0,0,0.02)",
+                    position: "relative",
+                    transition: "all 0.2s ease-in-out",
+                    "&:hover": {
+                      transform: "translateY(-2px)",
+                      boxShadow: match.isPlayed
+                        ? "0 8px 20px rgba(34, 197, 94, 0.1)"
+                        : "0 8px 20px rgba(0,0,0,0.06)",
+                    },
+                  }}
+                >
+                  {/* Match header */}
+                  <Box
+                    sx={{
+                      px: 2,
+                      py: 1,
+                      bgcolor: match.isPlayed ? "rgba(34, 197, 94, 0.04)" : "#f8fafc",
+                      borderBottom: "1px solid",
+                      borderColor: match.isPlayed ? "rgba(34, 197, 94, 0.1)" : "rgba(226, 232, 240, 0.8)",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: match.isPlayed ? "success.main" : "text.secondary" }}>
+                      {match.isPlayed ? "COMPLETED" : "CUP PLAY-IN"}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 500 }}>
+                      Match #{match.matchNo}
+                    </Typography>
+                  </Box>
+
+                  {/* Home Player */}
+                  <Box
+                    sx={{
+                      p: 2,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      bgcolor: isHomeWinner ? "rgba(34, 197, 94, 0.06)" : "transparent",
+                      transition: "background-color 0.2s",
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" gap={1.5} sx={{ maxWidth: "75%" }}>
+                      <Avatar
+                        src={getLogoUrl(match.homeLogo || match.homeTeam)}
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+                          bgcolor: match.homeLogo || match.homeTeam
+                            ? "transparent"
+                            : isHomeWinner
+                            ? "success.main"
+                            : "#3b82f6",
+                          color: match.homeLogo || match.homeTeam ? "grey.500" : "#fff",
+                          "& img": { objectFit: "contain", p: "2px" },
+                        }}
+                      >
+                        H
+                      </Avatar>
+                      <Box sx={{ overflow: "hidden" }}>
+                        <Typography
+                          variant="body2"
+                          fontWeight={isHomeWinner ? 800 : 600}
+                          noWrap
+                          sx={{ color: isHomeWinner ? "success.dark" : "text.primary" }}
+                        >
+                          {match.homeUserId || "TBD"}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
+                          {match.homeTeam || "Team A"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Typography variant="h6" fontWeight="800" sx={{ color: isHomeWinner ? "success.dark" : "text.primary" }}>
+                      {match.isPlayed ? match.homeScore : "-"}
+                    </Typography>
+                  </Box>
+
+                  {/* Away Player */}
+                  <Box
+                    sx={{
+                      p: 2,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      bgcolor: isAwayWinner ? "rgba(34, 197, 94, 0.06)" : "transparent",
+                      borderTop: "1px solid rgba(226, 232, 240, 0.5)",
+                      transition: "background-color 0.2s",
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" gap={1.5} sx={{ maxWidth: "75%" }}>
+                      <Avatar
+                        src={getLogoUrl(match.awayLogo || match.awayTeam)}
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+                          bgcolor: match.awayLogo || match.awayTeam
+                            ? "transparent"
+                            : isAwayWinner
+                            ? "success.main"
+                            : "#ef4444",
+                          color: match.awayLogo || match.awayTeam ? "grey.500" : "#fff",
+                          "& img": { objectFit: "contain", p: "2px" },
+                        }}
+                      >
+                        A
+                      </Avatar>
+                      <Box sx={{ overflow: "hidden" }}>
+                        <Typography
+                          variant="body2"
+                          fontWeight={isAwayWinner ? 800 : 600}
+                          noWrap
+                          sx={{ color: isAwayWinner ? "success.dark" : "text.primary" }}
+                        >
+                          {match.awayUserId || "TBD"}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
+                          {match.awayTeam || "Team B"}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Typography variant="h6" fontWeight="800" sx={{ color: isAwayWinner ? "success.dark" : "text.primary" }}>
+                      {match.isPlayed ? match.awayScore : "-"}
+                    </Typography>
+                  </Box>
+
+                  {/* Report Button overlay/action */}
+                  {hasReportPermission && (
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        right: 12,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        zIndex: 10,
+                      }}
+                    >
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        sx={{
+                          bgcolor: "#fff",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                          border: "1px solid rgba(226, 232, 240, 0.8)",
+                          "&:hover": { bgcolor: "#f1f5f9" },
+                        }}
+                        onClick={() => handleOpenReport(match)}
+                      >
+                        {match.isPlayed ? (
+                          <Edit fontSize="small" />
+                        ) : (
+                          <SportsSoccer fontSize="small" />
+                        )}
+                      </IconButton>
+                    </Box>
+                  )}
+                </Paper>
+              );
+            })}
+          </Box>
+        </Paper>
+      )}
 
       {loading ? (
         <Box display="flex" justifyContent="center" py={10}>

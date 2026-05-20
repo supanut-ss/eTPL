@@ -31,7 +31,7 @@ import {
   Autocomplete,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
-import { Gavel, Refresh, Search, SearchOff, SportsSoccer, AccountBalanceWallet, Groups, HelpOutline, Campaign, History, Timer, EmojiEvents, ArrowBack, Close } from "@mui/icons-material";
+import { Gavel, Refresh, Search, SearchOff, SportsSoccer, AccountBalanceWallet, Groups, HelpOutline, Campaign, History, Timer, EmojiEvents, ArrowBack, Close, Star, StarBorder } from "@mui/icons-material";
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
@@ -72,6 +72,9 @@ const AuctionPage = () => {
   const [searchPage, setSearchPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingSearch, setLoadingSearch] = useState(false);
+  const [favouritesOpen, setFavouritesOpen] = useState(false);
+  const [favourites, setFavourites] = useState([]);
+  const [loadingFavourites, setLoadingFavourites] = useState(false);
 
   // Dynamic Filter Options
   const [filterOptions, setFilterOptions] = useState({
@@ -274,6 +277,45 @@ const AuctionPage = () => {
     }
   };
 
+  const fetchFavourites = async () => {
+    if (loadingFavourites) return;
+    try {
+      setLoadingFavourites(true);
+      const res = await auctionService.searchPlayers({ favouritesOnly: true, pageSize: 100 });
+      setFavourites(res?.data?.items || res?.items || []);
+    } catch (err) {
+      console.error(err);
+      enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
+    } finally {
+      setLoadingFavourites(false);
+    }
+  };
+
+  const handleToggleFavourite = async (playerId) => {
+    try {
+      const res = await auctionService.toggleFavourite(playerId);
+      const isStarred = res?.data?.isStarred ?? res?.isStarred;
+      
+      // Update state in search results if open
+      setSearchResults(prev => 
+        prev.map(p => p.idPlayer === playerId ? { ...p, isStarred } : p)
+      );
+      
+      // Update state in favourites if open (if unstarred, remove from favourites list)
+      setFavourites(prev => {
+        if (!isStarred) {
+          return prev.filter(p => p.idPlayer !== playerId);
+        }
+        return prev.map(p => p.idPlayer === playerId ? { ...p, isStarred } : p);
+      });
+
+      enqueueSnackbar(isStarred ? "เพิ่มในรายการโปรดสำเร็จ" : "ลบออกจากรายการโปรดสำเร็จ", { variant: "success" });
+    } catch (err) {
+      console.error(err);
+      enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
+    }
+  };
+
   const handleBidFromSearch = async (auctionId, currentPrice) => {
     const amount = currentPrice + 1;
     if (!window.confirm(`Confirm bid ${amount.toLocaleString()} TP?`)) return;
@@ -281,6 +323,7 @@ const AuctionPage = () => {
       await auctionService.placeNormalBid(auctionId, amount);
       enqueueSnackbar("Bid placed successfully", { variant: "success" });
       handleSearch(); // Refresh results to update player status
+      if (favouritesOpen) fetchFavourites(); // Refresh favourites too!
       fetchData();
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
@@ -324,6 +367,7 @@ const AuctionPage = () => {
       await auctionService.startAuction(playerId);
       enqueueSnackbar("Auction started successfully", { variant: "success" });
       handleSearch(); // Refresh results to update player status
+      if (favouritesOpen) fetchFavourites(); // Refresh favourites too!
       fetchData();
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
@@ -407,6 +451,35 @@ const AuctionPage = () => {
         </Box>
 
         <Box display="flex" gap={1} width={{ xs: '100%', sm: 'auto' }}>
+          {user && (
+            <Button
+              fullWidth={isMobile}
+              variant="outlined"
+              color="warning"
+              startIcon={<Star sx={{ color: '#ffb300' }} />}
+              onClick={() => {
+                setFavouritesOpen(true);
+                fetchFavourites();
+              }}
+              sx={{
+                borderRadius: '12px',
+                textTransform: 'none',
+                fontWeight: 700,
+                px: 3,
+                height: 42,
+                borderColor: '#ffb300',
+                color: '#e65100',
+                transition: 'all 0.2s',
+                "&:hover": {
+                  transform: 'translateY(-1px)',
+                  bgcolor: 'rgba(255, 179, 0, 0.08)',
+                  borderColor: '#ffb300',
+                },
+              }}
+            >
+              Favourites
+            </Button>
+          )}
           <Button 
             fullWidth={isMobile}
             variant="contained" 
@@ -1283,23 +1356,38 @@ const AuctionPage = () => {
 
                   {/* Player Info */}
                   <Box>
-                    <Typography 
-                      variant="h6" 
-                      fontWeight="800" 
-                      sx={{ 
-                        color: '#1d1d1f', 
-                        mb: 0.2, 
-                        lineHeight: 1.2,
-                        textDecoration: "none",
-                        "&:hover": { color: "primary.main", textDecoration: "underline" }
-                      }}
-                      component="a"
-                      href={getPesdbLink(getPlayerCardUrl(p.idPlayer))}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {p.playerName}
-                    </Typography>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Typography 
+                        variant="h6" 
+                        fontWeight="800" 
+                        sx={{ 
+                          color: '#1d1d1f', 
+                          mb: 0.2, 
+                          lineHeight: 1.2,
+                          textDecoration: "none",
+                          "&:hover": { color: "primary.main", textDecoration: "underline" }
+                        }}
+                        component="a"
+                        href={getPesdbLink(getPlayerCardUrl(p.idPlayer))}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {p.playerName}
+                      </Typography>
+                      {user && (
+                        <IconButton 
+                          size="small" 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleToggleFavourite(p.idPlayer);
+                          }}
+                          sx={{ color: p.isStarred ? '#ffb300' : 'text.disabled' }}
+                        >
+                          {p.isStarred ? <Star /> : <StarBorder />}
+                        </IconButton>
+                      )}
+                    </Box>
                     <Box display="flex" flexWrap="wrap" gap={2} mb={1}>
                       <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <span style={{ fontWeight: 600, color: '#424245' }}>LEAGUE</span> {p.league || '-'}
@@ -1398,7 +1486,279 @@ const AuctionPage = () => {
           <Button onClick={() => setSearchOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
-      
+
+      {/* Favourites Modal */}
+      <Dialog 
+        open={favouritesOpen} 
+        onClose={() => setFavouritesOpen(false)} 
+        maxWidth="lg" 
+        fullWidth
+        fullScreen={isMobile}
+      >
+        <DialogTitle sx={{ pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Star sx={{ color: '#ffb300' }} />
+            <Typography variant="h6" fontWeight="bold">My Favourites</Typography>
+          </Box>
+          <IconButton onClick={() => setFavouritesOpen(false)} size="small">
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <Divider />
+        <DialogContent>
+          <Box 
+            display="flex" 
+            flexDirection="column" 
+            gap={1.5} 
+            sx={{ 
+              maxHeight: 600, 
+              overflowY: 'auto', 
+              pr: 0.5,
+              minHeight: 200
+            }}
+          >
+            {loadingFavourites && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 10, gap: 2 }}>
+                <CircularProgress />
+                <Typography color="text.secondary" variant="body2">Loading favourites...</Typography>
+              </Box>
+            )}
+
+            {!loadingFavourites && favourites.length === 0 && (
+              <Box sx={{ textAlign: 'center', py: 8, bgcolor: 'rgba(0,0,0,0.02)', borderRadius: 4, border: '2px dashed', borderColor: 'rgba(0,0,0,0.05)' }}>
+                 <StarBorder sx={{ fontSize: 48, color: 'text.disabled', mb: 1, opacity: 0.5 }} />
+                 <Typography color="text.secondary" fontWeight="600">No starred players yet</Typography>
+                 <Typography variant="caption" color="text.disabled">Click the star icon next to any player in the search list to add them here</Typography>
+              </Box>
+            )}
+
+            {!loadingFavourites && favourites.map((p) => {
+              const isAvailable = p.status === "Available";
+              const isNormalBid = p.status === "In Normal Bid";
+              const isFinalBid = p.status === "In Final Bid";
+              const isWon = p.status === "Won";
+              const getPosColor = (pos) => {
+                const pName = pos?.toUpperCase() || '';
+                if (['CF', 'SS', 'LWF', 'RWF'].includes(pName)) return '#FF3B30';
+                if (['AMF', 'CMF', 'DMF', 'LMF', 'RMF'].includes(pName)) return '#28CD41';
+                if (['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(pName)) return '#007AFF';
+                if (pName === 'GK') return '#FFCC00';
+                return '#8E8E93';
+              };
+              const gradeColor = getGradeColor(p?.playerOvr || 0);
+
+              return (
+              <Box key={p.idPlayer} sx={{ 
+                p: 1.5, 
+                mb: 0.5,
+                display: 'flex',
+                justifyContent: 'space-between',
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: { xs: 'flex-start', sm: 'center' },
+                gap: { xs: 2, sm: 0 },
+                borderRadius: '16px',
+                bgcolor: 'white',
+                border: '1px solid',
+                borderColor: 'rgba(0,0,0,0.06)',
+                boxShadow: isWon ? '0 8px 24px rgba(255,193,7,0.12)' : '0 4px 12px rgba(0,0,0,0.05)', 
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                position: 'relative',
+                '&:hover': { 
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 12px 30px rgba(0,0,0,0.12)',
+                  borderColor: 'rgba(0,0,0,0.12)',
+                  bgcolor: 'rgba(255,255,255,1)'
+                },
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  left: 0, top: 0, bottom: 0,
+                  width: '4px',
+                  bgcolor: getPosColor(p.position),
+                  borderRadius: '4px 0 0 4px'
+                }
+              }}>
+                <Box display="flex" alignItems="center" gap={3}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    width: 50,
+                    flexShrink: 0
+                  }}>
+                    <Typography variant="h4" fontWeight="900" sx={{ 
+                      color: '#1d1d1f', 
+                      lineHeight: 1,
+                      letterSpacing: '-1px'
+                    }}>
+                      {p.playerOvr}
+                    </Typography>
+                    <Box sx={{ 
+                      mt: 0.5,
+                      px: 0.8,
+                      py: 0.2,
+                      borderRadius: '4px',
+                      bgcolor: getPosColor(p.position),
+                      color: 'white'
+                    }}>
+                      <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.65rem' }}>
+                        {p.position || '??'}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Box 
+                    component={getPesdbLink(getPlayerCardUrl(p.idPlayer)) ? "a" : "div"}
+                    href={getPesdbLink(getPlayerCardUrl(p.idPlayer))}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{ 
+                      position: 'relative', 
+                      flexShrink: 0,
+                      p: '3px',
+                      borderRadius: '8px',
+                      border: '0.5px solid',
+                      borderColor: alpha(gradeColor, 0.6),
+                      boxShadow: `0 0 10px ${alpha(gradeColor, 0.2)}`,
+                      bgcolor: alpha(gradeColor, 0.12),
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s',
+                      '&:hover': { transform: 'scale(1.05)' }
+                    }}
+                  >
+                    <Box 
+                      component="img"
+                      src={getPlayerCardUrl(p.idPlayer)} 
+                      referrerPolicy="no-referrer"
+                      sx={{ 
+                        width: 72, 
+                        height: 102, 
+                        display: 'block',
+                        objectFit: 'contain', 
+                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.15))'
+                      }} 
+                    />
+                  </Box>
+
+                  <Box>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Typography 
+                        variant="h6" 
+                        fontWeight="800" 
+                        sx={{ 
+                          color: '#1d1d1f', 
+                          mb: 0.2, 
+                          lineHeight: 1.2,
+                          textDecoration: "none",
+                          "&:hover": { color: "primary.main", textDecoration: "underline" }
+                        }}
+                        component="a"
+                        href={getPesdbLink(getPlayerCardUrl(p.idPlayer))}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {p.playerName}
+                      </Typography>
+                      {user && (
+                        <IconButton 
+                          size="small" 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleToggleFavourite(p.idPlayer);
+                          }}
+                          sx={{ color: p.isStarred ? '#ffb300' : 'text.disabled' }}
+                        >
+                          {p.isStarred ? <Star /> : <StarBorder />}
+                        </IconButton>
+                      )}
+                    </Box>
+                    <Box display="flex" flexWrap="wrap" gap={2} mb={1}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <span style={{ fontWeight: 600, color: '#424245' }}>LEAGUE</span> {p.league || '-'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <span style={{ fontWeight: 600, color: '#424245' }}>TEAM</span> {p.teamName || '-'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <span style={{ fontWeight: 600, color: '#424245' }}>STYLE</span> {p.playingStyle || '-'}
+                      </Typography>
+                    </Box>
+
+                    <Box display="flex" alignItems="center" gap={1}>
+                      {isAvailable && (
+                        <Chip label="AVAILABLE" size="small" sx={{ height: 20, bgcolor: '#E8F5E9', color: '#2E7D32', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #C8E6C9' }} />
+                      )}
+                      {isNormalBid && (
+                        <Chip label={`ACTIVE BIDS • ${p.currentPrice} TP`} size="small" sx={{ height: 20, bgcolor: '#E3F2FD', color: '#1565C0', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #BBDEFB' }} />
+                      )}
+                      {isFinalBid && (
+                        <Chip label={`FINAL PHASE • ${p.currentPrice} TP`} size="small" sx={{ height: 20, bgcolor: '#FFF3E0', color: '#EF6C00', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #FFE0B2' }} />
+                      )}
+                      {isWon && (
+                        <Chip label={`🏆 WON BY ${p.winnerName?.toUpperCase() ?? 'ADMIN'}`} size="small" sx={{ height: 20, bgcolor: '#FFFDE7', color: '#FBC02D', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #FFF9C4' }} />
+                      )}
+                      {p.isRestricted && (
+                        <Chip label="RESTRICTED (BUY BACK)" size="small" sx={{ height: 20, bgcolor: '#FFEBEE', color: '#B71C1C', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #FFCDD2' }} />
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
+
+                <Box sx={{ flexShrink: 0, ml: { xs: 0, sm: 2 }, width: { xs: '100%', sm: 'auto' } }}>
+                  {isAvailable && (
+                    <Button 
+                      variant="contained" 
+                      onClick={() => handleStartAuction(p.idPlayer)}
+                      fullWidth={isMobile}
+                      disabled={p.isRestricted}
+                      sx={{ 
+                        bgcolor: '#1d1d1f', 
+                        color: 'white',
+                        borderRadius: '8px',
+                        textTransform: 'none',
+                        fontWeight: 'bold',
+                        px: 3,
+                        '&:hover': { bgcolor: '#000' }
+                      }}
+                    >
+                      Start {p.playerOvr + 1} TP
+                    </Button>
+                  )}
+                  {isNormalBid && (
+                    <Button
+                      variant="contained"
+                      onClick={() => handleBidFromSearch(p.activeAuctionId, p.currentPrice)}
+                      fullWidth={isMobile}
+                      disabled={p.isRestricted}
+                      sx={{ 
+                        bgcolor: '#007AFF', 
+                        color: 'white',
+                        borderRadius: '8px',
+                        textTransform: 'none',
+                        fontWeight: 'bold',
+                        px: 3,
+                        boxShadow: '0 4px 12px rgba(0,122,255,0.3)'
+                      }}
+                    >
+                      Bid {(p.currentPrice ?? 0) + 1} TP
+                    </Button>
+                  )}
+                  {isFinalBid && (
+                    <Typography variant="button" sx={{ color: '#EF6C00', fontWeight: 900, fontSize: '0.75rem' }}>FINAL BID</Typography>
+                  )}
+                </Box>
+              </Box>
+              );
+            })}
+          </Box>
+        </DialogContent>
+        <Divider />
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setFavouritesOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   );
 };

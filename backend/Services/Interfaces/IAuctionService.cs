@@ -27,7 +27,10 @@ namespace eTPL.API.Services.Interfaces
             int? minAge = null,
             int? maxAge = null,
             bool ownedOnly = false,
-            int? excludeUserId = null);
+            int? excludeUserId = null,
+            bool favouritesOnly = false);
+
+        Task<bool> ToggleFavouriteAsync(int playerId, int userId);
 
         Task<PlayerFilterOptionsDto> GetPlayerFilterOptionsAsync(string? league = null);
 

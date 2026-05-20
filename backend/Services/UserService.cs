@@ -18,9 +18,30 @@ namespace eTPL.API.Services
 
         public async Task<IEnumerable<UserDto>> GetAllAsync()
         {
-            return await _db.Users
-                .Select(u => ToDto(u))
-                .ToListAsync();
+            try
+            {
+                return await _db.Users
+                    .Select(u => ToDto(u))
+                    .ToListAsync();
+            }
+            catch (Exception)
+            {
+                try
+                {
+                    await _db.Database.ExecuteSqlRawAsync(
+                        "IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[tbm_user]') AND name = N'current_division') " +
+                        "ALTER TABLE [dbo].[tbm_user] ADD [current_division] nvarchar(10) NULL;"
+                    );
+                    return await _db.Users
+                        .Select(u => ToDto(u))
+                        .ToListAsync();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Migration Error: {ex.Message}");
+                    throw;
+                }
+            }
         }
 
         public async Task<UserDto?> GetByIdAsync(int id)
@@ -58,6 +79,7 @@ namespace eTPL.API.Services
                 LineName = request.LineName,
                 CurrentTeam = request.CurrentTeam,
                 TeamNickname = request.TeamNickname,
+                CurrentDivision = request.CurrentDivision,
             };
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
@@ -92,6 +114,7 @@ namespace eTPL.API.Services
             user.LineName = request.LineName;
             user.CurrentTeam = request.CurrentTeam;
             user.TeamNickname = request.TeamNickname;
+            user.CurrentDivision = request.CurrentDivision;
 
             if (!string.IsNullOrWhiteSpace(request.Password))
                 user.Password = request.Password;
@@ -217,6 +240,7 @@ namespace eTPL.API.Services
             LineName = u.LineName,
             CurrentTeam = u.CurrentTeam,
             TeamNickname = u.TeamNickname,
+            CurrentDivision = u.CurrentDivision,
         };
     }
 }

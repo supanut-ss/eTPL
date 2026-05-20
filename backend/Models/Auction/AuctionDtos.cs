@@ -118,6 +118,8 @@ namespace eTPL.API.Models.Auction
         public int? PricePaid { get; set; } // Latest price paid
         [System.Text.Json.Serialization.JsonPropertyName("isRestricted")]
         public bool IsRestricted { get; set; } = false;
+        [System.Text.Json.Serialization.JsonPropertyName("isStarred")]
+        public bool IsStarred { get; set; } = false;
 
         public string? Grade { get; set; }
         public string? League { get; set; }

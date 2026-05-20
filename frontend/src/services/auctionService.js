@@ -20,18 +20,26 @@ const auctionService = {
       maxWeight = null,
       minAge = null,
       maxAge = null,
-      ownedOnly = false
+      ownedOnly = false,
+      favouritesOnly = false
     } = filters;
 
     const res = await api.get("/api/auction/players", {
       params: { 
         searchTerm, page, pageSize, freeAgentOnly, grade,
         league, teamName, position, playingStyle, foot, nationality,
-        minHeight, maxHeight, minWeight, maxWeight, minAge, maxAge, ownedOnly
+        minHeight, maxHeight, minWeight, maxWeight, minAge, maxAge, ownedOnly,
+        favouritesOnly
       },
     });
     return res.data;
   },
+
+  toggleFavourite: async (playerId) => {
+    const res = await api.post(`/api/auction/favourites/toggle/${playerId}`);
+    return res.data;
+  },
+
 
   getFilterOptions: async (league = "") => {
     const res = await api.get("/api/auction/filter-options", { params: { league } });

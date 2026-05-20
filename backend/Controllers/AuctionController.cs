@@ -62,7 +62,8 @@ namespace eTPL.API.Controllers
             [FromQuery] int? maxWeight = null,
             [FromQuery] int? minAge = null,
             [FromQuery] int? maxAge = null,
-            [FromQuery] bool ownedOnly = false)
+            [FromQuery] bool ownedOnly = false,
+            [FromQuery] bool favouritesOnly = false)
         {
             try
             {
@@ -75,12 +76,27 @@ namespace eTPL.API.Controllers
                 var result = await _auctionService.SearchPlayersAsync(
                     searchTerm, page, pageSize, freeAgentOnly, grade, 
                     league, teamName, position, playingStyle, foot, nationality, 
-                    minHeight, maxHeight, minWeight, maxWeight, minAge, maxAge, ownedOnly, userId);
+                    minHeight, maxHeight, minWeight, maxWeight, minAge, maxAge, ownedOnly, userId, favouritesOnly);
                 return Ok(ApiResponse<object>.Ok(result));
             }
             catch (Exception ex)
             {
                 return BadRequest(ApiResponse<object>.Fail(ex.ToString()));
+            }
+        }
+
+        [HttpPost("favourites/toggle/{playerId}")]
+        public async Task<IActionResult> ToggleFavourite(int playerId)
+        {
+            try
+            {
+                var userId = await GetCurrentUserIdAsync();
+                var isStarred = await _auctionService.ToggleFavouriteAsync(playerId, userId);
+                return Ok(ApiResponse<object>.Ok(new { isStarred = isStarred }, isStarred ? "เพิ่มในรายการโปรดสำเร็จ" : "ลบออกจากรายการโปรดสำเร็จ"));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
             }
         }
 

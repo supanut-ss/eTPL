@@ -489,7 +489,7 @@ namespace eTPL.API.Controllers
                         await _auctionService.GiveBonusAsync(0, new GiveBonusRequest
                         {
                             TargetUserId = homeUser.Id,
-                            Amount = 1,
+                            Amount = 2,
                             Reason = $"Match Bonus (Match #{fixture.Match}) - Daily Check-in verified"
                         });
                     }
@@ -505,7 +505,7 @@ namespace eTPL.API.Controllers
                         await _auctionService.GiveBonusAsync(0, new GiveBonusRequest
                         {
                             TargetUserId = awayUser.Id,
-                            Amount = 1,
+                            Amount = 2,
                             Reason = $"Match Bonus (Match #{fixture.Match}) - Daily Check-in verified"
                         });
                     }
@@ -714,7 +714,16 @@ namespace eTPL.API.Controllers
             }
             else
             {
-                if (division == "D1")
+                // Fallback to users having this CurrentDivision in tbm_user
+                var divisionUsers = await _db.Users
+                    .Where(u => u.UserLevel != "admin" && u.CurrentDivision == division)
+                    .ToListAsync();
+
+                if (divisionUsers.Any())
+                {
+                    players = divisionUsers;
+                }
+                else if (division == "D1")
                 {
                     // Fallback to all non-admin users for D1 backwards compatibility
                     players = await _db.Users
@@ -800,7 +809,16 @@ namespace eTPL.API.Controllers
             }
             else
             {
-                if (division == "D1")
+                // Fallback to users having this CurrentDivision in tbm_user
+                var divisionUsers = await _db.Users
+                    .Where(u => u.UserLevel != "admin" && u.CurrentDivision == division)
+                    .ToListAsync();
+
+                if (divisionUsers.Any())
+                {
+                    users = divisionUsers;
+                }
+                else if (division == "D1")
                 {
                     // Fallback to all non-admin users for D1 backwards compatibility
                     users = await _db.Users

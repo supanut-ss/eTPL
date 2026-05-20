@@ -38,6 +38,7 @@ const defaultForm = {
   lineName: "",
   currentTeam: "",
   teamNickname: "",
+  currentDivision: "",
 };
 
 const UserMasterPage = () => {
@@ -133,6 +134,7 @@ const UserMasterPage = () => {
       lineName: row.lineName || "",
       currentTeam: row.currentTeam || "",
       teamNickname: row.teamNickname || "",
+      currentDivision: row.currentDivision || "",
     });
     setErrors({});
     setDialogOpen(true);
@@ -230,8 +232,8 @@ const UserMasterPage = () => {
           <Chip
             label={level?.toUpperCase()}
             size="small"
-            sx={{ 
-              fontWeight: 800, 
+            sx={{
+              fontWeight: 800,
               fontSize: '0.65rem',
               letterSpacing: '0.05em',
               bgcolor: bgColor,
@@ -245,9 +247,9 @@ const UserMasterPage = () => {
         );
       },
     },
-    { 
-      field: "lineId", 
-      headerName: "LINE Connection", 
+    {
+      field: "lineId",
+      headerName: "LINE Connection",
       flex: 1,
       renderCell: (params) => (
         <Typography variant="body2" color={params.value ? "text.primary" : "text.disabled"}>
@@ -270,13 +272,38 @@ const UserMasterPage = () => {
     },
     {
       field: "teamNickname",
-      headerName: "Team Nickname",
+      headerName: "Nickname",
       width: 150,
       renderCell: (params) => (
         <Typography variant="body2" color={params.value ? "text.primary" : "text.disabled"}>
           {params.value || "—"}
         </Typography>
       )
+    },
+    {
+      field: "currentDivision",
+      headerName: "Division",
+      width: 140,
+      renderCell: (params) => {
+        const div = params.value;
+        if (!div) return <Typography variant="body2" color="text.disabled">—</Typography>;
+        return (
+          <Chip
+            label={div}
+            size="small"
+            sx={{
+              fontWeight: 800,
+              fontSize: '0.65rem',
+              bgcolor: div === "D1" ? "rgba(76, 175, 80, 0.12)" : "rgba(156, 39, 176, 0.12)",
+              color: div === "D1" ? "#2e7d32" : "#9c27b0",
+              border: "1px solid",
+              borderColor: div === "D1" ? "rgba(76, 175, 80, 0.24)" : "rgba(156, 39, 176, 0.24)",
+              borderRadius: "6px",
+              height: 24
+            }}
+          />
+        );
+      }
     },
     {
       field: "actions",
@@ -291,10 +318,10 @@ const UserMasterPage = () => {
             <IconButton
               size="small"
               onClick={() => handleOpenEdit(params.row)}
-              sx={{ 
+              sx={{
                 color: "primary.main",
                 transition: 'all 0.2s ease',
-                "&:hover": { 
+                "&:hover": {
                   bgcolor: "transparent",
                   color: "primary.dark",
                   transform: 'scale(1.2)',
@@ -319,10 +346,10 @@ const UserMasterPage = () => {
                   setDeleteDialogOpen(true);
                 }}
                 disabled={params.row.userId === currentUser?.userId}
-                sx={{ 
+                sx={{
                   color: "error.main",
                   transition: 'all 0.2s ease',
-                  "&:hover": { 
+                  "&:hover": {
                     bgcolor: "transparent",
                     color: "error.dark",
                     transform: 'scale(1.2)',
@@ -341,10 +368,10 @@ const UserMasterPage = () => {
   return (
     <Box sx={{ pb: 4 }}>
       {/* Header Section */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: { xs: 'flex-start', sm: 'center' }, 
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: { xs: 'flex-start', sm: 'center' },
         flexDirection: { xs: 'column', sm: 'row' },
         gap: { xs: 2, sm: 0 },
         mb: 4,
@@ -362,7 +389,7 @@ const UserMasterPage = () => {
           </Box>
         </Box>
 
-        
+
         <Button
           fullWidth={isMobile}
           variant="contained"
@@ -377,7 +404,7 @@ const UserMasterPage = () => {
             height: 48,
             fontSize: '0.95rem',
             boxShadow: '0 4px 14px rgba(25, 118, 210, 0.25)',
-            "&:hover": { 
+            "&:hover": {
               transform: 'translateY(-2px)',
               boxShadow: '0 6px 20px rgba(25, 118, 210, 0.35)',
             },
@@ -389,10 +416,10 @@ const UserMasterPage = () => {
       </Box>
 
       {/* DataGrid Section */}
-      <Paper elevation={0} sx={{ 
-        borderRadius: 4, 
-        overflow: "hidden", 
-        border: "1px solid", 
+      <Paper elevation={0} sx={{
+        borderRadius: 4,
+        overflow: "hidden",
+        border: "1px solid",
         borderColor: "divider",
         bgcolor: "background.paper",
         boxShadow: '0 12px 24px rgba(0,0,0,0.03)'
@@ -423,7 +450,7 @@ const UserMasterPage = () => {
               borderBottom: "1px solid rgba(0,0,0,0.04)",
               "&:focus": { outline: "none" }
             },
-            "& .MuiDataGrid-row:hover": { 
+            "& .MuiDataGrid-row:hover": {
               bgcolor: "rgba(25, 118, 210, 0.02)",
               cursor: 'pointer'
             },
@@ -496,6 +523,18 @@ const UserMasterPage = () => {
                   {l}
                 </MenuItem>
               ))}
+            </TextField>
+            <TextField
+              label="Current Division"
+              select
+              value={form.currentDivision || ""}
+              onChange={(e) => setForm({ ...form, currentDivision: e.target.value })}
+              fullWidth
+              helperText="เลือก Division สำหรับผู้เล่น D1/D2"
+            >
+              <MenuItem value="">— None —</MenuItem>
+              <MenuItem value="D1">D1</MenuItem>
+              <MenuItem value="D2">D2</MenuItem>
             </TextField>
             <Autocomplete
               options={clubLogos}

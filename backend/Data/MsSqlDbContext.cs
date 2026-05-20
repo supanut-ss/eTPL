@@ -32,6 +32,7 @@ namespace eTPL.API.Data
         public DbSet<QaInformation> QaInformation { get; set; }
         public DbSet<NotificationTemplate> NotificationTemplates { get; set; }
         public DbSet<ClubLogo> ClubLogos { get; set; }
+        public DbSet<AuctionFavourite> AuctionFavourites { get; set; }
 
         // --- Legacy / Scaffolded Models ---
         public virtual DbSet<ApiVFixtureAll> ApiVFixtureAlls { get; set; }
@@ -80,6 +81,7 @@ namespace eTPL.API.Data
                 entity.Property(e => e.LineName).HasColumnName("line_name").HasMaxLength(200);
                 entity.Property(e => e.CurrentTeam).HasColumnName("current_team").HasMaxLength(100);
                 entity.Property(e => e.TeamNickname).HasColumnName("team_nickname").HasMaxLength(100);
+                entity.Property(e => e.CurrentDivision).HasColumnName("current_division").HasMaxLength(10);
             });
 
             modelBuilder.Entity<Permission>(entity =>
@@ -349,6 +351,24 @@ namespace eTPL.API.Data
             {
                 entity.ToTable("tbs_notification_template", "dbo");
                 entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<AuctionFavourite>(entity =>
+            {
+                entity.ToTable("tbs_auction_favourites", "dbo");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedOnAdd();
+                entity.Property(e => e.UserId).HasColumnName("UserId");
+                entity.Property(e => e.PlayerId).HasColumnName("PlayerId");
+                entity.Property(e => e.CreatedAt).HasColumnName("CreatedAt");
+                entity.HasOne(e => e.User).WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .HasPrincipalKey(e => e.Id)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(e => e.Player).WithMany()
+                    .HasForeignKey(e => e.PlayerId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasIndex(e => new { e.UserId, e.PlayerId }).IsUnique();
             });
 
             // ─── Legacy / Scaffolded Mappings (full column mapping in partial class) ─

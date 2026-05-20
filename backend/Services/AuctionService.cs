@@ -334,9 +334,15 @@ namespace eTPL.API.Services
             int? minAge = null,
             int? maxAge = null,
             bool ownedOnly = false,
-            int? excludeUserId = null)
+            int? excludeUserId = null,
+            bool favouritesOnly = false)
         {
             var query = _context.PesPlayerTeams.Where(p => p.PlayerOvr >= 60);
+
+            if (favouritesOnly && excludeUserId.HasValue)
+            {
+                query = query.Where(p => _context.AuctionFavourites.Any(f => f.UserId == excludeUserId.Value && f.PlayerId == p.IdPlayer));
+            }
 
             if (ownedOnly)
             {
@@ -463,6 +469,7 @@ namespace eTPL.API.Services
 
             // Fetch restrictions for the user
             HashSet<int> restrictedPlayerIds = new();
+            HashSet<int> starredPlayerIds = new();
             if (excludeUserId.HasValue)
             {
                 var currentSeasonObj = await _scaffoldedContext.TbmCurrentSeasons.FirstOrDefaultAsync();
@@ -482,6 +489,12 @@ namespace eTPL.API.Services
                     
                     restrictedPlayerIds = restrictedList.ToHashSet();
                 }
+
+                starredPlayerIds = (await _context.AuctionFavourites
+                    .Where(f => f.UserId == excludeUserId.Value)
+                    .Select(f => f.PlayerId)
+                    .ToListAsync())
+                    .ToHashSet();
             }
 
             var now = DateTime.UtcNow;
@@ -507,7 +520,8 @@ namespace eTPL.API.Services
                     Height = p.Height,
                     Weight = p.Weight,
                     Age = p.Age,
-                    IsRestricted = restrictedPlayerIds.Contains(p.IdPlayer)
+                    IsRestricted = restrictedPlayerIds.Contains(p.IdPlayer),
+                    IsStarred = starredPlayerIds.Contains(p.IdPlayer)
                 };
                 // Check if in squad (Won)
                 // If the player is loaned, there are two entries. Prioritize the one that is currently "Active" (borrower).
@@ -2907,6 +2921,31 @@ namespace eTPL.API.Services
             if (isRestricted)
             {
                 throw new Exception("คุณไม่สามารถประมูล/ซื้อ/ยืม นักเตะคนเดิมที่คุณเพิ่งปล่อยตัวหรือขายออกจากทีมในฤดูกาลที่ผ่านมาได้ (กฎ Buy Back Restriction)");
+            }
+        }
+
+        public async Task<bool> ToggleFavouriteAsync(int playerId, int userId)
+        {
+            var exists = await _context.AuctionFavourites
+                .FirstOrDefaultAsync(f => f.UserId == userId && f.PlayerId == playerId);
+
+            if (exists != null)
+            {
+                _context.AuctionFavourites.Remove(exists);
+                await _context.SaveChangesAsync();
+                return false; // Removed
+            }
+            else
+            {
+                var fav = new AuctionFavourite
+                {
+                    UserId = userId,
+                    PlayerId = playerId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.AuctionFavourites.Add(fav);
+                await _context.SaveChangesAsync();
+                return true; // Added
             }
         }
     }
