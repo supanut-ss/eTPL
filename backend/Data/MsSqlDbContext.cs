@@ -327,10 +327,21 @@ namespace eTPL.API.Data
 
             // ─── League Ops — uses [Column] data annotations, only set relationships ──
 
-            modelBuilder.Entity<LeagueCycle>().ToTable("tbs_league_cycles", "dbo");
+            modelBuilder.Entity<LeagueCycle>(entity =>
+            {
+                entity.ToTable("tbs_league_cycles", "dbo");
+                entity.Property(e => e.BonusPool).HasColumnType("decimal(18, 2)");
+            });
             modelBuilder.Entity<DailyCheckin>().ToTable("tbs_daily_checkins", "dbo");
             modelBuilder.Entity<JudgeHistory>().ToTable("tbs_judge_history", "dbo");
-            modelBuilder.Entity<LeagueOpsStatResult>().HasNoKey();
+            modelBuilder.Entity<LeagueOpsStatResult>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(e => e.p_score).HasColumnType("decimal(18, 2)");
+                entity.Property(e => e.r_score).HasColumnType("decimal(18, 2)");
+                entity.Property(e => e.ei_score).HasColumnType("decimal(18, 2)");
+                entity.Property(e => e.est_bonus).HasColumnType("decimal(18, 2)");
+            });
 
             // ─── Cup & QA — uses [Table]/[Column] annotations ─────────────────────
 

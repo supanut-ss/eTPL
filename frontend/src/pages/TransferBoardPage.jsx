@@ -7,7 +7,7 @@ import {
   Chip, Divider,
   useMediaQuery, useTheme
 } from "@mui/material";
-import { LocalOffer, CheckCircle, PeopleAlt, Close, Search, SearchOff, Handshake, Campaign, AccountBalanceWallet, Storefront } from "@mui/icons-material";
+import { LocalOffer, CheckCircle, PeopleAlt, Close, Search, SearchOff, Handshake, Campaign, AccountBalanceWallet, Storefront, WarningAmber } from "@mui/icons-material";
 import { useSnackbar } from "notistack";
 import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
@@ -460,6 +460,11 @@ const TransferBoardPage = () => {
       return;
     }
 
+    if (player.seasonsWithTeam <= 1 && !marketSummary?.isMarketRound2) {
+      enqueueSnackbar("ไม่สามารถซื้อขายนักเตะที่เพิ่งย้ายเข้าทีมได้ในฤดูกาลเดียวกัน (ตลาดรอบ 2 เท่านั้น)", { variant: "error" });
+      return;
+    }
+
     const quotaWarning = checkSquadQuota(player.playerOvr);
     const confirmBuy = window.confirm((quotaWarning ? `${quotaWarning}\n\n` : "") + `Confirm Buy Out ${player.playerName} for ${player.listingPrice} TP?`);
     if (!confirmBuy) return;
@@ -486,7 +491,8 @@ const TransferBoardPage = () => {
     }
     setSelectedPlayer(player);
     setOfferAmount("");
-    setOfferType("Transfer");
+    const defaultOfferType = (player.seasonsWithTeam <= 1 && !marketSummary?.isMarketRound2) ? "Loan" : "Transfer";
+    setOfferType(defaultOfferType);
     setOfferModalOpen(true);
   };
 
@@ -498,6 +504,11 @@ const TransferBoardPage = () => {
   const handleSubmitOffer = async () => {
     if (!offerAmount || isNaN(offerAmount) || parseInt(offerAmount) <= 0) {
       enqueueSnackbar("Please enter a valid TP amount", { variant: "warning" });
+      return;
+    }
+
+    if (offerType === "Transfer" && selectedPlayer.seasonsWithTeam <= 1 && !marketSummary?.isMarketRound2) {
+      enqueueSnackbar("ไม่สามารถยื่นข้อเสนอซื้อนักเตะที่เพิ่งย้ายเข้าทีมได้ในฤดูกาลเดียวกัน (กรุณาส่งข้อเสนอแบบยืมตัวแทน)", { variant: "error" });
       return;
     }
 
@@ -598,10 +609,12 @@ const TransferBoardPage = () => {
         playerOvr: player.playerOvr,
         position: player.position,
         grade: player.grade,
+        seasonsWithTeam: player.seasonsWithTeam,
         listingPrice: 0 // No listing price for private offers
     });
     setOfferAmount("");
-    setOfferType("Transfer");
+    const defaultOfferType = (player.seasonsWithTeam <= 1 && !marketSummary?.isMarketRound2) ? "Loan" : "Transfer";
+    setOfferType(defaultOfferType);
     setOfferModalOpen(true);
   };
 
@@ -1046,9 +1059,22 @@ const TransferBoardPage = () => {
                                     }
                                 }}
                             >
-                                <ToggleButton value="Transfer">Transfer</ToggleButton>
+                                <ToggleButton 
+                                    value="Transfer"
+                                    disabled={selectedPlayer.seasonsWithTeam <= 1 && !marketSummary?.isMarketRound2}
+                                >
+                                    Transfer
+                                </ToggleButton>
                                 <ToggleButton value="Loan">Loan</ToggleButton>
                             </ToggleButtonGroup>
+                            {selectedPlayer.seasonsWithTeam <= 1 && !marketSummary?.isMarketRound2 && (
+                                <Box sx={{ mt: 1, p: 1, bgcolor: "rgba(239, 68, 68, 0.08)", borderRadius: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <WarningAmber sx={{ color: "error.main", fontSize: 16 }} />
+                                    <Typography variant="caption" color="error.main" fontWeight="bold">
+                                        ยื่นซื้อไม่ได้เนื่องจากอยู่ในฤดูกาลแรก (ยื่นยืมตัวได้เท่านั้น)
+                                    </Typography>
+                                </Box>
+                            )}
                         </Box>
 
                         <Box mb={2.5}>

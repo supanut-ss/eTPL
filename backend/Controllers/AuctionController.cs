@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
@@ -40,6 +41,39 @@ namespace eTPL.API.Controllers
             if (user == null) throw new UnauthorizedAccessException("ไม่พบข้อมูลผู้ใช้ในระบบ");
 
             return user.Id;
+        }
+
+        private static bool TryParseAuctionTime(string? value, out TimeSpan time)
+        {
+            time = TimeSpan.Zero;
+            if (string.IsNullOrWhiteSpace(value)) return false;
+
+            var normalized = value.Trim().Replace('.', ':');
+            var formats = new[]
+            {
+                @"hh\:mm",
+                @"h\:mm",
+                @"hh\:mm\:ss",
+                @"h\:mm\:ss"
+            };
+
+            if (TimeSpan.TryParseExact(normalized, formats, CultureInfo.InvariantCulture, out time))
+            {
+                return true;
+            }
+
+            if (DateTime.TryParseExact(
+                normalized,
+                new[] { "h:mm tt", "hh:mm tt", "h:mm:ss tt", "hh:mm:ss tt" },
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AllowWhiteSpaces,
+                out var dt))
+            {
+                time = dt.TimeOfDay;
+                return true;
+            }
+
+            return false;
         }
 
         [HttpGet("players")]
@@ -290,7 +324,7 @@ namespace eTPL.API.Controllers
         }
 
         [HttpPut("settings")]
-        public async Task<IActionResult> UpdateSettings([FromBody] AuctionSetting updatedSettings)
+        public async Task<IActionResult> UpdateSettings([FromBody] UpdateAuctionSettingsDto updatedSettings)
         {
             try
             {
@@ -301,6 +335,12 @@ namespace eTPL.API.Controllers
                 var settings = await _db.AuctionSettings.FirstOrDefaultAsync();
                 if (settings == null) throw new Exception("Not found");
 
+                if (!TryParseAuctionTime(updatedSettings.DailyBidStartTime, out var startTime))
+                    throw new Exception("รูปแบบ DailyBidStartTime ไม่ถูกต้อง (รองรับ 08:00, 08:00:00, 08:00 AM)");
+
+                if (!TryParseAuctionTime(updatedSettings.DailyBidEndTime, out var endTime))
+                    throw new Exception("รูปแบบ DailyBidEndTime ไม่ถูกต้อง (รองรับ 23:59, 23:59:59, 11:59 PM)");
+
                 bool seasonChanged = settings.CurrentSeason != updatedSettings.CurrentSeason;
 
                 settings.StartingBudget = updatedSettings.StartingBudget;
@@ -309,9 +349,10 @@ namespace eTPL.API.Controllers
                 settings.AuctionStartDate = updatedSettings.AuctionStartDate;
                 settings.AuctionEndDate = updatedSettings.AuctionEndDate;
                 settings.CurrentSeason = updatedSettings.CurrentSeason;
+                settings.IsMarketRound2 = updatedSettings.IsMarketRound2;
                 
-                settings.DailyBidStartTime = updatedSettings.DailyBidStartTime;
-                settings.DailyBidEndTime = updatedSettings.DailyBidEndTime;
+                settings.DailyBidStartTime = startTime;
+                settings.DailyBidEndTime = endTime;
 
                 settings.NormalBidDurationMinutes = updatedSettings.NormalBidDurationMinutes;
                 settings.FinalBidDurationMinutes = updatedSettings.FinalBidDurationMinutes;

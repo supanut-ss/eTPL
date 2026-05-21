@@ -369,6 +369,10 @@ const MySquadPage = () => {
       enqueueSnackbar(market.message, { variant: "error" });
       return;
     }
+    if (player.seasonsWithTeam <= 1 && !marketSummary?.isMarketRound2) {
+      enqueueSnackbar("ไม่สามารถตั้งขายนักเตะที่เพิ่งได้มาในฤดูกาลเดียวกันได้ (ต้องผ่านอย่างน้อย 1 ฤดูกาล)", { variant: "error" });
+      return;
+    }
     setSelectedPlayerForList(player);
     setListPrice(player.pricePaid || 1);
     setListModalOpen(true);

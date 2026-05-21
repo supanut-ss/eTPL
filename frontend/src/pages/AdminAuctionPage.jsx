@@ -12,6 +12,8 @@ import {
   Divider,
   Chip,
   Stack,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
 import { Settings, Refresh, Save } from "@mui/icons-material";
 import auctionService from "../services/auctionService";
@@ -44,6 +46,34 @@ const AdminAuctionPage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { enqueueSnackbar } = useSnackbar();
+
+  const normalizeTime = (timeStr) => {
+    if (!timeStr || typeof timeStr !== "string") return null;
+
+    // Accept 08:00, 08.00, and 08:00 AM/PM styles.
+    const normalized = timeStr.trim().replace(/\./g, ":");
+    const match = normalized.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*(AM|PM)?$/i);
+    if (!match) return null;
+
+    let hours = parseInt(match[1], 10) || 0;
+    const minutes = Math.min(59, Math.max(0, parseInt(match[2], 10) || 0));
+    const seconds = Math.min(59, Math.max(0, parseInt(match[3] || "0", 10) || 0));
+    const meridiem = (match[4] || "").toUpperCase();
+
+    if (meridiem === "AM") {
+      hours = hours === 12 ? 0 : hours;
+    } else if (meridiem === "PM") {
+      hours = hours === 12 ? 12 : hours + 12;
+    }
+
+    hours = Math.min(23, Math.max(0, hours));
+
+    return {
+      hhmm: `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`,
+      hhmmss: `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
+    };
+  };
+
   const [settings, setSettings] = useState(null);
   const [quotas, setQuotas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +90,20 @@ const AdminAuctionPage = () => {
         auctionService.getSettings(),
         auctionService.getQuotas()
       ]);
-      setSettings(sRes?.data || {});
+      
+      const rawSettings = sRes?.data || {};
+      const pickSetting = (camelKey, pascalKey) => rawSettings?.[camelKey] ?? rawSettings?.[pascalKey];
+      
+      // Clean and normalize time fields for HTML5 time picker
+      const cleanTime = (timeStr, defaultVal) => normalizeTime(timeStr)?.hhmm || defaultVal;
+
+      setSettings({
+        ...rawSettings,
+        dailyBidStartTime: cleanTime(pickSetting("dailyBidStartTime", "DailyBidStartTime"), "08:00"),
+        dailyBidEndTime: cleanTime(pickSetting("dailyBidEndTime", "DailyBidEndTime"), "23:59"),
+        auctionStartDate: pickSetting("auctionStartDate", "AuctionStartDate"),
+        auctionEndDate: pickSetting("auctionEndDate", "AuctionEndDate"),
+      });
       setQuotas(qRes?.data || []);
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
@@ -74,8 +117,8 @@ const AdminAuctionPage = () => {
   }, []);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setSettings((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setSettings((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
   const handleQuotaChange = (id, field, value) => {
@@ -85,9 +128,46 @@ const AdminAuctionPage = () => {
   const handleSaveAll = async () => {
     try {
       setSaving(true);
+
+      // Helper to format TimeSpan to "HH:mm:ss"
+      const formatTimeSpan = (timeStr) => normalizeTime(timeStr)?.hhmmss || "00:00:00";
+
+      // Helper to format DateTime? to null or YYYY-MM-DD
+      const formatDate = (dateStr) => {
+        if (!dateStr || dateStr.trim() === "") return null;
+        return dateStr;
+      };
+
+      // Prepare settings with correct types (convert strings to numbers and format time/dates)
+      const settingsPayload = {
+        SettingId: parseInt(settings.settingId ?? settings.SettingId, 10) || 0,
+        StartingBudget: parseInt(settings.startingBudget ?? settings.StartingBudget, 10) || 0,
+        MaxSquadSize: parseInt(settings.maxSquadSize ?? settings.MaxSquadSize, 10) || 0,
+        NormalBidDurationMinutes: parseInt(settings.normalBidDurationMinutes ?? settings.NormalBidDurationMinutes, 10) || 0,
+        FinalBidDurationMinutes: parseInt(settings.finalBidDurationMinutes ?? settings.FinalBidDurationMinutes, 10) || 0,
+        MinBidPrice: parseInt(settings.minBidPrice ?? settings.MinBidPrice, 10) || 60,
+        CurrentSeason: parseInt(settings.currentSeason ?? settings.CurrentSeason, 10) || 1,
+        DailyBidStartTime: formatTimeSpan(settings.dailyBidStartTime ?? settings.DailyBidStartTime),
+        DailyBidEndTime: formatTimeSpan(settings.dailyBidEndTime ?? settings.DailyBidEndTime),
+        AuctionStartDate: formatDate(settings.auctionStartDate ?? settings.AuctionStartDate),
+        AuctionEndDate: formatDate(settings.auctionEndDate ?? settings.AuctionEndDate),
+        IsMarketRound2: !!(settings.isMarketRound2 ?? settings.IsMarketRound2),
+      };
+
+      // Prepare quotas with correct types (prevent NaN/null if fields are empty)
+      const quotasPayload = quotas.map(q => ({
+        ...q,
+        minOVR: parseInt(q.minOVR, 10) || 0,
+        maxOVR: parseInt(q.maxOVR, 10) || 0,
+        maxAllowedPerUser: parseInt(q.maxAllowedPerUser, 10) || 0,
+        renewalPercent: parseInt(q.renewalPercent, 10) || 0,
+        releasePercent: parseInt(q.releasePercent, 10) || 0,
+        maxSeasonsPerTeam: parseInt(q.maxSeasonsPerTeam, 10) || 0,
+      }));
+
       await Promise.all([
-        auctionService.updateSettings(settings),
-        auctionService.updateQuotas(quotas)
+        auctionService.updateSettings(settingsPayload),
+        auctionService.updateQuotas(quotasPayload)
       ]);
       enqueueSnackbar("Settings saved successfully", { variant: "success" });
     } catch (err) {
@@ -301,6 +381,7 @@ const AdminAuctionPage = () => {
                     value={settings?.dailyBidStartTime || "08:00"}
                     onChange={handleChange}
                     InputLabelProps={{ shrink: true }}
+                    helperText="เวลาไทย (ICT, UTC+7)"
                     InputProps={{ startAdornment: <Schedule sx={{ mr: 1, color: 'action.active' }} /> }}
                   />
                   <TextField
@@ -311,9 +392,28 @@ const AdminAuctionPage = () => {
                     value={settings?.dailyBidEndTime || "23:59"}
                     onChange={handleChange}
                     InputLabelProps={{ shrink: true }}
+                    helperText="เวลาไทย (ICT, UTC+7)"
                     InputProps={{ startAdornment: <Schedule sx={{ mr: 1, color: 'action.active' }} /> }}
                   />
                 </Box>
+                <Divider sx={{ my: 1 }} />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={settings?.isMarketRound2 || false}
+                      onChange={handleChange}
+                      name="isMarketRound2"
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body1" fontWeight="bold">ตลาดนักเตะรอบ 2 (Round 2 Transfer Window)</Typography>
+                      <Typography variant="caption" color="text.secondary">ยกเว้นเกณฑ์การครอบครองนักเตะครบ 1 ฤดูกาล สำหรับนักเตะใหม่</Typography>
+                    </Box>
+                  }
+                  sx={{ mt: 1 }}
+                />
               </Stack>
             </Paper>
           </Stack>

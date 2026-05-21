@@ -699,42 +699,10 @@ namespace eTPL.API.Controllers
             if (!season.HasValue)
                 return BadRequest(ApiResponse<object>.Fail("ไม่พบ Season ปัจจุบัน"));
 
-            // Get registered players in tbm_team for this season/platform/division
-            var teamPlayers = await _db.TbmTeams
-                .Where(t => t.Season == season.Value && t.Platform == "PC" && t.Division == division)
-                .Select(t => t.Player)
+            // ALWAYS get players directly from tbm_user (User table) filtered by division, excluding admins
+            var players = await _db.Users
+                .Where(u => u.UserLevel != "admin" && u.CurrentDivision == division)
                 .ToListAsync();
-
-            List<User> players;
-            if (teamPlayers.Any())
-            {
-                players = await _db.Users
-                    .Where(u => teamPlayers.Contains(u.UserId))
-                    .ToListAsync();
-            }
-            else
-            {
-                // Fallback to users having this CurrentDivision in tbm_user
-                var divisionUsers = await _db.Users
-                    .Where(u => u.UserLevel != "admin" && u.CurrentDivision == division)
-                    .ToListAsync();
-
-                if (divisionUsers.Any())
-                {
-                    players = divisionUsers;
-                }
-                else if (division == "D1")
-                {
-                    // Fallback to all non-admin users for D1 backwards compatibility
-                    players = await _db.Users
-                        .Where(u => u.UserLevel != "admin")
-                        .ToListAsync();
-                }
-                else
-                {
-                    players = new List<User>();
-                }
-            }
 
             int n = players.Count;
             bool isEven = n % 2 == 0;
@@ -794,42 +762,10 @@ namespace eTPL.API.Controllers
                 return BadRequest(ApiResponse<object>.Fail(quotaCheck.Message, quotaCheck.FailedUsers));
             }
 
-            // ดึงข้อมูลผู้เล่นสำหรับดิวิชันนี้
-            var teamPlayers = await _db.TbmTeams
-                .Where(t => t.Season == season.Value && t.Platform == "PC" && t.Division == division)
-                .Select(t => t.Player)
+            // ALWAYS get players directly from tbm_user (User table) filtered by division, excluding admins
+            var users = await _db.Users
+                .Where(u => u.UserLevel != "admin" && u.CurrentDivision == division)
                 .ToListAsync();
-
-            List<User> users;
-            if (teamPlayers.Any())
-            {
-                users = await _db.Users
-                    .Where(u => teamPlayers.Contains(u.UserId))
-                    .ToListAsync();
-            }
-            else
-            {
-                // Fallback to users having this CurrentDivision in tbm_user
-                var divisionUsers = await _db.Users
-                    .Where(u => u.UserLevel != "admin" && u.CurrentDivision == division)
-                    .ToListAsync();
-
-                if (divisionUsers.Any())
-                {
-                    users = divisionUsers;
-                }
-                else if (division == "D1")
-                {
-                    // Fallback to all non-admin users for D1 backwards compatibility
-                    users = await _db.Users
-                        .Where(u => u.UserLevel != "admin")
-                        .ToListAsync();
-                }
-                else
-                {
-                    return BadRequest(ApiResponse<object>.Fail($"ไม่มีทีมที่ลงทะเบียนใน Division {division} สำหรับ Season {season.Value}"));
-                }
-            }
 
             if (users.Count < 2)
                 return BadRequest(ApiResponse<object>.Fail("ต้องมีผู้เล่นอย่างน้อย 2 คน"));

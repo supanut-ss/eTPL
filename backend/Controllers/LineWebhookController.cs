@@ -114,10 +114,16 @@ namespace eTPL.API.Controllers
                 return;
             }
 
+            string sourceType = @event.Source.Type ?? "";
+            if (!sourceType.Equals("group", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine($"LINE Webhook: Ignoring non-group message source type: '{sourceType}' (only group chat allowed)");
+                return;
+            }
+
             string userMessage = @event.Message.Text.Trim();
             string replyToken = @event.ReplyToken;
             string? lineUserId = @event.Source.UserId;
-            string sourceType = @event.Source.Type ?? "";
 
             Console.WriteLine($"LINE Message from {lineUserId} (Source: {sourceType}): {userMessage}");
 
@@ -253,18 +259,60 @@ namespace eTPL.API.Controllers
         {
             try
             {
-                // Search Q&A database for all matches
-                var answers = await _context.QaInformation
-                    .Where(q => EF.Functions.Like(q.Question, $"%{question}%"))
-                    .Select(q => q.Answer)
-                    .ToListAsync();
-
-                if (answers.Count > 0)
+                // 1. Skip polite words, short greetings, or noise messages
+                var ignoredMessages = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    // Randomly select one if multiple matches
-                    var rnd = new Random();
-                    var answer = answers[rnd.Next(answers.Count)];
+                    "ครับ", "ค่ะ", "ครับผม", "สวัสดี", "สวัสดีครับ", "สวัสดีค่ะ", "นะ", "คะ", "จ้า", "ดีครับ", "ดีค่ะ", "hello", "hi", "555", "5555"
+                };
 
+                string trimmedQuestion = question.Trim();
+                if (ignoredMessages.Contains(trimmedQuestion) || trimmedQuestion.Length < 2)
+                {
+                    return false;
+                }
+
+                // Retrieve all Q&A entries from the database
+                var allQa = await _context.QaInformation.ToListAsync();
+                if (allQa == null || allQa.Count == 0)
+                {
+                    return false;
+                }
+
+                // 2. Try direct substring matching first (longest matching question gets priority)
+                var directMatch = allQa
+                    .Where(q => 
+                        !string.IsNullOrEmpty(q.Question) && 
+                        (trimmedQuestion.Contains(q.Question, StringComparison.OrdinalIgnoreCase) || 
+                         q.Question.Contains(trimmedQuestion, StringComparison.OrdinalIgnoreCase)))
+                    .OrderByDescending(q => q.Question.Length)
+                    .FirstOrDefault();
+
+                if (directMatch != null)
+                {
+                    string answer = directMatch.Answer;
+                    if (!string.IsNullOrEmpty(answer))
+                    {
+                        Console.WriteLine($"LINE Webhook: Direct QA Match Found! User: '{trimmedQuestion}' | DB Match: '{directMatch.Question}'");
+                        await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
+                            new { type = "text", text = answer } 
+                        });
+                        return true;
+                    }
+                }
+
+                // 3. Fallback to similarity/fuzzy matching
+                var rankedMatches = allQa
+                    .Select(q => new { Qa = q, Score = CalculateSimilarity(trimmedQuestion, q.Question) })
+                    .Where(m => m.Score >= 0.40) // Threshold of 40% similarity
+                    .OrderByDescending(m => m.Score)
+                    .ToList();
+
+                if (rankedMatches.Count > 0)
+                {
+                    var bestMatch = rankedMatches.First();
+                    Console.WriteLine($"LINE Webhook: Fuzzy QA Match Found! User: '{trimmedQuestion}' | DB Match: '{bestMatch.Qa.Question}' (Score: {bestMatch.Score:F2})");
+
+                    string answer = bestMatch.Qa.Answer;
                     if (!string.IsNullOrEmpty(answer))
                     {
                         await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
@@ -273,6 +321,11 @@ namespace eTPL.API.Controllers
                         return true;
                     }
                 }
+                else
+                {
+                    Console.WriteLine($"LINE Webhook: No fuzzy QA match for '{trimmedQuestion}' (Best score below 0.40)");
+                }
+                
                 return false;
             }
             catch (Exception ex)
@@ -280,6 +333,63 @@ namespace eTPL.API.Controllers
                 Console.WriteLine($"Error in HandleQA: {ex.Message}");
                 return false;
             }
+        }
+
+        private double CalculateSimilarity(string str1, string str2)
+        {
+            if (string.IsNullOrEmpty(str1) || string.IsNullOrEmpty(str2))
+                return 0;
+
+            str1 = str1.Trim().ToLowerInvariant();
+            str2 = str2.Trim().ToLowerInvariant();
+
+            if (str1 == str2)
+                return 1.0;
+
+            double lenRatio = (double)Math.Min(str1.Length, str2.Length) / Math.Max(str1.Length, str2.Length);
+
+            // Fallback to Dice Coefficient
+            double dice = CalculateDiceCoefficient(str1, str2);
+
+            // Penalize Dice score if the length ratio is very low (prevents short words matching long DB questions)
+            if (lenRatio < 0.40)
+            {
+                dice *= (lenRatio / 0.40);
+            }
+
+            return dice;
+        }
+
+        private double CalculateDiceCoefficient(string str1, string str2)
+        {
+            if (str1.Length < 2 || str2.Length < 2)
+                return 0;
+
+            var bigrams1 = GetBigrams(str1);
+            var bigrams2 = GetBigrams(str2);
+
+            int intersection = 0;
+            var bigrams2Copy = new List<string>(bigrams2);
+
+            foreach (var val in bigrams1)
+            {
+                if (bigrams2Copy.Remove(val))
+                {
+                    intersection++;
+                }
+            }
+
+            return (2.0 * intersection) / (bigrams1.Count + bigrams2.Count);
+        }
+
+        private List<string> GetBigrams(string str)
+        {
+            var bigrams = new List<string>();
+            for (int i = 0; i < str.Length - 1; i++)
+            {
+                bigrams.Add(str.Substring(i, 2));
+            }
+            return bigrams;
         }
     }
 }

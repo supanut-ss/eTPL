@@ -22,6 +22,7 @@ import {
   getPublicLastFixtures,
 } from "../api/fixtureApi";
 import { getPublicAnnouncements } from "../api/announcementApi";
+import { getPublicHighlights } from "../api/highlightApi";
 import { getUsers } from "../api/userApi";
 import { hofApi } from "../api/hofApi";
 import auctionService from "../services/auctionService";
@@ -38,6 +39,7 @@ import EliteShowcaseBox from "./main/components/EliteShowcase";
 import ActiveMemberBox from "./main/components/ActiveMember";
 import HeroBanner from "./main/components/HeroBanner";
 import LiveFeed from "./main/components/LiveFeed";
+import YoutubeSection from "./main/components/YoutubeSection";
 
 // Shared Components
 import { LineIcon, DiscordIcon } from "./main/components/shared/icons";
@@ -46,6 +48,8 @@ import {
   panelSx, 
   DASHBOARD_ROW_HEIGHT 
 } from "./main/components/shared/designTokens";
+
+const YOUTUBE_SUBSCRIBE_URL = "https://www.youtube.com/@iamcrazygamerch?sub_confirmation=1";
 
 
 
@@ -65,6 +69,7 @@ const MainPage = () => {
   const [eventData, setEventData] = useState([]);
   const [hofData, setHofData] = useState([]);
   const [elitePlayers, setElitePlayers] = useState([]);
+  const [youtubeVideos, setYoutubeVideos] = useState([]);
 
   const fetchDashboardData = (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -79,8 +84,9 @@ const MainPage = () => {
       getPublicAnnouncements("Event").catch(() => ({ data: { data: [] } })),
       auctionService.getCompletedAuctions().catch(() => ({ data: [] })),
       getUsers().catch(() => ({ data: { data: [] } })),
+      getPublicHighlights().catch(() => ({ data: { data: [] } })),
     ])
-      .then(([fRes, lastRes, aRes, cRes, hRes, eRes, ePlayersRes, uRes]) => {
+      .then(([fRes, lastRes, aRes, cRes, hRes, eRes, ePlayersRes, uRes, ytRes]) => {
         setFixtures(fRes.data.data || []);
         setLastFixtures(lastRes.data.data || []);
         setAnnouncements((aRes.data.data || []).sort((a, b) => new Date(b.createDate) - new Date(a.createDate)));
@@ -88,6 +94,7 @@ const MainPage = () => {
         setMagazineData((hRes.data?.data || []).sort((a, b) => new Date(b.createDate) - new Date(a.createDate)));
         setEventData((eRes.data?.data || []).sort((a, b) => new Date(b.createDate) - new Date(a.createDate)));
         setMembers(uRes.data.data || []);
+        setYoutubeVideos((ytRes?.data?.data || []).filter(v => v.isActive));
 
         // Elite Players (Top Unique by Price)
         let allElite = [];
@@ -403,6 +410,11 @@ const MainPage = () => {
 
 
 
+        {/* ─── YouTube Highlights Section ─── */}
+        {youtubeVideos.length > 0 && (
+          <YoutubeSection videos={youtubeVideos} loading={loading} />
+        )}
+
         {/* ─── Super Minimal Footer ─── */}
         <Box
           component="footer"
@@ -515,7 +527,7 @@ const MainPage = () => {
                 },
                 {
                   icon: <YouTube sx={{ fontSize: 18 }} />,
-                  url: "https://www.youtube.com/@iamcrazygamerch",
+                  url: YOUTUBE_SUBSCRIBE_URL,
                 },
                 {
                   icon: <DiscordIcon sx={{ fontSize: 18 }} />,

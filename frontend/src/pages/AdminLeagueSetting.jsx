@@ -49,7 +49,6 @@ const AdminLeagueSetting = () => {
   const [resetingCup, setResetingCup] = useState(false);
 
   // ── Season Lifecycle ──────────────────────────────────────
-  const [lifecycleDivision, setLifecycleDivision] = useState("D1");
   const [showSeasonLifecycle, setShowSeasonLifecycle] = useState(false);
   const [closingSeason, setClosingSeason] = useState(false);
   const [openingSeason, setOpeningSeason] = useState(false);
@@ -175,16 +174,29 @@ const AdminLeagueSetting = () => {
   };
 
   const handleCloseSeason = async () => {
-    if (!window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการปิดฤดูกาลปัจจุบันสำหรับ Division ${lifecycleDivision}? ระบบจะแจกเงินรางวัลและปล่อยตัวนักเตะที่หมดสัญญาโดยอัตโนมัติ`)) return;
+    if (!window.confirm("คุณแน่ใจหรือไม่ว่าต้องการปิดฤดูกาลปัจจุบันสำหรับทั้งระบบ (D1 & D2)? ระบบจะแจกเงินรางวัลและปล่อยตัวนักเตะที่หมดสัญญาโดยอัตโนมัติ")) return;
     
     setClosingSeason(true);
     setSummaryLogs([]);
     try {
-      const res = await adminService.closeSeason("PC", lifecycleDivision);
-      if (res.data?.success) {
-        setSummaryLogs(res.data.logs || []);
+      const res1 = await adminService.closeSeason("PC", "D1");
+      let logs = res1.data.logs || [];
+      if (res1.data?.success) {
+        const res2 = await adminService.closeSeason("PC", "D2");
+        if (res2.data?.logs) {
+          logs = [...logs, "-----------------------------------", ...res2.data.logs];
+        }
+        setSummaryLogs(logs);
         setShowSummary(true);
-        enqueueSnackbar(res.data?.message || "ปิดฤดูกาลสำเร็จ!", { variant: "success" });
+        if (res2.data?.success) {
+          enqueueSnackbar("ปิดฤดูกาลสำเร็จสำหรับทุก Division (D1 & D2)!", { variant: "success" });
+        } else {
+          enqueueSnackbar(res2.data?.message || "ปิดฤดูกาล D2 ล้มเหลว", { variant: "error" });
+        }
+      } else {
+        setSummaryLogs(logs);
+        setShowSummary(true);
+        enqueueSnackbar(res1.data?.message || "ปิดฤดูกาล D1 ล้มเหลว", { variant: "error" });
       }
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || "ปิดฤดูกาลไม่สำเร็จ", { variant: "error" });
@@ -194,17 +206,18 @@ const AdminLeagueSetting = () => {
   };
 
   const handleOpenSeason = async () => {
-    if (!window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการเปิดฤดูกาลใหม่สำหรับ Division ${lifecycleDivision}? ระบบจะหักเงินต่อสัญญาอัตโนมัติและล้างข้อมูลการแข่งขันเดิมทั้งหมด`)) return;
+    if (!window.confirm("คุณแน่ใจหรือไม่ว่าต้องการเปิดฤดูกาลใหม่สำหรับทั้งระบบ (D1 & D2)? ระบบจะหักเงินต่อสัญญาอัตโนมัติของทุกทีม และล้างตารางแข่งเดิมทั้งหมด")) return;
     
     setOpeningSeason(true);
     setFailedRenewalUsers([]);
     setSummaryLogs([]);
     try {
-      const res = await adminService.openSeason("PC", lifecycleDivision);
+      // openSeason is global on the backend, so we invoke it once with "D1" as the platform's default
+      const res = await adminService.openSeason("PC", "D1");
       if (res.data?.success) {
         setSummaryLogs(res.data.logs || []);
         setShowSummary(true);
-        enqueueSnackbar(res.data?.message || "เปิดฤดูกาลใหม่สำเร็จ!", { variant: "success" });
+        enqueueSnackbar(res.data?.message || "เปิดฤดูกาลใหม่สำเร็จสำหรับทุก Division!", { variant: "success" });
       }
     } catch (err) {
       const errorData = err.response?.data;
@@ -212,7 +225,7 @@ const AdminLeagueSetting = () => {
         setFailedRenewalUsers(errorData.failedUsers);
         setSummaryLogs(errorData.logs || []);
         setShowSummary(true);
-        enqueueSnackbar("เปิดฤดูกาลไม่สำเร็จ: มีทีมเงินไม่พอต่อสัญญา", { variant: "error" });
+        enqueueSnackbar("เปิดฤดูกาลไม่สำเร็จ: มีบางทีมเงินไม่พอต่อสัญญานักเตะ", { variant: "error" });
       } else {
         enqueueSnackbar(errorData?.message || "เปิดฤดูกาลไม่สำเร็จ", { variant: "error" });
       }
@@ -603,36 +616,15 @@ const AdminLeagueSetting = () => {
           <Collapse in={showSeasonLifecycle}>
             <Divider sx={{ my: 3 }} />
             <Stack spacing={3}>
-              {/* Division Switcher */}
-              <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 1 }}>
-                <Tabs
-                  value={lifecycleDivision}
-                  onChange={(e, newDiv) => setLifecycleDivision(newDiv)}
-                  textColor="primary"
-                  indicatorColor="primary"
-                  sx={{
-                    "& .MuiTab-root": {
-                      fontWeight: "bold",
-                      fontSize: "0.95rem",
-                      textTransform: "none",
-                      minWidth: 100,
-                    }
-                  }}
-                >
-                  <Tab label="Division 1" value="D1" />
-                  <Tab label="Division 2" value="D2" />
-                </Tabs>
-              </Box>
-
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3 }}>
                 {/* Close Season Card */}
                 <Box sx={{ p: 3, borderRadius: 2, bgcolor: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.05)" }}>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="error">1. Close Season Actions ({lifecycleDivision})</Typography>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="error">1. Close Season Actions (Global ทั้งระบบ)</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    • แจกรางวัลตามอันดับ (Standing) และรางวัลพิเศษ<br />
-                    • บันทึกข้อมูลเข้า Hall of Fame<br />
-                    • ปล่อยตัวนักเตะที่หมดสัญญาอัตโนมัติ (พร้อมคืนเงิน %)<br />
-                    • ส่งคืนนักเตะยืมตัว และ <strong>ยกเลิกรายการประกาศขายในตลาดทั้งหมด</strong>
+                    • แจกรางวัลตามอันดับ (Standing) และรางวัลพิเศษเฉพาะดิวิชัน<br />
+                    • บันทึกข้อมูลเข้า Hall of Fame ของดิวิชันนั้นๆ<br />
+                    • <strong style={{ color: '#d32f2f' }}>[Global ทั้งระบบ]</strong> ปล่อยตัวนักเตะหมดสัญญาและคืนเงินให้กับทุกทีมในระบบ<br />
+                    • <strong style={{ color: '#d32f2f' }}>[Global ทั้งระบบ]</strong> ส่งคืนตัวยืม และยกเลิกรายการประกาศขายทั้งหมดในตลาด
                   </Typography>
                   <Button 
                     variant="contained" 
@@ -641,20 +633,20 @@ const AdminLeagueSetting = () => {
                     onClick={handleCloseSeason}
                     disabled={closingSeason}
                     startIcon={closingSeason ? <CircularProgress size={18} color="inherit" /> : <Block />}
-                    sx={{ borderRadius: 2, fontWeight: "bold" }}
+                    sx={{ borderRadius: 2, fontWeight: "bold", mt: 2 }}
                   >
-                    {closingSeason ? "Closing..." : `Close Current Season (${lifecycleDivision})`}
+                    {closingSeason ? "Closing..." : "Close Current Season (D1 & D2)"}
                   </Button>
                 </Box>
 
                 {/* Open Season Card */}
                 <Box sx={{ p: 3, borderRadius: 2, bgcolor: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.05)" }}>
-                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="primary">2. Open New Season Actions ({lifecycleDivision})</Typography>
+                  <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="primary">2. Open New Season Actions (Global ทั้งระบบ)</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    • หักเงินต่อสัญญาอัตโนมัติ และเพิ่มปีที่อยู่กับทีม<br />
-                    • <strong>(Atomic) หากมีคนเงินไม่พอ ระบบจะไม่ทำงาน</strong><br />
-                    • สำรองข้อมูลผลการแข่งขันลง Log<br />
-                    • ล้างตารางบอลลีกและบอลถ้วย (Reset Fixture)
+                    • หักเงินต่อสัญญาอัตโนมัติ และเพิ่มปีที่อยู่กับทีมของทุกทีมในระบบ<br />
+                    • <strong>(Atomic) หากมีทีมใดในระบบเงินไม่พอ ระบบจะไม่ทำงาน</strong><br />
+                    • สำรองข้อมูลผลการแข่งขันลง Log ของทั้งสองดิวิชัน<br />
+                    • ล้างตารางแข่งเดิมทั้งหมด (Reset Fixtures และล้างบอลถ้วย) ของทั้งสองดิวิชันพร้อมกัน
                   </Typography>
                   <Button 
                     variant="contained" 
@@ -663,9 +655,9 @@ const AdminLeagueSetting = () => {
                     onClick={handleOpenSeason}
                     disabled={openingSeason}
                     startIcon={openingSeason ? <CircularProgress size={18} color="inherit" /> : <RocketLaunch />}
-                    sx={{ borderRadius: 2, fontWeight: "bold" }}
+                    sx={{ borderRadius: 2, fontWeight: "bold", mt: 2 }}
                   >
-                    {openingSeason ? "Opening..." : `Open New Season (${lifecycleDivision})`}
+                    {openingSeason ? "Opening..." : "Open New Season (D1 & D2)"}
                   </Button>
                 </Box>
               </Box>

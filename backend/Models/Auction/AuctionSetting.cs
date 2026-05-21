@@ -15,5 +15,6 @@ namespace eTPL.API.Models.Auction
         public int NormalBidDurationMinutes { get; set; } = 1200; // 20 hours
         public int FinalBidDurationMinutes { get; set; } = 1440; // 24 hours
         public int CurrentSeason { get; set; } = 1; // Tracks the current active season
+        public bool IsMarketRound2 { get; set; } = false; // Tracks if it's the second transfer window round
     }
 }

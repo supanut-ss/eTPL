@@ -67,6 +67,18 @@ namespace eTPL.API.Services
                 {
                     throw new InvalidOperationException($"สโมสร {request.CurrentTeam} ถูกใช้งานโดยสมาชิกท่านอื่นแล้ว");
                 }
+
+                // Auto-insert to ClubLogos if it doesn't exist in the dropdown options
+                var trimmedTeam = request.CurrentTeam.Trim();
+                var logoExists = await _db.ClubLogos.AnyAsync(l => l.LogoName.ToLower() == trimmedTeam.ToLower());
+                if (!logoExists)
+                {
+                    _db.ClubLogos.Add(new ClubLogo
+                    {
+                        LogoName = trimmedTeam,
+                        FileName = $"{trimmedTeam}.png"
+                    });
+                }
             }
 
             var user = new User
@@ -105,6 +117,18 @@ namespace eTPL.API.Services
                 if (teamExists)
                 {
                     throw new InvalidOperationException($"สโมสร {request.CurrentTeam} ถูกใช้งานโดยสมาชิกท่านอื่นแล้ว");
+                }
+
+                // Auto-insert to ClubLogos if it doesn't exist in the dropdown options
+                var trimmedTeam = request.CurrentTeam.Trim();
+                var logoExists = await _db.ClubLogos.AnyAsync(l => l.LogoName.ToLower() == trimmedTeam.ToLower());
+                if (!logoExists)
+                {
+                    _db.ClubLogos.Add(new ClubLogo
+                    {
+                        LogoName = trimmedTeam,
+                        FileName = $"{trimmedTeam}.png"
+                    });
                 }
             }
 

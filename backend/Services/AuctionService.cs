@@ -533,6 +533,7 @@ namespace eTPL.API.Services
                     result.Status = "Won";
                     result.SquadId = squadEntry.SquadId;
                     result.OwnedByUserId = squadEntry.UserId;
+                    result.SeasonsWithTeam = squadEntry.SeasonsWithTeam;
 
                     var latestSoldBoard = soldAuctions
                         .Where(b => b.PlayerId == p.IdPlayer)
@@ -728,7 +729,7 @@ namespace eTPL.API.Services
                 int? winnerId = b.HighestBidderId;
                 int? winningPrice = null;
 
-                if (now >= b.NormalEndTime && bidders.Count > 1)
+                if (now >= b.FinalEndTime && bidders.Count > 1)
                 {
                     var bidsForThis = finalBidsData.Where(l => l.AuctionId == b.AuctionId)
                         .OrderByDescending(l => l.BidAmount)
@@ -1135,6 +1136,7 @@ namespace eTPL.API.Services
                 MarketEndDate = settings.AuctionEndDate?.ToString("dd/MM") ?? "N/A",
                 NormalBidDurationMinutes = settings.NormalBidDurationMinutes,
                 FinalBidDurationMinutes = settings.FinalBidDurationMinutes,
+                IsMarketRound2 = settings.IsMarketRound2,
                 Squad = squad.Select(s => new AuctionSquadDto
                 {
                     SquadId = s.SquadId,
@@ -1504,7 +1506,8 @@ namespace eTPL.API.Services
                 if (squad.IsLoan)
                     throw new Exception("ไม่สามารถขายนักเตะที่ยืมตัวมาได้");
 
-                if (squad.SeasonsWithTeam <= 1)
+                var settings = await _context.AuctionSettings.FirstOrDefaultAsync() ?? new AuctionSetting();
+                if (squad.SeasonsWithTeam <= 1 && !settings.IsMarketRound2)
                     throw new Exception("ไม่สามารถขาย/โอนย้ายนักเตะที่เพิ่งได้มาในฤดูกาลเดียวกันได้ (ต้องผ่านอย่างน้อย 1 ฤดูกาล)");
 
                 var buyerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == request.BuyerUserId)
@@ -1580,7 +1583,8 @@ namespace eTPL.API.Services
             if (squad == null) throw new Exception("ไม่พบนักเตะในทีม");
             if (squad.IsLoan) throw new Exception("นักเตะยืมตัว ไม่สามารถตั้งขายได้");
             
-            if (squad.SeasonsWithTeam <= 1)
+            var settings = await _context.AuctionSettings.FirstOrDefaultAsync() ?? new AuctionSetting();
+            if (squad.SeasonsWithTeam <= 1 && !settings.IsMarketRound2)
                 throw new Exception("ไม่สามารถขายนักเตะที่เพิ่งได้มาในฤดูกาลเดียวกันได้ (ต้องผ่านอย่างน้อย 1 ฤดูกาล)");
 
             if (listingPrice <= 0) throw new Exception("ราคาตั้งขายต้องมากกว่า 0");
@@ -1643,7 +1647,10 @@ namespace eTPL.API.Services
                 AcquiredAt = DateTime.SpecifyKind(s.AcquiredAt, DateTimeKind.Utc),
                 Status = s.Status,
                 OwnerId = s.UserId,
-                OwnerName = s.User?.UserId ?? s.User?.LineName ?? "Unknown"
+                OwnerName = s.User?.UserId ?? s.User?.LineName ?? "Unknown",
+                SeasonsWithTeam = s.SeasonsWithTeam,
+                League = s.Player?.League,
+                TeamName = s.Player?.TeamName
             }).OrderByDescending(s => s.PlayerOvr).ToList();
         }
 
@@ -1657,7 +1664,8 @@ namespace eTPL.API.Services
             if (squad.IsLoan) throw new Exception("ไม่สามารถยื่นข้อเสนอสำหรับนักเตะที่อยู่ระหว่างการยืมตัวได้");
             if (squad.Status == "Loaned") throw new Exception("นักเตะคนนี้ถูกปล่อยยืมตัวอยู่ ไม่สามารถทำรายการได้");
 
-            if (request.OfferType == "Transfer" && squad.SeasonsWithTeam <= 1)
+            var settings = await _context.AuctionSettings.FirstOrDefaultAsync() ?? new AuctionSetting();
+            if (request.OfferType == "Transfer" && squad.SeasonsWithTeam <= 1 && !settings.IsMarketRound2)
                 throw new Exception("ไม่สามารถยื่นข้อเสนอซื้อนักเตะที่เพิ่งย้ายเข้าทีมได้ในฤดูกาลเดียวกัน (กรุณาส่งข้อเสนอแบบยืมตัวแทน)");
             
             // Allow offering for unlisted players too, but enforce check for active offers so we don't spam
@@ -1838,7 +1846,7 @@ namespace eTPL.API.Services
 
                 if (offer.OfferType == "Transfer")
                 {
-                    if (offer.Squad?.SeasonsWithTeam <= 1)
+                    if (offer.Squad?.SeasonsWithTeam <= 1 && !settings.IsMarketRound2)
                         throw new Exception("ไม่สามารถขาย/โอนย้ายนักเตะที่เพิ่งได้มาในฤดูกาลเดียวกันได้");
 
                     // Deduct from buyer, credit to seller
@@ -2025,7 +2033,9 @@ namespace eTPL.API.Services
 
                     // 3. Get Prizes
                     var prizes = await _scaffoldedContext.TbsPrizeSettings.OrderBy(p => p.SortOrder).ToListAsync();
-                    logs.Add($"พบข้อมูลอันดับ {rankedStandings.Count} ทีม และการตั้งค่ารางวัล {prizes.Count} รายการ");
+                    decimal prizeMultiplier = division == "D2" ? 0.7m : 1.0m;
+                    string ratioLog = division == "D2" ? " (ปรับลด 70% สำหรับ D2)" : "";
+                    logs.Add($"พบข้อมูลอันดับ {rankedStandings.Count} ทีม และการตั้งค่ารางวัล {prizes.Count} รายการ{ratioLog}");
 
                     // 4. Distribute Prizes
                     int prizeCount = 0;
@@ -2051,8 +2061,11 @@ namespace eTPL.API.Services
                                     _context.AuctionUserWallets.Add(wallet);
                                 }
 
-                                wallet.AvailableBalance += (int)prize.Amount;
-                                await RecordTransactionAsync(user.Id, (int)prize.Amount, "CREDIT", "PRIZE",
+                                decimal calculatedAmount = prize.Amount * prizeMultiplier;
+                                int calculatedAmountInt = (int)Math.Round(calculatedAmount, MidpointRounding.AwayFromZero);
+
+                                wallet.AvailableBalance += calculatedAmountInt;
+                                await RecordTransactionAsync(user.Id, calculatedAmountInt, "CREDIT", "PRIZE",
                                     $"รางวัลอันดับ {i + 1} {prize.RankLabel} (Season {currentSeason})",
                                     wallet.AvailableBalance);
                                 prizeCount++;
@@ -2070,7 +2083,8 @@ namespace eTPL.API.Services
                         
                         if (winners.Any())
                         {
-                            decimal dividedAmount = topScorerPrize.Amount / winners.Count;
+                            decimal calculatedTopScorerAmount = topScorerPrize.Amount * prizeMultiplier;
+                            decimal dividedAmount = calculatedTopScorerAmount / winners.Count;
                             foreach (var team in winners)
                             {
                                 var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == team.Team);
@@ -2078,7 +2092,7 @@ namespace eTPL.API.Services
                                 var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == user.Id);
                                 if (wallet != null)
                                 {
-                                    int amountInt = (int)dividedAmount;
+                                    int amountInt = (int)Math.Round(dividedAmount, MidpointRounding.AwayFromZero);
                                     wallet.AvailableBalance += amountInt;
                                     await RecordTransactionAsync(user.Id, amountInt, "CREDIT", "PRIZE_SPECIAL",
                                         $"รางวัลพิเศษ Top Scorer (หาร {winners.Count} ทีม: {team.Gf} Goals) (Season {currentSeason})",
@@ -2099,7 +2113,8 @@ namespace eTPL.API.Services
                         
                         if (winners.Any())
                         {
-                            decimal dividedAmount = bestDefPrize.Amount / winners.Count;
+                            decimal calculatedBestDefAmount = bestDefPrize.Amount * prizeMultiplier;
+                            decimal dividedAmount = calculatedBestDefAmount / winners.Count;
                             foreach (var team in winners)
                             {
                                 var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == team.Team);
@@ -2107,7 +2122,7 @@ namespace eTPL.API.Services
                                 var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == user.Id);
                                 if (wallet != null)
                                 {
-                                    int amountInt = (int)dividedAmount;
+                                    int amountInt = (int)Math.Round(dividedAmount, MidpointRounding.AwayFromZero);
                                     wallet.AvailableBalance += amountInt;
                                     await RecordTransactionAsync(user.Id, amountInt, "CREDIT", "PRIZE_SPECIAL",
                                         $"รางวัลพิเศษ Best Defense (หาร {winners.Count} ทีม: {team.Ga} GA) (Season {currentSeason})",

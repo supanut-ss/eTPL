@@ -81,17 +81,18 @@ const UserMasterPage = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  useEffect(() => {
-    const loadLogos = async () => {
-      try {
-        const res = await getClubLogos();
-        setClubLogos(res.data || []);
-      } catch (err) {
-        console.error("Failed to load club logos", err);
-      }
-    };
-    loadLogos();
+  const fetchClubLogos = useCallback(async () => {
+    try {
+      const res = await getClubLogos();
+      setClubLogos(res.data || []);
+    } catch (err) {
+      console.error("Failed to load club logos", err);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchClubLogos();
+  }, [fetchClubLogos]);
 
   const validate = () => {
     const e = {};
@@ -153,6 +154,7 @@ const UserMasterPage = () => {
       }
       setDialogOpen(false);
       fetchUsers();
+      fetchClubLogos();
     } catch (err) {
       showSnackbar(err.response?.data?.message || "An error occurred", "error");
     } finally {
@@ -540,7 +542,10 @@ const UserMasterPage = () => {
               options={clubLogos}
               value={form.currentTeam || null}
               onChange={(event, newValue) => {
-                setForm({ ...form, currentTeam: newValue || "" });
+                setForm((prev) => ({ ...prev, currentTeam: newValue || "" }));
+              }}
+              onInputChange={(event, newInputValue) => {
+                setForm((prev) => ({ ...prev, currentTeam: newInputValue || "" }));
               }}
               renderInput={(params) => (
                 <TextField

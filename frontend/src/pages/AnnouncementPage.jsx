@@ -27,7 +27,7 @@ import {
   useTheme,
   useMediaQuery,
 } from "@mui/material";
-import { Add, Campaign, Delete, Edit, Image, Refresh, Upload, Close, Facebook, Check } from "@mui/icons-material";
+import { Add, Campaign, Delete, Edit, Image, Refresh, Upload, Close, Facebook, Check, YouTube } from "@mui/icons-material";
 import {
   createAnnouncement,
   deleteAnnouncement,
@@ -36,6 +36,13 @@ import {
   updateAnnouncement,
   shareToFacebook,
 } from "../api/announcementApi";
+import {
+  getHighlights,
+  createHighlight,
+  updateHighlight,
+  toggleHighlight,
+  deleteHighlight,
+} from "../api/highlightApi";
 import { uploadNewsImage } from "../api/uploadApi";
 import { useAuth } from "../store/AuthContext";
 import { getAnnouncementImageUrl } from "../utils/imageUtils";
@@ -46,6 +53,8 @@ const emptyForm = {
   imageUrl: "",
   isActive: true,
 };
+
+const DEFAULT_YOUTUBE_CHANNEL = "@iamcrazygamerch";
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -60,16 +69,69 @@ const formatDateTime = (value) => {
   });
 };
 
+const normalizeYouTubeUrl = (value) => {
+  const raw = (value || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^(www\.)?(youtube\.com|youtu\.be)\//i.test(raw)) return `https://${raw}`;
+  return raw;
+};
+
+const getYouTubeVideoId = (value) => {
+  const normalized = normalizeYouTubeUrl(value);
+  if (!normalized) return "";
+
+  try {
+    const url = new URL(normalized);
+    const host = url.hostname.toLowerCase();
+
+    if (host.includes("youtu.be")) {
+      return url.pathname.split("/").filter(Boolean)[0] || "";
+    }
+
+    if (host.includes("youtube.com")) {
+      const watchId = url.searchParams.get("v");
+      if (watchId) return watchId;
+
+      const segments = url.pathname.split("/").filter(Boolean);
+      const marker = segments.findIndex((s) => s === "embed" || s === "shorts" || s === "live");
+      if (marker !== -1 && segments[marker + 1]) return segments[marker + 1];
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+};
+
+const getYouTubeThumbnailUrl = (value) => {
+  const videoId = getYouTubeVideoId(value);
+  return videoId ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` : "";
+};
+
+const getYouTubeWatchUrl = (value) => {
+  const videoId = getYouTubeVideoId(value);
+  if (videoId) return `https://www.youtube.com/watch?v=${videoId}`;
+  return normalizeYouTubeUrl(value);
+};
+
+const getYouTubeSubscribeUrl = (channelHandle) => {
+  const raw = (channelHandle || DEFAULT_YOUTUBE_CHANNEL).trim();
+  const handle = raw ? (raw.startsWith("@") ? raw : `@${raw}`) : DEFAULT_YOUTUBE_CHANNEL;
+  return `https://www.youtube.com/${handle.replace(/\s+/g, "")}?sub_confirmation=1`;
+};
+
 const AnnouncementPage = () => {
   const { user } = useAuth();
   const [items, setItems] = useState([]);
   const [eventItems, setEventItems] = useState([]);
   const [magazineItems, setMagazineItems] = useState([]);
+  const [youtubeItems, setYoutubeItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
-  const [masterTab, setMasterTab] = useState(0); // 0 = News, 1 = Event, 2 = Magazine
+  const [masterTab, setMasterTab] = useState(0); // 0 = News, 1 = Event, 2 = Magazine, 3 = YouTube
   const [uploading, setUploading] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -85,14 +147,18 @@ const AnnouncementPage = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await getAnnouncements("News");
-      setItems(res.data.data || []);
-      const eventRes = await getAnnouncements("Event");
+      const [newsRes, eventRes, magRes, ytRes] = await Promise.all([
+        getAnnouncements("News"),
+        getAnnouncements("Event"),
+        getAnnouncements("Magazine"),
+        getHighlights().catch(() => ({ data: { data: [] } })),
+      ]);
+      setItems(newsRes.data.data || []);
       setEventItems(eventRes.data.data || []);
-      const magRes = await getAnnouncements("Magazine");
       setMagazineItems(magRes.data.data || []);
+      setYoutubeItems(ytRes.data.data || []);
     } catch {
-      showSnackbar("Failed to load announcements", "error");
+      showSnackbar("Failed to load data", "error");
     } finally {
       setLoading(false);
     }
@@ -104,7 +170,10 @@ const AnnouncementPage = () => {
 
   const handleOpenCreate = () => {
     setEditing(null);
-    setForm({ ...emptyForm, announcer: user?.userId || "" });
+    setForm({
+      ...emptyForm,
+      announcer: masterTab === 3 ? DEFAULT_YOUTUBE_CHANNEL : user?.userId || "",
+    });
     setOpenDialog(true);
   };
 
@@ -112,10 +181,13 @@ const AnnouncementPage = () => {
     setEditing(item);
     setForm({
       announcement: item.announcement || "",
-      announcer: item.announcer || user?.userId || "",
+      announcer:
+        masterTab === 3
+          ? item.announcer || DEFAULT_YOUTUBE_CHANNEL
+          : item.announcer || user?.userId || "",
       imageUrl: item.imageUrl || "",
       isActive: Boolean(item.isActive),
-      type: item.type || (masterTab === 2 ? "Magazine" : masterTab === 1 ? "Event" : "News"),
+      type: item.type || (masterTab === 3 ? "YouTube" : masterTab === 2 ? "Magazine" : masterTab === 1 ? "Event" : "News"),
     });
     setOpenDialog(true);
   };
@@ -123,29 +195,49 @@ const AnnouncementPage = () => {
   const handleSave = async () => {
     const announcement = form.announcement.trim();
     if (!announcement) {
-      showSnackbar("Announcement message is required", "error");
+      showSnackbar("Title / message is required", "error");
+      return;
+    }
+
+    // YouTube tab requires a URL
+    if (masterTab === 3 && !form.imageUrl?.trim()) {
+      showSnackbar("YouTube URL is required", "error");
       return;
     }
 
     try {
-      if (editing) {
-        await updateAnnouncement(editing.id, {
+      if (masterTab === 3) {
+        // ── YouTube Highlights ── use dedicated API
+        const payload = {
           announcement,
-          announcer: form.announcer?.trim() || user?.userId || "system",
+          announcer: form.announcer?.trim() || DEFAULT_YOUTUBE_CHANNEL,
           imageUrl: form.imageUrl?.trim() || "",
           isActive: form.isActive,
-          type: masterTab === 2 ? "Magazine" : masterTab === 1 ? "Event" : "News"
-        });
-        showSnackbar("Announcement updated");
+        };
+        if (editing) {
+          await updateHighlight(editing.id, payload);
+          showSnackbar("Highlight updated");
+        } else {
+          await createHighlight(payload);
+          showSnackbar("Highlight created");
+        }
       } else {
-        await createAnnouncement({
+        // ── Announcements / Event / Magazine ── use announcement API
+        const currentType = masterTab === 2 ? "Magazine" : masterTab === 1 ? "Event" : "News";
+        const payload = {
           announcement,
           announcer: form.announcer?.trim() || user?.userId || "system",
           imageUrl: form.imageUrl?.trim() || "",
           isActive: form.isActive,
-          type: masterTab === 2 ? "Magazine" : masterTab === 1 ? "Event" : "News"
-        });
-        showSnackbar("Announcement created");
+          type: currentType,
+        };
+        if (editing) {
+          await updateAnnouncement(editing.id, payload);
+          showSnackbar("Announcement updated");
+        } else {
+          await createAnnouncement(payload);
+          showSnackbar("Announcement created");
+        }
       }
       setOpenDialog(false);
       setForm(emptyForm);
@@ -155,6 +247,21 @@ const AnnouncementPage = () => {
       const msg = err?.response?.data?.message || err?.message || "Save failed";
       showSnackbar(msg, "error");
     }
+  };
+
+  const handleOpenYouTube = (item) => {
+    const watchUrl = getYouTubeWatchUrl(item.imageUrl);
+    if (!watchUrl) {
+      showSnackbar("Invalid YouTube URL", "error");
+      return;
+    }
+
+    const separator = watchUrl.includes("?") ? "&" : "?";
+    const watchWithSubscribe = `${watchUrl}${separator}sub_confirmation=1`;
+    window.open(watchWithSubscribe, "_blank", "noopener,noreferrer");
+
+    const subscribeUrl = getYouTubeSubscribeUrl(item.announcer);
+    window.open(subscribeUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleFileUpload = async (event) => {
@@ -186,7 +293,11 @@ const AnnouncementPage = () => {
 
   const handleToggle = async (item) => {
     try {
-      await toggleAnnouncement(item.id, !item.isActive);
+      if (masterTab === 3) {
+        await toggleHighlight(item.id, !item.isActive);
+      } else {
+        await toggleAnnouncement(item.id, !item.isActive);
+      }
       await loadData();
     } catch (err) {
       const msg = err?.response?.data?.message || err?.message || "Failed to update status";
@@ -195,12 +306,19 @@ const AnnouncementPage = () => {
   };
 
   const handleDelete = async (item) => {
-    const confirmed = window.confirm("Delete this announcement?");
+    const confirmed = window.confirm(
+      masterTab === 3 ? "Delete this highlight?" : "Delete this announcement?"
+    );
     if (!confirmed) return;
 
     try {
-      await deleteAnnouncement(item.id);
-      showSnackbar("Announcement deleted");
+      if (masterTab === 3) {
+        await deleteHighlight(item.id);
+        showSnackbar("Highlight deleted");
+      } else {
+        await deleteAnnouncement(item.id);
+        showSnackbar("Announcement deleted");
+      }
       await loadData();
     } catch (err) {
       const msg = err?.response?.data?.message || err?.message || "Delete failed";
@@ -287,6 +405,7 @@ const AnnouncementPage = () => {
           <Tab label="System Announcements" icon={<Campaign />} iconPosition="start" />
           <Tab label="Event Updates" icon={<Image />} iconPosition="start" />
           <Tab label="AI Magazine" icon={<Image />} iconPosition="start" />
+          <Tab label="YouTube Videos" icon={<YouTube />} iconPosition="start" />
         </Tabs>
       </Box>
 
@@ -307,6 +426,10 @@ const AnnouncementPage = () => {
           currentItems = magazineItems;
           emptyMessage = "No AI Magazine entries found";
           infoMessage = "AI Magazine entries are displayed in the top-left Magazine box on the dashboard.";
+        } else if (masterTab === 3) {
+          currentItems = youtubeItems;
+          emptyMessage = "No YouTube videos added yet";
+          infoMessage = "YouTube Videos are displayed as a 4-column grid section on the main page. Use the imageUrl field to store the YouTube link (e.g. https://youtu.be/VIDEO_ID). The title goes in the announcement field.";
         }
 
         return (
@@ -339,7 +462,7 @@ const AnnouncementPage = () => {
                             {item.imageUrl && (
                               <Box
                                 component="img"
-                                src={getAnnouncementImageUrl(item.imageUrl)}
+                                src={masterTab === 3 ? getYouTubeThumbnailUrl(item.imageUrl) || "https://via.placeholder.com/160x90?text=YouTube" : getAnnouncementImageUrl(item.imageUrl)}
                                 sx={{ width: 80, height: 45, borderRadius: 1, objectFit: 'cover', border: '1px solid #ddd' }}
                               />
                             )}
@@ -359,6 +482,17 @@ const AnnouncementPage = () => {
                         </TableCell>
                         <TableCell align="right">
                           <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                            {masterTab === 3 && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="error"
+                                onClick={() => handleOpenYouTube(item)}
+                                startIcon={<YouTube fontSize="small" />}
+                              >
+                                Watch
+                              </Button>
+                            )}
                             <Button size="small" variant="outlined" onClick={() => handleOpenEdit(item)} startIcon={<Edit fontSize="small" />}>
                               Edit
                             </Button>
@@ -411,15 +545,15 @@ const AnnouncementPage = () => {
       >
         <DialogTitle>
           {editing 
-            ? (masterTab === 2 ? "Edit Magazine Entry" : masterTab === 1 ? "Edit Event Update" : "Edit Announcement") 
-            : (masterTab === 2 ? "Create Magazine Entry" : masterTab === 1 ? "Create Event Update" : "Create Announcement")}
+            ? (masterTab === 3 ? "Edit YouTube Video" : masterTab === 2 ? "Edit Magazine Entry" : masterTab === 1 ? "Edit Event Update" : "Edit Announcement") 
+            : (masterTab === 3 ? "Add YouTube Video" : masterTab === 2 ? "Create Magazine Entry" : masterTab === 1 ? "Create Event Update" : "Create Announcement")}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} mt={0.5}>
             <TextField
-              label={masterTab === 2 ? "Magazine Title" : masterTab === 1 ? "Event Title / Message" : "Announcement message"}
-              multiline={masterTab !== 2}
-              minRows={masterTab !== 2 ? 4 : 1}
+              label={masterTab === 3 ? "Video Title" : masterTab === 2 ? "Magazine Title" : masterTab === 1 ? "Event Title / Message" : "Announcement message"}
+              multiline={masterTab !== 2 && masterTab !== 3}
+              minRows={(masterTab !== 2 && masterTab !== 3) ? 4 : 1}
               value={form.announcement}
               onChange={(event) =>
                 setForm((prev) => ({
@@ -430,7 +564,9 @@ const AnnouncementPage = () => {
               fullWidth
             />
             <TextField
-              label={masterTab === 2 ? "Magazine Subtitle" : "Announcer (Optional)"}
+              label={masterTab === 3 ? "Channel Handle (สำหรับปุ่ม Subscribe)" : masterTab === 2 ? "Magazine Subtitle" : "Announcer (Optional)"}
+              placeholder={masterTab === 3 ? "@channelname  (ใส่ @ นำหน้า เพื่อแสดงปุ่ม Subscribe)" : ""}
+              helperText={masterTab === 3 ? "ใส่ @channelname เช่น @iamcrazygamerch เพื่อให้ผู้ชมกด Subscribe ได้ทันที" : ""}
               value={form.announcer}
               onChange={(event) =>
                 setForm((prev) => ({
@@ -442,13 +578,13 @@ const AnnouncementPage = () => {
             />
             <Box>
               <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ display: 'block', mb: 1 }}>
-                {masterTab === 2 ? "MAGAZINE IMAGE" : masterTab === 1 ? "EVENT COVER IMAGE" : "NEWS IMAGE"}
+                {masterTab === 3 ? "YOUTUBE URL" : masterTab === 2 ? "MAGAZINE IMAGE" : masterTab === 1 ? "EVENT COVER IMAGE" : "NEWS IMAGE"}
               </Typography>
               <Stack direction="row" spacing={2} alignItems="flex-start">
                 <Box sx={{ flex: 1 }}>
                   <TextField
-                    label="Image URL"
-                    placeholder="https://example.com/image.jpg"
+                    label={masterTab === 3 ? "YouTube URL" : "Image URL"}
+                    placeholder={masterTab === 3 ? "https://youtu.be/VIDEO_ID หรือ https://www.youtube.com/watch?v=..." : "https://example.com/image.jpg"}
                     value={form.imageUrl}
                     onChange={(event) =>
                       setForm((prev) => ({
@@ -460,26 +596,28 @@ const AnnouncementPage = () => {
                     size="small"
                   />
                 </Box>
-                <Box>
-                  <input
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    id="raised-button-file"
-                    type="file"
-                    onChange={handleFileUpload}
-                  />
-                  <label htmlFor="raised-button-file">
-                    <Button
-                      variant="outlined"
-                      component="span"
-                      startIcon={uploading ? <CircularProgress size={20} /> : <Upload />}
-                      disabled={uploading}
-                      sx={{ height: 40, borderRadius: 2 }}
-                    >
-                      Upload
-                    </Button>
-                  </label>
-                </Box>
+                {masterTab !== 3 && (
+                  <Box>
+                    <input
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      id="raised-button-file"
+                      type="file"
+                      onChange={handleFileUpload}
+                    />
+                    <label htmlFor="raised-button-file">
+                      <Button
+                        variant="outlined"
+                        component="span"
+                        startIcon={uploading ? <CircularProgress size={20} /> : <Upload />}
+                        disabled={uploading}
+                        sx={{ height: 40, borderRadius: 2 }}
+                      >
+                        Upload
+                      </Button>
+                    </label>
+                  </Box>
+                )}
               </Stack>
               {form.imageUrl && (
                 <Box sx={{ mt: 1, position: 'relative' }}>
@@ -497,7 +635,7 @@ const AnnouncementPage = () => {
                   </Box>
                   <Box 
                     component="img" 
-                    src={getAnnouncementImageUrl(form.imageUrl)} 
+                    src={masterTab === 3 ? getYouTubeThumbnailUrl(form.imageUrl) || "https://via.placeholder.com/400x200?text=Invalid+YouTube+URL" : getAnnouncementImageUrl(form.imageUrl)} 
                     sx={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 2, border: '2px solid', borderColor: 'divider', mt: 0.5 }}
                     onError={(e) => { e.target.src = 'https://via.placeholder.com/400x200?text=Invalid+Image+URL'; }}
                   />

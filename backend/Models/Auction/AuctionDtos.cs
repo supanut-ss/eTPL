@@ -59,6 +59,7 @@ namespace eTPL.API.Models.Auction
         public string? MarketEndDate { get; set; }
         public int NormalBidDurationMinutes { get; set; }
         public int FinalBidDurationMinutes { get; set; }
+        public bool IsMarketRound2 { get; set; }
     }
 
     public class AuctionSquadDto
@@ -120,6 +121,8 @@ namespace eTPL.API.Models.Auction
         public bool IsRestricted { get; set; } = false;
         [System.Text.Json.Serialization.JsonPropertyName("isStarred")]
         public bool IsStarred { get; set; } = false;
+        [System.Text.Json.Serialization.JsonPropertyName("seasonsWithTeam")]
+        public int SeasonsWithTeam { get; set; } = 0;
 
         public string? Grade { get; set; }
         public string? League { get; set; }
