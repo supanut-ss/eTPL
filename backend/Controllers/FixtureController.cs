@@ -834,30 +834,36 @@ namespace eTPL.API.Controllers
                 }
             }
 
-            // บันทึกข้อมูลทั้งหมด
-            using (var transaction = await _db.Database.BeginTransactionAsync())
-            {
-                try
-                {
-                    await _db.TbmFixtureAlls.AddRangeAsync(fixtureInsert);
-                    await _db.TbmTeams.AddRangeAsync(teamInsert);
-                    await _db.SaveChangesAsync();
-                    await transaction.CommitAsync();
-                }
-                catch (Exception ex)
-                {
-                    await transaction.RollbackAsync();
-                    return BadRequest(ApiResponse<object>.Fail("เกิดข้อผิดพลาดในการบันทึกข้อมูล: " + ex.Message));
-                }
-            }
+            // บันทึกข้อมูลทั้งหมดภายใต้ execution strategy เพื่อรองรับ SqlServerRetryingExecutionStrategy
+            var strategy = _db.Database.CreateExecutionStrategy();
 
-            return Ok(ApiResponse<object>.Ok(new
+            return await strategy.ExecuteAsync<IActionResult>(async () =>
             {
-                message = $"Generate สำเร็จ! สร้าง {fixtureInsert.Count} fixtures และ {teamInsert.Count} team entries (Season {season.Value})",
-                matchCount = fixtureInsert.Count,
-                teamCount = teamInsert.Count,
-                season = season.Value
-            }));
+                using (var transaction = await _db.Database.BeginTransactionAsync())
+                {
+                    try
+                    {
+                        await _db.TbmFixtureAlls.AddRangeAsync(fixtureInsert);
+                        await _db.TbmTeams.AddRangeAsync(teamInsert);
+                        await _db.SaveChangesAsync();
+                        await transaction.CommitAsync();
+
+                        return (IActionResult)Ok(ApiResponse<object>.Ok(new
+                        {
+                            message = $"Generate สำเร็จ! สร้าง {fixtureInsert.Count} fixtures และ {teamInsert.Count} team entries (Season {season.Value})",
+                            matchCount = fixtureInsert.Count,
+                            teamCount = teamInsert.Count,
+                            season = season.Value
+                        }));
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        var errorMsg = ex.InnerException?.Message ?? ex.Message;
+                        return (IActionResult)BadRequest(ApiResponse<object>.Fail("เกิดข้อผิดพลาดในการบันทึกข้อมูล: " + errorMsg));
+                    }
+                }
+            });
         }
 
         // ─────────────────────────────────────────────
