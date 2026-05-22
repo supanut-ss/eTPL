@@ -11,6 +11,8 @@ namespace eTPL.API.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // Bypass table creation since tbm_permission already exists in the database
+            /*
             migrationBuilder.CreateTable(
                 name: "tbm_permission",
                 columns: table => new
@@ -32,14 +34,16 @@ namespace eTPL.API.Migrations
                 table: "tbm_permission",
                 columns: new[] { "menu_key", "user_level" },
                 unique: true);
+            */
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            /*
             migrationBuilder.DropTable(
                 name: "tbm_permission");
+            */
         }
     }
 }
-

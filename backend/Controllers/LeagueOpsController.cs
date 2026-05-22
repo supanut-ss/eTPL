@@ -48,13 +48,23 @@ namespace eTPL.API.Controllers
 
             if (cycle.MatchStartNo > 0 && cycle.MatchEndNo >= cycle.MatchStartNo)
             {
-                var targetMatches = await _scaffoldedContext.TbmFixtureAlls
-                    .Where(f => f.Match >= cycle.MatchStartNo && f.Match <= cycle.MatchEndNo && f.Active != "CC")
+                var targetMatchesD1 = await _scaffoldedContext.TbmFixtureAlls
+                    .Where(f => f.Match >= cycle.MatchStartNo && f.Match <= cycle.MatchEndNo && f.Active != "CC" && (f.Division == null || (f.Division != "D2" && f.Division != "d2")))
                     .ToListAsync();
                 
-                foreach (var m in targetMatches) m.Active = "YES";
-                await _scaffoldedContext.SaveChangesAsync();
+                foreach (var m in targetMatchesD1) m.Active = "YES";
             }
+
+            if (cycle.MatchStartNoD2 > 0 && cycle.MatchEndNoD2 >= cycle.MatchStartNoD2)
+            {
+                var targetMatchesD2 = await _scaffoldedContext.TbmFixtureAlls
+                    .Where(f => f.Match >= cycle.MatchStartNoD2 && f.Match <= cycle.MatchEndNoD2 && f.Active != "CC" && (f.Division == "D2" || f.Division == "d2"))
+                    .ToListAsync();
+                
+                foreach (var m in targetMatchesD2) m.Active = "YES";
+            }
+
+            await _scaffoldedContext.SaveChangesAsync();
 
             return Ok(cycle);
         }
@@ -202,7 +212,10 @@ namespace eTPL.API.Controllers
                     .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
                 var pendingMatches = await _scaffoldedContext.TbmFixtureAlls
-                    .Where(f => f.Match >= cycle.MatchStartNo && f.Match <= cycle.MatchEndNo && f.MatchDate == null && f.Active != "CC")
+                    .Where(f => f.MatchDate == null && f.Active != "CC" && (
+                        ((f.Division == null || (f.Division != "D2" && f.Division != "d2")) && f.Match >= cycle.MatchStartNo && f.Match <= cycle.MatchEndNo) ||
+                        ((f.Division == "D2" || f.Division == "d2") && f.Match >= cycle.MatchStartNoD2 && f.Match <= cycle.MatchEndNoD2)
+                    ))
                     .ToListAsync();
 
                 var suggestions = pendingMatches.Select(match => {

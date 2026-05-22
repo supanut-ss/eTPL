@@ -20,12 +20,14 @@ namespace eTPL.API.Controllers
         private readonly MsSqlDbContext _context;
         private readonly LineWebhookService _lineService;
         private readonly IAiService _aiService;
+        private readonly IDiscordService _discordService;
 
-        public LineWebhookController(MsSqlDbContext context, LineWebhookService lineService, IAiService aiService)
+        public LineWebhookController(MsSqlDbContext context, LineWebhookService lineService, IAiService aiService, IDiscordService discordService)
         {
             _context = context;
             _lineService = lineService;
             _aiService = aiService;
+            _discordService = discordService;
         }
 
         [HttpGet("check")]
@@ -224,6 +226,12 @@ namespace eTPL.API.Controllers
                     c.CycleId == activeCycle.Id && 
                     c.CheckinDate == today);
 
+                // Fetch profile info (needed for both Discord notification and flex message)
+                var profile = await _lineService.GetUserProfileAsync(lineUserId);
+                string userName = profile?.DisplayName ?? user.LineName ?? user.UserId;
+                string picUrl = profile?.PictureUrl ?? user.LinePic ?? "";
+                string datetimeStr = now.ToString("yyyy-MM-dd HH:mm:ss");
+
                 if (!alreadyCheckedIn)
                 {
                     var checkin = new DailyCheckin
@@ -235,13 +243,14 @@ namespace eTPL.API.Controllers
                     };
                     _context.DailyCheckins.Add(checkin);
                     await _context.SaveChangesAsync();
-                }
 
-                // Send Flex Message
-                var profile = await _lineService.GetUserProfileAsync(lineUserId);
-                string userName = profile?.DisplayName ?? user.LineName ?? user.UserId;
-                string picUrl = profile?.PictureUrl ?? user.LinePic ?? "";
-                string datetimeStr = now.ToString("yyyy-MM-dd HH:mm:ss");
+                    // Notify Discord (new check-in only)
+                    await _discordService.SendCustomEmbedAsync(
+                        "PLAYER CHECK-IN",
+                        $"👤 **{userName}** รายงานตัวแล้ว ✅\n🕐 **เวลา:** {datetimeStr}",
+                        0xff9913
+                    );
+                }
 
                 var flexMsg = _lineService.GetCheckInFlexMessage(userName, picUrl, datetimeStr);
                 await _lineService.ReplyMessageAsync(replyToken, new List<object> { flexMsg });
@@ -278,12 +287,11 @@ namespace eTPL.API.Controllers
                     return false;
                 }
 
-                // 2. Try direct substring matching first (longest matching question gets priority)
+                // 2. Try direct match: DB question must contain the full user message (or be equal)
                 var directMatch = allQa
                     .Where(q => 
                         !string.IsNullOrEmpty(q.Question) && 
-                        (trimmedQuestion.Contains(q.Question, StringComparison.OrdinalIgnoreCase) || 
-                         q.Question.Contains(trimmedQuestion, StringComparison.OrdinalIgnoreCase)))
+                        q.Question.Contains(trimmedQuestion, StringComparison.OrdinalIgnoreCase))
                     .OrderByDescending(q => q.Question.Length)
                     .FirstOrDefault();
 
@@ -346,12 +354,17 @@ namespace eTPL.API.Controllers
             if (str1 == str2)
                 return 1.0;
 
-            double lenRatio = (double)Math.Min(str1.Length, str2.Length) / Math.Max(str1.Length, str2.Length);
+            // If the user message is longer than the DB question, skip fuzzy matching entirely.
+            // The direct substring match (Contains) in HandleQA already handles this case.
+            if (str1.Length > str2.Length)
+                return 0;
 
             // Fallback to Dice Coefficient
             double dice = CalculateDiceCoefficient(str1, str2);
 
-            // Penalize Dice score if the length ratio is very low (prevents short words matching long DB questions)
+            // Penalize Dice score if the user message is much shorter than the DB question
+            // (prevents very short queries from falsely matching long DB questions)
+            double lenRatio = (double)str1.Length / str2.Length;
             if (lenRatio < 0.40)
             {
                 dice *= (lenRatio / 0.40);

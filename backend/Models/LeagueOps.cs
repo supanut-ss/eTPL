@@ -51,6 +51,15 @@ namespace eTPL.API.Models.LeagueOps
 
         [Column("match_end_no")]
         public int MatchEndNo { get; set; }
+
+        [Column("match_start_no_d2")]
+        public int MatchStartNoD2 { get; set; }
+
+        [Column("match_end_no_d2")]
+        public int MatchEndNoD2 { get; set; }
+
+        [Column("match_target_d2")]
+        public int MatchTargetD2 { get; set; }
     }
 
     [Table("tbs_daily_checkins")]
@@ -107,6 +116,7 @@ namespace eTPL.API.Models.LeagueOps
         public string? tier { get; set; }
         public int? multiplier { get; set; }
         public decimal? est_bonus { get; set; }
+        public string? division { get; set; }
     }
 
     public class BatchApplyRequest

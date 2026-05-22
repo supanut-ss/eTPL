@@ -11,6 +11,8 @@ namespace eTPL.API.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // Bypass table creation since tbm_user already exists in the database
+            /*
             migrationBuilder.CreateTable(
                 name: "tbm_user",
                 columns: table => new
@@ -26,14 +28,16 @@ namespace eTPL.API.Migrations
                 {
                     table.PrimaryKey("PK_tbm_user", x => x.user_id);
                 });
+            */
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            /*
             migrationBuilder.DropTable(
                 name: "tbm_user");
+            */
         }
     }
 }
-

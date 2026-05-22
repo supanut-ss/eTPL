@@ -59,6 +59,8 @@ import {
   AccountBalanceWallet,
   Close,
   Delete,
+  CalendarMonth,
+  Person,
 } from "@mui/icons-material";
 import leagueOpsService from "../services/leagueOpsService";
 import { getFixtures } from "../api/fixtureApi";
@@ -156,6 +158,7 @@ const AdminLeagueOpsPage = () => {
     startDate: "",
     endDate: "",
     matchTarget: 12,
+    matchTargetD2: 12,
     bonusPool: 0,
     eiThreshold: 15,
     rateElite: 100,
@@ -165,6 +168,8 @@ const AdminLeagueOpsPage = () => {
     status: "active",
     matchStartNo: 1,
     matchEndNo: 12,
+    matchStartNoD2: 1,
+    matchEndNoD2: 12,
   });
 
   const fetchCycles = useCallback(async () => {
@@ -237,9 +242,16 @@ const AdminLeagueOpsPage = () => {
         const filtered = allMatches.filter((m) => {
           if (!m) return false;
           const mNo = parseInt(m.match || m.matchNo);
-          const sNo = parseInt(currentCycle.matchStartNo || currentCycle.match_start_no);
-          const eNo = parseInt(currentCycle.matchEndNo || currentCycle.match_end_no);
-          return mNo >= sNo && mNo <= eNo;
+          const isD2 = m.division && m.division.toUpperCase() === "D2";
+          if (isD2) {
+            const sNo = parseInt(currentCycle.matchStartNoD2 || currentCycle.match_start_no_d2 || 1);
+            const eNo = parseInt(currentCycle.matchEndNoD2 || currentCycle.match_end_no_d2 || 12);
+            return mNo >= sNo && mNo <= eNo;
+          } else {
+            const sNo = parseInt(currentCycle.matchStartNo || currentCycle.match_start_no || 1);
+            const eNo = parseInt(currentCycle.matchEndNo || currentCycle.match_end_no || 12);
+            return mNo >= sNo && mNo <= eNo;
+          }
         });
         setMatches(filtered);
       }
@@ -316,6 +328,7 @@ const AdminLeagueOpsPage = () => {
           : "",
         endDate: currentCycle.endDate ? currentCycle.endDate.split("T")[0] : "",
         matchTarget: currentCycle.matchTarget || 12,
+        matchTargetD2: currentCycle.matchTargetD2 || 12,
         bonusPool: currentCycle.bonusPool || 0,
         eiThreshold: currentCycle.eiThreshold || 15,
         rateElite: currentCycle.rateElite || 100,
@@ -325,6 +338,8 @@ const AdminLeagueOpsPage = () => {
         status: currentCycle.status || "active",
         matchStartNo: currentCycle.matchStartNo || 1,
         matchEndNo: currentCycle.matchEndNo || 12,
+        matchStartNoD2: currentCycle.matchStartNoD2 || 1,
+        matchEndNoD2: currentCycle.matchEndNoD2 || 12,
       });
     } else {
       const lastCycle =
@@ -340,6 +355,7 @@ const AdminLeagueOpsPage = () => {
           .toISOString()
           .split("T")[0],
         matchTarget: targetCount,
+        matchTargetD2: lastCycle?.matchTargetD2 || targetCount,
         bonusPool: lastCycle?.bonusPool || 0,
         eiThreshold: lastCycle?.eiThreshold || 15,
         rateElite: lastCycle?.rateElite || 100,
@@ -349,6 +365,8 @@ const AdminLeagueOpsPage = () => {
         status: "active",
         matchStartNo: nextMatchStart,
         matchEndNo: nextMatchStart + targetCount - 1,
+        matchStartNoD2: lastCycle?.matchStartNoD2 || nextMatchStart,
+        matchEndNoD2: lastCycle?.matchEndNoD2 || (nextMatchStart + targetCount - 1),
       });
     }
     setConfigOpen(true);
@@ -445,6 +463,12 @@ const AdminLeagueOpsPage = () => {
         match_start_no: currentCycle?.matchStartNo,
         matchEndNo: currentCycle?.matchEndNo,
         match_end_no: currentCycle?.matchEndNo,
+        matchStartNoD2: currentCycle?.matchStartNoD2,
+        match_start_no_d2: currentCycle?.matchStartNoD2,
+        matchEndNoD2: currentCycle?.matchEndNoD2,
+        match_end_no_d2: currentCycle?.matchEndNoD2,
+        matchTargetD2: currentCycle?.matchTargetD2,
+        match_target_d2: currentCycle?.matchTargetD2,
       });
 
       await leagueOpsService.applyBatchResults(
@@ -939,16 +963,37 @@ const AdminLeagueOpsPage = () => {
                               >
                                 {uid.charAt(0)}
                               </Avatar>
-                              <Typography variant="body2" fontWeight="800" color="#1e293b">
-                                {uid}
-                              </Typography>
+                              <Box>
+                                <Typography variant="body2" fontWeight="800" color="#1e293b">
+                                  {uid}
+                                </Typography>
+                                {row.division && (
+                                  <Chip
+                                    label={row.division.toUpperCase()}
+                                    size="small"
+                                    sx={{
+                                      height: 16,
+                                      fontSize: 9,
+                                      fontWeight: "800",
+                                      mt: 0.5,
+                                      bgcolor: row.division.toUpperCase() === "D2" ? alpha(theme.palette.info.main, 0.1) : alpha(theme.palette.primary.main, 0.1),
+                                      color: row.division.toUpperCase() === "D2" ? "info.main" : "primary.main",
+                                      border: `1px solid ${row.division.toUpperCase() === "D2" ? alpha(theme.palette.info.main, 0.2) : alpha(theme.palette.primary.main, 0.2)}`,
+                                    }}
+                                  />
+                                )}
+                              </Box>
                             </Box>
                           </TableCell>
                           <TableCell align="center">
                             <Typography variant="body2" fontWeight="700">
                               {row.played_count ?? row.playedCount ?? 0}
                               <Box component="span" sx={{ color: "text.secondary", fontWeight: 500, ml: 0.5 }}>
-                                / {currentCycle?.matchTarget || currentCycle?.match_target || 12}
+                                / {
+                                  (row.division && row.division.toUpperCase() === "D2")
+                                    ? (currentCycle?.matchTargetD2 || currentCycle?.match_target_d2 || 12)
+                                    : (currentCycle?.matchTarget || currentCycle?.match_target || 12)
+                                }
                               </Box>
                             </Typography>
                           </TableCell>
@@ -1854,41 +1899,90 @@ const AdminLeagueOpsPage = () => {
                       }}
                     />
                   </Stack>
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={3}>
-                    <TextField
-                      fullWidth
-                      type="number"
-                      label="Start Match No."
-                      variant="outlined"
-                      value={configData.matchStartNo}
-                      onChange={(e) =>
-                        setConfigData({
-                          ...configData,
-                          matchStartNo: parseInt(e.target.value) || 0,
-                        })
-                      }
-                      sx={{
-                        flex: 1,
-                        "& .MuiOutlinedInput-root": { borderRadius: 2 },
-                      }}
-                    />
-                    <TextField
-                      fullWidth
-                      type="number"
-                      label="End Match No."
-                      variant="outlined"
-                      value={configData.matchEndNo}
-                      onChange={(e) =>
-                        setConfigData({
-                          ...configData,
-                          matchEndNo: parseInt(e.target.value) || 0,
-                        })
-                      }
-                      sx={{
-                        flex: 1,
-                        "& .MuiOutlinedInput-root": { borderRadius: 2 },
-                      }}
-                    />
+                  <Stack direction="column" spacing={3}>
+                    <Box sx={{ p: 2, border: "1px solid #e2e8f0", borderRadius: 2, bgcolor: "#f8fafc" }}>
+                      <Typography variant="body2" fontWeight="800" color="primary.main" sx={{ mb: 2 }}>
+                        DIVISION 1 (D1) MATCH RANGE
+                      </Typography>
+                      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="D1 Start Match No."
+                          variant="outlined"
+                          value={configData.matchStartNo}
+                          onChange={(e) =>
+                            setConfigData({
+                              ...configData,
+                              matchStartNo: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          sx={{
+                            flex: 1,
+                            "& .MuiOutlinedInput-root": { borderRadius: 2 },
+                          }}
+                        />
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="D1 End Match No."
+                          variant="outlined"
+                          value={configData.matchEndNo}
+                          onChange={(e) =>
+                            setConfigData({
+                              ...configData,
+                              matchEndNo: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          sx={{
+                            flex: 1,
+                            "& .MuiOutlinedInput-root": { borderRadius: 2 },
+                          }}
+                        />
+                      </Stack>
+                    </Box>
+
+                    <Box sx={{ p: 2, border: "1px solid #e2e8f0", borderRadius: 2, bgcolor: "#f8fafc" }}>
+                      <Typography variant="body2" fontWeight="800" color="info.main" sx={{ mb: 2 }}>
+                        DIVISION 2 (D2) MATCH RANGE
+                      </Typography>
+                      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="D2 Start Match No."
+                          variant="outlined"
+                          value={configData.matchStartNoD2}
+                          onChange={(e) =>
+                            setConfigData({
+                              ...configData,
+                              matchStartNoD2: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          sx={{
+                            flex: 1,
+                            "& .MuiOutlinedInput-root": { borderRadius: 2 },
+                          }}
+                        />
+                        <TextField
+                          fullWidth
+                          type="number"
+                          label="D2 End Match No."
+                          variant="outlined"
+                          value={configData.matchEndNoD2}
+                          onChange={(e) =>
+                            setConfigData({
+                              ...configData,
+                              matchEndNoD2: parseInt(e.target.value) || 0,
+                            })
+                          }
+                          sx={{
+                            flex: 1,
+                            "& .MuiOutlinedInput-root": { borderRadius: 2 },
+                          }}
+                        />
+                      </Stack>
+                    </Box>
                   </Stack>
                 </Stack>
               </Box>
@@ -1926,13 +2020,30 @@ const AdminLeagueOpsPage = () => {
                     <TextField
                       fullWidth
                       type="number"
-                      label="Match Target"
+                      label="D1 Match Target"
                       variant="outlined"
                       value={configData.matchTarget}
                       onChange={(e) =>
                         setConfigData({
                           ...configData,
-                          matchTarget: e.target.value,
+                          matchTarget: parseInt(e.target.value) || 0,
+                        })
+                      }
+                      sx={{
+                        flex: 1,
+                        "& .MuiOutlinedInput-root": { borderRadius: 2 },
+                      }}
+                    />
+                    <TextField
+                      fullWidth
+                      type="number"
+                      label="D2 Match Target"
+                      variant="outlined"
+                      value={configData.matchTargetD2}
+                      onChange={(e) =>
+                        setConfigData({
+                          ...configData,
+                          matchTargetD2: parseInt(e.target.value) || 0,
                         })
                       }
                       sx={{
@@ -1949,7 +2060,7 @@ const AdminLeagueOpsPage = () => {
                       onChange={(e) =>
                         setConfigData({
                           ...configData,
-                          eiThreshold: e.target.value,
+                          eiThreshold: parseInt(e.target.value) || 0,
                         })
                       }
                       sx={{
@@ -1966,7 +2077,7 @@ const AdminLeagueOpsPage = () => {
                       onChange={(e) =>
                         setConfigData({
                           ...configData,
-                          bonusPool: e.target.value,
+                          bonusPool: parseFloat(e.target.value) || 0,
                         })
                       }
                       sx={{
