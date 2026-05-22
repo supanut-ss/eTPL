@@ -35,7 +35,18 @@ export const checkMarketOpen = (summary) => {
 
   // 2. Daily Time Check (Format is "hh:mm")
   if (marketStartTime && marketEndTime) {
-    const [startH, startM] = marketStartTime.split(':').map(Number);
+    let activeStartTime = marketStartTime;
+    
+    // Day 1 adjustment to 18:00
+    if (marketStartDate && marketStartDate !== "N/A") {
+      const [day, month] = marketStartDate.split('/').map(Number);
+      const isDay1 = thailandTime.getDate() === day && (thailandTime.getMonth() + 1) === month;
+      if (isDay1) {
+        activeStartTime = "18:00";
+      }
+    }
+
+    const [startH, startM] = activeStartTime.split(':').map(Number);
     const [endH, endM] = marketEndTime.split(':').map(Number);
     
     const startTimeInMins = startH * 60 + startM;
@@ -43,6 +54,9 @@ export const checkMarketOpen = (summary) => {
     const currentTimeInMins = thailandTime.getHours() * 60 + thailandTime.getMinutes();
     
     if (currentTimeInMins < startTimeInMins || currentTimeInMins > endTimeInMins) {
+      if (activeStartTime === "18:00") {
+        return { isOpen: false, message: "ตลาดวันแรกจะเปิดให้เริ่มประมูลและบิดได้ตั้งแต่เวลา 18:00 น. เป็นต้นไป" };
+      }
       return { isOpen: false, message: `Market is open between ${marketStartTime} and ${marketEndTime}` };
     }
   }

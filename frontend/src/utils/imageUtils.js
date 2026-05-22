@@ -24,8 +24,8 @@ export const IMAGE_BASE_URLS = {
  */
 export const getLogoUrl = (teamName) => {
   if (!teamName) return "";
-  // In production, images are hosted on the API subdomain (apicore.thaipesleague.com)
-  // while the frontend is on the main domain (thaipesleague.com).
+  // In production, images are hosted on the main domain (thaipesleague.com)
+  // along with the backend API.
   return `${API_BASE_URL}/_image/CLUB_LOGO/${encodeURIComponent(teamName)}.png`;
 };
 

@@ -35,7 +35,6 @@ builder.Services.AddCors(options =>
     {
         "https://thaipesleague.com",
         "https://www.thaipesleague.com",
-        "https://apicore.thaipesleague.com",
         "http://thaipesleague.com",
         "http://www.thaipesleague.com",
     };

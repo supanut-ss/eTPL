@@ -338,22 +338,43 @@ const AuctionPage = () => {
       return;
     }
 
-    if (summary?.marketEndTime) {
+    if (summary?.marketEndTime && summary?.marketStartTime) {
       try {
-        const [hour, minute] = summary.marketEndTime.split(':').map(Number);
-        const marketEnd = new Date();
-        marketEnd.setHours(hour, minute, 0, 0);
+        let activeStartTime = summary.marketStartTime;
+        
+        // Day 1 adjustment to 18:00
+        if (summary.marketStartDate && summary.marketStartDate !== "N/A") {
+          const [day, month] = summary.marketStartDate.split('/').map(Number);
+          const now = new Date();
+          const thailandTime = new Date(now.getTime() + (now.getTimezoneOffset() + 420) * 60000);
+          const isDay1 = thailandTime.getDate() === day && (thailandTime.getMonth() + 1) === month;
+          if (isDay1) {
+            activeStartTime = "18:00";
+          }
+        }
+
+        const [startH, startM] = activeStartTime.split(':').map(Number);
+        const [endH, endM] = summary.marketEndTime.split(':').map(Number);
+        
+        const startTimeInMins = startH * 60 + startM;
+        const endTimeInMins = endH * 60 + endM;
 
         // Calculate potential total end time (Normal + Final)
         const normalMins = summary.normalBidDurationMinutes || 1200;
         const finalMins = summary.finalBidDurationMinutes || 240;
         const totalMins = normalMins + finalMins;
+        
         const now = new Date();
-        const potentialTotalEnd = new Date(now.getTime() + totalMins * 60000);
+        const thailandTime = new Date(now.getTime() + (now.getTimezoneOffset() + 420) * 60000);
+        const potentialTotalEnd = new Date(thailandTime.getTime() + totalMins * 60000);
 
-        if (potentialTotalEnd > marketEnd) {
-          const timeToWait = potentialTotalEnd.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-          enqueueSnackbar(`Cannot start auction because total duration (including Final phase) ends at ${timeToWait}, which exceeds market close time (${summary.marketEndTime})`, { variant: "error" });
+        const endHour = potentialTotalEnd.getHours();
+        const endMinute = potentialTotalEnd.getMinutes();
+        const endTimeInMinsOfDay = endHour * 60 + endMinute;
+
+        if (endTimeInMinsOfDay < startTimeInMins || endTimeInMinsOfDay > endTimeInMins) {
+          const timeToWait = `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
+          enqueueSnackbar(`Cannot start auction because total duration (including Final phase) ends at ${timeToWait}, which exceeds daily market hours (${activeStartTime} - ${summary.marketEndTime})`, { variant: "error" });
           return;
         }
       } catch (e) {

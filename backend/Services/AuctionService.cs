@@ -74,8 +74,20 @@ namespace eTPL.API.Services
             if (settings.AuctionEndDate.HasValue && thaiTime.Date > settings.AuctionEndDate.Value.Date)
                 throw new Exception("หมดช่วงวันที่เปิดประมูลแล้ว");
 
-            if (thaiTime.TimeOfDay < settings.DailyBidStartTime || thaiTime.TimeOfDay > settings.DailyBidEndTime)
+            var dailyStartTime = settings.DailyBidStartTime;
+            if (settings.AuctionStartDate.HasValue && thaiTime.Date == settings.AuctionStartDate.Value.Date)
+            {
+                dailyStartTime = new TimeSpan(18, 0, 0); // วันแรกเปิดบิดหลัง 18.00 น.
+            }
+
+            if (thaiTime.TimeOfDay < dailyStartTime || thaiTime.TimeOfDay > settings.DailyBidEndTime)
+            {
+                if (settings.AuctionStartDate.HasValue && thaiTime.Date == settings.AuctionStartDate.Value.Date)
+                {
+                    throw new Exception("ตลาดวันแรกจะเปิดให้เริ่มประมูลและบิดได้ตั้งแต่เวลา 18:00 น. เป็นต้นไป");
+                }
                 throw new Exception($"อนุญาตให้ประมูลได้ตั้งแต่ {settings.DailyBidStartTime:hh\\:mm} ถึง {settings.DailyBidEndTime:hh\\:mm} (เวลาไทย) เท่านั้น");
+            }
         }
 
         private async Task<List<AuctionBoard>> GetUserWinningAuctionsInternalAsync(int userId)
@@ -131,9 +143,12 @@ namespace eTPL.API.Services
             return winnersList;
         }
 
-        private async Task ValidateBidEligibility(int userId, int bidAmount, int playerOvr, int? excludeAuctionId = null)
+        private async Task ValidateBidEligibility(int userId, int bidAmount, int playerOvr, int? excludeAuctionId = null, int? customBidAmountToCheck = null, bool skipTimeCheck = false)
         {
-            await CheckTimeEligibilityAsync();
+            if (!skipTimeCheck)
+            {
+                await CheckTimeEligibilityAsync();
+            }
 
             var settings = await _context.AuctionSettings.FirstOrDefaultAsync();
             if (settings == null) throw new Exception("Auction settings not found.");
@@ -160,7 +175,8 @@ namespace eTPL.API.Services
             int remainingSlotsToFill = settings.MaxSquadSize - totalOwnedAndWinning - 1; 
             int requiredReserve = remainingSlotsToFill > 0 ? remainingSlotsToFill * lowestPrice : 0;
 
-            if (wallet.AvailableBalance - bidAmount < requiredReserve)
+            int amountToCheck = customBidAmountToCheck ?? bidAmount;
+            if (wallet.AvailableBalance - amountToCheck < requiredReserve)
                 throw new Exception($"Budget Lock: ต้องเหลือเงินอย่างน้อย {requiredReserve} สำหรับซื้ออีก {remainingSlotsToFill} ตำแหน่งด้วยราคาเกรด {gradeE?.GradeName ?? "E"} +1 ({lowestPrice} TP)");
 
             // 3. Grade Quota Check
@@ -253,8 +269,150 @@ namespace eTPL.API.Services
             return stuckAuctions.Count;
         }
 
+        private async Task AutoRefundEndedLosersAsync()
+        {
+            var now = DateTime.UtcNow;
+            
+            // Get all active auctions that have ended their bidding phase (optimized: now >= NormalEndTime)
+            var activeAuctions = await _context.AuctionBoards
+                .Include(b => b.Player)
+                .Where(b => b.DbStatus == "Active" && now >= b.NormalEndTime)
+                .ToListAsync();
+
+            if (!activeAuctions.Any()) return;
+
+            foreach (var auction in activeAuctions)
+            {
+                // Count distinct bidders from Normal phase to decide if there was a Final Bid phase
+                var normalBiddersCount = await _context.AuctionBidLogs
+                    .Where(l => l.AuctionId == auction.AuctionId && l.Phase == "Normal")
+                    .Select(l => l.UserId)
+                    .Distinct()
+                    .CountAsync();
+
+                // Check if the auction phase has fully ended
+                bool isEnded = false;
+                if (normalBiddersCount <= 1)
+                {
+                    isEnded = now >= auction.NormalEndTime;
+                }
+                else
+                {
+                    isEnded = now >= auction.FinalEndTime;
+                }
+
+                if (!isEnded) continue;
+
+                // Determine winner
+                var normalWinnerId = auction.HighestBidderId;
+                var finalBids = await _context.AuctionBidLogs
+                    .Where(l => l.AuctionId == auction.AuctionId && l.Phase == "Final")
+                    .OrderByDescending(l => l.BidAmount)
+                    .ThenByDescending(l => l.UserId == normalWinnerId)
+                    .ThenBy(l => l.CreatedAt)
+                    .ToListAsync();
+
+                int? winnerId = null;
+                if (finalBids.Any())
+                {
+                    winnerId = finalBids.First().UserId;
+                }
+                else if (auction.HighestBidderId.HasValue)
+                {
+                    winnerId = auction.HighestBidderId.Value;
+                }
+
+                if (!winnerId.HasValue) continue; // No bidders at all, skip
+
+                // Identify losers and their refund amounts
+                var refunds = new Dictionary<int, int>();
+
+                // 1. Normal phase winner (if they lost the auction overall)
+                if (auction.HighestBidderId.HasValue && auction.HighestBidderId.Value != winnerId.Value)
+                {
+                    refunds[auction.HighestBidderId.Value] = auction.CurrentPrice;
+                }
+
+                // 2. Final phase bidders (if they are not the winner)
+                foreach (var bid in finalBids)
+                {
+                    if (bid.UserId != winnerId.Value)
+                    {
+                        int refundAmount = bid.BidAmount;
+                        if (auction.HighestBidderId == bid.UserId)
+                        {
+                            refundAmount = bid.BidAmount - auction.CurrentPrice;
+                        }
+
+                        if (refunds.ContainsKey(bid.UserId))
+                        {
+                            refunds[bid.UserId] += refundAmount;
+                        }
+                        else
+                        {
+                            refunds[bid.UserId] = refundAmount;
+                        }
+                    }
+                }
+
+                // Process refunds
+                if (refunds.Any())
+                {
+                    var strategy = _context.Database.CreateExecutionStrategy();
+                    await strategy.ExecuteAsync(async () =>
+                    {
+                        using var transaction = await _context.Database.BeginTransactionAsync();
+                        try
+                        {
+                            bool updatedAny = false;
+                            foreach (var kvp in refunds)
+                            {
+                                int userId = kvp.Key;
+                                int amount = kvp.Value;
+
+                                if (amount <= 0) continue;
+
+                                // Check if already refunded
+                                bool alreadyRefunded = await _context.AuctionTransactions
+                                    .AnyAsync(t => t.UserId == userId && t.RelatedAuctionId == auction.AuctionId && t.Type == "AUCTION_REFUND");
+
+                                if (alreadyRefunded) continue;
+
+                                var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == userId);
+                                if (wallet != null)
+                                {
+                                    wallet.AvailableBalance += amount;
+                                    wallet.ReservedBalance -= amount;
+                                    
+                                    await RecordTransactionAsync(
+                                        userId, amount, "CREDIT", "AUCTION_REFUND",
+                                        $"คืนเงินประมูลไม่ชนะ (ระบบอัตโนมัติ) {auction.Player?.PlayerName ?? ""}",
+                                        wallet.AvailableBalance, auction.AuctionId, auction.PlayerId
+                                    );
+
+                                    updatedAny = true;
+                                }
+                            }
+
+                            if (updatedAny)
+                            {
+                                await _context.SaveChangesAsync();
+                                await transaction.CommitAsync();
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            try { await transaction.RollbackAsync(); } catch { }
+                        }
+                    });
+                }
+            }
+        }
+
         public async Task RunLazySweepAsync()
         {
+            await AutoRefundEndedLosersAsync();
+
             var expiredAuctions = await _context.AuctionBoards
                 .Where(b => b.DbStatus == "Active" && DateTime.UtcNow >= b.FinalEndTime.AddHours(24))
                 .ToListAsync();
@@ -607,16 +765,8 @@ namespace eTPL.API.Services
             var thaiNow = GetThaiTime();
             var totalDurationMins = (settings?.NormalBidDurationMinutes ?? 1200) + (settings?.FinalBidDurationMinutes ?? 240);
             var estimatedEnd = thaiNow.AddMinutes(totalDurationMins);
-            if (estimatedEnd.TimeOfDay > settings?.DailyBidEndTime && estimatedEnd.TimeOfDay < settings?.DailyBidStartTime)
+            if (estimatedEnd.TimeOfDay > settings?.DailyBidEndTime || estimatedEnd.TimeOfDay < settings?.DailyBidStartTime)
             {
-                 // This condition covers most cases where end time is after close but before next day open.
-                 // If the end time actually wraps around past start time, it's definitely too long.
-                 var endStr = estimatedEnd.ToString(@"HH\:mm");
-                 throw new Exception($"ไม่สามารถเริ่มประมูลได้เนื่องจากเวลาจบ (รวม Final Bid) คือ {endStr} ซึ่งเกินเวลาปิดตลาด ({settings?.DailyBidEndTime:hh\\:mm})");
-            }
-            else if (estimatedEnd.TimeOfDay > settings?.DailyBidEndTime || estimatedEnd.Date > thaiNow.Date)
-            {
-                 // Simpler check if same-day logic is expected
                  var endStr = estimatedEnd.ToString(@"HH\:mm");
                  throw new Exception($"ไม่สามารถเริ่มประมูลได้เนื่องจากเวลาจบ (รวม Final Bid) คือ {endStr} ซึ่งเกินเวลาปิดตลาด ({settings?.DailyBidEndTime:hh\\:mm})");
             }
@@ -778,7 +928,7 @@ namespace eTPL.API.Services
                 if (bidAmount <= auction.CurrentPrice) throw new Exception("ราคาที่บิดต้องมากกว่าราคาปัจจุบัน");
                 if (bidAmount != auction.CurrentPrice + 1) throw new Exception("บิดช่วง Normal เพิ่มได้ทีละ 1 เท่านั้น");
 
-                await ValidateBidEligibility(userId, bidAmount, auction.Player!.PlayerOvr, auctionId);
+                await ValidateBidEligibility(userId, bidAmount, auction.Player!.PlayerOvr, auctionId, null, false);
 
                 var newBidderWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == userId);
                 if (newBidderWallet == null) throw new Exception("Wallet not found.");
@@ -878,8 +1028,6 @@ namespace eTPL.API.Services
 
                 if (bidAmount <= auction.CurrentPrice) throw new Exception("ราคาปิดผนึกต้องสูงกว่าราคาปัจจุบัน");
 
-                await ValidateBidEligibility(userId, bidAmount, auction.Player!.PlayerOvr, auctionId);
-
                 var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == userId);
                 if (wallet == null) throw new Exception("Wallet not found.");
 
@@ -888,6 +1036,8 @@ namespace eTPL.API.Services
                 {
                     actualDeduction = bidAmount - auction.CurrentPrice;
                 }
+
+                await ValidateBidEligibility(userId, bidAmount, auction.Player!.PlayerOvr, auctionId, actualDeduction, true);
 
                 wallet.AvailableBalance -= actualDeduction;
                 wallet.ReservedBalance += actualDeduction;
@@ -985,13 +1135,17 @@ namespace eTPL.API.Services
                 var playerName2 = auction.Player?.PlayerName ?? "";
                 if (auction.HighestBidderId.HasValue && auction.HighestBidderId.Value != winnerId.Value)
                 {
-                    var oldWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == auction.HighestBidderId.Value);
-                    if (oldWallet != null)
+                    bool oldRefunded = await _context.AuctionTransactions.AnyAsync(t => t.UserId == auction.HighestBidderId.Value && t.RelatedAuctionId == auctionId && t.Type == "AUCTION_REFUND");
+                    if (!oldRefunded)
                     {
-                        oldWallet.AvailableBalance += auction.CurrentPrice;
-                        oldWallet.ReservedBalance -= auction.CurrentPrice;
-                        await RecordTransactionAsync(auction.HighestBidderId.Value, auction.CurrentPrice, "CREDIT", "AUCTION_REFUND",
-                            $"คืนเงินประมูลไม่ชนะ {playerName2}", oldWallet.AvailableBalance, auctionId, auction.PlayerId);
+                        var oldWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == auction.HighestBidderId.Value);
+                        if (oldWallet != null)
+                        {
+                            oldWallet.AvailableBalance += auction.CurrentPrice;
+                            oldWallet.ReservedBalance -= auction.CurrentPrice;
+                            await RecordTransactionAsync(auction.HighestBidderId.Value, auction.CurrentPrice, "CREDIT", "AUCTION_REFUND",
+                                $"คืนเงินประมูลไม่ชนะ {playerName2}", oldWallet.AvailableBalance, auctionId, auction.PlayerId);
+                        }
                     }
                 }
 
@@ -999,18 +1153,22 @@ namespace eTPL.API.Services
                 {
                     if (bid.UserId != winnerId.Value)
                     {
-                        var loserWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == bid.UserId);
-                        if (loserWallet != null)
+                        bool bidRefunded = await _context.AuctionTransactions.AnyAsync(t => t.UserId == bid.UserId && t.RelatedAuctionId == auctionId && t.Type == "AUCTION_REFUND");
+                        if (!bidRefunded)
                         {
-                            int refundAmount = bid.BidAmount;
-                            if (auction.HighestBidderId == bid.UserId)
+                            var loserWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == bid.UserId);
+                            if (loserWallet != null)
                             {
-                                refundAmount = bid.BidAmount - auction.CurrentPrice;
+                                int refundAmount = bid.BidAmount;
+                                if (auction.HighestBidderId == bid.UserId)
+                                {
+                                    refundAmount = bid.BidAmount - auction.CurrentPrice;
+                                }
+                                loserWallet.AvailableBalance += refundAmount;
+                                loserWallet.ReservedBalance -= refundAmount;
+                                await RecordTransactionAsync(bid.UserId, refundAmount, "CREDIT", "AUCTION_REFUND",
+                                    $"คืนเงินประมูลไม่ชนะ {playerName2}", loserWallet.AvailableBalance, auctionId, auction.PlayerId);
                             }
-                            loserWallet.AvailableBalance += refundAmount;
-                            loserWallet.ReservedBalance -= refundAmount;
-                            await RecordTransactionAsync(bid.UserId, refundAmount, "CREDIT", "AUCTION_REFUND",
-                                $"คืนเงินประมูลไม่ชนะ {playerName2}", loserWallet.AvailableBalance, auctionId, auction.PlayerId);
                         }
                     }
                 }
@@ -1076,6 +1234,7 @@ namespace eTPL.API.Services
 
         public async Task<AuctionWalletDto> GetWalletAsync(int userId)
         {
+            await RunLazySweepAsync();
             var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == userId);
             if (wallet == null)
             {
@@ -1186,6 +1345,7 @@ namespace eTPL.API.Services
 
         public async Task<List<AuctionSquadDto>> GetMySquadAsync(int userId)
         {
+            await RunLazySweepAsync();
             var squad = await _context.AuctionSquads
                 .Include(s => s.Player)
                 .Where(s => s.UserId == userId)
@@ -1839,7 +1999,11 @@ namespace eTPL.API.Services
 
                 if (sellerWallet.AvailableBalance + offer.Amount < sellerRequiredReserve)
                 {
-                    throw new Exception($"ไม่สามารถรับข้อเสนอได้: คุณต้องมีเงินสำรอง Budget Lock อย่างน้อย {sellerRequiredReserve} TP สำหรับ {sellerRemainingSlots} สล็อตที่เหลือ (ตอนนี้มี {sellerWallet.AvailableBalance} + ค่าตัว {offer.Amount} = {sellerWallet.AvailableBalance + offer.Amount} TP)");
+                    offer.Status = "Collapsed";
+                    offer.UpdatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    throw new Exception($"ดีลล่ม! เจ้าของทีมมีเงินไม่เพียงพอสำหรับกฎ Budget Lock ของตำแหน่งงานที่เหลือ (ต้องการอย่างน้อย {sellerRequiredReserve} TP สำหรับ {sellerRemainingSlots} สล็อตที่เหลือ)");
                 }
 
                 var playerName = offer.Squad?.Player?.PlayerName ?? "Unknown";
@@ -1847,7 +2011,13 @@ namespace eTPL.API.Services
                 if (offer.OfferType == "Transfer")
                 {
                     if (offer.Squad?.SeasonsWithTeam <= 1 && !settings.IsMarketRound2)
-                        throw new Exception("ไม่สามารถขาย/โอนย้ายนักเตะที่เพิ่งได้มาในฤดูกาลเดียวกันได้");
+                    {
+                        offer.Status = "Collapsed";
+                        offer.UpdatedAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+                        throw new Exception("ดีลล่ม! ไม่สามารถขาย/โอนย้ายนักเตะที่เพิ่งได้มาในฤดูกาลเดียวกันได้");
+                    }
 
                     // Deduct from buyer, credit to seller
                     buyerWallet.AvailableBalance -= offer.Amount;
@@ -1882,7 +2052,13 @@ namespace eTPL.API.Services
                 {
                     var currentlyLoanedOut = await _context.AuctionSquads.CountAsync(s => s.UserId == sellerUserId && s.Status == "Loaned");
                     if (currentlyLoanedOut >= 2)
-                        throw new Exception("ทีมของคุณปล่อยยืมตัวนักเตะครบโควตา 2 คนแล้ว ไม่สามารถรับข้อเสนอยืมตัวเพิ่มได้");
+                    {
+                        offer.Status = "Collapsed";
+                        offer.UpdatedAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+                        throw new Exception("ดีลล่ม! ทีมของคุณปล่อยยืมตัวนักเตะครบโควตา 2 คนแล้ว ไม่สามารถรับข้อเสนอยืมตัวเพิ่มได้");
+                    }
 
                     // Deduct loan fee
                     buyerWallet.AvailableBalance -= offer.Amount;
