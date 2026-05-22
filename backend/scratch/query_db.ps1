@@ -1,4 +1,4 @@
-$connString = "Data Source=128.199.70.93;Initial Catalog=thaipes_etpl;User Id=thaipes_etpl;Password=Soulmate@2108;TrustServerCertificate=True;"
+$connString = "Data Source=94.237.76.153;Initial Catalog=thaipes_etpl;User Id=thaipes_dba;Password=Soulmate@2108;TrustServerCertificate=True;"
 $conn = New-Object System.Data.SqlClient.SqlConnection($connString)
 try {
     $conn.Open()
