@@ -379,6 +379,134 @@ namespace eTPL.API.Controllers
             return null;
         }
 
+        // --- Final Bid Refund Recovery ---
+        /// <summary>
+        /// คืนเงิน Final Bid ให้ผู้แพ้ในรอบ Final ที่ยังไม่ได้รับเงินคืน (Sold auctions เท่านั้น)
+        /// เนื่องจาก bug ที่ check AUCTION_REFUND แทนที่จะเป็น FINAL_BID_REFUND
+        /// Safe to run multiple times (idempotent) — ตรวจสอบก่อนว่าเคย refund ไปแล้วหรือยัง
+        /// ?dryRun=true เพื่อดูว่าจะ refund ใครบ้างก่อนที่จะยืนยัน
+        /// </summary>
+        [HttpPost("recover-final-bid-refunds")]
+        public async Task<IActionResult> RecoverFinalBidRefunds([FromQuery] bool dryRun = true)
+        {
+            try
+            {
+                // Find all Sold auctions that had a Final Bid phase (i.e., have Final bid logs)
+                var soldAuctions = await _context.AuctionBoards
+                    .Include(b => b.Player)
+                    .Where(b => b.DbStatus == "Sold")
+                    .ToListAsync();
+
+                var auctionIds = soldAuctions.Select(a => a.AuctionId).ToList();
+
+                // Get all Final bids for these auctions
+                var allFinalBids = await _context.AuctionBidLogs
+                    .Where(l => auctionIds.Contains(l.AuctionId) && l.Phase == "Final")
+                    .ToListAsync();
+
+                // Get existing FINAL_BID_REFUND transactions
+                var existingRefunds = await _context.AuctionTransactions
+                    .Where(t => auctionIds.Contains(t.RelatedAuctionId ?? 0) && t.Type == "FINAL_BID_REFUND")
+                    .Select(t => new { t.UserId, t.RelatedAuctionId })
+                    .ToListAsync();
+
+                var existingRefundSet = existingRefunds
+                    .Select(r => $"{r.UserId}_{r.RelatedAuctionId}")
+                    .ToHashSet();
+
+                var preview = new List<object>();
+                int totalRefunded = 0;
+
+                foreach (var auction in soldAuctions)
+                {
+                    var finalBids = allFinalBids
+                        .Where(l => l.AuctionId == auction.AuctionId)
+                        .OrderByDescending(l => l.BidAmount)
+                        .ThenByDescending(l => l.UserId == auction.HighestBidderId)
+                        .ThenBy(l => l.CreatedAt)
+                        .ToList();
+
+                    if (!finalBids.Any()) continue;
+
+                    // Winner is the highest final bidder (already determined by CurrentPrice on Sold auction)
+                    int winnerId = finalBids.First().UserId;
+
+                    foreach (var bid in finalBids)
+                    {
+                        if (bid.UserId == winnerId) continue;
+
+                        string key = $"{bid.UserId}_{auction.AuctionId}";
+                        if (existingRefundSet.Contains(key)) continue; // Already refunded
+
+                        int refundAmount = bid.BidAmount;
+                        if (auction.HighestBidderId == bid.UserId)
+                        {
+                            // This user also led Normal phase, so they already paid CurrentPrice in Normal
+                            // PlaceFinalBidAsync only deducted the difference (BidAmount - CurrentPrice)
+                            refundAmount = bid.BidAmount - auction.CurrentPrice;
+                        }
+
+                        if (refundAmount <= 0) continue;
+
+                        preview.Add(new
+                        {
+                            AuctionId = auction.AuctionId,
+                            PlayerName = auction.Player?.PlayerName ?? "Unknown",
+                            UserId = bid.UserId,
+                            RefundAmount = refundAmount,
+                            FinalBidAmount = bid.BidAmount,
+                            Note = auction.HighestBidderId == bid.UserId ? "Was Normal winner too" : "Final bidder only"
+                        });
+
+                        if (!dryRun)
+                        {
+                            var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == bid.UserId);
+                            if (wallet != null)
+                            {
+                                wallet.AvailableBalance += refundAmount;
+                                wallet.ReservedBalance -= refundAmount;
+
+                                _context.AuctionTransactions.Add(new AuctionTransaction
+                                {
+                                    UserId = bid.UserId,
+                                    Amount = refundAmount,
+                                    Direction = "CREDIT",
+                                    Type = "FINAL_BID_REFUND",
+                                    Description = $"[Recovery] คืนเงินประมูลไม่ชนะรอบ Final {auction.Player?.PlayerName ?? ""}",
+                                    BalanceAfter = wallet.AvailableBalance,
+                                    RelatedAuctionId = auction.AuctionId,
+                                    RelatedPlayerId = auction.PlayerId,
+                                    CreatedAt = DateTime.UtcNow
+                                });
+
+                                totalRefunded++;
+                            }
+                        }
+                    }
+                }
+
+                if (!dryRun && totalRefunded > 0)
+                {
+                    await _context.SaveChangesAsync();
+                }
+
+                return Ok(new
+                {
+                    DryRun = dryRun,
+                    TotalRefundsToProcess = preview.Count,
+                    TotalRefundsExecuted = dryRun ? 0 : totalRefunded,
+                    Refunds = preview,
+                    Message = dryRun
+                        ? $"DRY RUN: พบ {preview.Count} รายการที่ต้องคืนเงิน — เรียก ?dryRun=false เพื่อยืนยัน"
+                        : $"คืนเงินสำเร็จ {totalRefunded} รายการ"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Recovery failed: " + ex.Message });
+            }
+        }
+
         // --- Bot Q&A Management ---
         [HttpGet("qa")]
         public async Task<IActionResult> GetQa()

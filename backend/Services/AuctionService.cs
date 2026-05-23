@@ -372,9 +372,12 @@ namespace eTPL.API.Services
 
                                 if (amount <= 0) continue;
 
-                                // Check if already refunded
+                                // Check if already refunded for the FINAL phase specifically.
+                                // We must NOT check for "AUCTION_REFUND" here because a user may have
+                                // already received a Normal-phase refund (when outbid then re-bid),
+                                // which would incorrectly block the Final-phase refund.
                                 bool alreadyRefunded = await _context.AuctionTransactions
-                                    .AnyAsync(t => t.UserId == userId && t.RelatedAuctionId == auction.AuctionId && t.Type == "AUCTION_REFUND");
+                                    .AnyAsync(t => t.UserId == userId && t.RelatedAuctionId == auction.AuctionId && t.Type == "FINAL_BID_REFUND");
 
                                 if (alreadyRefunded) continue;
 
@@ -385,8 +388,8 @@ namespace eTPL.API.Services
                                     wallet.ReservedBalance -= amount;
                                     
                                     await RecordTransactionAsync(
-                                        userId, amount, "CREDIT", "AUCTION_REFUND",
-                                        $"คืนเงินประมูลไม่ชนะ (ระบบอัตโนมัติ) {auction.Player?.PlayerName ?? ""}",
+                                        userId, amount, "CREDIT", "FINAL_BID_REFUND",
+                                        $"คืนเงินประมูลไม่ชนะรอบ Final (ระบบอัตโนมัติ) {auction.Player?.PlayerName ?? ""}",
                                         wallet.AvailableBalance, auction.AuctionId, auction.PlayerId
                                     );
 
@@ -1153,7 +1156,10 @@ namespace eTPL.API.Services
                 {
                     if (bid.UserId != winnerId.Value)
                     {
-                        bool bidRefunded = await _context.AuctionTransactions.AnyAsync(t => t.UserId == bid.UserId && t.RelatedAuctionId == auctionId && t.Type == "AUCTION_REFUND");
+                        // Check for FINAL_BID_REFUND specifically — NOT generic AUCTION_REFUND,
+                        // because the user may have already received a Normal-phase refund
+                        // (outbid then re-bid) which would otherwise block this refund.
+                        bool bidRefunded = await _context.AuctionTransactions.AnyAsync(t => t.UserId == bid.UserId && t.RelatedAuctionId == auctionId && t.Type == "FINAL_BID_REFUND");
                         if (!bidRefunded)
                         {
                             var loserWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == bid.UserId);
@@ -1166,8 +1172,8 @@ namespace eTPL.API.Services
                                 }
                                 loserWallet.AvailableBalance += refundAmount;
                                 loserWallet.ReservedBalance -= refundAmount;
-                                await RecordTransactionAsync(bid.UserId, refundAmount, "CREDIT", "AUCTION_REFUND",
-                                    $"คืนเงินประมูลไม่ชนะ {playerName2}", loserWallet.AvailableBalance, auctionId, auction.PlayerId);
+                                await RecordTransactionAsync(bid.UserId, refundAmount, "CREDIT", "FINAL_BID_REFUND",
+                                    $"คืนเงินประมูลไม่ชนะรอบ Final {playerName2}", loserWallet.AvailableBalance, auctionId, auction.PlayerId);
                             }
                         }
                     }
