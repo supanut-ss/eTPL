@@ -119,11 +119,69 @@ namespace eTPL.API.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { message = "Bonus request rejected" });
         }
+
+        [HttpPost("approve-all")]
+        public async Task<IActionResult> ApproveAllBonuses([FromBody] ApproveAllRequest request)
+        {
+            var superAdminPassword = _config["AdminSettings:SuperAdminPassword"];
+            if (request.Password != superAdminPassword)
+            {
+                return BadRequest(new { message = "Incorrect Super Admin Password" });
+            }
+
+            var pendingBonuses = await _context.SpecialBonuses
+                .Where(b => b.Status == "Pending")
+                .ToListAsync();
+
+            if (pendingBonuses.Count == 0)
+            {
+                return BadRequest(new { message = "No pending bonus requests found" });
+            }
+
+            foreach (var bonus in pendingBonuses)
+            {
+                // Update user wallet
+                var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == bonus.UserId);
+                if (wallet == null)
+                {
+                    wallet = new AuctionUserWallet { UserId = bonus.UserId, AvailableBalance = 0 };
+                    _context.AuctionUserWallets.Add(wallet);
+                }
+
+                wallet.AvailableBalance += bonus.Amount;
+
+                // Log transaction
+                var transaction = new AuctionTransaction
+                {
+                    UserId = bonus.UserId,
+                    Amount = bonus.Amount,
+                    Direction = "CREDIT",
+                    Type = "SPECIAL_BONUS",
+                    Description = $"Bonus Approved: {bonus.Reason}",
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.AuctionTransactions.Add(transaction);
+
+                // Update bonus status
+                bonus.Status = "Approved";
+                bonus.ApprovedAt = DateTime.Now;
+                bonus.ApprovedBy = "Super Admin";
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = $"Successfully approved {pendingBonuses.Count} bonus requests" });
+        }
     }
 
     public class ApproveBonusRequest
     {
         public int BonusId { get; set; }
+        public string Password { get; set; } = string.Empty;
+    }
+
+    public class ApproveAllRequest
+    {
         public string Password { get; set; } = string.Empty;
     }
 }

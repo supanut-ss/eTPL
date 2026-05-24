@@ -15,6 +15,7 @@ using System;
 using System.Text.Json;
 
 using eTPL.API.Models;
+using eTPL.API.Services.Interfaces;
 namespace eTPL.API.Controllers
 {
     [Route("api/[controller]")]
@@ -24,11 +25,13 @@ namespace eTPL.API.Controllers
     {
         private readonly MsSqlDbContext _context;
         private readonly MsSqlDbContext _scaffoldedContext;
+        private readonly IDiscordService _discordService;
 
-        public LeagueOpsController(MsSqlDbContext context, MsSqlDbContext scaffoldedContext)
+        public LeagueOpsController(MsSqlDbContext context, MsSqlDbContext scaffoldedContext, IDiscordService discordService)
         {
             _context = context;
             _scaffoldedContext = scaffoldedContext;
+            _discordService = discordService;
         }
 
         [HttpGet("cycles")]
@@ -147,6 +150,25 @@ namespace eTPL.API.Controllers
 
             _context.DailyCheckins.Add(checkin);
             await _context.SaveChangesAsync();
+
+            // Retrieve user profile name for Discord notification
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+            string userName = user?.LineName ?? userId;
+            string datetimeStr = now.ToString("yyyy-MM-dd HH:mm:ss");
+
+            // Notify Discord (new check-in only)
+            try
+            {
+                await _discordService.SendCustomEmbedAsync(
+                    "PLAYER CHECK-IN",
+                    $"👤 **{userName}** รายงานตัวแล้ว ✅ (ผ่านหน้าเว็บ 🌐)\n🕐 **เวลา:** {datetimeStr}",
+                    0xff9913
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error sending check-in Discord notification: {ex.Message}");
+            }
 
             return Ok(new { message = "รายงานตัวสำเร็จ", checkin = checkin });
         }

@@ -979,16 +979,33 @@ const AuctionPage = () => {
                                         Ends: <b>{new Date(auction.currentPhaseEndTime).toLocaleString("en-GB", { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</b>
                                     </Typography>
                                 </Box>
-                                <Box sx={{ textAlign: "right" }}>
-                                    <Typography variant="h5" fontWeight="900" color="primary">
-                                        {(auction.currentUserFinalBid ?? auction.currentPrice).toLocaleString()} TP
-                                    </Typography>
-                                    {auction.displayStatus === "Waiting Confirm" && (
-                                        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 'bold' }}>
-                                            Win: {getUserDisplayName(auction.winnerId || auction.highestBidderId) || auction.highestBidderName || "-"}
-                                        </Typography>
-                                    )}
-                                </Box>
+                                <Box sx={{ textAlign: "right", display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                     <Typography variant="h5" fontWeight="900" color="primary">
+                                         {(auction.currentUserFinalBid ?? auction.currentPrice).toLocaleString()} TP
+                                     </Typography>
+                                     {isFinal && auction.highestBidderId === user?.id && (
+                                         <Chip 
+                                             label={`Leading: ${auction.currentPrice.toLocaleString()} TP`} 
+                                             size="small" 
+                                             sx={{ 
+                                                 mt: 0.5, 
+                                                 height: 18, 
+                                                 fontSize: '0.65rem', 
+                                                 fontWeight: 'bold', 
+                                                 color: '#2e7d32', 
+                                                 borderColor: '#2e7d32', 
+                                                 bgcolor: 'rgba(46, 125, 50, 0.08)',
+                                                 borderWidth: '1px',
+                                                 borderStyle: 'solid'
+                                             }} 
+                                         />
+                                     )}
+                                     {auction.displayStatus === "Waiting Confirm" && (
+                                         <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontWeight: 'bold' }}>
+                                             Win: {getUserDisplayName(auction.winnerId || auction.highestBidderId) || auction.highestBidderName || "-"}
+                                         </Typography>
+                                     )}
+                                 </Box>
                             </Box>
 
                             <Box sx={{ display: "flex", gap: 1 }}>
@@ -1270,6 +1287,7 @@ const AuctionPage = () => {
               const isNormalBid = p.status === "In Normal Bid";
               const isFinalBid = p.status === "In Final Bid";
               const isWon = p.status === "Won";
+              const isWaitingConfirm = p.status === "Waiting Confirm";
               const getPosColor = (pos) => {
                 const pName = pos?.toUpperCase() || '';
                 if (['CF', 'SS', 'LWF', 'RWF'].includes(pName)) return '#FF3B30';
@@ -1434,6 +1452,9 @@ const AuctionPage = () => {
                       {isWon && (
                         <Chip label={`🏆 WON BY ${p.winnerName?.toUpperCase() ?? 'ADMIN'}`} size="small" sx={{ height: 20, bgcolor: '#FFFDE7', color: '#FBC02D', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #FFF9C4' }} />
                       )}
+                      {isWaitingConfirm && (
+                        <Chip label="WAITING CONFIRM" size="small" sx={{ height: 20, bgcolor: '#ECEFF1', color: '#455A64', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #CFD8DC' }} />
+                      )}
                       {p.isRestricted && (
                         <Chip label="RESTRICTED (BUY BACK)" size="small" sx={{ height: 20, bgcolor: '#FFEBEE', color: '#B71C1C', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #FFCDD2' }} />
                       )}
@@ -1558,6 +1579,7 @@ const AuctionPage = () => {
               const isNormalBid = p.status === "In Normal Bid";
               const isFinalBid = p.status === "In Final Bid";
               const isWon = p.status === "Won";
+              const isWaitingConfirm = p.status === "Waiting Confirm";
               const getPosColor = (pos) => {
                 const pName = pos?.toUpperCase() || '';
                 if (['CF', 'SS', 'LWF', 'RWF'].includes(pName)) return '#FF3B30';
@@ -1718,6 +1740,9 @@ const AuctionPage = () => {
                       )}
                       {isWon && (
                         <Chip label={`🏆 WON BY ${p.winnerName?.toUpperCase() ?? 'ADMIN'}`} size="small" sx={{ height: 20, bgcolor: '#FFFDE7', color: '#FBC02D', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #FFF9C4' }} />
+                      )}
+                      {isWaitingConfirm && (
+                        <Chip label="WAITING CONFIRM" size="small" sx={{ height: 20, bgcolor: '#ECEFF1', color: '#455A64', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #CFD8DC' }} />
                       )}
                       {p.isRestricted && (
                         <Chip label="RESTRICTED (BUY BACK)" size="small" sx={{ height: 20, bgcolor: '#FFEBEE', color: '#B71C1C', fontWeight: 800, fontSize: '0.6rem', border: '1px solid #FFCDD2' }} />

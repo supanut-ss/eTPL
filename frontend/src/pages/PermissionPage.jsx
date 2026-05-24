@@ -34,6 +34,7 @@ const ALL_MENUS = [
   { key: "users", label: "Manage Users", description: "Add, edit, delete users" },
   { key: "permissions", label: "Permissions", description: "Define menu access permissions" },
   { key: "admin-auction", label: "Auction Settings", description: "System financial & timer rules" },
+  { key: "admin-active-auctions", label: "Manage Active Auctions", description: "Cancel, search, and adjust prices of all active player auctions" },
   { key: "admin-manage-data", label: "Data Management", description: "Scrape players & HOF entry" },
   { key: "admin-league-setting", label: "League Setting", description: "Prize settings & tournament rules" },
   { key: "admin-league-ops", label: "League Ops", description: "Admin tools for league operations" },

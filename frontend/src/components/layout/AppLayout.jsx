@@ -175,6 +175,12 @@ const navItems = [
         key: "admin-auction",
       },
       {
+        label: "Manage Active Auctions",
+        path: "/admin/active-auctions",
+        icon: <Gavel />,
+        key: "admin-active-auctions",
+      },
+      {
         label: "Data Management",
         path: "/admin/manage-data",
         icon: <Storage />,

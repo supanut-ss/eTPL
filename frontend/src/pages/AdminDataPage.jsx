@@ -91,6 +91,7 @@ const AdminDataPage = () => {
 
   // Special Bonus State
   const [bonuses, setBonuses] = useState([]);
+  const [bonusFilter, setBonusFilter] = useState("Pending");
   const [bonusModalOpen, setBonusModalOpen] = useState(false);
   const [bonusRequest, setBonusRequest] = useState({ userId: "", amount: "", reason: "" });
   const [approveModalOpen, setApproveModalOpen] = useState(false);
@@ -237,6 +238,10 @@ const AdminDataPage = () => {
       if (modalMode === "bonus") {
         await adminService.approveBonus({ bonusId: selectedBonusId, password: adminPassword });
         enqueueSnackbar("Bonus approved!", { variant: "success" });
+        fetchBonuses();
+      } else if (modalMode === "approve_all") {
+        const res = await adminService.approveAllBonuses({ password: adminPassword });
+        enqueueSnackbar(res.data?.message || "All pending bonuses approved!", { variant: "success" });
         fetchBonuses();
       }
       setApproveModalOpen(false);
@@ -671,27 +676,60 @@ const AdminDataPage = () => {
         {/* Special Bonus Management Section */}
         <Paper elevation={2} sx={{ p: 4, borderRadius: 3, border: "1px solid", borderColor: "divider", width: '100%' }}>
           <Box display="flex" justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} flexDirection={{ xs: 'column', sm: 'row' }} gap={{ xs: 2, sm: 0 }} mb={3}>
-            <Box display="flex" alignItems="center" gap={1.5}>
-              <Payments color="primary" sx={{ fontSize: 28 }} />
-              <Typography variant="h6" fontWeight="bold">Special Bonus Management</Typography>
+            <Box display="flex" alignItems={{ xs: 'flex-start', sm: 'center' }} flexDirection={{ xs: 'column', sm: 'row' }} gap={2}>
+              <Box display="flex" alignItems="center" gap={1.5}>
+                <Payments color="primary" sx={{ fontSize: 28 }} />
+                <Typography variant="h6" fontWeight="bold">Special Bonus Management</Typography>
+              </Box>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Status Filter</InputLabel>
+                <Select
+                  value={bonusFilter}
+                  label="Status Filter"
+                  onChange={(e) => setBonusFilter(e.target.value)}
+                >
+                  <MenuItem value="Pending">Pending</MenuItem>
+                  <MenuItem value="Approved">Approved</MenuItem>
+                  <MenuItem value="Rejected">Rejected</MenuItem>
+                  <MenuItem value="All">All Statuses</MenuItem>
+                </Select>
+              </FormControl>
             </Box>
-            <Button fullWidth={isMobile} variant="contained" startIcon={<PersonAdd />} onClick={() => setBonusModalOpen(true)} sx={{ borderRadius: 2, textTransform: 'none', px: 4 }}>Add Special Bonus</Button>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+              {bonuses && bonuses.some(b => b.status === "Pending") && (
+                <Button 
+                  fullWidth={isMobile} 
+                  variant="contained" 
+                  color="warning" 
+                  startIcon={<CheckCircle />} 
+                  onClick={() => { setModalMode("approve_all"); setApproveModalOpen(true); }}
+                  sx={{ borderRadius: 2, textTransform: 'none', px: 4 }}
+                >
+                  Approve All
+                </Button>
+              )}
+              <Button fullWidth={isMobile} variant="contained" startIcon={<PersonAdd />} onClick={() => setBonusModalOpen(true)} sx={{ borderRadius: 2, textTransform: 'none', px: 4 }}>Add Special Bonus</Button>
+            </Stack>
           </Box>
-          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden', overflowX: 'auto' }}>
-            <Table size="small">
-              <TableHead sx={{ bgcolor: 'rgba(0,0,0,0.02)' }}>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, maxHeight: 400, overflowY: 'auto', overflowX: 'auto' }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>User</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Amount (TP)</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Reason</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="right">Actions</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', bgcolor: 'background.paper' }}>User</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', bgcolor: 'background.paper' }}>Amount (TP)</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', bgcolor: 'background.paper' }}>Reason</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', bgcolor: 'background.paper' }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', bgcolor: 'background.paper' }} align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {(!bonuses || bonuses.length === 0) ? (
                   <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}>No bonus records found</TableCell></TableRow>
-                ) : bonuses.map((b) => (
+                ) : (bonuses.filter(b => bonusFilter === "All" || (b?.status || "Pending").toLowerCase() === bonusFilter.toLowerCase()).length === 0) ? (
+                  <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}>No {bonusFilter.toLowerCase()} bonus records found</TableCell></TableRow>
+                ) : bonuses
+                    .filter(b => bonusFilter === "All" || (b?.status || "Pending").toLowerCase() === bonusFilter.toLowerCase())
+                    .map((b) => (
                   <TableRow key={b?.id || Math.random()} hover>
                     <TableCell>
                       <Box display="flex" alignItems="center" gap={1}>
@@ -711,7 +749,7 @@ const AdminDataPage = () => {
                       <Chip 
                         label={b?.status || "Pending"} 
                         size="small" 
-                        color={b?.status === "Approved" ? "success" : "warning"} 
+                        color={b?.status === "Approved" ? "success" : b?.status === "Rejected" ? "error" : "warning"} 
                         sx={{ fontWeight: 'bold' }} 
                       />
                     </TableCell>
@@ -854,7 +892,11 @@ const AdminDataPage = () => {
       <Dialog open={approveModalOpen} onClose={() => setApproveModalOpen(false)} fullWidth maxWidth="xs" fullScreen={isMobile}>
         <DialogTitle sx={{ fontWeight: 'bold', color: 'warning.main' }}>Super Admin Authorization</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>Enter Super Admin password to approve this bonus:</Typography>
+          <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+            {modalMode === "approve_all" 
+              ? "Enter Super Admin password to approve ALL pending bonuses:" 
+              : "Enter Super Admin password to approve this bonus:"}
+          </Typography>
           <TextField 
             fullWidth 
             type={showPassword ? "text" : "password"} 
@@ -873,7 +915,12 @@ const AdminDataPage = () => {
             }}
           />
         </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: '#fff9f0' }}><Button onClick={() => setApproveModalOpen(false)}>Cancel</Button><Button variant="contained" color="warning" onClick={handleApproveBonus}>Approve & Pay</Button></DialogActions>
+        <DialogActions sx={{ p: 2, bgcolor: '#fff9f0' }}>
+          <Button onClick={() => setApproveModalOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="warning" onClick={handleApproveBonus}>
+            {modalMode === "approve_all" ? "Approve All" : "Approve & Pay"}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Dialog open={qaModalOpen} onClose={() => setQaModalOpen(false)} fullWidth maxWidth="sm" fullScreen={isMobile}>

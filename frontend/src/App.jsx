@@ -16,6 +16,7 @@ import StandingPage from "./pages/StandingPage";
 import PublicMatchesPage from "./pages/PublicMatchesPage";
 import AuctionPage from "./pages/AuctionPage";
 import AdminAuctionPage from "./pages/AdminAuctionPage";
+import AdminActiveAuctionsPage from "./pages/AdminActiveAuctionsPage";
 import MySquadPage from "./pages/MySquadPage";
 import ClubSquadPage from "./pages/ClubSquadPage";
 import TransferBoardPage from "./pages/TransferBoardPage";
@@ -161,6 +162,14 @@ function App() {
                 element={
                   <ProtectedRoute requiredRole="admin">
                     <AdminAuctionPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/active-auctions"
+                element={
+                  <ProtectedRoute requiredRole={["admin", "moderator"]}>
+                    <AdminActiveAuctionsPage />
                   </ProtectedRoute>
                 }
               />

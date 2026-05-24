@@ -20,6 +20,7 @@ const adminService = {
   requestBonus: (data) => api.post("/api/bonus/request", data),
   approveBonus: (data) => api.post("/api/bonus/approve", data),
   rejectBonus: (bonusId) => api.post("/api/bonus/reject", bonusId),
+  approveAllBonuses: (data) => api.post("/api/bonus/approve-all", data),
   // ── Cup Management ──────────────────────────────────────────
   generateCupBracket: () => api.post("/api/cup/generate"),
   resetCupBracket: () => api.post("/api/cup/reset"),
@@ -42,6 +43,11 @@ const adminService = {
   addNotificationTemplate: (data) => api.post("/api/NotificationTemplate", data),
   updateNotificationTemplate: (id, data) => api.put(`/api/NotificationTemplate/${id}`, data),
   deleteNotificationTemplate: (id) => api.delete(`/api/NotificationTemplate/${id}`),
+
+  // Active Auctions Administration
+  getAuctions: (searchTerm = "") => api.get(`/api/admin/auctions?searchTerm=${searchTerm}`),
+  cancelAuction: (auctionId) => api.post(`/api/admin/auctions/${auctionId}/cancel`),
+  adjustAuctionPrice: (auctionId, newPrice) => api.post(`/api/admin/auctions/${auctionId}/adjust-price`, { newPrice }),
 };
 
 export default adminService;

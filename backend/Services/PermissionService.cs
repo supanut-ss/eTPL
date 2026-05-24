@@ -22,6 +22,7 @@ namespace eTPL.API.Services
             ("users",          "Manage Users"),
             ("permissions",    "Permissions"),
             ("admin-auction",  "Auction Settings"),
+            ("admin-active-auctions", "Manage Active Auctions"),
             ("admin-manage-data", "Data Management"),
             ("admin-league-setting", "League Setting"),
             ("announcements",  "Announcements"),

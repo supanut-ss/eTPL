@@ -7,6 +7,8 @@ using eTPL.API.Models.Auction;
 using eTPL.API.Models.Scaffolded;
 using HtmlAgilityPack;
 using System.Net.Http;
+using eTPL.API.Hubs;
+using Microsoft.AspNetCore.SignalR;
 
 namespace eTPL.API.Controllers
 {
@@ -19,12 +21,14 @@ namespace eTPL.API.Controllers
         private readonly MsSqlDbContext _scaffoldedContext;
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _config;
+        private readonly IHubContext<AuctionHub> _hubContext;
 
-        public AdminController(MsSqlDbContext context, MsSqlDbContext scaffoldedContext, IConfiguration config)
+        public AdminController(MsSqlDbContext context, MsSqlDbContext scaffoldedContext, IConfiguration config, IHubContext<AuctionHub> hubContext)
         {
             _context = context;
             _scaffoldedContext = scaffoldedContext;
             _config = config;
+            _hubContext = hubContext;
             _httpClient = new HttpClient();
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
         }
@@ -559,12 +563,343 @@ namespace eTPL.API.Controllers
                 return StatusCode(500, new { message = "Error deleting Q&A: " + ex.Message });
             }
         }
+
+        [HttpGet("auctions")]
+        public async Task<IActionResult> GetAuctions([FromQuery] string searchTerm = "")
+        {
+            var query = _context.AuctionBoards
+                .Include(b => b.Player)
+                .Include(b => b.HighestBidder)
+                .Include(b => b.Initiator)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                query = query.Where(b => b.Player != null && b.Player.PlayerName.Contains(searchTerm));
+            }
+
+            var auctions = await query
+                .OrderByDescending(b => b.AuctionId)
+                .Select(b => new {
+                    b.AuctionId,
+                    b.PlayerId,
+                    PlayerName = b.Player != null ? b.Player.PlayerName : "Unknown",
+                    PlayerOvr = b.Player != null ? b.Player.PlayerOvr : 0,
+                    Position = b.Player != null ? b.Player.Position : "",
+                    
+                    // Dynamic CurrentPrice: use highest Final bid if exists, otherwise b.CurrentPrice (Normal bid)
+                    CurrentPrice = _context.AuctionBidLogs
+                        .Where(l => l.AuctionId == b.AuctionId && l.Phase == "Final")
+                        .OrderByDescending(l => l.BidAmount)
+                        .Select(l => (int?)l.BidAmount)
+                        .FirstOrDefault() ?? b.CurrentPrice,
+
+                    HighestBidderId = _context.AuctionBidLogs
+                        .Where(l => l.AuctionId == b.AuctionId && l.Phase == "Final")
+                        .OrderByDescending(l => l.BidAmount)
+                        .ThenBy(l => l.UserId == b.HighestBidderId)
+                        .ThenBy(l => l.CreatedAt)
+                        .Select(l => (int?)l.UserId)
+                        .FirstOrDefault() ?? b.HighestBidderId,
+
+                    HighestBidderName = _context.AuctionBidLogs
+                        .Where(l => l.AuctionId == b.AuctionId && l.Phase == "Final")
+                        .OrderByDescending(l => l.BidAmount)
+                        .ThenBy(l => l.UserId == b.HighestBidderId)
+                        .ThenBy(l => l.CreatedAt)
+                        .Select(l => l.User != null ? l.User.LineName ?? l.User.UserId : "-")
+                        .FirstOrDefault() ?? (b.HighestBidder != null ? b.HighestBidder.LineName ?? b.HighestBidder.UserId : "-"),
+
+                    InitiatorName = b.Initiator != null ? b.Initiator.LineName ?? b.Initiator.UserId : "-",
+                    NormalEndTime = b.NormalEndTime,
+                    FinalEndTime = b.FinalEndTime,
+                    DbStatus = b.DbStatus
+                })
+                .ToListAsync();
+
+            return Ok(auctions);
+        }
+
+        [HttpPost("auctions/{auctionId}/cancel")]
+        public async Task<IActionResult> CancelAuction(int auctionId)
+        {
+            try
+            {
+                var auction = await _context.AuctionBoards
+                    .Include(b => b.Player)
+                    .FirstOrDefaultAsync(b => b.AuctionId == auctionId);
+
+                if (auction == null) return NotFound(new { message = "Auction not found" });
+
+                if (auction.DbStatus != "Active" && auction.DbStatus != "Sold")
+                {
+                    return BadRequest(new { message = "Only active or sold auctions can be cancelled" });
+                }
+
+                if (auction.DbStatus == "Active")
+                {
+                    // 1. Process refunds for Active auctions
+                    // Check if there are Final phase bids
+                    var finalBids = await _context.AuctionBidLogs
+                        .Where(l => l.AuctionId == auctionId && l.Phase == "Final")
+                        .ToListAsync();
+
+                    if (finalBids.Any())
+                    {
+                        // Refund all unique final bidders
+                        var uniqueFinalBidders = finalBids
+                            .GroupBy(b => b.UserId)
+                            .Select(g => g.OrderByDescending(b => b.BidAmount).First())
+                            .ToList();
+
+                        foreach (var bid in uniqueFinalBidders)
+                        {
+                            var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == bid.UserId);
+                            if (wallet != null)
+                            {
+                                int refundAmount = bid.BidAmount;
+                                wallet.AvailableBalance += refundAmount;
+                                wallet.ReservedBalance -= refundAmount;
+
+                                _context.AuctionTransactions.Add(new AuctionTransaction
+                                {
+                                    UserId = bid.UserId,
+                                    Amount = refundAmount,
+                                    Direction = "CREDIT",
+                                    Type = "FINAL_BID_REFUND",
+                                    Description = $"[Cancel] คืนเงินจากการยกเลิกประมูล {auction.Player?.PlayerName ?? ""}",
+                                    BalanceAfter = wallet.AvailableBalance,
+                                    RelatedAuctionId = auctionId,
+                                    RelatedPlayerId = auction.PlayerId,
+                                    CreatedAt = DateTime.UtcNow
+                                });
+                            }
+                        }
+                    }
+                    else if (auction.HighestBidderId.HasValue)
+                    {
+                        // Refund the Normal phase highest bidder
+                        var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == auction.HighestBidderId.Value);
+                        if (wallet != null)
+                        {
+                            wallet.AvailableBalance += auction.CurrentPrice;
+                            wallet.ReservedBalance -= auction.CurrentPrice;
+
+                            _context.AuctionTransactions.Add(new AuctionTransaction
+                            {
+                                UserId = auction.HighestBidderId.Value,
+                                Amount = auction.CurrentPrice,
+                                Direction = "CREDIT",
+                                Type = "AUCTION_REFUND",
+                                Description = $"[Cancel] คืนเงินจากการยกเลิกประมูล {auction.Player?.PlayerName ?? ""}",
+                                BalanceAfter = wallet.AvailableBalance,
+                                RelatedAuctionId = auctionId,
+                                RelatedPlayerId = auction.PlayerId,
+                                CreatedAt = DateTime.UtcNow
+                            });
+                        }
+                    }
+                }
+                else if (auction.DbStatus == "Sold")
+                {
+                    // Process cancellation for Sold/Completed auctions
+                    // 1. Remove player from winning user's squad
+                    var squadRecord = await _context.AuctionSquads
+                        .FirstOrDefaultAsync(s => s.PlayerId == auction.PlayerId && s.UserId == auction.HighestBidderId);
+
+                    if (squadRecord != null)
+                    {
+                        _context.AuctionSquads.Remove(squadRecord);
+                    }
+
+                    // 2. Refund the winning price to the winner's wallet (AvailableBalance)
+                    if (auction.HighestBidderId.HasValue)
+                    {
+                        var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == auction.HighestBidderId.Value);
+                        if (wallet != null)
+                        {
+                            wallet.AvailableBalance += auction.CurrentPrice;
+
+                            _context.AuctionTransactions.Add(new AuctionTransaction
+                            {
+                                UserId = auction.HighestBidderId.Value,
+                                Amount = auction.CurrentPrice,
+                                Direction = "CREDIT",
+                                Type = "AUCTION_REFUND",
+                                Description = $"[Cancel Sold] คืนเงินจากการยกเลิกประมูลสำเร็จ {auction.Player?.PlayerName ?? ""}",
+                                BalanceAfter = wallet.AvailableBalance,
+                                RelatedAuctionId = auctionId,
+                                RelatedPlayerId = auction.PlayerId,
+                                CreatedAt = DateTime.UtcNow
+                            });
+                        }
+                    }
+                }
+
+                // 2. Set status to Cancelled
+                auction.DbStatus = "Cancelled";
+                await _context.SaveChangesAsync();
+
+                // Broadcast to SignalR client
+                await _hubContext.Clients.All.SendCoreAsync("AuctionUpdated", new object[] { auction });
+
+                return Ok(new { message = "Auction cancelled and refunds processed successfully" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error cancelling auction: " + ex.Message });
+            }
+        }
+
+        [HttpPost("auctions/{auctionId}/adjust-price")]
+        public async Task<IActionResult> AdjustAuctionPrice(int auctionId, [FromBody] AdjustPriceRequest request)
+        {
+            try
+            {
+                var auction = await _context.AuctionBoards
+                    .Include(b => b.Player)
+                    .FirstOrDefaultAsync(b => b.AuctionId == auctionId);
+
+                if (auction == null) return NotFound(new { message = "Auction not found" });
+
+                if (auction.DbStatus != "Active" && auction.DbStatus != "Sold")
+                {
+                    return BadRequest(new { message = "Only active or sold auctions can be adjusted" });
+                }
+
+                // Determine current highest bidder and current price dynamically (checking Final phase first)
+                int? highestBidderId = null;
+                int oldPrice = auction.CurrentPrice;
+
+                var finalBids = await _context.AuctionBidLogs
+                    .Where(l => l.AuctionId == auctionId && l.Phase == "Final")
+                    .OrderByDescending(l => l.BidAmount)
+                    .ThenByDescending(l => l.UserId == auction.HighestBidderId)
+                    .ThenBy(l => l.CreatedAt)
+                    .ToListAsync();
+
+                if (finalBids.Any())
+                {
+                    highestBidderId = finalBids.First().UserId;
+                    oldPrice = finalBids.First().BidAmount;
+                }
+                else
+                {
+                    highestBidderId = auction.HighestBidderId;
+                    oldPrice = auction.CurrentPrice;
+                }
+
+                int newPrice = request.NewPrice;
+
+                if (newPrice <= 0)
+                {
+                    return BadRequest(new { message = "Price must be greater than 0" });
+                }
+
+                if (highestBidderId.HasValue)
+                {
+                    var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == highestBidderId.Value);
+                    if (wallet != null)
+                    {
+                        int priceDiff = oldPrice - newPrice; // If newPrice is lower, diff is positive (refund). If higher, negative (deduct).
+
+                        if (auction.DbStatus == "Sold")
+                        {
+                            // In a completed/sold auction, we only adjust AvailableBalance as ReservedBalance has already been cleared
+                            wallet.AvailableBalance += priceDiff;
+
+                            _context.AuctionTransactions.Add(new AuctionTransaction
+                            {
+                                UserId = highestBidderId.Value,
+                                Amount = Math.Abs(priceDiff),
+                                Direction = priceDiff >= 0 ? "CREDIT" : "DEBIT",
+                                Type = "SPECIAL_BONUS",
+                                Description = $"[Adjust Sold] ปรับราคาประมูล {auction.Player?.PlayerName ?? ""} จาก {oldPrice} เป็น {newPrice}",
+                                BalanceAfter = wallet.AvailableBalance,
+                                RelatedAuctionId = auctionId,
+                                RelatedPlayerId = auction.PlayerId,
+                                CreatedAt = DateTime.UtcNow
+                            });
+
+                            // Also adjust the squad record price
+                            var squadRecord = await _context.AuctionSquads
+                                .FirstOrDefaultAsync(s => s.PlayerId == auction.PlayerId && s.UserId == highestBidderId.Value);
+                            if (squadRecord != null)
+                            {
+                                squadRecord.PricePaid = newPrice;
+                            }
+                        }
+                        else
+                        {
+                            // Active auction
+                            wallet.AvailableBalance += priceDiff;
+                            wallet.ReservedBalance -= priceDiff;
+
+                            _context.AuctionTransactions.Add(new AuctionTransaction
+                            {
+                                UserId = highestBidderId.Value,
+                                Amount = Math.Abs(priceDiff),
+                                Direction = priceDiff >= 0 ? "CREDIT" : "DEBIT",
+                                Type = "SPECIAL_BONUS",
+                                Description = $"[Adjust] ปรับราคาประมูล {auction.Player?.PlayerName ?? ""} จาก {oldPrice} เป็น {newPrice}",
+                                BalanceAfter = wallet.AvailableBalance,
+                                RelatedAuctionId = auctionId,
+                                RelatedPlayerId = auction.PlayerId,
+                                CreatedAt = DateTime.UtcNow
+                            });
+                        }
+                    }
+
+                    if (finalBids.Any())
+                    {
+                        // Update their latest final bid log
+                        var latestFinalBid = finalBids.First();
+                        latestFinalBid.BidAmount = newPrice;
+                    }
+                    else
+                    {
+                        // Update their latest normal bid log
+                        var latestBidLog = await _context.AuctionBidLogs
+                            .Where(l => l.AuctionId == auctionId && l.UserId == highestBidderId.Value && l.Phase == "Normal")
+                            .OrderByDescending(l => l.CreatedAt)
+                            .FirstOrDefaultAsync();
+
+                        if (latestBidLog != null)
+                        {
+                            latestBidLog.BidAmount = newPrice;
+                        }
+                    }
+                }
+
+                // Update the board's CurrentPrice (always for Sold, and also for Active if no final bids)
+                if (auction.DbStatus == "Sold" || !finalBids.Any())
+                {
+                    auction.CurrentPrice = newPrice;
+                }
+
+                await _context.SaveChangesAsync();
+
+                // Broadcast to SignalR client
+                await _hubContext.Clients.All.SendCoreAsync("AuctionUpdated", new object[] { auction });
+
+                return Ok(new { message = "Auction price adjusted successfully", newPrice = newPrice });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error adjusting price: " + ex.Message });
+            }
+        }
     }
 
     public class SavePrizesRequest
     {
         public List<TbsPrizeSetting> Prizes { get; set; } = new();
         public string Password { get; set; } = string.Empty;
+    }
+
+    public class AdjustPriceRequest
+    {
+        public int NewPrice { get; set; }
     }
 }
 
