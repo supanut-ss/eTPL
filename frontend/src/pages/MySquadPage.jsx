@@ -466,14 +466,10 @@ const MySquadPage = () => {
       const seasonsWithTeam = p.seasonsWithTeam ?? 0;
       const remainContract = Math.max(0, maxSeason - seasonsWithTeam);
 
-      // If remainContract is 0, cost is 0 (end of contract)
+      const basePrice = Math.max(p.pricePaid ?? 0, p.playerOvr);
       let cost = remainContract > 0 
-        ? Math.round((p.pricePaid ?? 0) * renewalPercent / 100)
+        ? Math.round(basePrice * renewalPercent / 100)
         : 0;
-
-      if (remainContract > 0 && cost < p.playerOvr) {
-        cost = p.playerOvr;
-      }
 
       return { 
         name: p.playerName, 

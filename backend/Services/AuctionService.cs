@@ -1609,11 +1609,8 @@ namespace eTPL.API.Services
                 var quota = quotas.FirstOrDefault(q => squad.Player!.PlayerOvr >= q.MinOVR && squad.Player!.PlayerOvr <= q.MaxOVR);
                 int renewalPercent = quota?.RenewalPercent ?? 0;
 
-                int calculatedCost = (int)Math.Round((double)squad.PricePaid * renewalPercent / 100.0);
-                if (calculatedCost < squad.Player!.PlayerOvr)
-                {
-                    calculatedCost = squad.Player!.PlayerOvr;
-                }
+                int basePrice = Math.Max(squad.PricePaid, squad.Player!.PlayerOvr);
+                int calculatedCost = (int)Math.Round((double)basePrice * renewalPercent / 100.0);
 
                 if (wallet.AvailableBalance < calculatedCost)
                     throw new Exception($"TP ไม่เพียงพอสำหรับการต่อสัญญา (ต้องการ {calculatedCost} TP)");
@@ -2627,7 +2624,8 @@ namespace eTPL.API.Services
                             var quota = quotas.FirstOrDefault(q => squad.Player.PlayerOvr >= q.MinOVR && squad.Player.PlayerOvr <= q.MaxOVR);
                             if (quota == null) continue;
 
-                            int cost = squad.PricePaid * quota.RenewalPercent / 100;
+                            int basePrice = Math.Max(squad.PricePaid, squad.Player.PlayerOvr);
+                            int cost = basePrice * quota.RenewalPercent / 100;
                             if (!renewalMap.ContainsKey(squad.UserId)) renewalMap[squad.UserId] = new List<(AuctionSquad, int)>();
                             renewalMap[squad.UserId].Add((squad, cost));
                         }
