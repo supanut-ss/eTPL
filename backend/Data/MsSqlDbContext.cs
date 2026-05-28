@@ -33,6 +33,7 @@ namespace eTPL.API.Data
         public DbSet<NotificationTemplate> NotificationTemplates { get; set; }
         public DbSet<ClubLogo> ClubLogos { get; set; }
         public DbSet<AuctionFavourite> AuctionFavourites { get; set; }
+        public DbSet<Sponsor> Sponsors { get; set; }
 
         // --- Legacy / Scaffolded Models ---
         public virtual DbSet<ApiVFixtureAll> ApiVFixtureAlls { get; set; }

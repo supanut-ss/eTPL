@@ -40,6 +40,7 @@ import ActiveMemberBox from "./main/components/ActiveMember";
 import HeroBanner from "./main/components/HeroBanner";
 import LiveFeed from "./main/components/LiveFeed";
 import YoutubeSection from "./main/components/YoutubeSection";
+import SponsorMarquee from "./main/components/SponsorMarquee";
 
 // Shared Components
 import { LineIcon, DiscordIcon } from "./main/components/shared/icons";
@@ -415,6 +416,9 @@ const MainPage = () => {
           <YoutubeSection videos={youtubeVideos} loading={loading} />
         )}
 
+        {/* ─── Community Sponsors Marquee Section ─── */}
+        <SponsorMarquee />
+
         {/* ─── Super Minimal Footer ─── */}
         <Box
           component="footer"
@@ -430,52 +434,6 @@ const MainPage = () => {
             alignItems: "center",
           }}
         >
-          {/* Subtle Partners List */}
-          <Box
-            sx={{
-              width: "100%",
-              maxWidth: 1000,
-              px: 4,
-              mb: 4,
-              display: "flex",
-              justifyContent: "space-around",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 3,
-              opacity: 0.62,
-            }}
-          >
-            {[
-              "eFOOTBALL",
-              "KONAMI",
-              "THAI PES LEAGUE",
-              "eTPL",
-              "เล่นเกมมันผิดตรงไหน",
-            ].map((name, i) => (
-              <Typography
-                key={i}
-                variant="caption"
-                fontWeight={900}
-                sx={{
-                  color: "rgba(15,23,42,0.62)",
-                  letterSpacing: 2,
-                  fontSize: 10,
-                }}
-              >
-                {name}
-              </Typography>
-            ))}
-          </Box>
-
-          <Divider
-            sx={{
-              width: "100%",
-              maxWidth: 1100,
-              borderColor: "rgba(15,23,42,0.12)",
-              mb: 3,
-            }}
-          />
-
           {/* Clean Bottom Bar */}
           <Box
             sx={{

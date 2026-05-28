@@ -80,6 +80,40 @@ namespace eTPL.API.Controllers
             var url = $"/uploads/profile/{fileName}";
             return Ok(ApiResponse<object>.Ok(new { url }, "Profile image uploaded successfully"));
         }
+
+        [HttpPost("sponsor")]
+        [Authorize(Roles = "admin,moderator")]
+        public async Task<IActionResult> UploadSponsorLogo(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(ApiResponse<string>.Fail("No file uploaded"));
+
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg" };
+            var extension = Path.GetExtension(file.FileName).ToLower();
+
+            if (!allowedExtensions.Contains(extension))
+                return BadRequest(ApiResponse<string>.Fail("Invalid file type. Only images are allowed."));
+
+            if (file.Length > 3 * 1024 * 1024)
+                return BadRequest(ApiResponse<string>.Fail("File size must be under 3MB."));
+
+            // Create directory if not exists
+            var uploadsFolder = Path.Combine(_environment.WebRootPath, "uploads", "sponsors");
+            if (!Directory.Exists(uploadsFolder))
+                Directory.CreateDirectory(uploadsFolder);
+
+            // Generate unique filename
+            var fileName = $"{Guid.NewGuid()}{extension}";
+            var filePath = Path.Combine(uploadsFolder, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var url = $"/uploads/sponsors/{fileName}";
+            return Ok(ApiResponse<object>.Ok(new { url }, "Logo uploaded successfully"));
+        }
     }
 }
 

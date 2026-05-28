@@ -15,3 +15,11 @@ export const uploadProfileImage = (file) => {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
+
+export const uploadSponsorImage = (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return axiosInstance.post("/api/upload/sponsor", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};

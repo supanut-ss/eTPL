@@ -187,6 +187,12 @@ const navItems = [
         key: "admin-manage-data",
       },
       {
+        label: "Manage Sponsors",
+        path: "/admin/sponsors",
+        icon: <Handshake />,
+        key: "admin-sponsors",
+      },
+      {
         label: "League Setting",
         path: "/admin/league-setting",
         icon: <Tune />,

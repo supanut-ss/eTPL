@@ -33,6 +33,7 @@ import UserManualPage from "./pages/UserManualPage";
 import FacebookSettingsPage from "./pages/FacebookSettingsPage";
 import PitchViewPage from "./pages/PitchViewPage";
 import AboutUsPage from "./pages/AboutUsPage";
+import AdminSponsorPage from "./pages/AdminSponsorPage";
 
 
 import LineCallbackPage from "./pages/LineCallbackPage";
@@ -178,6 +179,14 @@ function App() {
                 element={
                   <ProtectedRoute requiredRole={["admin", "moderator"]}>
                     <AdminDataPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/sponsors"
+                element={
+                  <ProtectedRoute requiredRole={["admin", "moderator"]}>
+                    <AdminSponsorPage />
                   </ProtectedRoute>
                 }
               />
