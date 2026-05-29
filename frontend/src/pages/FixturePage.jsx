@@ -17,7 +17,9 @@ import {
   ToggleButtonGroup,
   alpha,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Tabs,
+  Tab
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
@@ -119,6 +121,7 @@ const FixturePage = () => {
   const { user } = useAuth();
   const isAdminOrMod = user?.userLevel === "admin" || user?.userLevel === "moderator";
   const isUserLevel = !isAdminOrMod;
+  const [division, setDivision] = useState(user?.currentDivision || "D1");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -126,11 +129,11 @@ const FixturePage = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [reportFixture, setReportFixture] = useState(null);
 
-  const fetchFixtures = useCallback((searchValue = "") => {
+  const fetchFixtures = useCallback((searchValue = "", currentDiv = division) => {
     setLoading(true);
     setError("");
 
-    const params = {};
+    const params = { division: currentDiv };
     if (searchValue) params.search = searchValue;
 
     getFixtures(params)
@@ -143,19 +146,19 @@ const FixturePage = () => {
       })
       .catch(() => setError("Failed to load data"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [division]);
 
   useEffect(() => {
-    fetchFixtures();
-  }, [fetchFixtures]);
+    fetchFixtures(search, division);
+  }, [division, fetchFixtures]);
 
   const handleSearch = (event) => {
-    if (event.key === "Enter") fetchFixtures(search);
+    if (event.key === "Enter") fetchFixtures(search, division);
   };
 
   const handleClearSearch = () => {
     setSearch("");
-    fetchFixtures("");
+    fetchFixtures("", division);
   };
 
   const played = rows.filter(
@@ -424,6 +427,27 @@ const FixturePage = () => {
         </Box>
       </Box>
 
+      {/* Premium Tabs Division Switcher */}
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
+        <Tabs
+          value={division}
+          onChange={(e, newDiv) => setDivision(newDiv)}
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{
+            "& .MuiTab-root": {
+              fontWeight: "bold",
+              fontSize: "1rem",
+              textTransform: "none",
+              minWidth: 120,
+            }
+          }}
+        >
+          <Tab label="Division 1" value="D1" />
+          <Tab label="Division 2" value="D2" />
+        </Tabs>
+      </Box>
+
 
       <Box sx={{ 
         display: "grid", 
@@ -591,7 +615,7 @@ const FixturePage = () => {
         >
           <EmojiEvents fontSize="small" color="action" />
           <Typography variant="caption" color="text.secondary">
-          eFootball · D1
+          eFootball · {division}
           </Typography>
         </Box>
       </Paper>

@@ -957,6 +957,13 @@ namespace eTPL.API.Controllers
             int perRound = total / 2;
             var result = new List<(string, string, int)>();
 
+            // Dictionary to keep track of home match counts for each player
+            var homeCounts = new Dictionary<string, int>();
+            foreach (var p in players)
+            {
+                homeCounts[p] = 0;
+            }
+
             for (int r = 0; r < rounds; r++)
             {
                 for (int i = 0; i < perRound; i++)
@@ -965,11 +972,36 @@ namespace eTPL.API.Controllers
                     string b = arr[total - 1 - i];
                     if (a != "BYE" && b != "BYE")
                     {
-                        // สลับ Home/Away ให้สมดุล
-                        if ((r + i) % 2 == 0)
-                            result.Add((a, b, r + 1));
+                        string home, away;
+                        int aHomeCount = homeCounts[a];
+                        int bHomeCount = homeCounts[b];
+
+                        if (aHomeCount < bHomeCount)
+                        {
+                            home = a;
+                            away = b;
+                        }
+                        else if (bHomeCount < aHomeCount)
+                        {
+                            home = b;
+                            away = a;
+                        }
                         else
-                            result.Add((b, a, r + 1));
+                        {
+                            if ((r + i) % 2 == 0)
+                            {
+                                home = a;
+                                away = b;
+                            }
+                            else
+                            {
+                                home = b;
+                                away = a;
+                            }
+                        }
+
+                        homeCounts[home]++;
+                        result.Add((home, away, r + 1));
                     }
                 }
                 // Rotate: fix arr[0], rotate arr[1..total-1]
