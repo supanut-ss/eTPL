@@ -773,6 +773,9 @@ namespace eTPL.API.Controllers
             var userIds = users.Select(u => u.UserId).ToList();
             var fixtures = GenerateRoundRobin(userIds);
             
+            // Calculate total players to offset Leg 2 matchday by number of teams (e.g. if 18 teams, Leg 2 starts at 18 + 1 = 19)
+            int totalPlayers = userIds.Count;
+            
             var fixtureInsert = new List<TbmFixtureAll>();
             var teamInsert = new List<TbmTeam>();
 
@@ -794,14 +797,14 @@ namespace eTPL.API.Controllers
                 });
             }
 
-            // Leg 2 — ACTIVE='NO', Home/Away สลับ
+            // Leg 2 — ACTIVE='NO', Home/Away สลับ, Matchday เลื่อนต่อจาก Leg 1 โดยบวกด้วยจำนวนทีม
             foreach (var (home, away, matchday) in fixtures)
             {
                 fixtureInsert.Add(new TbmFixtureAll
                 {
                     FixtureId = Guid.NewGuid().ToString(),
                     Division = division,
-                    Match = matchday,
+                    Match = matchday + totalPlayers,
                     Home = away, // UserId สลับ
                     Away = home, // UserId สลับ
                     Active = "NO",
