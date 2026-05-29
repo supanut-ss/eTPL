@@ -38,6 +38,7 @@ import {
   Refresh,
   DeleteForever,
   Edit,
+  Ballot,
   Gavel,
   CheckCircle,
   Cancel,
@@ -174,7 +175,7 @@ const AdminActiveAuctionsPage = () => {
         px: { xs: 1, sm: 0 } 
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
-          <Gavel color="primary" sx={{ fontSize: 32 }} />
+          <Ballot color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h5" fontWeight="bold">Auction Management Dashboard</Typography>
             <Typography variant="body2" color="text.secondary">ADMIN ACTIVE AUCTION CONTROL</Typography>

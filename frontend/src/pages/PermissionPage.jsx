@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Paper,
   Typography,
   Button,
+  IconButton,
   Table,
   TableBody,
   TableCell,
@@ -18,28 +19,46 @@ import {
   Divider,
   Tooltip,
 } from "@mui/material";
-import { Security, Save, Info } from "@mui/icons-material";
+import { Security, Save, Info, ExpandLess, ExpandMore } from "@mui/icons-material";
 import { getPermissions, updatePermissions } from "../api/permissionApi";
 import { useMediaQuery, useTheme } from "@mui/material";
 
-// List of menus matching backend PermissionService.AllMenus
-const ALL_MENUS = [
-  { key: "fixtures", label: "My Fixtures", description: "Match reporting for players" },
-  { key: "my-squad", label: "My Team", description: "Personal squad management" },
-  { key: "pitch-view", label: "Pitch View", description: "Visual squad builder" },
-  { key: "clubs-squad", label: "League Teams", description: "View all team squads" },
-  { key: "auction", label: "Auction Market", description: "Normal auction system" },
-  { key: "transfer-board", label: "Transfer Market", description: "Private offer search" },
-  { key: "deal-center", label: "Transfer Center", description: "Manage incoming/outgoing offers" },
-  { key: "users", label: "Manage Users", description: "Add, edit, delete users" },
-  { key: "permissions", label: "Permissions", description: "Define menu access permissions" },
-  { key: "admin-auction", label: "Auction Settings", description: "System financial & timer rules" },
-  { key: "admin-active-auctions", label: "Manage Active Auctions", description: "Cancel, search, and adjust prices of all active player auctions" },
-  { key: "admin-manage-data", label: "Data Management", description: "Scrape players & HOF entry" },
-  { key: "admin-league-setting", label: "League Setting", description: "Prize settings & tournament rules" },
-  { key: "admin-league-ops", label: "League Ops", description: "Admin tools for league operations" },
-  { key: "announcements", label: "Announcements", description: "Manage news and updates" },
+// Grouped menus matching side menu structure in AppLayout
+const MENU_GROUPS = [
+  {
+    label: "Transfer",
+    children: [
+      { key: "auction", label: "Auction" },
+      { key: "transfer-board", label: "Transfer Market" },
+      { key: "deal-center", label: "Transfer Center" },
+    ]
+  },
+  {
+    label: "My Club",
+    children: [
+      { key: "fixtures", label: "My Fixtures" },
+      { key: "my-squad", label: "My Team" },
+      { key: "pitch-view", label: "Pitch View" },
+      { key: "clubs-squad", label: "League Teams" },
+    ]
+  },
+  {
+    label: "Admin",
+    children: [
+      { key: "users", label: "Manage Users" },
+      { key: "permissions", label: "Permissions" },
+      { key: "admin-auction", label: "Auction Settings" },
+      { key: "admin-active-auctions", label: "Manage Active Auctions" },
+      { key: "admin-manage-data", label: "Data Management" },
+      { key: "admin-sponsors", label: "Manage Sponsors" },
+      { key: "admin-league-setting", label: "League Setting" },
+      { key: "admin-league-ops", label: "League Ops" },
+      { key: "announcements", label: "Announcements" },
+    ]
+  }
 ];
+
+const ALL_MENUS = MENU_GROUPS.flatMap(g => g.children);
 
 const ALL_LEVELS = ["admin", "moderator", "user"];
 
@@ -58,6 +77,8 @@ const getFixedValue = (menuKey, userLevel) => {
   return null;
 };
 
+const buildKey = (menuKey, userLevel) => `${menuKey}|${userLevel}`;
+
 
 const PermissionPage = () => {
   const theme = useTheme();
@@ -71,10 +92,52 @@ const PermissionPage = () => {
     severity: "success",
   });
 
+  const [expandedGroups, setExpandedGroups] = useState({
+    "Transfer": true,
+    "My Club": true,
+    "Admin": true
+  });
+
+  const toggleGroup = (groupLabel) => {
+    setExpandedGroups(prev => ({ ...prev, [groupLabel]: !prev[groupLabel] }));
+  };
+
+  const handleGroupToggle = (group, level, isChecked) => {
+    setMatrix(prev => {
+      const next = { ...prev };
+      group.children.forEach(child => {
+        if (!isLocked(child.key, level)) {
+          next[buildKey(child.key, level)] = isChecked;
+        }
+      });
+      return next;
+    });
+  };
+
+  const getGroupStatus = (group, level) => {
+    const activeChildren = group.children;
+    if (activeChildren.length === 0) return { checked: false, indeterminate: false };
+    
+    let checkedCount = 0;
+    let unlockedCount = 0;
+    
+    activeChildren.forEach(child => {
+      const locked = isLocked(child.key, level);
+      const fixedValue = getFixedValue(child.key, level);
+      const checked = fixedValue ?? matrix[buildKey(child.key, level)] ?? false;
+      
+      if (checked) checkedCount++;
+      if (!locked) unlockedCount++;
+    });
+    
+    return {
+      checked: checkedCount === activeChildren.length,
+      indeterminate: checkedCount > 0 && checkedCount < activeChildren.length
+    };
+  };
+
   const showSnackbar = (message, severity = "success") =>
     setSnackbar({ open: true, message, severity });
-
-  const buildKey = (menuKey, userLevel) => `${menuKey}|${userLevel}`;
 
   const fetchPermissions = useCallback(async () => {
     setLoading(true);
@@ -207,77 +270,124 @@ const PermissionPage = () => {
             <CircularProgress />
           </Box>
         ) : (
-          <TableContainer sx={{ overflowX: 'auto' }}>
-            <Table>
+          <TableContainer 
+            sx={{ 
+              overflowX: 'auto',
+              maxHeight: 'calc(100vh - 340px)',
+              '&::-webkit-scrollbar': { width: 8, height: 8 },
+              '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(0,0,0,0.08)', borderRadius: 4 }
+            }}
+          >
+            <Table size="small" stickyHeader>
               <TableHead>
-                <TableRow sx={{ bgcolor: "grey.50" }}>
-                  <TableCell sx={{ fontWeight: 700, width: 260 }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 1000, bgcolor: "grey.50", width: 260, py: 1.5 }}>
                     Menu
                   </TableCell>
                   {ALL_LEVELS.map((level) => (
                     <TableCell
                       key={level}
                       align="center"
-                      sx={{ fontWeight: 700, minWidth: 120 }}
+                      sx={{ fontWeight: 1000, bgcolor: "grey.50", minWidth: 120, py: 1.5 }}
                     >
                       <Chip
                         label={level}
                         color={LEVEL_COLORS[level]}
                         size="small"
-                        sx={{ fontWeight: 700 }}
+                        sx={{ fontWeight: 1000 }}
                       />
                     </TableCell>
                   ))}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {ALL_MENUS.map(({ key, label, description }, idx) => (
-                  <TableRow
-                    key={key}
-                    sx={{
-                      bgcolor: idx % 2 === 0 ? "white" : "grey.50",
-                      "&:hover": { bgcolor: "primary.50" },
-                    }}
-                  >
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={600}>
-                        {label}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {description}
-                      </Typography>
-                    </TableCell>
-                    {ALL_LEVELS.map((level) => {
-                      const locked = isLocked(key, level);
-                      const fixedValue = getFixedValue(key, level);
-                      const checked = fixedValue ?? matrix[buildKey(key, level)] ?? false;
-                      return (
-                        <TableCell key={level} align="center">
-                          <Tooltip
-                            title={
-                              locked
-                                ? "Fixed value, cannot be changed"
-                                : checked
-                                  ? "Click to disable"
-                                  : "Click to enable"
-                            }
-                          >
-                            <span>
-                              <Checkbox
-                                checked={checked}
-                                disabled={locked}
-                                onChange={() => handleToggle(key, level)}
-                                color={
-                                  level === "admin" ? "primary" : "success"
-                                }
-                                sx={{ "& .MuiSvgIcon-root": { fontSize: 28 } }}
-                              />
-                            </span>
-                          </Tooltip>
+                {MENU_GROUPS.map((group) => (
+                  <React.Fragment key={group.label}>
+                    {/* Parent Group Row */}
+                    <TableRow sx={{ bgcolor: "grey.100", '&:hover': { bgcolor: "grey.200" } }}>
+                      <TableCell sx={{ py: 0.5 }}>
+                        <Box display="flex" alignItems="center" gap={0.5}>
+                          <IconButton size="small" onClick={() => toggleGroup(group.label)} sx={{ p: 0.25, mr: 0.5 }}>
+                            {expandedGroups[group.label] ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+                          </IconButton>
+                          <Typography variant="body2" fontWeight="1000" color="primary.main" sx={{ letterSpacing: 0.5 }}>
+                            {group.label.toUpperCase()}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      {ALL_LEVELS.map((level) => {
+                        const { checked, indeterminate } = getGroupStatus(group, level);
+                        const isLevelAdmin = level === "admin";
+                        return (
+                          <TableCell key={level} align="center" sx={{ py: 0.5 }}>
+                            <Checkbox
+                              checked={checked}
+                              indeterminate={indeterminate}
+                              disabled={isLevelAdmin}
+                              onChange={(e) => handleGroupToggle(group, level, e.target.checked)}
+                              size="small"
+                              color="primary"
+                              sx={{ p: 0.5 }}
+                            />
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+
+                    {/* Children Rows */}
+                    {expandedGroups[group.label] && group.children.map((child, idx) => (
+                      <TableRow
+                        key={child.key}
+                        sx={{
+                          bgcolor: idx % 2 === 0 ? "white" : "grey.50",
+                          "&:hover": { bgcolor: "primary.50" },
+                          "& td": { py: 0.25 }
+                        }}
+                      >
+                        <TableCell sx={{ py: 0.25, pl: 5 }}>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Typography variant="caption" color="text.disabled" sx={{ fontSize: '0.9rem', lineHeight: 1 }}>
+                              └─
+                            </Typography>
+                            <Typography variant="body2" fontWeight={700} color="text.primary">
+                              {child.label}
+                            </Typography>
+                          </Box>
                         </TableCell>
-                      );
-                    })}
-                  </TableRow>
+                        {ALL_LEVELS.map((level) => {
+                          const locked = isLocked(child.key, level);
+                          const fixedValue = getFixedValue(child.key, level);
+                          const checked = fixedValue ?? matrix[buildKey(child.key, level)] ?? false;
+                          return (
+                            <TableCell key={level} align="center" sx={{ py: 0.25 }}>
+                              <Tooltip
+                                title={
+                                  locked
+                                    ? "Fixed value, cannot be changed"
+                                    : checked
+                                      ? "Click to disable"
+                                      : "Click to enable"
+                                }
+                              >
+                                <span>
+                                  <Checkbox
+                                    checked={checked}
+                                    disabled={locked}
+                                    onChange={() => handleToggle(child.key, level)}
+                                    color={
+                                      level === "admin" ? "primary" : "success"
+                                    }
+                                    size="small"
+                                    sx={{ p: 0.5 }}
+                                  />
+                                </span>
+                              </Tooltip>
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                  </React.Fragment>
                 ))}
               </TableBody>
             </Table>

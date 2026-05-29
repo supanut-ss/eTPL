@@ -26,6 +26,7 @@ import {
   AccountCircle,
   ChevronRight,
   Close,
+  Ballot,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../store/AuthContext';
@@ -206,7 +207,7 @@ const ManagerOnboarding = () => {
             transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
           }}
         >
-          {isOpen ? <KeyboardArrowDown /> : <Avatar src="/miyu-avatar.png" sx={{ width: 40, height: 40 }} />}
+          {isOpen ? <KeyboardArrowDown /> : <Ballot />}
         </IconButton>
       </Tooltip>
     </Box>

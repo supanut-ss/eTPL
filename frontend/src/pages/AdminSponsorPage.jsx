@@ -17,11 +17,12 @@ import {
   Divider,
   Switch,
   FormControlLabel,
+  Popover,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
-import { Add, Edit, Delete, Refresh, Handshake, Link, ColorLens, Upload, Photo } from "@mui/icons-material";
+import { Add, Edit, Delete, Refresh, Diversity2, Link, ColorLens, Upload, Photo } from "@mui/icons-material";
 import { getSponsors, createSponsor, updateSponsor, deleteSponsor } from "../api/sponsorApi";
 import { uploadSponsorImage } from "../api/uploadApi";
 
@@ -102,6 +103,7 @@ const AdminSponsorPage = () => {
   const [form, setForm] = useState(defaultForm);
   const [errors, setErrors] = useState({});
   const [uploading, setUploading] = useState(false);
+  const [colorAnchorEl, setColorAnchorEl] = useState(null);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -117,7 +119,7 @@ const AdminSponsorPage = () => {
       const res = await getSponsors();
       setRows(res.data.data || res.data || []);
     } catch (err) {
-      showSnackbar("ไม่สามารถโหลดข้อมูลสปอนเซอร์ได้", "error");
+      showSnackbar("Failed to load sponsor data", "error");
     } finally {
       setLoading(false);
     }
@@ -129,11 +131,11 @@ const AdminSponsorPage = () => {
 
   const validate = () => {
     const e = {};
-    if (!form.name.trim()) e.name = "กรุณากรอกชื่อผู้สนับสนุน";
-    if (!form.logo.trim()) e.logo = "กรุณากรอกไอคอนหรืออีโมจิโลโก้";
-    if (!form.tagline.trim()) e.tagline = "กรุณากรอกคำโปรยสั้นๆ";
-    if (!form.description.trim()) e.description = "กรุณากรอกคำอธิบายผู้สนับสนุน";
-    if (!form.website.trim() || form.website === "https://") e.website = "กรุณากรอกลิงก์เว็บไซต์";
+    if (!form.name.trim()) e.name = "Sponsor name is required";
+    if (!form.logo.trim()) e.logo = "Logo emoji or image URL is required";
+    if (!form.tagline.trim()) e.tagline = "Tagline is required";
+    if (!form.description.trim()) e.description = "Description is required";
+    if (!form.website.trim() || form.website === "https://") e.website = "Website URL is required";
 
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -149,12 +151,12 @@ const AdminSponsorPage = () => {
       const uploadedUrl = res.data.data?.url || res.data?.url;
       if (uploadedUrl) {
         setForm((prev) => ({ ...prev, logo: uploadedUrl }));
-        showSnackbar("อัปโหลดโลโก้สำเร็จแล้ว 🎉");
+        showSnackbar("Logo uploaded successfully 🎉");
       } else {
-        showSnackbar("ไม่สามารถรับที่อยู่ไฟล์จากการอัปโหลดได้", "error");
+        showSnackbar("Could not retrieve the uploaded file URL", "error");
       }
     } catch (err) {
-      showSnackbar(err.response?.data?.message || "เกิดข้อผิดพลาดในการอัปโหลดไฟล์", "error");
+      showSnackbar(err.response?.data?.message || "File upload failed", "error");
     } finally {
       setUploading(false);
     }
@@ -191,10 +193,10 @@ const AdminSponsorPage = () => {
     try {
       if (editTarget) {
         await updateSponsor(editTarget.id, form);
-        showSnackbar("แก้ไขข้อมูลผู้สนับสนุนสำเร็จแล้ว ✨");
+        showSnackbar("Sponsor updated successfully ✨");
       } else {
         await createSponsor(form);
-        showSnackbar("เพิ่มผู้สนับสนุนใหม่สำเร็จแล้ว 🥳");
+        showSnackbar("New sponsor added successfully 🥳");
       }
       setDialogOpen(false);
       fetchSponsors();
@@ -203,7 +205,7 @@ const AdminSponsorPage = () => {
       const msg = err.response?.data?.message
         || err.response?.data?.title
         || err.message
-        || "เกิดข้อผิดพลาดในการบันทึกข้อมูล";
+        || "Failed to save changes";
       showSnackbar(`[${status || "ERR"}] ${msg}`, "error");
     } finally {
       setSaving(false);
@@ -214,11 +216,11 @@ const AdminSponsorPage = () => {
     setSaving(true);
     try {
       await deleteSponsor(deleteTarget.id);
-      showSnackbar("ลบผู้สนับสนุนสำเร็จแล้ว 🗑️");
+      showSnackbar("Sponsor deleted successfully 🗑️");
       setDeleteDialogOpen(false);
       fetchSponsors();
     } catch (err) {
-      showSnackbar(err.response?.data?.message || "เกิดข้อผิดพลาดในการลบข้อมูล", "error");
+      showSnackbar(err.response?.data?.message || "Failed to delete sponsor", "error");
     } finally {
       setSaving(false);
     }
@@ -345,7 +347,7 @@ const AdminSponsorPage = () => {
       headerAlign: "right",
       renderCell: (params) => (
         <Box display="flex" gap={1} justifyContent="flex-end" alignItems="center" height="100%">
-          <Tooltip title="แก้ไขผู้สนับสนุน">
+          <Tooltip title="Edit sponsor">
             <IconButton
               size="small"
               onClick={() => handleOpenEdit(params.row)}
@@ -358,7 +360,7 @@ const AdminSponsorPage = () => {
               <Edit fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title="ลบผู้สนับสนุน">
+          <Tooltip title="Delete sponsor">
             <IconButton
               size="small"
               onClick={() => {
@@ -394,13 +396,13 @@ const AdminSponsorPage = () => {
         }}
       >
         <Box display="flex" alignItems="center" gap={1.5}>
-          <Handshake color="primary" sx={{ fontSize: 32 }} />
+          <Diversity2 color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h5" fontWeight="bold">
               Community Sponsors
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              จัดการรายชื่อผู้สนับสนุนและพันธมิตรของคอมมูนิตี้ • ทั้งหมด {rows.length} รายการ
+              Manage community sponsors & partners • {rows.length} total
             </Typography>
           </Box>
         </Box>
@@ -487,7 +489,7 @@ const AdminSponsorPage = () => {
       {/* Add / Edit Dialog (2-Column Responsive Premium Layout) */}
       <Dialog open={dialogOpen} onClose={() => !saving && setDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile}>
         <DialogTitle sx={{ pb: 1, fontWeight: "bold" }}>
-          {editTarget ? "✏️ แก้ไขข้อมูลพาร์ทเนอร์" : "🤝 เพิ่มพาร์ทเนอร์สปอนเซอร์ใหม่"}
+          {editTarget ? "✏️ Edit Partner" : "🤝 Add New Sponsor Partner"}
         </DialogTitle>
         <Divider />
         <DialogContent>
@@ -497,19 +499,19 @@ const AdminSponsorPage = () => {
               {/* Section 1: General Information */}
               <Divider textAlign="left">
                 <Typography variant="caption" color="text.secondary" display="flex" alignItems="center" gap={0.5} fontWeight={700}>
-                  🤝 ข้อมูลทั่วไปของพาร์ทเนอร์ (General Info)
+                  🤝 General Information
                 </Typography>
               </Divider>
 
               <Box display="flex" gap={2} flexDirection={{ xs: "column", sm: "row" }} alignItems="flex-start" width="100%">
                 {/* Logo input field (occupies expanding space) */}
                 <TextField
-                  label="โลโก้ (อีโมจิ หรือลิงก์ภาพ)"
+                  label="Logo (emoji or image URL)"
                   value={form.logo}
                   onChange={(e) => setForm({ ...form, logo: e.target.value })}
                   required
                   error={!!errors.logo}
-                  helperText={errors.logo || "พิมพ์อีโมจิ, วางลิงก์รูป หรือกดปุ่มแนบไฟล์ด้านขวา"}
+                  helperText={errors.logo || "Type an emoji, paste an image URL, or upload a file"}
                   sx={{ flex: 1, minWidth: 180, width: "100%" }}
                 />
 
@@ -533,7 +535,7 @@ const AdminSponsorPage = () => {
                     width: { xs: "100%", sm: "auto" }
                   }}
                 >
-                  {uploading ? "อัปโหลด..." : "อัปโหลดโลโก้"}
+                  {uploading ? "Uploading..." : "Upload Logo"}
                   <input type="file" hidden accept="image/*" onChange={handleFileUpload} />
                 </Button>
 
@@ -571,44 +573,44 @@ const AdminSponsorPage = () => {
                       <Typography fontSize="1.8rem">{form.logo}</Typography>
                     )
                   ) : (
-                    <Typography variant="caption" color="text.disabled" align="center" fontSize="0.65rem">ไม่มีรูป</Typography>
+                    <Typography variant="caption" color="text.disabled" align="center" fontSize="0.65rem">No image</Typography>
                   )}
                 </Box>
               </Box>
 
               {/* Sponsor Name (Full width) */}
               <TextField
-                label="ชื่อผู้สนับสนุน"
+                label="Sponsor Name"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 required
                 fullWidth
                 error={!!errors.name}
                 helperText={errors.name}
-                placeholder="เช่น MeeStock"
+                placeholder="e.g. MeeStock"
               />
 
               {/* Tagline (Full width) */}
               <TextField
-                label="สโลแกน / คำโปรยสั้นๆ"
+                label="Tagline / Short Slogan"
                 value={form.tagline}
                 onChange={(e) => setForm({ ...form, tagline: e.target.value })}
                 required
                 fullWidth
                 error={!!errors.tagline}
-                helperText={errors.tagline || "คำแนะนำสั้นๆ ที่ปรากฏใต้ชื่อผู้สนับสนุน"}
-                placeholder="เช่น ระบบสต็อกสินค้าอัจฉริยะ"
+                helperText={errors.tagline || "Short phrase displayed under the sponsor name"}
+                placeholder="e.g. Smart inventory management system"
               />
 
               {/* Section 2: Contact & Detail */}
               <Divider textAlign="left">
                 <Typography variant="caption" color="text.secondary" display="flex" alignItems="center" gap={0.5} fontWeight={700}>
-                  📝 รายละเอียดและลิงก์ติดต่อ (Details & Links)
+                  📝 Details & Links
                 </Typography>
               </Divider>
 
               <TextField
-                label="คำอธิบายรายละเอียดผู้สนับสนุน"
+                label="Sponsor Description"
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 required
@@ -616,12 +618,12 @@ const AdminSponsorPage = () => {
                 multiline
                 rows={3.5}
                 error={!!errors.description}
-                helperText={errors.description || "คำอธิบายยาวที่จะแสดงเมื่อมีผู้กดคลิกดูรายละเอียดแบนเนอร์"}
-                placeholder="ป้อนรายละเอียด เช่น บริการของเรา สิทธิประโยชน์พิเศษที่สนับสนุนแก่คอมมูนิตี้..."
+                helperText={errors.description || "Full description shown when users click the sponsor banner"}
+                placeholder="Describe the sponsor's services or community benefits..."
               />
 
               <TextField
-                label="ลิงก์เว็บไซต์"
+                label="Website URL"
                 value={form.website}
                 onChange={(e) => setForm({ ...form, website: e.target.value })}
                 required
@@ -637,14 +639,14 @@ const AdminSponsorPage = () => {
               {/* Section 3: Branding & Premium Theme */}
               <Divider textAlign="left">
                 <Typography variant="caption" color="text.secondary" display="flex" alignItems="center" gap={0.5} fontWeight={700}>
-                  🎨 ธีมและดีไซน์ประจำแบรนด์ (Branding & Theme)
+                  🎨 Branding & Theme
                 </Typography>
               </Divider>
 
               <Box display="flex" gap={2} flexDirection={{ xs: "column", sm: "row" }}>
                 <Box display="flex" gap={1.5} alignItems="center" flex={1.2}>
                   <TextField
-                    label="สีแบรนด์หลัก (HEX)"
+                    label="Brand Color (HEX)"
                     value={form.brandColor}
                     onChange={(e) => {
                       const colorVal = e.target.value;
@@ -656,39 +658,84 @@ const AdminSponsorPage = () => {
                     }}
                     required
                     error={!!errors.brandColor}
-                    helperText="โค้ดสี HEX เช่น #6366f1"
+                    helperText="HEX color code, e.g. #6366f1"
                     sx={{ flex: 1 }}
                   />
+                  {/* Clickable color swatch — opens color picker popover */}
                   <Box
+                    onClick={(e) => setColorAnchorEl(e.currentTarget)}
                     sx={{
                       width: 44,
                       height: 44,
                       borderRadius: "12px",
                       bgcolor: form.brandColor || "#94a3b8",
-                      border: "1px solid rgba(0,0,0,0.12)",
-                      boxShadow: "inset 0 0 5px rgba(0,0,0,0.1)",
+                      border: "2px solid rgba(0,0,0,0.12)",
+                      boxShadow: "inset 0 0 5px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.15)",
                       mt: -2.5,
+                      cursor: "pointer",
+                      transition: "transform 0.15s, box-shadow 0.15s",
+                      "&:hover": {
+                        transform: "scale(1.12)",
+                        boxShadow: "0 4px 14px rgba(0,0,0,0.2)",
+                      },
                     }}
                   />
+                  <Popover
+                    open={Boolean(colorAnchorEl)}
+                    anchorEl={colorAnchorEl}
+                    onClose={() => setColorAnchorEl(null)}
+                    anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+                    transformOrigin={{ vertical: "top", horizontal: "center" }}
+                    slotProps={{ paper: { sx: { borderRadius: 3, p: 2, boxShadow: "0 8px 32px rgba(0,0,0,0.18)" } } }}
+                  >
+                    <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" mb={1}>
+                      Pick brand color
+                    </Typography>
+                    <Box
+                      component="input"
+                      type="color"
+                      value={form.brandColor || "#94a3b8"}
+                      onChange={(e) => {
+                        const colorVal = e.target.value;
+                        setForm((prev) => ({
+                          ...prev,
+                          brandColor: colorVal,
+                          bannerBg: generateGradientFromHex(colorVal),
+                        }));
+                      }}
+                      sx={{
+                        width: 200,
+                        height: 140,
+                        border: "none",
+                        borderRadius: 2,
+                        cursor: "pointer",
+                        p: 0,
+                        display: "block",
+                      }}
+                    />
+                    <Typography variant="caption" fontFamily="monospace" color="text.secondary" display="block" textAlign="center" mt={1}>
+                      {form.brandColor}
+                    </Typography>
+                  </Popover>
                 </Box>
 
                 <TextField
-                  label="ลำดับการแสดงผล"
+                  label="Display Order"
                   type="number"
                   value={form.displayOrder}
                   onChange={(e) => setForm({ ...form, displayOrder: parseInt(e.target.value) || 0 })}
                   sx={{ flex: 0.8 }}
-                  helperText="ลำดับคิวแสดงผล"
+                  helperText="Render priority (lower = first)"
                 />
               </Box>
 
               <TextField
-                label="พื้นหลังแบนเนอร์ (CSS Gradient / Hex)"
+                label="Banner Background (CSS Gradient / Hex)"
                 value={form.bannerBg}
                 onChange={(e) => setForm({ ...form, bannerBg: e.target.value })}
                 required
                 fullWidth
-                helperText="สร้างให้อัตโนมัติ หรือจะปรับแต่ง CSS Gradient เองได้ตามชอบ"
+                helperText="Auto-generated from brand color, or customize the CSS gradient manually"
                 placeholder="linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)"
               />
 
@@ -696,13 +743,13 @@ const AdminSponsorPage = () => {
                 control={
                   <Switch checked={form.hasBanner} onChange={(e) => setForm({ ...form, hasBanner: e.target.checked })} color="primary" />
                 }
-                label="เปิดใช้งานแบนเนอร์รายละเอียด (เปิดกล่องเมื่อคลิก)"
+                label="Enable detail banner (expand on click)"
               />
 
               {/* Section 4: Live Preview */}
               <Divider textAlign="left">
                 <Typography variant="caption" color="text.secondary" display="flex" alignItems="center" gap={0.5} fontWeight={700}>
-                  🎯 ตัวอย่างแบนเนอร์จำลองสด (Live Premium Card Preview)
+                  🎯 Live Banner Preview
                 </Typography>
               </Divider>
 
@@ -786,10 +833,10 @@ const AdminSponsorPage = () => {
                   </Box>
                   <Box>
                     <Typography variant="subtitle1" fontWeight="800" sx={{ letterSpacing: 0.5, lineHeight: 1.2 }}>
-                      {form.name || "ชื่อผู้สนับสนุน"}
+                      {form.name || "Sponsor Name"}
                     </Typography>
                     <Typography variant="caption" sx={{ opacity: 0.95, fontWeight: 500, mt: 0.2, display: "block" }}>
-                      {form.tagline || "สโลแกนสั้นๆ ของสปอนเซอร์จะแสดงตรงนี้"}
+                      {form.tagline || "Sponsor tagline will appear here"}
                     </Typography>
                   </Box>
                 </Box>
@@ -815,13 +862,13 @@ const AdminSponsorPage = () => {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => !saving && setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ color: "error.main", fontWeight: "bold" }}>🗑️ ยืนยันการลบผู้สนับสนุน</DialogTitle>
+        <DialogTitle sx={{ color: "error.main", fontWeight: "bold" }}>🗑️ Confirm Delete Sponsor</DialogTitle>
         <DialogContent>
           <Typography>
-            คุณต้องการลบข้อมูลผู้สนับสนุน <strong>{deleteTarget?.name}</strong> ใช่หรือไม่?
+            Are you sure you want to delete <strong>{deleteTarget?.name}</strong>?
           </Typography>
           <Typography variant="body2" color="text.secondary" mt={1}>
-            การกระทำนี้จะไม่สามารถย้อนกลับคืนข้อมูลได้
+            This action cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>

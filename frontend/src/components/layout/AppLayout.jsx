@@ -53,12 +53,14 @@ import {
   Shield,
   Groups,
   Diversity3,
+  Diversity2,
   AutoAwesome,
   SwitchAccount,
   CompareArrows,
   Tune,
   ManageHistory,
   Info,
+  Ballot,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -177,7 +179,7 @@ const navItems = [
       {
         label: "Manage Active Auctions",
         path: "/admin/active-auctions",
-        icon: <Gavel />,
+        icon: <Ballot />,
         key: "admin-active-auctions",
       },
       {
@@ -189,7 +191,7 @@ const navItems = [
       {
         label: "Manage Sponsors",
         path: "/admin/sponsors",
-        icon: <Handshake />,
+        icon: <Diversity2 />,
         key: "admin-sponsors",
       },
       {

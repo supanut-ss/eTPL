@@ -142,13 +142,15 @@ const SponsorMarquee = () => {
               onClick={() => handleSponsorClick(sponsor)}
               sx={{
                 display: "flex",
+                flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                minWidth: 140,
-                height: 64,
+                minWidth: 160,
+                height: 90,
                 mx: 3,
-                px: 4,
-                borderRadius: "14px",
+                px: 3,
+                py: 1.5,
+                borderRadius: "16px",
                 border: "none",
                 background: "rgba(255, 255, 255, 0.9)",
                 cursor: "pointer",
@@ -160,39 +162,64 @@ const SponsorMarquee = () => {
                   boxShadow: `0 12px 32px -8px ${sponsor.brandColor}55, 0 4px 12px -4px rgba(0,0,0,0.08)`,
                   background: "#ffffff",
                   "& .sponsor-marquee-logo": {
-                    transform: "scale(1.12)",
+                    transform: "scale(1.08)",
                   },
                 },
               }}
             >
-              {isImageUrl(sponsor.logo) ? (
-                <Box
-                  component="img"
-                  src={sponsor.logo}
-                  alt={sponsor.name}
-                  className="sponsor-marquee-logo"
-                  sx={{
-                    height: 38,
-                    width: "auto",
-                    objectFit: "contain",
-                    transition: "transform 0.3s ease",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                />
-              ) : (
-                <Typography
-                  className="sponsor-marquee-logo"
-                  sx={{
-                    fontSize: "1.9rem",
-                    transition: "transform 0.3s ease",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  {sponsor.logo}
-                </Typography>
-              )}
+              <Box sx={{ 
+                height: 42, 
+                display: "flex", 
+                alignItems: "center", 
+                justifyContent: "center",
+                mb: 0.8
+              }}>
+                {isImageUrl(sponsor.logo) ? (
+                  <Box
+                    component="img"
+                    src={sponsor.logo}
+                    alt={sponsor.name}
+                    className="sponsor-marquee-logo"
+                    sx={{
+                      height: "100%",
+                      width: "auto",
+                      maxWidth: 110,
+                      objectFit: "contain",
+                      transition: "transform 0.3s ease",
+                    }}
+                  />
+                ) : (
+                  <Typography
+                    className="sponsor-marquee-logo"
+                    sx={{
+                      fontSize: "1.8rem",
+                      transition: "transform 0.3s ease",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    {sponsor.logo}
+                  </Typography>
+                )}
+              </Box>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  fontSize: "0.65rem",
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                  letterSpacing: "1.2px",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  width: "100%",
+                  textAlign: "center",
+                  mt: 0.5
+                }}
+              >
+                {sponsor.name}
+              </Typography>
             </Box>
           ))}
         </div>
@@ -391,7 +418,7 @@ const SponsorMarquee = () => {
                     },
                   }}
                 >
-                  {loveCount} ขอบคุณ
+                  {loveCount}
                 </Button>
               ) : (
                 <Box />
@@ -419,8 +446,7 @@ const SponsorMarquee = () => {
                     boxShadow: `0 12px 25px -6px ${selectedSponsor.brandColor}`,
                   },
                 }}
-              >
-                เข้าชมเว็บไซต์
+              >Website
               </Button>
             </Box>
           </DialogContent>

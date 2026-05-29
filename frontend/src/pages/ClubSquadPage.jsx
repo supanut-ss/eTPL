@@ -46,6 +46,7 @@ import {
   AutoAwesome,
   Refresh,
   CalendarMonth,
+  FactCheck,
 } from "@mui/icons-material";
 import { checkMarketOpen } from "../utils/marketUtils";
 import auctionService from "../services/auctionService";
@@ -311,6 +312,7 @@ const ClubSquadPage = () => {
   const [quotaModalOpen, setQuotaModalOpen] = useState(false);
   const [quotaData, setQuotaData] = useState(null);
   const [loadingQuota, setLoadingQuota] = useState(false);
+  const [quotaFilter, setQuotaFilter] = useState("all");
 
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [fixtures, setFixtures] = useState([]);
@@ -561,18 +563,34 @@ const ClubSquadPage = () => {
       {/* Header */}
       <Box sx={{ 
         display: 'flex', 
-        flexDirection: { xs: 'column', sm: 'row' },
+        flexDirection: { xs: 'column', md: 'row' },
         justifyContent: 'space-between', 
-        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        alignItems: { xs: 'flex-start', md: 'center' }, 
         mb: 4,
-        gap: { xs: 3, sm: 0 },
-        px: { xs: 1, sm: 0 }
+        p: { xs: 2.5, sm: 3 },
+        gap: { xs: 3, md: 0 },
+        borderRadius: '24px',
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.85) 100%)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255,255,255,0.8)',
+        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.04)',
       }}>
-        <Box display="flex" alignItems="center" gap={1.5}>
-          <People color="primary" sx={{ fontSize: 32 }} />
+        <Box display="flex" alignItems="center" gap={2}>
+          <Box sx={{
+            p: 1.5,
+            borderRadius: '16px',
+            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark || '#1d4ed8'} 100%)`,
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.35)'
+          }}>
+            <People sx={{ fontSize: 26 }} />
+          </Box>
           <Box>
-            <Typography variant="h5" fontWeight="bold">League Teams</Typography>
-            <Typography variant="body2" color="text.secondary">VIEW SQUADS OF OTHER TEAMS</Typography>
+            <Typography variant="h5" fontWeight="1000" sx={{ letterSpacing: -0.6, color: '#0f172a', lineHeight: 1.1, mb: 0.5 }}>League Teams</Typography>
+            <Typography variant="caption" sx={{ textTransform: 'uppercase', fontWeight: 800, color: 'text.secondary', letterSpacing: 1.2, fontSize: '0.65rem' }}>VIEW SQUADS OF OTHER TEAMS</Typography>
           </Box>
         </Box>
 
@@ -1212,11 +1230,11 @@ const ClubSquadPage = () => {
         PaperProps={{
           sx: { 
             borderRadius: '28px', 
-            p: 1,
+            overflow: 'hidden',
             bgcolor: "rgba(255, 255, 255, 0.95)",
             backdropFilter: "blur(20px)",
-            boxShadow: "0 25px 70px -15px rgba(0,0,0,0.2)",
-            border: "1px solid rgba(255,255,255,0.8)"
+            boxShadow: "0 25px 70px -15px rgba(0,0,0,0.25)",
+            border: "1px solid rgba(255,255,255,0.85)"
           }
         }}
       >
@@ -1224,45 +1242,83 @@ const ClubSquadPage = () => {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center', 
-          pb: 2, 
-          pt: 2.5,
-          px: 3,
-          background: "linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%)",
-          backdropFilter: "blur(15px)",
-          borderBottom: "1px solid rgba(0,0,0,0.06)",
-          color: "#0f172a",
-          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)"
+          pb: 3, 
+          pt: 3,
+          px: 4,
+          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+          color: "white",
+          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.15)"
         }}>
           <Box display="flex" alignItems="center" gap={2}>
             <Box sx={{ 
               p: 1.2, 
               borderRadius: '14px', 
-              bgcolor: "#0f172a",
+              bgcolor: "rgba(255,255,255,0.1)",
+              backdropFilter: "blur(10px)",
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: "0 8px 20px -5px rgba(15,23,42,0.3)"
+              border: "1px solid rgba(255,255,255,0.15)",
+              boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.2)"
             }}>
-              <Shield sx={{ fontSize: 24, color: "white" }} />
+              <FactCheck sx={{ fontSize: 24, color: "#f8cb38ff" }} />
             </Box>
             <Box>
-              <Typography variant="h6" fontWeight="1000" sx={{ letterSpacing: -0.8, color: "#0f172a", lineHeight: 1.1 }}>Team Quota Monitor</Typography>
-              <Typography variant="caption" sx={{ textTransform: 'uppercase', opacity: 0.5, fontWeight: 800, letterSpacing: 1.2, color: "#475569", fontSize: '0.65rem' }}>Automated Compliance System</Typography>
+              <Typography variant="h6" fontWeight="1000" sx={{ letterSpacing: -0.5, color: "white", lineHeight: 1.1, mb: 0.3 }}>Team Quota Monitor</Typography>
+              <Typography variant="caption" sx={{ textTransform: 'uppercase', opacity: 0.6, fontWeight: 800, letterSpacing: 1.2, color: "#94a3b8", fontSize: '0.65rem' }}>Automated Compliance System</Typography>
             </Box>
           </Box>
           <IconButton 
             onClick={() => setQuotaModalOpen(false)} 
             sx={{ 
-              color: "#64748b",
-              bgcolor: 'rgba(0,0,0,0.03)', 
+              color: "rgba(255,255,255,0.6)",
+              bgcolor: 'rgba(255,255,255,0.05)', 
               '&:hover': { bgcolor: '#ef4444', color: 'white' } 
             }}
           >
             <Close fontSize="small" />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ p: 0, maxHeight: '70vh' }}>
+        <DialogContent sx={{ p: 0, maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+          {quotaData && (
+            <Box sx={{ px: 3, py: 2, bgcolor: 'white', borderBottom: '1px solid rgba(0,0,0,0.05)', position: 'sticky', top: 0, zIndex: 10 }}>
+              <ToggleButtonGroup
+                value={quotaFilter}
+                exclusive
+                onChange={(e, val) => val && setQuotaFilter(val)}
+                size="small"
+                fullWidth
+                sx={{
+                  '& .MuiToggleButton-root': {
+                    borderRadius: '10px',
+                    py: 1,
+                    fontWeight: 800,
+                    textTransform: 'none',
+                    border: '1px solid rgba(0,0,0,0.08)',
+                    '&.Mui-selected': {
+                      bgcolor: '#0f172a',
+                      color: 'white',
+                      '&:hover': { bgcolor: '#1e293b' }
+                    }
+                  }
+                }}
+              >
+                <ToggleButton value="all">
+                  All ({quotaData.summary?.length || 0})
+                </ToggleButton>
+                <ToggleButton value="complete">
+                  Complete ({quotaData.summary?.filter(r => r.totalPlayers >= r.maxLimit).length || 0})
+                </ToggleButton>
+                <ToggleButton value="incomplete">
+                  Incomplete ({quotaData.summary?.filter(r => r.totalPlayers < r.maxLimit).length || 0})
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+          )}
           <TableContainer sx={{ 
+            flexGrow: 1,
+            overflowY: 'auto',
             '&::-webkit-scrollbar': { width: 8 },
             '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(0,0,0,0.05)', borderRadius: 4 }
           }}>
@@ -1287,61 +1343,81 @@ const ClubSquadPage = () => {
                       <CircularProgress size={30} thickness={5} />
                     </TableCell>
                   </TableRow>
-                ) : quotaData?.summary?.map((row) => (
-                  <TableRow key={row.userId} hover sx={{ '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.02) } }}>
-                    <TableCell sx={{ pl: 4, py: 1.5 }}>
-                      <Typography variant="body2" fontWeight="1000" color="text.primary">{row.userId}</Typography>
-                    </TableCell>
-                    {row.grades.map((g, idx) => {
-                      const isOver = g.count > g.limit;
-                      return (
-                        <TableCell key={idx} align="center">
-                          <Box sx={{ 
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            minWidth: 36,
-                            height: 36,
-                            borderRadius: '10px',
-                            bgcolor: isOver ? alpha(theme.palette.error.main, 0.1) : g.count > 0 ? alpha(theme.palette.success.main, 0.08) : 'transparent',
-                            border: '1.5px solid',
-                            borderColor: isOver ? alpha(theme.palette.error.main, 0.3) : g.count > 0 ? alpha(theme.palette.success.main, 0.2) : 'rgba(0,0,0,0.04)',
-                            transition: 'all 0.2s'
-                          }}>
-                            <Typography variant="body2" fontWeight="1000" color={isOver ? 'error.main' : g.count > 0 ? 'success.main' : 'text.disabled'}>
-                              {g.count}
-                            </Typography>
-                          </Box>
+                ) : (() => {
+                  const filtered = quotaData?.summary?.filter((row) => {
+                    if (quotaFilter === "complete") return row.totalPlayers >= row.maxLimit;
+                    if (quotaFilter === "incomplete") return row.totalPlayers < row.maxLimit;
+                    return true;
+                  });
+
+                  if (!filtered || filtered.length === 0) {
+                    return (
+                      <TableRow>
+                        <TableCell colSpan={4 + (quotaData?.grades?.length || 0)} align="center" sx={{ py: 8 }}>
+                          <Typography variant="body2" color="text.secondary" fontWeight={700}>
+                            No teams found matching the filter
+                          </Typography>
                         </TableCell>
-                      );
-                    })}
-                    <TableCell align="center">
-                      <Typography variant="body2" fontWeight="1000" color={row.loanInCount > 0 ? "primary.main" : "text.disabled"}>
-                        {row.loanInCount || "-"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Typography variant="body2" fontWeight="1000" color={row.loanOutCount > 0 ? "warning.main" : "text.disabled"}>
-                        {row.loanOutCount || "-"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center" sx={{ pr: 4 }}>
-                      <Box sx={{ 
-                        p: 1, 
-                        borderRadius: '8px', 
-                        bgcolor: row.totalPlayers > row.maxLimit ? 'error.main' : 'rgba(0,0,0,0.04)',
-                        color: row.totalPlayers > row.maxLimit ? 'white' : 'text.primary',
-                        display: 'inline-block',
-                        minWidth: 40,
-                        textAlign: 'center'
-                      }}>
-                        <Typography variant="body2" fontWeight="1000">
-                          {row.totalPlayers}
+                      </TableRow>
+                    );
+                  }
+
+                  return filtered.map((row) => (
+                    <TableRow key={row.userId} hover sx={{ '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.02) } }}>
+                      <TableCell sx={{ pl: 4, py: 1.5 }}>
+                        <Typography variant="body2" fontWeight="1000" color="text.primary">{row.userId}</Typography>
+                      </TableCell>
+                      {row.grades.map((g, idx) => {
+                        const isOver = g.count > g.limit;
+                        return (
+                          <TableCell key={idx} align="center">
+                            <Box sx={{ 
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              minWidth: 36,
+                              height: 36,
+                              borderRadius: '10px',
+                              bgcolor: isOver ? alpha(theme.palette.error.main, 0.1) : g.count > 0 ? alpha(theme.palette.success.main, 0.08) : 'transparent',
+                              border: '1.5px solid',
+                              borderColor: isOver ? alpha(theme.palette.error.main, 0.3) : g.count > 0 ? alpha(theme.palette.success.main, 0.2) : 'rgba(0,0,0,0.04)',
+                              transition: 'all 0.2s'
+                            }}>
+                              <Typography variant="body2" fontWeight="1000" color={isOver ? 'error.main' : g.count > 0 ? 'success.main' : 'text.disabled'}>
+                                {g.count}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell align="center">
+                        <Typography variant="body2" fontWeight="1000" color={row.loanInCount > 0 ? "primary.main" : "text.disabled"}>
+                          {row.loanInCount || "-"}
                         </Typography>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography variant="body2" fontWeight="1000" color={row.loanOutCount > 0 ? "warning.main" : "text.disabled"}>
+                          {row.loanOutCount || "-"}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center" sx={{ pr: 4 }}>
+                        <Box sx={{ 
+                          p: 1, 
+                          borderRadius: '8px', 
+                          bgcolor: row.totalPlayers > row.maxLimit ? 'error.main' : 'rgba(0,0,0,0.04)',
+                          color: row.totalPlayers > row.maxLimit ? 'white' : 'text.primary',
+                          display: 'inline-block',
+                          minWidth: 40,
+                          textAlign: 'center'
+                        }}>
+                          <Typography variant="body2" fontWeight="1000">
+                            {row.totalPlayers}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ));
+                })()}
               </TableBody>
             </Table>
           </TableContainer>

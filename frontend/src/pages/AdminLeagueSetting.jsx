@@ -9,7 +9,7 @@ import {
 import {
   MilitaryTech, Save, KeyboardArrowDown, KeyboardArrowUp,
   EmojiEvents, CalendarMonth, Groups, SportsSoccer,
-  RocketLaunch, Block, CheckCircle, Warning, DeleteForever
+  RocketLaunch, Block, CheckCircle, Warning, DeleteForever, Tune
 } from "@mui/icons-material";
 import adminService from "../services/adminService";
 import { useSnackbar } from "notistack";
@@ -252,7 +252,7 @@ const AdminLeagueSetting = () => {
         px: { xs: 1, sm: 0 } 
       }}>
         <Box display="flex" alignItems="center" gap={1.5}>
-          <EmojiEvents color="primary" sx={{ fontSize: 32 }} />
+          <Tune color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h5" fontWeight="bold">League Settings</Typography>
             <Typography variant="body2" color="text.secondary">TOURNAMENT CONFIGURATION</Typography>
