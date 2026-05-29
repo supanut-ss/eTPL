@@ -52,7 +52,7 @@ namespace eTPL.API.Services
             apiKey = apiKey.Trim();
             try
             {
-                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={apiKey}";
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
                 
                 var requestBody = new
                 {
@@ -357,7 +357,7 @@ namespace eTPL.API.Services
 
             try
             {
-                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={apiKey.Trim()}";
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey.Trim()}";
                 var requestBody = new { contents = new[] { new { parts = new[] { new { text = $"Generate a detailed prompt for {name} from {team}. Theme: {typeContext}" } } } } };
                 var response = await _httpClient.PostAsJsonAsync(url, requestBody);
                 if (response.IsSuccessStatusCode)
@@ -449,7 +449,7 @@ namespace eTPL.API.Services
 
             try
             {
-                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={apiKey.Trim()}";
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey.Trim()}";
                 var requestBody = new { system_instruction = new { parts = new[] { new { text = "คุณคือ 'มิยุจัง'..." } } }, contents = new[] { new { parts = new[] { new { text = question } } } } };
                 var response = await _httpClient.PostAsJsonAsync(url, requestBody);
                 if (response.IsSuccessStatusCode)
@@ -458,9 +458,16 @@ namespace eTPL.API.Services
                     using var doc = JsonDocument.Parse(jsonResponse);
                     return doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString()?.Trim() ?? "I'm not sure.";
                 }
+                
+                var errorBody = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[AskGemini] Failed. Status: {response.StatusCode}, Body: {errorBody}");
                 return "Sorry, I'm having trouble.";
             }
-            catch { return "Something went wrong."; }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AskGemini] Exception: {ex.Message}\n{ex.StackTrace}");
+                return "Something went wrong.";
+            }
         }
     }
 }

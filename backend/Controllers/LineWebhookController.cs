@@ -271,7 +271,7 @@ namespace eTPL.API.Controllers
                 // 1. Skip polite words, short greetings, or noise messages
                 var ignoredMessages = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    "ครับ", "ค่ะ", "ครับผม", "สวัสดี", "สวัสดีครับ", "สวัสดีค่ะ", "นะ", "คะ", "จ้า", "ดีครับ", "ดีค่ะ", "hello", "hi", "555", "5555"
+                    "ครับ", "ค่ะ", "ครับผม", "สวัสดี", "สวัสดีครับ", "สวัสดีค่ะ", "นะ", "คะ", "จ้า", "ดีครับ", "ดีค่ะ", "hello", "hi", "555", "5555","ใช่คับ", "คับผม","ใช่","ไม่","หรอ","ไม่ใช่"
                 };
 
                 string trimmedQuestion = question.Trim();
@@ -287,20 +287,23 @@ namespace eTPL.API.Controllers
                     return false;
                 }
 
-                // 2. Try direct match: DB question must contain the full user message (or be equal)
-                var directMatch = allQa
-                    .Where(q => 
-                        !string.IsNullOrEmpty(q.Question) && 
+                // 2. Try direct match: DB question must contain the user's message as a substring
+                //    e.g. user types "รีฟ" → matches DB question "อารีฟ"
+                var directMatches = allQa
+                    .Where(q =>
+                        !string.IsNullOrEmpty(q.Question) &&
                         q.Question.Contains(trimmedQuestion, StringComparison.OrdinalIgnoreCase))
-                    .OrderByDescending(q => q.Question.Length)
-                    .FirstOrDefault();
+                    .ToList();
 
-                if (directMatch != null)
+                if (directMatches.Any())
                 {
+                    // Select one randomly
+                    var random = new Random();
+                    var directMatch = directMatches[random.Next(directMatches.Count)];
                     string answer = directMatch.Answer;
                     if (!string.IsNullOrEmpty(answer))
                     {
-                        Console.WriteLine($"LINE Webhook: Direct QA Match Found! User: '{trimmedQuestion}' | DB Match: '{directMatch.Question}'");
+                        Console.WriteLine($"LINE Webhook: Direct QA Match Found! User: '{trimmedQuestion}' | DB Match: '{directMatch.Question}' (Random from {directMatches.Count} matches)");
                         await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
                             new { type = "text", text = answer } 
                         });
@@ -308,32 +311,6 @@ namespace eTPL.API.Controllers
                     }
                 }
 
-                // 3. Fallback to similarity/fuzzy matching
-                var rankedMatches = allQa
-                    .Select(q => new { Qa = q, Score = CalculateSimilarity(trimmedQuestion, q.Question) })
-                    .Where(m => m.Score >= 0.40) // Threshold of 40% similarity
-                    .OrderByDescending(m => m.Score)
-                    .ToList();
-
-                if (rankedMatches.Count > 0)
-                {
-                    var bestMatch = rankedMatches.First();
-                    Console.WriteLine($"LINE Webhook: Fuzzy QA Match Found! User: '{trimmedQuestion}' | DB Match: '{bestMatch.Qa.Question}' (Score: {bestMatch.Score:F2})");
-
-                    string answer = bestMatch.Qa.Answer;
-                    if (!string.IsNullOrEmpty(answer))
-                    {
-                        await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
-                            new { type = "text", text = answer } 
-                        });
-                        return true;
-                    }
-                }
-                else
-                {
-                    Console.WriteLine($"LINE Webhook: No fuzzy QA match for '{trimmedQuestion}' (Best score below 0.40)");
-                }
-                
                 return false;
             }
             catch (Exception ex)
@@ -343,66 +320,6 @@ namespace eTPL.API.Controllers
             }
         }
 
-        private double CalculateSimilarity(string str1, string str2)
-        {
-            if (string.IsNullOrEmpty(str1) || string.IsNullOrEmpty(str2))
-                return 0;
 
-            str1 = str1.Trim().ToLowerInvariant();
-            str2 = str2.Trim().ToLowerInvariant();
-
-            if (str1 == str2)
-                return 1.0;
-
-            // If the user message is longer than the DB question, skip fuzzy matching entirely.
-            // The direct substring match (Contains) in HandleQA already handles this case.
-            if (str1.Length > str2.Length)
-                return 0;
-
-            // Fallback to Dice Coefficient
-            double dice = CalculateDiceCoefficient(str1, str2);
-
-            // Penalize Dice score if the user message is much shorter than the DB question
-            // (prevents very short queries from falsely matching long DB questions)
-            double lenRatio = (double)str1.Length / str2.Length;
-            if (lenRatio < 0.40)
-            {
-                dice *= (lenRatio / 0.40);
-            }
-
-            return dice;
-        }
-
-        private double CalculateDiceCoefficient(string str1, string str2)
-        {
-            if (str1.Length < 2 || str2.Length < 2)
-                return 0;
-
-            var bigrams1 = GetBigrams(str1);
-            var bigrams2 = GetBigrams(str2);
-
-            int intersection = 0;
-            var bigrams2Copy = new List<string>(bigrams2);
-
-            foreach (var val in bigrams1)
-            {
-                if (bigrams2Copy.Remove(val))
-                {
-                    intersection++;
-                }
-            }
-
-            return (2.0 * intersection) / (bigrams1.Count + bigrams2.Count);
-        }
-
-        private List<string> GetBigrams(string str)
-        {
-            var bigrams = new List<string>();
-            for (int i = 0; i < str.Length - 1; i++)
-            {
-                bigrams.Add(str.Substring(i, 2));
-            }
-            return bigrams;
-        }
     }
 }
