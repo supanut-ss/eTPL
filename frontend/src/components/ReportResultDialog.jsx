@@ -100,7 +100,17 @@ const ScoreInput = ({ label, value, onChange }) => (
             fontSize: "2.5rem",
             fontWeight: "900",
             width: 60,
-            "& input": { textAlign: "center", p: 0 },
+            "& input": { 
+              textAlign: "center", 
+              p: 0,
+              "&::-webkit-outer-spin-button, &::-webkit-inner-spin-button": {
+                "-webkit-appearance": "none",
+                margin: 0,
+              },
+              "&[type=number]": {
+                "-moz-appearance": "textfield",
+              },
+            },
           },
         }}
       />
@@ -272,12 +282,7 @@ const ReportResultDialog = ({ open, fixture, isAdmin, onClose, onSuccess }) => {
           </Alert>
         )}
 
-        {!isEditMode && (
-          <Alert severity="info" sx={{ mb: 2, borderRadius: 2, bgcolor: 'rgba(37, 99, 235, 0.05)', color: '#1e40af', border: '1px solid rgba(37, 99, 235, 0.1)' }}>
-            <Typography variant="body2" fontWeight="700">Match Bonus: +2 TP</Typography>
-            <Typography variant="caption">Players (Home/Away) will receive a bonus if they have completed their Daily Check-in today.</Typography>
-          </Alert>
-        )}
+
 
         {/* Teams & Score Section */}
         <Box

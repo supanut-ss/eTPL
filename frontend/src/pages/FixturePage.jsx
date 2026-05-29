@@ -15,6 +15,7 @@ import {
   Alert,
   ToggleButton,
   ToggleButtonGroup,
+  alpha,
   useTheme,
   useMediaQuery
 } from "@mui/material";
@@ -133,7 +134,13 @@ const FixturePage = () => {
     if (searchValue) params.search = searchValue;
 
     getFixtures(params)
-      .then((response) => setRows(response.data.data || []))
+      .then((response) => {
+        const allFixtures = response.data.data || [];
+        const activeFixtures = allFixtures.filter(
+          (row) => row && row.active?.toLowerCase() === "yes"
+        );
+        setRows(activeFixtures);
+      })
       .catch(() => setError("Failed to load data"))
       .finally(() => setLoading(false));
   }, []);
@@ -178,14 +185,36 @@ const FixturePage = () => {
   const columns = [
     {
       field: "match",
-      headerName: "#",
-      width: 56,
+      headerName: "Match",
+      width: 90,
       align: "center",
       headerAlign: "center",
       renderCell: (params) => (
-        <Typography fontSize={16} color="text.secondary" fontWeight={500}>
+        <Typography fontSize={15} color="text.secondary" fontWeight={700}>
           {params.value}
         </Typography>
+      ),
+    },
+    {
+      field: "division",
+      headerName: "Division",
+      width: 100,
+      align: "center",
+      headerAlign: "center",
+      renderCell: (params) => (
+        params.value ? (
+          <Typography
+            fontWeight={800}
+            fontSize={13}
+            sx={{
+              color: params.value.toUpperCase() === "D2" ? "info.main" : "primary.main",
+            }}
+          >
+            {params.value.toUpperCase()}
+          </Typography>
+        ) : (
+          <Typography color="text.secondary" fontSize={14}>-</Typography>
+        )
       ),
     },
     {
@@ -310,11 +339,22 @@ const FixturePage = () => {
           return (
             <Button
               size="small"
-              variant="contained"
+              variant="outlined"
               color={isPlayed ? "warning" : "primary"}
               startIcon={<EditNote />}
               onClick={() => setReportFixture(params.row)}
-              sx={{ fontSize: 12, px: 1.5, whiteSpace: "nowrap" }}
+              sx={{
+                fontSize: 11,
+                px: 1.5,
+                fontWeight: "700",
+                textTransform: "none",
+                borderRadius: 1.75,
+                borderWidth: "1.5px",
+                "&:hover": {
+                  borderWidth: "1.5px",
+                },
+                whiteSpace: "nowrap"
+              }}
             >
               {isPlayed ? "Edit Result" : "Report Result"}
             </Button>
@@ -325,11 +365,22 @@ const FixturePage = () => {
           return (
             <Button
               size="small"
-              variant="contained"
+              variant="outlined"
               color="primary"
               startIcon={<EditNote />}
               onClick={() => setReportFixture(params.row)}
-              sx={{ fontSize: 12, px: 1.5, whiteSpace: "nowrap" }}
+              sx={{
+                fontSize: 11,
+                px: 1.5,
+                fontWeight: "700",
+                textTransform: "none",
+                borderRadius: 1.75,
+                borderWidth: "1.5px",
+                "&:hover": {
+                  borderWidth: "1.5px",
+                },
+                whiteSpace: "nowrap"
+              }}
             >
               Report Result
             </Button>
@@ -473,7 +524,16 @@ const FixturePage = () => {
         </Alert>
       )}
 
-      <Paper elevation={2} sx={{ borderRadius: 2, overflow: "hidden" }}>
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: 3,
+          overflow: "hidden",
+          border: "1px solid",
+          borderColor: "grey.200",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.02)",
+        }}
+      >
         <Box sx={{ width: "100%", overflowX: "auto" }}>
           <Box sx={{ minWidth: isMobile ? 800 : "auto" }}>
             <DataGrid
@@ -489,12 +549,32 @@ const FixturePage = () => {
                 border: "none",
                 "& .MuiDataGrid-columnHeaders": {
                   bgcolor: "grey.50",
-                  fontWeight: 700,
+                  borderBottom: "1px solid",
+                  borderColor: "grey.200",
                 },
-                "& .MuiDataGrid-row:hover": { bgcolor: "primary.50" },
+                "& .MuiDataGrid-columnHeaderTitle": {
+                  fontWeight: 600,
+                  fontSize: 12,
+                  color: "text.secondary",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                },
+                "& .MuiDataGrid-row": {
+                  borderBottom: "1px solid",
+                  borderColor: "grey.100",
+                  "&:hover": {
+                    bgcolor: "grey.50",
+                  },
+                },
                 "& .MuiDataGrid-cell": {
                   display: "flex",
                   alignItems: "center",
+                  borderColor: "transparent",
+                  fontSize: 14,
+                },
+                "& .MuiDataGrid-footerContainer": {
+                  borderTop: "1px solid",
+                  borderColor: "grey.200",
                 },
               }}
             />

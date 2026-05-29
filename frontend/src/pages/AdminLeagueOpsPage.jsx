@@ -24,6 +24,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   IconButton,
   Collapse,
   CircularProgress,
@@ -134,6 +135,85 @@ const AdminLeagueOpsPage = () => {
   const [cycles, setCycles] = useState([]);
   const [selectedCycleId, setSelectedCycleId] = useState("");
   const [stats, setStats] = useState([]);
+  const [selectedDivision, setSelectedDivision] = useState("ALL");
+  const [sortField, setSortField] = useState("division");
+  const [sortOrder, setSortOrder] = useState("asc");
+
+  const divisions = useMemo(() => {
+    const divs = new Set();
+    if (Array.isArray(stats)) {
+      stats.forEach((row) => {
+        if (row && row.division) {
+          divs.add(row.division.trim().toUpperCase());
+        }
+      });
+    }
+    return ["ALL", ...Array.from(divs).sort()];
+  }, [stats]);
+
+  const filteredAndSortedStats = useMemo(() => {
+    let result = [...stats];
+
+    // Filter by division
+    if (selectedDivision !== "ALL") {
+      result = result.filter(
+        (row) => row && row.division && row.division.trim().toUpperCase() === selectedDivision.toUpperCase()
+      );
+    }
+
+    // Sort by sortField
+    if (sortField) {
+      result.sort((a, b) => {
+        let aVal = "";
+        let bVal = "";
+        switch (sortField) {
+          case "division":
+            aVal = a.division || "";
+            bVal = b.division || "";
+            break;
+          case "userId":
+            aVal = a.user_id || a.userId || "";
+            bVal = b.user_id || b.userId || "";
+            break;
+          case "pScore":
+            aVal = a.played_count ?? a.playedCount ?? 0;
+            bVal = b.played_count ?? b.playedCount ?? 0;
+            break;
+          case "rScore":
+            aVal = a.r_score ?? a.rScore ?? 0;
+            bVal = b.r_score ?? b.rScore ?? 0;
+            break;
+          case "eiScore":
+            aVal = a.ei_score ?? a.eiScore ?? 0;
+            bVal = b.ei_score ?? b.eiScore ?? 0;
+            break;
+          case "tierStatus":
+            aVal = a.tier_status || a.tierStatus || a.tier || "";
+            bVal = b.tier_status || b.tierStatus || b.tier || "";
+            break;
+          case "estBonus":
+            aVal = a.est_bonus ?? a.estBonus ?? 0;
+            bVal = b.est_bonus ?? b.estBonus ?? 0;
+            break;
+          default:
+            return 0;
+        }
+
+        if (typeof aVal === "string" && typeof bVal === "string") {
+          aVal = aVal.toUpperCase();
+          bVal = bVal.toUpperCase();
+          if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+          if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+          return 0;
+        } else {
+          return sortOrder === "asc" ? aVal - bVal : bVal - aVal;
+        }
+      });
+    }
+
+    return result;
+  }, [stats, selectedDivision, sortField, sortOrder]);
+
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -285,6 +365,7 @@ const AdminLeagueOpsPage = () => {
   }, []);
   useEffect(() => {
     setPreviewResults({});
+    setSelectedDivision("ALL");
     fetchData();
     fetchHistory();
   }, [selectedCycleId, fetchData, fetchHistory]);
@@ -860,12 +941,41 @@ const AdminLeagueOpsPage = () => {
                     variant="caption"
                     sx={{ color: "#64748b", fontWeight: 600 }}
                   >
-                    Real-time performance tracking for {stats.length} active
-                    players
+                    Real-time performance tracking for {filteredAndSortedStats.length === stats.length ? stats.length : `${filteredAndSortedStats.length} of ${stats.length}`} active players
                   </Typography>
                 </Box>
               </Box>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+                <FormControl variant="outlined" size="small" sx={{ minWidth: 140 }}>
+                  <InputLabel id="division-filter-label" sx={{ fontWeight: 800, fontSize: 11, color: "#64748b" }}>
+                    DIVISION
+                  </InputLabel>
+                  <Select
+                    labelId="division-filter-label"
+                    value={selectedDivision}
+                    label="DIVISION"
+                    onChange={(e) => setSelectedDivision(e.target.value)}
+                    sx={{
+                      borderRadius: 1.75,
+                      fontWeight: "800",
+                      fontSize: 11,
+                      bgcolor: "white",
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: alpha("#cbd5e1", 0.8),
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "primary.main",
+                      },
+                      height: 38,
+                    }}
+                  >
+                    {divisions.map((div) => (
+                      <MenuItem key={div} value={div} sx={{ fontWeight: "800", fontSize: 11 }}>
+                        {div === "ALL" ? "ALL DIVISIONS" : div}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
                 {loading && <CircularProgress size={20} thickness={5} />}
                 <Button
                   variant="contained"
@@ -889,6 +999,7 @@ const AdminLeagueOpsPage = () => {
                       boxShadow: "0 12px 25px rgba(37, 99, 235, 0.3)",
                     },
                     transition: "all 0.2s",
+                    height: 38,
                   }}
                 >
                   Review & Judge
@@ -900,40 +1011,54 @@ const AdminLeagueOpsPage = () => {
                 <TableHead>
                   <TableRow>
                     {[
-                      "USER ID",
-                      "P-SCORE",
-                      "R-SCORE",
-                      "EI SCORE",
-                      "TIER STATUS",
-                      "EST. BONUS",
-                    ].map((head) => (
+                      { id: "userId", label: "USER ID", align: "left" },
+                      { id: "division", label: "DIVISION", align: "center" },
+                      { id: "pScore", label: "P-SCORE", align: "center" },
+                      { id: "rScore", label: "R-SCORE", align: "center" },
+                      { id: "eiScore", label: "EI SCORE", align: "center" },
+                      { id: "tierStatus", label: "TIER STATUS", align: "center" },
+                      { id: "estBonus", label: "EST. BONUS", align: "right" },
+                    ].map((col) => (
                       <TableCell
-                        key={head}
-                        align={
-                          head === "USER ID"
-                            ? "left"
-                            : head === "EST. BONUS"
-                              ? "right"
-                              : "center"
-                        }
+                        key={col.id}
+                        align={col.align}
                         sx={{
                           bgcolor: alpha("#f1f5f9", 0.9),
-                          color: "#64748b",
-                          fontWeight: "800",
-                          fontSize: 11,
-                          py: 2,
-                          letterSpacing: "0.05em",
                           borderBottom: "2px solid #e2e8f0",
+                          py: 1.5,
                         }}
                       >
-                        {head}
+                        <TableSortLabel
+                          active={sortField === col.id}
+                          direction={sortField === col.id ? sortOrder : "asc"}
+                          onClick={() => {
+                            const isAsc = sortField === col.id && sortOrder === "asc";
+                            setSortOrder(isAsc ? "desc" : "asc");
+                            setSortField(col.id);
+                          }}
+                          sx={{
+                            color: "#64748b",
+                            fontWeight: "800",
+                            fontSize: 11,
+                            letterSpacing: "0.05em",
+                            "&.MuiTableSortLabel-active": {
+                              color: "primary.main",
+                              fontWeight: "900",
+                            },
+                            "& .MuiTableSortLabel-icon": {
+                              color: `${theme.palette.primary.main} !important`,
+                            },
+                          }}
+                        >
+                          {col.label}
+                        </TableSortLabel>
                       </TableCell>
                     ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {stats.length > 0 ? (
-                    stats.map((row) => {
+                  {filteredAndSortedStats.length > 0 ? (
+                    filteredAndSortedStats.map((row) => {
                       const ei = row.ei_score || row.eiScore || 0;
                       const uid = row.user_id || row.userId || "--";
                       const ps = row.p_score ?? row.pScore ?? 0;
@@ -967,23 +1092,26 @@ const AdminLeagueOpsPage = () => {
                                 <Typography variant="body2" fontWeight="800" color="#1e293b">
                                   {uid}
                                 </Typography>
-                                {row.division && (
-                                  <Chip
-                                    label={row.division.toUpperCase()}
-                                    size="small"
-                                    sx={{
-                                      height: 16,
-                                      fontSize: 9,
-                                      fontWeight: "800",
-                                      mt: 0.5,
-                                      bgcolor: row.division.toUpperCase() === "D2" ? alpha(theme.palette.info.main, 0.1) : alpha(theme.palette.primary.main, 0.1),
-                                      color: row.division.toUpperCase() === "D2" ? "info.main" : "primary.main",
-                                      border: `1px solid ${row.division.toUpperCase() === "D2" ? alpha(theme.palette.info.main, 0.2) : alpha(theme.palette.primary.main, 0.2)}`,
-                                    }}
-                                  />
-                                )}
                               </Box>
                             </Box>
+                          </TableCell>
+                          <TableCell align="center">
+                            {row.division ? (
+                              <Chip
+                                label={row.division.toUpperCase()}
+                                size="small"
+                                sx={{
+                                  height: 20,
+                                  fontSize: 9,
+                                  fontWeight: "800",
+                                  bgcolor: row.division.toUpperCase() === "D2" ? alpha(theme.palette.info.main, 0.1) : alpha(theme.palette.primary.main, 0.1),
+                                  color: row.division.toUpperCase() === "D2" ? "info.main" : "primary.main",
+                                  border: `1px solid ${row.division.toUpperCase() === "D2" ? alpha(theme.palette.info.main, 0.2) : alpha(theme.palette.primary.main, 0.2)}`,
+                                }}
+                              />
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">—</Typography>
+                            )}
                           </TableCell>
                           <TableCell align="center">
                             <Typography variant="body2" fontWeight="700">
@@ -1044,9 +1172,11 @@ const AdminLeagueOpsPage = () => {
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 10 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          No player records for this cycle.
+                      <TableCell colSpan={7} align="center" sx={{ py: 10 }}>
+                        <Typography variant="body2" color="text.secondary" fontWeight="700">
+                          {stats.length === 0
+                            ? "No player records for this cycle."
+                            : "No player records match the selected division."}
                         </Typography>
                       </TableCell>
                     </TableRow>
