@@ -473,24 +473,34 @@ namespace eTPL.API.Controllers
                 System.Diagnostics.Debug.WriteLine(ex.Message);
             }
 
-            // Award Bonus TP if users have checked in today
+            // Award Bonus TP if users have checked in today or yesterday (based on reporting time)
             try
             {
                 var nowIct = DateTime.UtcNow.AddHours(7);
                 var todayIct = nowIct.Date;
 
+                // Determine check-in date target based on time (00:00 - 17:45 ICT looks at yesterday's check-in)
+                var checkinDateTarget = todayIct;
+                var currentTime = nowIct.TimeOfDay;
+                var cutOffTime = new TimeSpan(17, 45, 0); // 17:45:00
+
+                if (currentTime >= TimeSpan.Zero && currentTime <= cutOffTime)
+                {
+                    checkinDateTarget = todayIct.AddDays(-1);
+                }
+
                 // Home User
                 var homeUser = await _db.Users.FirstOrDefaultAsync(u => u.UserId == fixture.Home);
                 if (homeUser != null)
                 {
-                    var hasCheckin = await _db.DailyCheckins.AnyAsync(c => c.UserId == homeUser.UserId && c.CheckinDate == todayIct);
+                    var hasCheckin = await _db.DailyCheckins.AnyAsync(c => c.UserId == homeUser.UserId && c.CheckinDate == checkinDateTarget);
                     if (hasCheckin)
                     {
                         await _auctionService.GiveBonusAsync(0, new GiveBonusRequest
                         {
                             TargetUserId = homeUser.Id,
                             Amount = 2,
-                            Reason = $"Match Bonus (Match #{fixture.Match}) - Daily Check-in verified"
+                            Reason = $"Match Bonus (Match #{fixture.Match}) - Daily Check-in verified ({checkinDateTarget:yyyy-MM-dd})"
                         });
                     }
                 }
@@ -499,14 +509,14 @@ namespace eTPL.API.Controllers
                 var awayUser = await _db.Users.FirstOrDefaultAsync(u => u.UserId == fixture.Away);
                 if (awayUser != null)
                 {
-                    var hasCheckin = await _db.DailyCheckins.AnyAsync(c => c.UserId == awayUser.UserId && c.CheckinDate == todayIct);
+                    var hasCheckin = await _db.DailyCheckins.AnyAsync(c => c.UserId == awayUser.UserId && c.CheckinDate == checkinDateTarget);
                     if (hasCheckin)
                     {
                         await _auctionService.GiveBonusAsync(0, new GiveBonusRequest
                         {
                             TargetUserId = awayUser.Id,
                             Amount = 2,
-                            Reason = $"Match Bonus (Match #{fixture.Match}) - Daily Check-in verified"
+                            Reason = $"Match Bonus (Match #{fixture.Match}) - Daily Check-in verified ({checkinDateTarget:yyyy-MM-dd})"
                         });
                     }
                 }
