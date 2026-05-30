@@ -1,3 +1,70 @@
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace eTPL.API.Migrations
+{
+    /// <inheritdoc />
+    public partial class UpdateLeagueOpsStoredProcedure : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            // 1. Create columns on tbs_league_cycles if they don't exist
+            migrationBuilder.Sql(@"
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_league_cycles') AND name = 'match_end_no_d2')
+                BEGIN
+                    ALTER TABLE dbo.tbs_league_cycles ADD match_end_no_d2 INT NOT NULL DEFAULT 0;
+                END
+            ");
+
+            migrationBuilder.Sql(@"
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_league_cycles') AND name = 'match_start_no_d2')
+                BEGIN
+                    ALTER TABLE dbo.tbs_league_cycles ADD match_start_no_d2 INT NOT NULL DEFAULT 0;
+                END
+            ");
+
+            migrationBuilder.Sql(@"
+                IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.tbs_league_cycles') AND name = 'match_target_d2')
+                BEGIN
+                    ALTER TABLE dbo.tbs_league_cycles ADD match_target_d2 INT NOT NULL DEFAULT 0;
+                END
+            ");
+
+            // 2. Create division column on LeagueOpsStatResults if the table exists
+            migrationBuilder.Sql(@"
+                IF EXISTS (SELECT * FROM sysobjects WHERE name='LeagueOpsStatResults' AND xtype='U')
+                BEGIN
+                    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.LeagueOpsStatResults') AND name = 'division')
+                    BEGIN
+                        ALTER TABLE dbo.LeagueOpsStatResults ADD division NVARCHAR(MAX) NULL;
+                    END
+                END
+            ");
+
+            // 3. Create tbs_sponsor table if it doesn't exist
+            migrationBuilder.Sql(@"
+                IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='tbs_sponsor' AND xtype='U')
+                BEGIN
+                    CREATE TABLE dbo.tbs_sponsor (
+                        id INT IDENTITY(1,1) NOT NULL,
+                        name NVARCHAR(100) NOT NULL,
+                        logo NVARCHAR(250) NOT NULL,
+                        tagline NVARCHAR(250) NOT NULL,
+                        description NVARCHAR(1000) NOT NULL,
+                        website NVARCHAR(500) NOT NULL,
+                        banner_bg NVARCHAR(500) NOT NULL,
+                        brand_color NVARCHAR(50) NOT NULL,
+                        has_banner BIT NOT NULL,
+                        display_order INT NOT NULL,
+                        CONSTRAINT PK_tbs_sponsor PRIMARY KEY CLUSTERED (id ASC)
+                    );
+                END
+            ");
+
+            // 4. Create/Alter sp_calculate_league_ops stored procedure
+            migrationBuilder.Sql(@"
 CREATE OR ALTER PROCEDURE sp_calculate_league_ops
     @in_int_cycle_id INT
 AS
@@ -130,3 +197,12 @@ BEGIN
 
     DROP TABLE #PlayerStats;
 END
+");
+        }
+
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            // Do nothing on rollback for safely added helper elements
+        }
+    }
+}
