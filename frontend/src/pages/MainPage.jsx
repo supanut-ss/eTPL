@@ -78,7 +78,16 @@ const MainPage = () => {
     
     return Promise.all([
       fixtureRequest,
-      getPublicLastFixtures(),
+      Promise.all([
+        getPublicLastFixtures("D1").catch((err) => {
+          console.error("Failed to fetch D1 last fixtures", err);
+          return { data: { data: [] } };
+        }),
+        getPublicLastFixtures("D2").catch((err) => {
+          console.error("Failed to fetch D2 last fixtures", err);
+          return { data: { data: [] } };
+        }),
+      ]),
       getPublicAnnouncements("News"),
       auctionService.getClubs().catch(() => ({ data: [] })),
       getPublicAnnouncements("Magazine").catch(() => ({ data: { data: [] } })),
@@ -87,9 +96,17 @@ const MainPage = () => {
       getUsers().catch(() => ({ data: { data: [] } })),
       getPublicHighlights().catch(() => ({ data: { data: [] } })),
     ])
-      .then(([fRes, lastRes, aRes, cRes, hRes, eRes, ePlayersRes, uRes, ytRes]) => {
+      .then(([fRes, lastResList, aRes, cRes, hRes, eRes, ePlayersRes, uRes, ytRes]) => {
         setFixtures(fRes.data.data || []);
-        setLastFixtures(lastRes.data.data || []);
+        
+        const d1Data = (lastResList[0]?.data?.data || []).map(item => ({ ...item, division: "D1" }));
+        const d2Data = (lastResList[1]?.data?.data || []).map(item => ({ ...item, division: "D2" }));
+        const combinedLast = [...d1Data, ...d2Data].sort((a, b) => {
+          const dateA = new Date(a.matchDate || a.date);
+          const dateB = new Date(b.matchDate || b.date);
+          return dateB - dateA;
+        });
+        setLastFixtures(combinedLast);
         setAnnouncements((aRes.data.data || []).sort((a, b) => new Date(b.createDate) - new Date(a.createDate)));
         setClubs(cRes.data || cRes || []);
         setMagazineData((hRes.data?.data || []).sort((a, b) => new Date(b.createDate) - new Date(a.createDate)));

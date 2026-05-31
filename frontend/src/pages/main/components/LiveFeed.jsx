@@ -301,7 +301,7 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
                     letterSpacing: 0.5,
                   }}
                 >
-                  {feed.type} • {feed.time}
+                  {feed.type}{feed.data?.division ? ` (${feed.data.division})` : ""} • {feed.time}
                 </Typography>
                 <Typography
                   variant="body2"
