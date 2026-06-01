@@ -62,6 +62,7 @@ import {
   Delete,
   CalendarMonth,
   Person,
+  SquareRounded,
 } from "@mui/icons-material";
 import leagueOpsService from "../services/leagueOpsService";
 import { getFixtures } from "../api/fixtureApi";
@@ -398,6 +399,38 @@ const AdminLeagueOpsPage = () => {
       return acc;
     }, {});
   }, [stats]);
+
+  // Card deduction map: sum yellow (-5) and red (-10) cards per userId from cycle matches
+  const YELLOW_CARD_PENALTY = 5;
+  const RED_CARD_PENALTY = 10;
+  const cardDeductionMap = useMemo(() => {
+    const map = {}; // { userId.toUpperCase(): { yellow: N, red: N, deduction: N } }
+    matches.forEach((m) => {
+      if (!m) return;
+      const homeId = (m.home || "").toUpperCase();
+      const awayId = (m.away || "").toUpperCase();
+      if (!homeId && !awayId) return;
+
+      const homeYellow = m.homeYellow ?? 0;
+      const homeRed = m.homeRed ?? 0;
+      const awayYellow = m.awayYellow ?? 0;
+      const awayRed = m.awayRed ?? 0;
+
+      if (homeId) {
+        if (!map[homeId]) map[homeId] = { yellow: 0, red: 0, deduction: 0 };
+        map[homeId].yellow += homeYellow;
+        map[homeId].red += homeRed;
+        map[homeId].deduction += homeYellow * YELLOW_CARD_PENALTY + homeRed * RED_CARD_PENALTY;
+      }
+      if (awayId) {
+        if (!map[awayId]) map[awayId] = { yellow: 0, red: 0, deduction: 0 };
+        map[awayId].yellow += awayYellow;
+        map[awayId].red += awayRed;
+        map[awayId].deduction += awayYellow * YELLOW_CARD_PENALTY + awayRed * RED_CARD_PENALTY;
+      }
+    });
+    return map;
+  }, [matches]);
 
   const handleOpenConfig = () => {
     if (currentCycle) {
@@ -1064,6 +1097,8 @@ const AdminLeagueOpsPage = () => {
                       const ps = row.p_score ?? row.pScore ?? 0;
                       const rs = row.r_score ?? row.rScore ?? 0;
                       const bonus = row.est_bonus ?? row.estBonus ?? 0;
+                      const cardData = cardDeductionMap[(uid || "").toUpperCase()] || { yellow: 0, red: 0, deduction: 0 };
+                      const netBonus = Math.max(0, bonus - cardData.deduction);
                       const tier = row.tier_status || row.tierStatus || row.tier || (ei >= 80 ? "ELITE" : ei >= 60 ? "ACTIVE" : ei >= 40 ? "WARNING" : "INACTIVE");
                       
                       let color = theme.palette.error.main;
@@ -1163,9 +1198,39 @@ const AdminLeagueOpsPage = () => {
                             />
                           </TableCell>
                           <TableCell align="right" sx={{ pr: 3 }}>
-                            <Typography variant="body2" fontWeight="900" color="#1e293b">
-                              ฿{bonus.toLocaleString()}
-                            </Typography>
+                            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.3 }}>
+                              <Typography variant="body2" fontWeight="900" color={cardData.deduction > 0 ? "#10b981" : "#1e293b"}>
+                                ฿{netBonus.toLocaleString()}
+                              </Typography>
+                              {cardData.deduction > 0 && (
+                                <Typography variant="caption" sx={{ color: "#94a3b8", fontWeight: 600, textDecoration: "line-through", fontSize: 10 }}>
+                                  ฿{bonus.toLocaleString()}
+                                </Typography>
+                              )}
+                              {(cardData.yellow > 0 || cardData.red > 0) && (
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                                  {cardData.yellow > 0 && (
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.3 }}>
+                                      <SquareRounded sx={{ fontSize: 9, color: "#F6C90E" }} />
+                                      <Typography variant="caption" sx={{ fontSize: 9, color: "#b45309", fontWeight: 700 }}>
+                                        {cardData.yellow}×(-{YELLOW_CARD_PENALTY})
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                  {cardData.red > 0 && (
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.3 }}>
+                                      <SquareRounded sx={{ fontSize: 9, color: "#ef4444" }} />
+                                      <Typography variant="caption" sx={{ fontSize: 9, color: "#b91c1c", fontWeight: 700 }}>
+                                        {cardData.red}×(-{RED_CARD_PENALTY})
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                  <Typography variant="caption" sx={{ fontSize: 9, color: "#ef4444", fontWeight: 800 }}>
+                                    = -{cardData.deduction}
+                                  </Typography>
+                                </Box>
+                              )}
+                            </Box>
                           </TableCell>
                         </TableRow>
                       );

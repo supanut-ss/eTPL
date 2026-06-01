@@ -122,7 +122,7 @@ const CupBracketPage = () => {
     if (!match.homeUserId || !match.awayUserId) return false;
     if (isAdminOrMod) return true;
     if (match.isPlayed) return false;
-    return match.homeUserId === user.id || match.awayUserId === user.id;
+    return match.homeUserId === user.userId || match.awayUserId === user.userId;
   };
 
   // 1. Calculate active players count (unique non-null/non-empty user IDs)
