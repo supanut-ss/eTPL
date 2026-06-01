@@ -141,11 +141,23 @@ const TX_TYPE_META = {
     color: "#10b981",
     bg: "#ecfdf5",
   },
+  FINAL_BID_REFUND: {
+    label: "Auction Outbid Refund",
+    icon: <Payments fontSize="small" />,
+    color: "#10b981",
+    bg: "#ecfdf5",
+  },
   AUCTION_WIN: {
     label: "Auction Victory",
     icon: <EmojiEvents fontSize="small" />,
     color: "#8b5cf6",
     bg: "#f5f3ff",
+  },
+  AUCTION_CANCELLED_SEASON_END: {
+    label: "Season End Refund",
+    icon: <Payments fontSize="small" />,
+    color: "#14b8a6",
+    bg: "#f0fdfa",
   },
   TRANSFER_BUY: {
     label: "Player Buy",
@@ -159,6 +171,18 @@ const TX_TYPE_META = {
     color: "#10b981",
     bg: "#ecfdf5",
   },
+  MARKET_BUY: {
+    label: "Market Purchase",
+    icon: <CompareArrows fontSize="small" />,
+    color: "#ef4444",
+    bg: "#fef2f2",
+  },
+  MARKET_SELL: {
+    label: "Market Sale",
+    icon: <CompareArrows fontSize="small" />,
+    color: "#10b981",
+    bg: "#ecfdf5",
+  },
   BONUS: {
     label: "Special Bonus",
     icon: <CardGiftcard fontSize="small" />,
@@ -167,6 +191,12 @@ const TX_TYPE_META = {
   },
   CONTRACT_RENEWAL: {
     label: "Contract Renewal",
+    icon: <Autorenew fontSize="small" />,
+    color: "#6366f1",
+    bg: "#eef2ff",
+  },
+  CONTRACT_RENEWAL_AUTO: {
+    label: "Auto Contract Renewal",
     icon: <Autorenew fontSize="small" />,
     color: "#6366f1",
     bg: "#eef2ff",
@@ -184,10 +214,40 @@ const TX_TYPE_META = {
     bg: "#ecfdf5",
   },
   FREE_RELEASE: {
-    label: "Contract Terminated",
+    label: "Free Release",
     icon: <Cancel fontSize="small" />,
     color: "#64748b",
     bg: "#f1f5f9",
+  },
+  AUTO_RELEASE_EXPIRED: {
+    label: "Contract Expired",
+    icon: <Cancel fontSize="small" />,
+    color: "#ef4444",
+    bg: "#fef2f2",
+  },
+  PRIZE: {
+    label: "Season Reward",
+    icon: <EmojiEvents fontSize="small" />,
+    color: "#eab308",
+    bg: "#fef9c3",
+  },
+  PRIZE_SPECIAL: {
+    label: "Special Prize",
+    icon: <CardGiftcard fontSize="small" />,
+    color: "#8b5cf6",
+    bg: "#f5f3ff",
+  },
+  CUP_PRIZE: {
+    label: "Cup Reward",
+    icon: <EmojiEvents fontSize="small" />,
+    color: "#8b5cf6",
+    bg: "#f5f3ff",
+  },
+  CARD_DEDUCTION: {
+    label: "Card Fine Deduction",
+    icon: <WarningAmber fontSize="small" />,
+    color: "#ef4444",
+    bg: "#fef2f2",
   },
   ADJUSTMENT: {
     label: "Balance Adjustment",
