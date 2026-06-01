@@ -621,7 +621,7 @@ const AdminLeagueSetting = () => {
                 <Box sx={{ p: 3, borderRadius: 2, bgcolor: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.05)" }}>
                   <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="error">1. Close Season Actions (Global ทั้งระบบ)</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    • แจกรางวัลตามอันดับ (Standing) และรางวัลพิเศษเฉพาะดิวิชัน<br />
+                    • แจกรางวัลตามอันดับ (Standing) และรางวัลพิเศษ พร้อมหักเงินจากใบเหลือง (-5 TP) และใบแดง (-10 TP) เฉพาะดิวิชัน<br />
                     • บันทึกข้อมูลเข้า Hall of Fame ของดิวิชันนั้นๆ<br />
                     • <strong style={{ color: '#d32f2f' }}>[Global ทั้งระบบ]</strong> ปล่อยตัวนักเตะหมดสัญญาและคืนเงินให้กับทุกทีมในระบบ<br />
                     • <strong style={{ color: '#d32f2f' }}>[Global ทั้งระบบ]</strong> ส่งคืนตัวยืม และยกเลิกรายการประกาศขายทั้งหมดในตลาด

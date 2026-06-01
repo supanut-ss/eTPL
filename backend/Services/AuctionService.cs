@@ -2244,16 +2244,26 @@ namespace eTPL.API.Services
                         _scaffoldedContext.TbmHofs.RemoveRange(existingHof);
                     }
 
-                    // 2. Remove previous League prize transactions and revert wallet balances
+                    // 2. Remove previous League prize/deduction transactions and revert wallet balances
                     var oldPrizeTxs = await _context.AuctionTransactions
-                        .Where(t => (t.Type == "PRIZE" || t.Type == "PRIZE_SPECIAL") && t.Description.Contains(prizeTag))
+                        .Where(t => (t.Type == "PRIZE" || t.Type == "PRIZE_SPECIAL" || t.Type == "CARD_DEDUCTION") && t.Description.Contains(prizeTag))
                         .ToListAsync();
                     if (oldPrizeTxs.Any())
                     {
                         foreach (var tx in oldPrizeTxs)
                         {
                             var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == tx.UserId);
-                            if (wallet != null) wallet.AvailableBalance -= tx.Amount;
+                            if (wallet != null)
+                            {
+                                if (tx.Direction == "CREDIT")
+                                {
+                                    wallet.AvailableBalance -= tx.Amount;
+                                }
+                                else if (tx.Direction == "DEBIT")
+                                {
+                                    wallet.AvailableBalance += tx.Amount;
+                                }
+                            }
                         }
                         _context.AuctionTransactions.RemoveRange(oldPrizeTxs);
                     }
@@ -2375,6 +2385,65 @@ namespace eTPL.API.Services
                             logs.Add($"แจกรางวัลพิเศษ Best Defense สำเร็จ");
                         }
                     }
+
+                    // 4.2 Card Deductions: Yellow = -5, Red = -10
+                    var logQueryForCards = _scaffoldedContext.TblFixtureLogs
+                        .Where(l => l.Division == division && l.Platform == platform && l.Season == currentSeason);
+                    var cardsLogs = await logQueryForCards.ToListAsync();
+
+                    var teamCards = new Dictionary<string, (int Yellow, int Red)>();
+                    foreach (var log in cardsLogs)
+                    {
+                        if (log.Home != null)
+                        {
+                            if (!teamCards.ContainsKey(log.Home))
+                                teamCards[log.Home] = (0, 0);
+                            var (hy, hr) = teamCards[log.Home];
+                            teamCards[log.Home] = (hy + (log.HomeYellow ?? 0), hr + (log.HomeRed ?? 0));
+                        }
+                        if (log.Away != null)
+                        {
+                            if (!teamCards.ContainsKey(log.Away))
+                                teamCards[log.Away] = (0, 0);
+                            var (ay, ar) = teamCards[log.Away];
+                            teamCards[log.Away] = (ay + (log.AwayYellow ?? 0), ar + (log.AwayRed ?? 0));
+                        }
+                    }
+
+                    int deductionCount = 0;
+                    foreach (var team in rankedStandings)
+                    {
+                        if (team.Team == null) continue;
+
+                        teamCards.TryGetValue(team.Team, out var cards);
+                        int yellowCount = cards.Yellow;
+                        int redCount = cards.Red;
+
+                        if (yellowCount > 0 || redCount > 0)
+                        {
+                            int yellowDeduction = yellowCount * 5;
+                            int redDeduction = redCount * 10;
+                            int totalDeduction = yellowDeduction + redDeduction;
+
+                            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == team.Team);
+                            if (user == null) continue;
+
+                            var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == user.Id);
+                            if (wallet == null)
+                            {
+                                wallet = new AuctionUserWallet { UserId = user.Id, AvailableBalance = 0, ReservedBalance = 0 };
+                                _context.AuctionUserWallets.Add(wallet);
+                            }
+
+                            wallet.AvailableBalance -= totalDeduction;
+                            await RecordTransactionAsync(user.Id, totalDeduction, "DEBIT", "CARD_DEDUCTION",
+                                $"หักเงินใบเหลือง/แดง: ใบเหลือง {yellowCount} ใบ (-{yellowDeduction}), ใบแดง {redCount} ใบ (-{redDeduction}) (Season {currentSeason})",
+                                wallet.AvailableBalance);
+
+                            deductionCount++;
+                        }
+                    }
+                    logs.Add($"หักเงินรางวัลจากใบเหลือง/แดงสำเร็จ ({deductionCount} ทีม)");
 
                     // 5. Add HOF Entry (Winner)
                     if (rankedStandings.Any())
