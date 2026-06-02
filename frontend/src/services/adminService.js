@@ -6,7 +6,7 @@ const adminService = {
   addPlayerManual: (data) => api.post("/api/admin/add-player-manual", data),
   addHof: (data) => api.post("/api/admin/add-hof", data),
   getUserTeam: (userId, platform, season) => api.get(`/api/admin/get-user-team?userId=${userId}&platform=${platform}&season=${season}`),
-  getQuotaSummary: () => api.get("/api/admin/quota-summary"),
+  getQuotaSummary: () => api.get("/api/auction/quota-summary"),
   getPrizes: () => api.get("/api/admin/prizes"),
   savePrizes: (data) => api.post("/api/admin/prizes", data),
 

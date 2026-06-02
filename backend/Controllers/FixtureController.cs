@@ -37,10 +37,29 @@ namespace eTPL.API.Controllers
         // GET api/fixtures?search=teamA
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] string division = "D1")
+        public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] string? division = null)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var userLevel = User.FindFirstValue(ClaimTypes.Role);
+
+            string? targetDivision = division;
+            if (string.IsNullOrEmpty(targetDivision))
+            {
+                if (!string.IsNullOrEmpty(search))
+                {
+                    var searchUser = await _db.Users.FirstOrDefaultAsync(u => u.UserId == search);
+                    targetDivision = searchUser?.CurrentDivision ?? "D1";
+                }
+                else if (!string.IsNullOrEmpty(userId))
+                {
+                    var loggedInUser = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+                    targetDivision = loggedInUser?.CurrentDivision ?? "D1";
+                }
+                else
+                {
+                    targetDivision = "D1";
+                }
+            }
 
             var currentSeason = await _db.TbmCurrentSeasons
                 .Where(s => s.Platform == "PC")
@@ -48,12 +67,12 @@ namespace eTPL.API.Controllers
                 .FirstOrDefaultAsync();
 
             var query = _db.VFixtureAlls
-                .Where(f => f.Platform == "PC" && f.Division == division && f.Active == "YES");
+                .Where(f => f.Platform == "PC" && f.Division == targetDivision && f.Active == "YES");
 
             if (currentSeason.HasValue)
                 query = query.Where(f => f.Season == currentSeason.Value);
 
-            if (userLevel != "admin" && userLevel != "moderator" && !string.IsNullOrEmpty(userId))
+            if (userLevel != "admin" && userLevel != "moderator" && !string.IsNullOrEmpty(userId) && string.IsNullOrEmpty(search))
                 query = query.Where(f => f.Home == userId || f.Away == userId);
 
             if (!string.IsNullOrEmpty(search))
@@ -69,12 +88,12 @@ namespace eTPL.API.Controllers
 
             // Join with TbmFixtureAlls to include yellow/red card data
             var cardQuery = _db.TbmFixtureAlls
-                .Where(f => f.Platform == "PC" && f.Division == division && f.Active == "YES");
+                .Where(f => f.Platform == "PC" && f.Division == targetDivision && f.Active == "YES");
 
             if (currentSeason.HasValue)
                 cardQuery = cardQuery.Where(f => f.Season == currentSeason.Value);
 
-            if (userLevel != "admin" && userLevel != "moderator" && !string.IsNullOrEmpty(userId))
+            if (userLevel != "admin" && userLevel != "moderator" && !string.IsNullOrEmpty(userId) && string.IsNullOrEmpty(search))
                 cardQuery = cardQuery.Where(f => f.Home == userId || f.Away == userId);
 
             var cardData = await cardQuery

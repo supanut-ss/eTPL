@@ -386,6 +386,48 @@ namespace eTPL.API.Controllers
             }
         }
 
+        [HttpGet("quota-summary")]
+        public async Task<IActionResult> GetQuotaSummary()
+        {
+            try
+            {
+                var settings = await _db.AuctionSettings.FirstOrDefaultAsync();
+                var maxSquadSize = settings?.MaxSquadSize ?? 23;
+                
+                var grades = await _db.AuctionGradeQuotas.OrderBy(g => g.GradeId).ToListAsync();
+                var squads = await _db.AuctionSquads
+                    .Include(s => s.Player)
+                    .ToListAsync(); // Get all to count Loaned out too
+
+                var users = await _db.Users.ToListAsync();
+
+                var summary = users.Select(user => new
+                {
+                    UserId = user.UserId,
+                    LineName = user.LineName ?? "No Name",
+                    Id = user.Id,
+                    Grades = grades.Select(grade => new
+                    {
+                        GradeName = grade.GradeName,
+                        Count = squads.Where(s => s.UserId == user.Id && s.Status == "Active" && s.Player != null)
+                                      .Count(s => s.Player!.PlayerOvr >= grade.MinOVR && s.Player.PlayerOvr <= grade.MaxOVR),
+                        Limit = grade.MaxAllowedPerUser
+                    }).ToList(),
+                    LoanInCount = squads.Count(s => s.UserId == user.Id && s.IsLoan && s.Status == "Active"),
+                    LoanOutCount = squads.Count(s => s.UserId == user.Id && s.Status == "Loaned"),
+                    TotalPlayers = squads.Count(s => s.UserId == user.Id && s.Status == "Active"), // Only active ones count towards main squad limit
+                    MaxLimit = maxSquadSize
+                }).OrderBy(u => u.UserId).ToList();
+
+                return Ok(new { grades, summary, maxLimit = maxSquadSize });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Quota Error] {ex.Message}");
+                return StatusCode(500, new { message = "Error fetching quota summary: " + ex.Message });
+            }
+        }
+
         [HttpPut("quotas")]
         public async Task<IActionResult> UpdateQuotas([FromBody] List<AuctionGradeQuota> updatedQuotas)
         {
