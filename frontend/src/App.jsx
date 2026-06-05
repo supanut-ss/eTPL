@@ -38,6 +38,8 @@ import AdminSponsorPage from "./pages/AdminSponsorPage";
 
 import LineCallbackPage from "./pages/LineCallbackPage";
 import AdminLeagueOpsPage from "./pages/AdminLeagueOpsPage";
+import SpecialTournamentAdminPage from "./pages/SpecialTournamentAdminPage";
+import SpecialTournamentBracketPage from "./pages/SpecialTournamentBracketPage";
 
 function App() {
   return (
@@ -61,7 +63,8 @@ function App() {
               <Route path="auction-results" element={<CompletedAuctionPage />} />
               <Route path="hall-of-fame" element={<HallOfFamePage />} />
               <Route path="cup-bracket" element={<CupBracketPage />} />
-               <Route path="news" element={<NewsPage />} />
+              <Route path="special-tournament/:id" element={<SpecialTournamentBracketPage />} />
+              <Route path="news" element={<NewsPage />} />
               <Route path="members" element={<UserListPage />} />
 
               {/* Login required */}
@@ -211,6 +214,14 @@ function App() {
                 element={
                   <ProtectedRoute requiredRole={["admin", "moderator"]}>
                     <AdminLeagueOpsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/special-tournament"
+                element={
+                  <ProtectedRoute requiredRole={["admin", "moderator"]}>
+                    <SpecialTournamentAdminPage />
                   </ProtectedRoute>
                 }
               />

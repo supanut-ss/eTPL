@@ -61,6 +61,7 @@ import {
   ManageHistory,
   Info,
   Ballot,
+  WorkspacePremium,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -68,6 +69,7 @@ import NotificationMenu from "../NotificationMenu";
 import ManagerOnboarding from "../onboarding/ManagerOnboarding";
 import { useSnackbar } from "notistack";
 import leagueOpsService from "../../services/leagueOpsService";
+import specialTournamentService from "../../services/specialTournamentService";
 import { CheckCircle, LocationPin } from "@mui/icons-material";
 
 
@@ -78,6 +80,7 @@ const navItems = [
   { label: "Standings", path: "/standings", icon: <Leaderboard /> },
   { label: "Matches", path: "/matches", icon: <CalendarMonth /> },
   { label: "Cup Bracket", path: "/cup-bracket", icon: <EmojiEvents /> },
+  // Special Tournament public items are injected dynamically — see filteredNav below
   { label: "Hall of Fame", path: "/hall-of-fame", icon: <MilitaryTech /> },
   { label: "Auction Board", path: "/auction-results", icon: <HotelClass /> },
   {
@@ -207,6 +210,12 @@ const navItems = [
         key: "admin-league-ops",
       },
       {
+        label: "Special Tournament",
+        path: "/admin/special-tournament",
+        icon: <WorkspacePremium />,
+        key: "admin-special-tournament",
+      },
+      {
         label: "Announcements",
         path: "/announcements",
         icon: <Campaign />,
@@ -235,6 +244,7 @@ const AppLayout = () => {
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
   const [isWithinHours, setIsWithinHours] = useState(true);
+  const [publicTournaments, setPublicTournaments] = useState([]);
   const { enqueueSnackbar } = useSnackbar();
 
   // Load check-in status of current user on mount and when user changes
@@ -257,6 +267,14 @@ const AppLayout = () => {
     };
     fetchCheckinStatus();
   }, [user]);
+
+  // Fetch public special tournaments for navigation
+  useEffect(() => {
+    specialTournamentService.list().then(res => {
+      const list = res.data?.data || [];
+      setPublicTournaments(list.filter(t => t.isPublic));
+    }).catch(() => {});
+  }, []);
 
   const handleCheckin = async () => {
     if (hasCheckedIn || checkinLoading || !user) return;
@@ -347,7 +365,24 @@ const AppLayout = () => {
       });
   };
 
-  const filteredNav = filterMenuItems(navItems);
+  // Build final nav: inject public Special Tournament items after Cup Bracket
+  const buildFinalNav = () => {
+    const base = filterMenuItems(navItems);
+    const cupIdx = base.findIndex(item => item.path === "/cup-bracket");
+    const dynamicItems = publicTournaments.map(t => ({
+      label: t.name,
+      path: `/special-tournament/${t.id}`,
+      icon: <WorkspacePremium />,
+    }));
+    if (cupIdx === -1 || dynamicItems.length === 0) return base;
+    return [
+      ...base.slice(0, cupIdx + 1),
+      ...dynamicItems,
+      ...base.slice(cupIdx + 1),
+    ];
+  };
+
+  const filteredNav = buildFinalNav();
   
   // Get current page title
   const getCurrentPageTitle = () => {

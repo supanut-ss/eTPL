@@ -35,6 +35,12 @@ namespace eTPL.API.Data
         public DbSet<AuctionFavourite> AuctionFavourites { get; set; }
         public DbSet<Sponsor> Sponsors { get; set; }
 
+        // --- Special Tournament ---
+        public DbSet<SpecialTournament> SpecialTournaments { get; set; }
+        public DbSet<SpecialParticipant> SpecialParticipants { get; set; }
+        public DbSet<SpecialGroup> SpecialGroups { get; set; }
+        public DbSet<SpecialMatch> SpecialMatches { get; set; }
+
         // --- Legacy / Scaffolded Models ---
         public virtual DbSet<ApiVFixtureAll> ApiVFixtureAlls { get; set; }
         public virtual DbSet<ApiVResultTable> ApiVResultTables { get; set; }
@@ -350,6 +356,12 @@ namespace eTPL.API.Data
             // Only set schema explicitly
             modelBuilder.Entity<CupFixture>().ToTable("tbs_cup_fixture", "dbo");
             modelBuilder.Entity<QaInformation>().ToTable("tbm_qa_information", "dbo");
+
+            // ─── Special Tournament ───────────────────────────────────────────────────
+            modelBuilder.Entity<SpecialTournament>().ToTable("tbs_special_tournament", "dbo");
+            modelBuilder.Entity<SpecialParticipant>().ToTable("tbs_special_participant", "dbo");
+            modelBuilder.Entity<SpecialGroup>().ToTable("tbs_special_group", "dbo");
+            modelBuilder.Entity<SpecialMatch>().ToTable("tbs_special_match", "dbo");
 
             // ─── Prize Setting ────────────────────────────────────────────────────
 
