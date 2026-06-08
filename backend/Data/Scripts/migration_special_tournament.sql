@@ -61,7 +61,7 @@ BEGIN
         CONSTRAINT FK_special_participant_tournament FOREIGN KEY (tournament_id)
             REFERENCES dbo.tbs_special_tournament (id) ON DELETE CASCADE,
         CONSTRAINT FK_special_participant_group FOREIGN KEY (group_id)
-            REFERENCES dbo.tbs_special_group (id) ON DELETE SET NULL
+            REFERENCES dbo.tbs_special_group (id) ON DELETE NO ACTION
     );
     CREATE INDEX IX_special_participant_tournament ON dbo.tbs_special_participant (tournament_id);
     CREATE INDEX IX_special_participant_group ON dbo.tbs_special_participant (group_id);
@@ -93,7 +93,7 @@ BEGIN
         CONSTRAINT FK_special_match_tournament FOREIGN KEY (tournament_id)
             REFERENCES dbo.tbs_special_tournament (id) ON DELETE CASCADE,
         CONSTRAINT FK_special_match_group FOREIGN KEY (group_id)
-            REFERENCES dbo.tbs_special_group (id) ON DELETE SET NULL
+            REFERENCES dbo.tbs_special_group (id) ON DELETE NO ACTION
     );
     CREATE INDEX IX_special_match_tournament ON dbo.tbs_special_match (tournament_id);
     CREATE INDEX IX_special_match_group ON dbo.tbs_special_match (group_id);

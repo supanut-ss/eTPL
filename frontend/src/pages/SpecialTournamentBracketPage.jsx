@@ -5,76 +5,100 @@ import {
   Table, TableBody, TableCell, TableHead, TableRow, Button, Tabs, Tab,
   useTheme, useMediaQuery,
 } from "@mui/material";
-import { EmojiEvents, Groups, SportsSoccer, ArrowBack } from "@mui/icons-material";
+import { EmojiEvents, Groups, SportsSoccer, ArrowBack, CheckCircle, PlayArrow, HowToReg } from "@mui/icons-material";
 import { useSnackbar } from "notistack";
 import specialTournamentService from "../services/specialTournamentService";
 import SEO from "../components/SEO";
 
-// ─── Layout constants for TOP-DOWN bracket ──────────────────────────────────
-const CARD_W = 220;     // match card width
-const CARD_H = 96;      // match card height (2 rows × 44px + 8px gap)
-const ROW_GAP = 60;     // vertical gap between card rows in the same round level
-const COL_GAP = 40;     // horizontal gap between sibling cards in same round
-const LINE_W = 2;       // connector line thickness
+// ─── Layout constants for LEFT-TO-RIGHT bracket ──────────────────────────────
+const MATCH_HEIGHT = 103; 
+const BASE_GAP = 20;
+const BASE_SLOT_H = MATCH_HEIGHT + BASE_GAP; // 123 px
+const CARD_WIDTH = 210;
+const H_STUB = 20; // horizontal stub on each side of vertical connector
+const LINE_THICKNESS = 2;
+const JOIN_OVERLAP = 1;
+// Column width = card + stub + vertical + stub (right margin for bracket lines)
+const RIGHT_MARGIN = H_STUB + LINE_THICKNESS + H_STUB; // 42 px
+const COL_WIDTH = CARD_WIDTH + RIGHT_MARGIN; // 252 px
+// x of vertical connector line, relative to slot-Box left edge
+const VERT_X = CARD_WIDTH + H_STUB; 
 
 // Round label helper
 const roundLabel = (r) => {
-  if (r === 2)  return "รอบชิงชนะเลิศ";
-  if (r === 4)  return "รอบรองชนะเลิศ";
-  if (r === 8)  return "รอบก่อนรองชนะเลิศ";
-  if (r === 16) return "รอบ 16 ทีม";
-  if (r === 32) return "รอบ 32 ทีม";
-  if (r === 64) return "รอบ 64 ทีม";
-  return `รอบ ${r} ทีม`;
+  if (r === 2)  return "FINAL";
+  if (r === 4)  return "SEMIFINALS";
+  if (r === 8)  return "QUARTERFINALS";
+  if (r === 16) return "ROUND OF 16";
+  if (r === 32) return "ROUND OF 32";
+  if (r === 64) return "ROUND OF 64";
+  return `ROUND OF ${r}`;
 };
 
-// ─── Single Match Card ───────────────────────────────────────────────────────
+// ─── MatchCard ───────────────────────────────────────────────────────────────
 const MatchCard = ({ match }) => {
   if (!match) return null;
   const isHomeWinner = match.isPlayed && !match.isBye && match.homeScore > match.awayScore;
   const isAwayWinner = match.isPlayed && !match.isBye && match.awayScore > match.homeScore;
 
-  const playerRow = (name, teamName, logoUrl, isWinner, score, isBye) => (
+  const playerRow = (name, teamName, logoUrl, isWinner, score) => (
     <Box sx={{
-      px: 1.5, py: 0.75,
+      px: 2, py: 1.2,
+      height: 50,
       display: "flex", alignItems: "center", justifyContent: "space-between",
-      bgcolor: isWinner ? "rgba(99,102,241,0.08)" : "transparent",
-      transition: "background 0.2s",
+      bgcolor: isWinner ? "rgba(99, 102, 241, 0.06)" : "transparent",
+      transition: "background-color 0.2s ease",
     }}>
-      <Box display="flex" alignItems="center" gap={1} sx={{ overflow: "hidden", flex: 1 }}>
-        <Avatar src={logoUrl} sx={{ width: 24, height: 24, fontSize: 10, fontWeight: 700, bgcolor: isWinner ? "#6366f1" : "#94a3b8", flexShrink: 0 }}>
+      <Box display="flex" alignItems="center" gap={1.5} sx={{ overflow: "hidden", flex: 1 }}>
+        <Avatar src={logoUrl} sx={{ 
+          width: 26, 
+          height: 26, 
+          fontSize: 11, 
+          fontWeight: "bold", 
+          bgcolor: isWinner ? "#6366f1" : "#94a3b8", 
+          flexShrink: 0,
+          boxShadow: isWinner ? "0 2px 8px rgba(99, 102, 241, 0.25)" : "none"
+        }}>
           {(name || "?")[0]}
         </Avatar>
         <Box sx={{ overflow: "hidden" }}>
-          <Typography variant="caption" fontWeight={isWinner ? 800 : 600} noWrap
+          <Typography variant="body2" fontWeight={isWinner ? 800 : 600} noWrap
             sx={{ display: "block", color: isWinner ? "#6366f1" : "text.primary" }}>
             {name || "TBD"}
           </Typography>
           {teamName && <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block", fontSize: "0.65rem" }}>{teamName}</Typography>}
         </Box>
       </Box>
-      <Typography variant="body2" fontWeight={800} sx={{ color: isWinner ? "#6366f1" : "text.secondary", ml: 1, minWidth: 20, textAlign: "center" }}>
-        {isBye ? "—" : match.isPlayed ? score : "-"}
+      <Typography variant="body1" fontWeight="bold" sx={{ color: isWinner ? "#6366f1" : "text.secondary", ml: 1, minWidth: 20, textAlign: "center" }}>
+        {match.isPlayed ? score : "-"}
       </Typography>
     </Box>
   );
 
   return (
     <Paper elevation={match.isPlayed ? 3 : 1} sx={{
-      width: CARD_W,
-      borderRadius: 2.5,
+      width: CARD_WIDTH,
+      height: MATCH_HEIGHT,
+      borderRadius: 3.5,
       overflow: "hidden",
       border: "1px solid",
-      borderColor: match.isPlayed ? "rgba(99,102,241,0.25)" : "rgba(226,232,240,0.8)",
-      background: match.isBye ? "rgba(248,250,252,0.5)" : "white",
-      boxShadow: match.isPlayed
-        ? "0 4px 16px rgba(99,102,241,0.12)"
-        : "0 2px 8px rgba(0,0,0,0.04)",
-      transition: "all 0.2s",
-      "&:hover": { transform: "translateY(-2px)", boxShadow: "0 8px 24px rgba(0,0,0,0.1)" },
+      borderColor: match.isPlayed ? "rgba(99, 102, 241, 0.2)" : "rgba(226, 232, 240, 0.8)",
+      background: match.isBye 
+        ? "rgba(248, 250, 252, 0.6)" 
+        : "linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.95) 100%)",
+      boxShadow: match.isPlayed 
+        ? "0 4px 16px rgba(99, 102, 241, 0.08), inset 0 1px 0 rgba(255,255,255,1)" 
+        : "0 4px 12px rgba(0, 0, 0, 0.02), inset 0 1px 0 rgba(255,255,255,1)",
+      backdropFilter: "blur(10px)",
+      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+      "&:hover": {
+        transform: "translateY(-3px)",
+        borderColor: "rgba(99, 102, 241, 0.35)",
+        boxShadow: "0 10px 24px rgba(99, 102, 241, 0.15), inset 0 1px 0 rgba(255,255,255,1)",
+      },
     }}>
       {match.isBye ? (
-        <Box sx={{ p: 1.5, display: "flex", alignItems: "center", gap: 1, height: CARD_H }}>
+        <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1.5, height: "100%" }}>
           <Avatar src={match.homeLogoUrl} sx={{ width: 28, height: 28, bgcolor: "#6366f1", fontSize: 12 }}>{(match.homeDisplayName || "?")[0]}</Avatar>
           <Box>
             <Typography variant="body2" fontWeight={700}>{match.homeDisplayName}</Typography>
@@ -83,130 +107,236 @@ const MatchCard = ({ match }) => {
         </Box>
       ) : (
         <Box>
-          {playerRow(match.homeDisplayName, match.homeTeamName, match.homeLogoUrl, isHomeWinner, match.homeScore, false)}
+          {playerRow(match.homeDisplayName, match.homeTeamName, match.homeLogoUrl, isHomeWinner, match.homeScore)}
           <Divider />
-          {playerRow(match.awayDisplayName, match.awayTeamName, match.awayLogoUrl, isAwayWinner, match.awayScore, false)}
+          {playerRow(match.awayDisplayName, match.awayTeamName, match.awayLogoUrl, isAwayWinner, match.awayScore)}
         </Box>
       )}
     </Paper>
   );
 };
 
-// ─── Top-Down Bracket Renderer ───────────────────────────────────────────────
-// rounds = sorted array of round values from SMALLEST (Final=2) to LARGEST
-// so row 0 = Final (top), last row = first round (bottom)
-const TopDownBracket = ({ matches }) => {
-  const allRoundVals = [...new Set(matches.map(m => m.round))].sort((a, b) => a - b); // [2,4,8,16,...]
-  // Display order: final on top → early rounds at bottom
-  const rounds = allRoundVals; // [2, 4, 8, 16] — render top to bottom
-
-  // Champion: winner of round-2 match
-  const finalMatch = matches.find(m => m.round === 2);
-  const champion = finalMatch?.isPlayed
-    ? (finalMatch.homeScore > finalMatch.awayScore ? { name: finalMatch.homeDisplayName, logo: finalMatch.homeLogoUrl, team: finalMatch.homeTeamName } : { name: finalMatch.awayDisplayName, logo: finalMatch.awayLogoUrl, team: finalMatch.awayTeamName })
-    : null;
-
-  // Build rows: [round=2 row, round=4 row, ...]
-  // For layout: each subsequent round has 2× the cards, spread wider
-  const rows = rounds.map((r) => {
-    const roundMatches = matches.filter(m => m.round === r).sort((a, b) => a.matchNo - b.matchNo);
-    return { round: r, matches: roundMatches };
-  });
-
-  // Calculate total canvas width based on deepest row
-  const deepestRow = rows[rows.length - 1];
-  const deepestCount = deepestRow?.matches.length || 1;
-  const canvasWidth = deepestCount * CARD_W + (deepestCount - 1) * COL_GAP;
-
-  // Position of each card in each row: evenly spaced within canvasWidth
-  const getPositions = (count) => {
-    if (count === 1) return [(canvasWidth - CARD_W) / 2];
-    const spacing = canvasWidth / count;
-    return Array.from({ length: count }, (_, i) => i * spacing + (spacing - CARD_W) / 2);
-  };
-
-  // Total height: champion zone + rows + gaps
-  const totalHeight = 80 + rows.length * (CARD_H + ROW_GAP + 40);
+// ─── Left-to-Right Bracket Renderer ──────────────────────────────────────────
+const HorizontalBracket = ({ matches }) => {
+  const allRounds = [...new Set(matches.map(m => m.round))].sort((a, b) => b - a); // [16, 8, 4, 2] - largest to smallest (final=2)
 
   return (
-    <Box sx={{ overflowX: "auto", pb: 4 }}>
-      <Box sx={{ position: "relative", width: canvasWidth, mx: "auto", height: totalHeight }}>
-        {/* Champion Banner */}
-        {champion && (
-          <Box sx={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", textAlign: "center", width: 200 }}>
-            <EmojiEvents sx={{ fontSize: 40, color: "gold", filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.2))" }} />
-            <Box sx={{ mt: 0.5, p: 1, borderRadius: 2, bgcolor: "linear-gradient(135deg,#fef3c7,#fffbeb)", border: "1px solid #fde68a" }}>
-              <Avatar src={champion.logo} sx={{ width: 32, height: 32, mx: "auto", mb: 0.5, bgcolor: "#6366f1" }}>{champion.name[0]}</Avatar>
-              <Typography variant="caption" fontWeight={800} color="#d97706" display="block">{champion.name}</Typography>
-              {champion.team && <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>{champion.team}</Typography>}
+    <Box
+      sx={{
+        display: "flex",
+        overflowX: "auto",
+        pb: 8,
+        "&::-webkit-scrollbar": { height: 8 },
+        "&::-webkit-scrollbar-thumb": {
+          backgroundColor: "rgba(0,0,0,0.1)",
+          borderRadius: 4,
+        },
+      }}
+    >
+      {allRounds.map((roundVal, roundIndex) => {
+        const matchesInRound = matches.filter(m => m.round === roundVal);
+        const isFinal = roundVal === 2;
+        const slotH = BASE_SLOT_H * Math.pow(2, roundIndex);
+        const numSlots = roundVal / 2;
+        const slots = Array.from({ length: numSlots }, (_, i) => i + 1);
+
+        return (
+          <Box
+            key={roundVal}
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              width: COL_WIDTH,
+              flexShrink: 0,
+            }}
+          >
+            {/* Round label */}
+            <Box
+              sx={{
+                height: 48,
+                mb: 4,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: CARD_WIDTH,
+                background: isFinal
+                  ? "linear-gradient(145deg, #fffbeb 0%, #fef3c7 100%)"
+                  : "linear-gradient(145deg, #ffffff 0%, #f1f5f9 100%)",
+                borderRadius: "12px",
+                border: "1px solid",
+                borderColor: isFinal 
+                  ? "rgba(245, 158, 11, 0.3)" 
+                  : "rgba(226, 232, 240, 0.8)",
+                boxShadow: isFinal
+                  ? "0 4px 12px rgba(245, 158, 11, 0.15), inset 0 1px 1px rgba(255,255,255,0.8)"
+                  : "0 4px 12px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,1)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  transform: "translateY(-2px)",
+                  boxShadow: isFinal
+                    ? "0 6px 16px rgba(245, 158, 11, 0.2), inset 0 1px 1px rgba(255,255,255,0.9)"
+                    : "0 6px 16px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,1)",
+                }
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                fontWeight={800}
+                sx={{
+                  color: isFinal ? "#d97706" : "#64748b",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.15em",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
+                {isFinal && <EmojiEvents sx={{ fontSize: 18, color: "#d97706" }} />}
+                {isFinal ? "FINAL" : roundLabel(roundVal)}
+              </Typography>
             </Box>
-          </Box>
-        )}
 
-        {rows.map((row, rowIdx) => {
-          const positions = getPositions(row.matches.length);
-          const yTop = (champion ? 120 : 20) + rowIdx * (CARD_H + ROW_GAP + 40);
+            <Box sx={{ position: "relative" }}>
+              {slots.map((matchNo) => {
+                const match = matchesInRound.find(m => m.matchNo === matchNo);
+                const isBye = !match || match.isBye === true;
+                const isOdd = matchNo % 2 !== 0;
 
-          // Draw connector lines from this row's cards UP to the parent row
-          const parentRow = rowIdx > 0 ? rows[rowIdx - 1] : null;
-          const parentPositions = parentRow ? getPositions(parentRow.matches.length) : [];
+                const pairMatchNo = isOdd ? matchNo + 1 : matchNo - 1;
+                const pairMatch = matchesInRound.find(m => m.matchNo === pairMatchNo);
+                const pairIsBye = !pairMatch || pairMatch.isBye === true;
 
-          return (
-            <React.Fragment key={row.round}>
-              {/* Round label */}
-              <Box sx={{ position: "absolute", top: yTop - 28, left: 0, width: "100%", display: "flex", justifyContent: "center" }}>
-                <Chip
-                  label={roundLabel(row.round)}
-                  size="small"
-                  icon={row.round === 2 ? <EmojiEvents sx={{ fontSize: 14, color: "#d97706 !important" }} /> : undefined}
-                  sx={{
-                    fontWeight: 800, fontSize: "0.72rem", letterSpacing: "0.05em",
-                    bgcolor: row.round === 2 ? "rgba(245,158,11,0.1)" : "rgba(99,102,241,0.08)",
-                    color: row.round === 2 ? "#d97706" : "#6366f1",
-                    border: "1px solid", borderColor: row.round === 2 ? "rgba(245,158,11,0.3)" : "rgba(99,102,241,0.2)",
-                  }}
-                />
-              </Box>
+                let lineStart = 0,
+                  lineEnd = 0,
+                  exitAbsY = 0,
+                  showConnector = false;
 
-              {/* Connector lines from this row up to parent */}
-              {parentRow && row.matches.map((m, mIdx) => {
-                const myX = positions[mIdx] + CARD_W / 2;
-                const myY = yTop;  // top of this card
-                const parentIdx = Math.floor(mIdx / 2);
-                const parentX = parentPositions[parentIdx] + CARD_W / 2;
-                const parentY = yTop - (ROW_GAP + 40) + CARD_H; // bottom of parent card
+                if (isOdd) {
+                  const bothBye = isBye && pairIsBye;
+                  if (!bothBye) {
+                    showConnector = true;
+                    if (!isBye && !pairIsBye) {
+                      // Case A
+                      lineStart = slotH / 2;
+                      lineEnd = slotH * 1.5;
+                      exitAbsY = slotH;
+                    } else if (!isBye && pairIsBye) {
+                      // Case B — odd real, even bye
+                      lineStart = slotH / 2;
+                      lineEnd = slotH;
+                      exitAbsY = slotH;
+                    } else {
+                      // Case C — odd bye, even real
+                      lineStart = slotH;
+                      lineEnd = slotH * 1.5;
+                      exitAbsY = slotH;
+                    }
+                  }
+                }
 
-                // Vertical line from parentY (bottom of parent) down to midpoint
-                // Then horizontal line to myX, then vertical down to myY
-                const midY = parentY + (myY - parentY) / 2;
+                const lineHeight = lineEnd - lineStart;
+                const exitOffsetY = exitAbsY - lineStart;
 
                 return (
-                  <svg key={`line-${m.id}`} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", overflow: "visible" }}>
-                    <path
-                      d={`M ${parentX} ${parentY} L ${parentX} ${midY} L ${myX} ${midY} L ${myX} ${myY}`}
-                      stroke="rgba(148,163,184,0.6)" strokeWidth={LINE_W} fill="none"
-                      strokeDasharray={m.isPlayed ? "none" : "4,3"}
-                    />
-                  </svg>
+                  <Box
+                    key={matchNo}
+                    sx={{
+                      height: slotH,
+                      position: "relative",
+                      width: COL_WIDTH,
+                    }}
+                  >
+                    {/* Match card */}
+                    {!isBye && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          top: (slotH - MATCH_HEIGHT) / 2,
+                          left: 0,
+                          width: CARD_WIDTH,
+                        }}
+                      >
+                        <MatchCard match={match} />
+                      </Box>
+                    )}
+
+                    {isFinal && matchNo === 1 && (
+                      <EmojiEvents
+                        sx={{
+                          position: "absolute",
+                          left: CARD_WIDTH / 2,
+                          top: Math.max(8, (slotH - MATCH_HEIGHT) / 2 - 72),
+                          transform: "translateX(-50%)",
+                          fontSize: 64,
+                          color: "gold",
+                          filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.15))",
+                          zIndex: 2,
+                        }}
+                      />
+                    )}
+
+                    {/* Right-side bracket lines */}
+                    {!isFinal && (
+                      <>
+                        {/* Outbound stub: card right → vertical connector (real cards only) */}
+                        {!isBye && (
+                          <Box
+                            sx={{
+                              position: "absolute",
+                              left: CARD_WIDTH,
+                              top: `calc(50% - ${LINE_THICKNESS / 2}px)`,
+                              width: H_STUB + JOIN_OVERLAP,
+                              height: `${LINE_THICKNESS}px`,
+                              bgcolor: "grey.400",
+                              zIndex: 1,
+                            }}
+                          />
+                        )}
+
+                        {/* Vertical connector + exit stub (odd slot only) */}
+                        {showConnector && (
+                          <Box
+                            sx={{
+                              position: "absolute",
+                              left: VERT_X,
+                              top: lineStart, // relative to this slot's top
+                              width: `${LINE_THICKNESS}px`,
+                              height: lineHeight,
+                              bgcolor: "grey.400",
+                              zIndex: 0,
+                            }}
+                          >
+                            {/* Exit stub toward next round at exitAbsY */}
+                            <Box
+                              sx={{
+                                position: "absolute",
+                                left: LINE_THICKNESS - JOIN_OVERLAP,
+                                top: exitOffsetY - LINE_THICKNESS / 2,
+                                width: H_STUB + JOIN_OVERLAP,
+                                height: `${LINE_THICKNESS}px`,
+                                bgcolor: "grey.400",
+                              }}
+                            />
+                          </Box>
+                        )}
+                      </>
+                    )}
+                  </Box>
                 );
               })}
-
-              {/* Match cards */}
-              {row.matches.map((m, mIdx) => (
-                <Box key={m.id} sx={{ position: "absolute", top: yTop, left: positions[mIdx] }}>
-                  <MatchCard match={m} />
-                </Box>
-              ))}
-            </React.Fragment>
-          );
-        })}
-      </Box>
+            </Box>
+          </Box>
+        );
+      })}
     </Box>
   );
 };
 
 // ─── Group Standings Table ────────────────────────────────────────────────────
 const GroupStandings = ({ group, participants, matches, advanceCount }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
   const standings = participants.map(p => {
     let w = 0, d = 0, l = 0, gf = 0, ga = 0;
     matches.forEach(m => {
@@ -222,47 +352,78 @@ const GroupStandings = ({ group, participants, matches, advanceCount }) => {
   }).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
 
   return (
-    <Box>
+    <Box sx={{ p: 0.5 }}>
       <Box sx={{ overflowX: "auto" }}>
-        <Table size="small">
+        <Table size="small" sx={{ minWidth: { xs: 300, sm: 380 } }}>
           <TableHead>
-            <TableRow sx={{ bgcolor: "#f8fafc" }}>
-              <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem", pl: 1 }}>#</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem" }}>ทีม</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>W</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>D</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>L</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>GF</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>GA</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>GD</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 800, fontSize: "0.75rem", color: "#6366f1" }}>PTS</TableCell>
+            <TableRow sx={{ bgcolor: "rgba(99, 102, 241, 0.04)" }}>
+              <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", pl: { xs: 1, sm: 2 }, pr: { xs: 0.5, sm: 1.5 }, color: "text.secondary" }}>#</TableCell>
+              <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", px: { xs: 0.5, sm: 1.5 }, color: "text.secondary" }}>Team</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 800, fontSize: "0.75rem", px: { xs: 0.5, sm: 1.5 }, color: "text.secondary" }}>W</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 800, fontSize: "0.75rem", px: { xs: 0.5, sm: 1.5 }, color: "text.secondary" }}>D</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 800, fontSize: "0.75rem", px: { xs: 0.5, sm: 1.5 }, color: "text.secondary" }}>L</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 800, fontSize: "0.75rem", px: { xs: 0.5, sm: 1.5 }, color: "text.secondary" }}>GF</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 800, fontSize: "0.75rem", px: { xs: 0.5, sm: 1.5 }, color: "text.secondary" }}>GA</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 800, fontSize: "0.75rem", px: { xs: 0.5, sm: 1.5 }, color: "text.secondary" }}>GD</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 900, fontSize: "0.75rem", px: { xs: 0.5, sm: 1.5 }, color: "#6366f1" }}>PTS</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {standings.map((p, idx) => {
               const isAdvancing = idx < advanceCount;
               return (
-                <TableRow key={p.id} sx={{ bgcolor: isAdvancing ? "rgba(99,102,241,0.04)" : "transparent" }}>
-                  <TableCell sx={{ pl: 1, fontSize: "0.8rem", fontWeight: isAdvancing ? 800 : 400, color: isAdvancing ? "#6366f1" : "text.secondary" }}>{idx + 1}</TableCell>
-                  <TableCell>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Avatar src={p.logoUrl} sx={{ width: 22, height: 22, fontSize: 10, bgcolor: isAdvancing ? "#6366f1" : "#94a3b8" }}>{p.displayName[0]}</Avatar>
-                      <Box>
-                        <Typography variant="body2" fontWeight={isAdvancing ? 700 : 500}>{p.displayName}</Typography>
-                        {p.teamName && <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>{p.teamName}</Typography>}
+                <TableRow 
+                  key={p.id} 
+                  sx={{ 
+                    bgcolor: isAdvancing ? "rgba(99, 102, 241, 0.02)" : "transparent",
+                    transition: "all 0.2s ease",
+                    "&:hover": {
+                      bgcolor: isAdvancing ? "rgba(99, 102, 241, 0.06)" : "rgba(0, 0, 0, 0.02)",
+                    }
+                  }}
+                >
+                  <TableCell sx={{ pl: { xs: 1, sm: 2 }, pr: { xs: 0.5, sm: 1.5 }, fontSize: "0.8rem", fontWeight: isAdvancing ? 800 : 400, color: isAdvancing ? "#6366f1" : "text.secondary" }}>{idx + 1}</TableCell>
+                  <TableCell sx={{ px: { xs: 0.5, sm: 1.5 } }}>
+                    <Box display="flex" alignItems="center" gap={isMobile ? 0.75 : 1.2}>
+                      <Avatar src={p.logoUrl} sx={{ 
+                        width: isMobile ? 20 : 24, 
+                        height: isMobile ? 20 : 24, 
+                        fontSize: isMobile ? 9 : 10, 
+                        bgcolor: isAdvancing ? "#6366f1" : "#94a3b8",
+                        boxShadow: isAdvancing ? "0 2px 6px rgba(99, 102, 241, 0.2)" : "none"
+                      }}>
+                        {p.displayName[0]}
+                      </Avatar>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={isAdvancing ? 700 : 500} noWrap sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}>{p.displayName}</Typography>
+                        {p.teamName && <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.6rem", display: "block" }} noWrap>{p.teamName}</Typography>}
                       </Box>
-                      {isAdvancing && <Chip label="ผ่าน" size="small" sx={{ height: 16, fontSize: "0.6rem", bgcolor: "rgba(99,102,241,0.1)", color: "#6366f1", ml: 0.5 }} />}
+                      {isAdvancing && (
+                        <Chip 
+                          label={isMobile ? "ADV" : "ADVANCED"} 
+                          size="small" 
+                          sx={{ 
+                            height: 14, 
+                            fontSize: "0.5rem", 
+                            fontWeight: 850,
+                            bgcolor: "rgba(34, 197, 94, 0.1)", 
+                            color: "#22c55e", 
+                            ml: 0.5,
+                            letterSpacing: "0.05em"
+                          }} 
+                        />
+                      )}
                     </Box>
                   </TableCell>
-                  <TableCell align="center" sx={{ fontSize: "0.8rem", fontWeight: 600, color: "success.main" }}>{p.w}</TableCell>
-                  <TableCell align="center" sx={{ fontSize: "0.8rem" }}>{p.d}</TableCell>
-                  <TableCell align="center" sx={{ fontSize: "0.8rem", color: "error.main" }}>{p.l}</TableCell>
-                  <TableCell align="center" sx={{ fontSize: "0.8rem" }}>{p.gf}</TableCell>
-                  <TableCell align="center" sx={{ fontSize: "0.8rem" }}>{p.ga}</TableCell>
-                  <TableCell align="center" sx={{ fontSize: "0.8rem", color: p.gd > 0 ? "success.main" : p.gd < 0 ? "error.main" : "text.secondary" }}>
+                  <TableCell align="center" sx={{ px: { xs: 0.5, sm: 1.5 }, fontSize: "0.8rem", fontWeight: 600, color: "success.main" }}>{p.w}</TableCell>
+                  <TableCell align="center" sx={{ px: { xs: 0.5, sm: 1.5 }, fontSize: "0.8rem" }}>{p.d}</TableCell>
+                  <TableCell align="center" sx={{ px: { xs: 0.5, sm: 1.5 }, fontSize: "0.8rem", color: "error.main" }}>{p.l}</TableCell>
+                  <TableCell align="center" sx={{ px: { xs: 0.5, sm: 1.5 }, fontSize: "0.8rem" }}>{p.gf}</TableCell>
+                  <TableCell align="center" sx={{ px: { xs: 0.5, sm: 1.5 }, fontSize: "0.8rem" }}>{p.ga}</TableCell>
+                  <TableCell align="center" sx={{ px: { xs: 0.5, sm: 1.5 }, fontSize: "0.8rem", color: p.gd > 0 ? "success.main" : p.gd < 0 ? "error.main" : "text.secondary" }}>
                     {p.gd > 0 ? `+${p.gd}` : p.gd}
                   </TableCell>
-                  <TableCell align="center" sx={{ fontSize: "0.9rem", fontWeight: 900, color: "#6366f1" }}>{p.pts}</TableCell>
+                  <TableCell align="center" sx={{ px: { xs: 0.5, sm: 1.5 }, fontSize: "0.9rem", fontWeight: 900, color: "#6366f1" }}>{p.pts}</TableCell>
                 </TableRow>
               );
             })}
@@ -270,18 +431,37 @@ const GroupStandings = ({ group, participants, matches, advanceCount }) => {
         </Table>
       </Box>
 
-      <Divider sx={{ my: 1.5 }} />
-      <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" px={1} mb={1}>ผลการแข่งขัน</Typography>
-      <Box px={1} pb={1}>
+      <Divider sx={{ my: 2 }} />
+      <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" px={2} mb={1} sx={{ letterSpacing: "0.05em", textTransform: "uppercase" }}>Match Results</Typography>
+      <Box px={2} pb={2}>
         {matches.map(m => (
-          <Box key={m.id} sx={{ display: "flex", alignItems: "center", py: 0.75, px: 1, borderRadius: 1.5, mb: 0.5, bgcolor: m.isPlayed ? "rgba(99,102,241,0.04)" : "#fafafa", border: "1px solid", borderColor: m.isPlayed ? "rgba(99,102,241,0.15)" : "divider" }}>
-            <Typography variant="caption" fontWeight={600} sx={{ flex: 1, textAlign: "right", mr: 1 }} noWrap>{m.homeDisplayName}</Typography>
-            <Box sx={{ px: 1.5, py: 0.4, borderRadius: 1, bgcolor: m.isPlayed ? "#6366f1" : "#e2e8f0", minWidth: 52, textAlign: "center" }}>
+          <Box 
+            key={m.id} 
+            sx={{ 
+              display: "flex", 
+              alignItems: "center", 
+              py: 1, 
+              px: 1.5, 
+              borderRadius: 2, 
+              mb: 0.75, 
+              bgcolor: m.isPlayed ? "rgba(99, 102, 241, 0.03)" : "rgba(255,255,255,0.4)", 
+              border: "1px solid", 
+              borderColor: m.isPlayed ? "rgba(99, 102, 241, 0.12)" : "rgba(226, 232, 240, 0.6)", 
+              transition: "all 0.2s ease",
+              "&:hover": { 
+                transform: "translateY(-1px)", 
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.02)", 
+                borderColor: "rgba(99, 102, 241, 0.25)" 
+              } 
+            }}
+          >
+            <Typography variant="caption" fontWeight={600} sx={{ flex: 1, textAlign: "right", mr: 1.5, color: "text.primary" }} noWrap>{m.homeDisplayName}</Typography>
+            <Box sx={{ px: 1.5, py: 0.4, borderRadius: 1.5, bgcolor: m.isPlayed ? "#6366f1" : "rgba(226,232,240,0.8)", minWidth: 52, textAlign: "center", boxShadow: m.isPlayed ? "0 2px 6px rgba(99,102,241,0.2)" : "none" }}>
               <Typography variant="caption" fontWeight={800} color={m.isPlayed ? "white" : "text.secondary"}>
                 {m.isPlayed ? `${m.homeScore} - ${m.awayScore}` : "vs"}
               </Typography>
             </Box>
-            <Typography variant="caption" fontWeight={600} sx={{ flex: 1, textAlign: "left", ml: 1 }} noWrap>{m.awayDisplayName}</Typography>
+            <Typography variant="caption" fontWeight={600} sx={{ flex: 1, textAlign: "left", ml: 1.5, color: "text.primary" }} noWrap>{m.awayDisplayName}</Typography>
           </Box>
         ))}
       </Box>
@@ -307,9 +487,9 @@ const SpecialTournamentBracketPage = () => {
       setData(res.data?.data || null);
     } catch (e) {
       if (e.response?.status === 403) {
-        enqueueSnackbar("รายการนี้ยังไม่เปิดเผยสู่สาธารณะ", { variant: "warning" });
+        enqueueSnackbar("This tournament has not been published to the public yet.", { variant: "warning" });
       } else {
-        enqueueSnackbar("โหลดข้อมูลไม่สำเร็จ", { variant: "error" });
+        enqueueSnackbar("Failed to load tournament data.", { variant: "error" });
       }
     } finally {
       setLoading(false);
@@ -326,7 +506,7 @@ const SpecialTournamentBracketPage = () => {
 
   if (!data) return (
     <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-      <Typography color="text.secondary">ไม่พบรายการแข่งขัน</Typography>
+      <Typography color="text.secondary">Tournament not found.</Typography>
     </Box>
   );
 
@@ -346,21 +526,37 @@ const SpecialTournamentBracketPage = () => {
     : null;
 
   const tabLabels = isGroupKnockout
-    ? ["กลุ่มแข่งขัน", "Knockout Bracket"]
+    ? ["Group Stage", "Knockout Bracket"]
     : ["Bracket"];
 
   return (
     <Box sx={{ width: "100%", bgcolor: "background.default", minHeight: "100vh" }}>
       <SEO
         title={`${tournament.name} | Special Tournament | eTPL`}
-        description={tournament.description || `สายการแข่งขัน ${tournament.name}`}
+        description={tournament.description || `Match tree and standings for ${tournament.name}`}
         keywords={`Special Tournament, ${tournament.name}, eTPL`}
       />
 
       {/* Header */}
       <Box sx={{ mb: 4 }}>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)} sx={{ mb: 2, color: "text.secondary" }} size="small">
-          กลับ
+        <Button 
+          startIcon={<ArrowBack />} 
+          onClick={() => navigate(-1)} 
+          sx={{ 
+            mb: 2, 
+            color: "text.secondary",
+            fontWeight: 600,
+            textTransform: "none",
+            "&:hover": {
+              color: "primary.main",
+              bgcolor: "rgba(99, 102, 241, 0.04)",
+              transform: "translateX(-4px)",
+            },
+            transition: "all 0.2s ease"
+          }} 
+          size="small"
+        >
+          Back
         </Button>
         <Box display="flex" alignItems="flex-start" justifyContent="space-between" flexWrap="wrap" gap={2}>
           <Box display="flex" alignItems="center" gap={2}>
@@ -373,21 +569,68 @@ const SpecialTournamentBracketPage = () => {
                 <Typography variant="body2" color="text.secondary">{tournament.description}</Typography>
               )}
               <Box display="flex" gap={1} mt={0.5} flexWrap="wrap">
-                <Chip label={isGroupKnockout ? "Group Stage + Knockout" : "Knockout"} size="small"
-                  sx={{ bgcolor: "rgba(99,102,241,0.1)", color: "#6366f1", fontWeight: 700, fontSize: "0.7rem" }} />
-                <Chip label={tournament.status === "completed" ? "จบแล้ว" : tournament.status === "ongoing" ? "กำลังแข่งขัน" : "ลงทะเบียน"} size="small"
-                  sx={{ fontWeight: 700, fontSize: "0.7rem" }} color={tournament.status === "completed" ? "success" : tournament.status === "ongoing" ? "primary" : "default"} />
-                <Chip label={`${participants.length} ทีม`} size="small" icon={<Groups sx={{ fontSize: 13 }} />} sx={{ fontWeight: 600, fontSize: "0.7rem" }} />
+                <Chip 
+                  label={isGroupKnockout ? "Group Stage + Knockout" : "Knockout"} 
+                  size="small"
+                  sx={{ bgcolor: "rgba(99,102,241,0.1)", color: "#6366f1", fontWeight: 700, fontSize: "0.7rem" }} 
+                />
+                <Chip 
+                  label={
+                    tournament.status === "completed" 
+                      ? "Completed" 
+                      : tournament.status === "ongoing" 
+                      ? "Ongoing" 
+                      : "Registration"
+                  } 
+                  size="small"
+                  icon={
+                    tournament.status === "completed" 
+                      ? <CheckCircle sx={{ fontSize: 13 }} /> 
+                      : tournament.status === "ongoing" 
+                      ? <PlayArrow sx={{ fontSize: 13 }} /> 
+                      : <HowToReg sx={{ fontSize: 13 }} />
+                  }
+                  sx={{ fontWeight: 700, fontSize: "0.7rem", px: 0.5 }} 
+                  color={
+                    tournament.status === "completed" 
+                      ? "success" 
+                      : tournament.status === "ongoing" 
+                      ? "primary" 
+                      : "default"
+                  } 
+                />
+                <Chip 
+                  label={`${participants.length} Teams`} 
+                  size="small" 
+                  icon={<Groups sx={{ fontSize: 13 }} />} 
+                  sx={{ fontWeight: 600, fontSize: "0.7rem" }} 
+                />
               </Box>
             </Box>
           </Box>
 
           {/* Champion badge */}
           {champion && (
-            <Paper elevation={0} sx={{ p: 2, borderRadius: 3, border: "1px solid rgba(245,158,11,0.3)", background: "linear-gradient(135deg,#fffbeb,#fef3c7)", display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Paper 
+              elevation={0} 
+              sx={{ 
+                p: 2, 
+                borderRadius: 4, 
+                border: "1px solid rgba(245, 158, 11, 0.35)", 
+                background: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)", 
+                boxShadow: "0 10px 25px rgba(245, 158, 11, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.9)",
+                display: "flex", 
+                alignItems: "center", 
+                gap: 1.5,
+                transition: "transform 0.3s ease",
+                "&:hover": {
+                  transform: "scale(1.03) rotate(1deg)",
+                }
+              }}
+            >
               <EmojiEvents sx={{ color: "gold", fontSize: 32, filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.15))" }} />
               <Box>
-                <Typography variant="caption" fontWeight={700} color="#d97706" display="block">🏆 แชมป์</Typography>
+                <Typography variant="caption" fontWeight={850} color="#d97706" display="block" sx={{ letterSpacing: "0.05em", textTransform: "uppercase" }}>🏆 CHAMPION</Typography>
                 <Typography variant="body1" fontWeight={900} color="#92400e">{champion}</Typography>
               </Box>
             </Paper>
@@ -397,8 +640,31 @@ const SpecialTournamentBracketPage = () => {
 
       {/* Tabs (only if group_knockout) */}
       {isGroupKnockout && (
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, borderBottom: "1px solid", borderColor: "divider" }}>
-          <Tab label="กลุ่มแข่งขัน" icon={<Groups sx={{ fontSize: 18 }} />} iconPosition="start" />
+        <Tabs 
+          value={tab} 
+          onChange={(_, v) => setTab(v)} 
+          variant={isMobile ? "scrollable" : "standard"}
+          scrollButtons={isMobile ? "auto" : undefined}
+          allowScrollButtonsMobile
+          sx={{ 
+            mb: 4, 
+            borderBottom: "1px solid", 
+            borderColor: "divider",
+            "& .MuiTab-root": {
+              fontWeight: 700,
+              fontSize: isMobile ? "0.75rem" : "0.85rem",
+              textTransform: "none",
+              color: "text.secondary",
+              transition: "all 0.2s ease",
+              minWidth: isMobile ? "auto" : 90,
+              px: isMobile ? 1.5 : 3,
+              "&.Mui-selected": {
+                color: "primary.main",
+              }
+            }
+          }}
+        >
+          <Tab label="Group Stage" icon={<Groups sx={{ fontSize: 18 }} />} iconPosition="start" />
           <Tab label="Knockout Bracket" icon={<EmojiEvents sx={{ fontSize: 18 }} />} iconPosition="start" />
         </Tabs>
       )}
@@ -407,9 +673,18 @@ const SpecialTournamentBracketPage = () => {
       {(!isGroupKnockout || tab === 0) && isGroupKnockout && (
         <Box>
           {groups.length === 0 ? (
-            <Paper sx={{ p: 5, textAlign: "center", borderRadius: 3 }}>
-              <Groups sx={{ fontSize: 48, color: "text.disabled", mb: 1 }} />
-              <Typography color="text.secondary">ยังไม่ได้สร้างกลุ่มการแข่งขัน</Typography>
+            <Paper 
+              sx={{ 
+                p: 6, 
+                textAlign: "center", 
+                borderRadius: 4,
+                background: "rgba(255,255,255,0.4)",
+                backdropFilter: "blur(10px)",
+                border: "1px dashed rgba(226, 232, 240, 1)"
+              }}
+            >
+              <Groups sx={{ fontSize: 56, color: "text.disabled", mb: 2 }} />
+              <Typography color="text.secondary" fontWeight={500}>Group stage has not been generated yet.</Typography>
             </Paper>
           ) : (
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
@@ -417,12 +692,40 @@ const SpecialTournamentBracketPage = () => {
                 const gParticipants = participants.filter(p => p.groupId === group.id);
                 const gMatches = groupMatches.filter(m => m.groupId === group.id);
                 return (
-                  <Paper key={group.id} elevation={0} sx={{ borderRadius: 3, border: "1px solid", borderColor: "divider", overflow: "hidden", flex: "1 1 420px", minWidth: { xs: "100%", md: 400 } }}>
-                    <Box sx={{ px: 2.5, py: 1.5, background: "linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.08))", borderBottom: "1px solid", borderColor: "divider", display: "flex", alignItems: "center", gap: 1.5 }}>
-                      <Box sx={{ width: 32, height: 32, borderRadius: "8px", bgcolor: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Paper 
+                    key={group.id} 
+                    elevation={0} 
+                    sx={{ 
+                      borderRadius: 4, 
+                      border: "1px solid rgba(226, 232, 240, 0.8)", 
+                      overflow: "hidden", 
+                      flex: "1 1 420px", 
+                      minWidth: { xs: "100%", md: 400 },
+                      background: "linear-gradient(135deg, rgba(255, 255, 255, 0.75) 0%, rgba(248, 250, 252, 0.6) 100%)",
+                      backdropFilter: "blur(20px)",
+                      boxShadow: "0 10px 30px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,1)",
+                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                      "&:hover": {
+                        borderColor: "rgba(99, 102, 241, 0.25)",
+                        boxShadow: "0 12px 36px rgba(99, 102, 241, 0.08), inset 0 1px 0 rgba(255,255,255,1)"
+                      }
+                    }}
+                  >
+                    <Box 
+                      sx={{ 
+                        px: 2.5, 
+                        py: 2, 
+                        background: "linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08))", 
+                        borderBottom: "1px solid rgba(226, 232, 240, 0.8)", 
+                        display: "flex", 
+                        alignItems: "center", 
+                        gap: 1.5 
+                      }}
+                    >
+                      <Box sx={{ width: 32, height: 32, borderRadius: "8px", bgcolor: "#6366f1", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(99,102,241,0.25)" }}>
                         <Typography fontWeight={900} color="white" fontSize="0.9rem">{group.groupName}</Typography>
                       </Box>
-                      <Typography variant="subtitle1" fontWeight={800}>กลุ่ม {group.groupName}</Typography>
+                      <Typography variant="subtitle1" fontWeight={800}>Group {group.groupName}</Typography>
                     </Box>
                     <GroupStandings group={group} participants={gParticipants} matches={gMatches} advanceCount={advanceCount} />
                   </Paper>
@@ -437,14 +740,23 @@ const SpecialTournamentBracketPage = () => {
       {(!isGroupKnockout || tab === 1) && (
         <Box>
           {koMatches.length === 0 ? (
-            <Paper sx={{ p: 5, textAlign: "center", borderRadius: 3 }}>
-              <EmojiEvents sx={{ fontSize: 48, color: "text.disabled", mb: 1 }} />
-              <Typography color="text.secondary">ยังไม่ได้สร้าง Knockout Bracket</Typography>
+            <Paper 
+              sx={{ 
+                p: 6, 
+                textAlign: "center", 
+                borderRadius: 4,
+                background: "rgba(255,255,255,0.4)",
+                backdropFilter: "blur(10px)",
+                border: "1px dashed rgba(226, 232, 240, 1)"
+              }}
+            >
+              <EmojiEvents sx={{ fontSize: 56, color: "text.disabled", mb: 2 }} />
+              <Typography color="text.secondary" fontWeight={500}>Knockout bracket has not been generated yet.</Typography>
             </Paper>
           ) : (
             <Box>
-              {/* Top-down bracket */}
-              <TopDownBracket matches={koMatches} />
+              {/* Horizontal bracket */}
+              <HorizontalBracket matches={koMatches} />
             </Box>
           )}
         </Box>

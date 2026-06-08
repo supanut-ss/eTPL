@@ -411,13 +411,25 @@ namespace eTPL.API.Controllers
             }
             await _context.SaveChangesAsync();
 
-            // Assign participants to groups (snake-draft / round-robin seeding)
+            // Assign participants to groups using pot-based seeding (draw pots)
             var rng = new Random();
-            var shuffled = participants.OrderBy(_ => rng.Next()).ToList();
-            for (int i = 0; i < shuffled.Count; i++)
+            var chunks = participants
+                .Select((p, idx) => new { p, idx })
+                .GroupBy(x => x.idx / groupCount)
+                .Select(g => g.Select(x => x.p).ToList())
+                .ToList();
+
+            foreach (var chunk in chunks)
             {
-                shuffled[i].GroupId = groups[i % groupCount].Id;
-                _context.SpecialParticipants.Update(shuffled[i]);
+                // Shuffle participants within the current pot (chunk)
+                var shuffledChunk = chunk.OrderBy(_ => rng.Next()).ToList();
+                // Shuffle groups to distribute participants from this pot to unique groups
+                var shuffledGroups = groups.OrderBy(_ => rng.Next()).ToList();
+                for (int i = 0; i < shuffledChunk.Count; i++)
+                {
+                    shuffledChunk[i].GroupId = shuffledGroups[i].Id;
+                    _context.SpecialParticipants.Update(shuffledChunk[i]);
+                }
             }
             await _context.SaveChangesAsync();
 
@@ -549,22 +561,25 @@ namespace eTPL.API.Controllers
 
             if (phase == "group" || phase == "all")
             {
-                var groupMatches = await _context.SpecialMatches
-                    .Where(m => m.TournamentId == id && m.Phase == "group")
-                    .ToListAsync();
-                _context.SpecialMatches.RemoveRange(groupMatches);
-
-                var groups = await _context.SpecialGroups
-                    .Where(g => g.TournamentId == id)
-                    .ToListAsync();
-                _context.SpecialGroups.RemoveRange(groups);
-
-                // Clear group assignment from participants
+                // Clear group assignment from participants first to avoid FK constraint violations
                 var participants = await _context.SpecialParticipants
                     .Where(p => p.TournamentId == id)
                     .ToListAsync();
                 participants.ForEach(p => { p.GroupId = null; p.IsEliminated = false; });
                 _context.SpecialParticipants.UpdateRange(participants);
+
+                var groupMatches = await _context.SpecialMatches
+                    .Where(m => m.TournamentId == id && m.Phase == "group")
+                    .ToListAsync();
+                _context.SpecialMatches.RemoveRange(groupMatches);
+
+                // Save changes to clear references and delete matches in SQL Server
+                await _context.SaveChangesAsync();
+
+                var groups = await _context.SpecialGroups
+                    .Where(g => g.TournamentId == id)
+                    .ToListAsync();
+                _context.SpecialGroups.RemoveRange(groups);
             }
 
             tournament.Status = "registration";
