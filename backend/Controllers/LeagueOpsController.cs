@@ -305,6 +305,18 @@ namespace eTPL.API.Controllers
             return Ok(new { message = "History deleted" });
         }
 
+        [HttpDelete("cycle/{id}")]
+        public async Task<IActionResult> DeleteCycle(int id)
+        {
+            var cycle = await _context.LeagueCycles.FindAsync(id);
+            if (cycle == null) return NotFound(new { message = "Cycle not found" });
+
+            _context.LeagueCycles.Remove(cycle);
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Cycle deleted successfully" });
+        }
+
+
         [HttpPost("batch-apply")]
         public async Task<IActionResult> ApplyBatchResults([FromBody] BatchApplyRequest request)
         {

@@ -14,6 +14,7 @@ const leagueOpsService = {
     }),
   getJudgeHistory: (cycleId) => api.get(`/api/leagueops/history/${cycleId}`),
   deleteJudgeHistory: (id) => api.delete(`/api/leagueops/history/${id}`),
+  deleteCycle: (id) => api.delete(`/api/leagueops/cycle/${id}`),
   addCheckin: (data) => api.post("/api/leagueops/checkin", data),
   getUserCheckinStatus: () => api.get("/api/leagueops/user-checkin-status"),
   userCheckin: () => api.post("/api/leagueops/user-checkin"),

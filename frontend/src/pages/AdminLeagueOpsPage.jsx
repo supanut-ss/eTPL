@@ -62,6 +62,7 @@ import {
   Delete,
   CalendarMonth,
   Person,
+  Add,
 } from "@mui/icons-material";
 import leagueOpsService from "../services/leagueOpsService";
 import { getFixtures } from "../api/fixtureApi";
@@ -273,9 +274,11 @@ const AdminLeagueOpsPage = () => {
       const currentCycle = cycles.find((c) => c && c.id == selectedCycleId);
       
       // Decouple requests to ensure one failure doesn't block others
-      const [statsRes, matchesRes, previewRes] = await Promise.allSettled([
+      // Fetch fixtures for both D1 and D2 to ensure all matches are available in the Review & Judge dialog
+      const [statsRes, matchesD1Res, matchesD2Res, previewRes] = await Promise.allSettled([
         leagueOpsService.getCycleStats(selectedCycleId),
-        getFixtures(),
+        getFixtures({ division: "D1" }),
+        getFixtures({ division: "D2" }),
         leagueOpsService.getAutoJudgePreview(selectedCycleId),
       ]);
 
@@ -316,9 +319,15 @@ const AdminLeagueOpsPage = () => {
         setPreviewResults(suggestions);
       }
 
-      // Process Matches
-      if (currentCycle && matchesRes.status === "fulfilled") {
-        const allMatches = matchesRes.value?.data?.data || matchesRes.value?.data || [];
+      // Process Matches — combine D1 + D2 fixtures
+      if (currentCycle) {
+        const d1Matches = matchesD1Res.status === "fulfilled"
+          ? (matchesD1Res.value?.data?.data || matchesD1Res.value?.data || [])
+          : [];
+        const d2Matches = matchesD2Res.status === "fulfilled"
+          ? (matchesD2Res.value?.data?.data || matchesD2Res.value?.data || [])
+          : [];
+        const allMatches = [...d1Matches, ...d2Matches];
         const filtered = allMatches.filter((m) => {
           if (!m) return false;
           const mNo = parseInt(m.match || m.matchNo);
@@ -400,68 +409,105 @@ const AdminLeagueOpsPage = () => {
   }, [stats]);
 
   const handleOpenConfig = () => {
-    if (currentCycle) {
-      setConfigData({
-        id: currentCycle.id,
-        cycleName: currentCycle.cycleName || "",
-        startDate: currentCycle.startDate
-          ? currentCycle.startDate.split("T")[0]
-          : "",
-        endDate: currentCycle.endDate ? currentCycle.endDate.split("T")[0] : "",
-        matchTarget: currentCycle.matchTarget || 12,
-        matchTargetD2: currentCycle.matchTargetD2 || 12,
-        bonusPool: currentCycle.bonusPool || 0,
-        eiThreshold: currentCycle.eiThreshold || 15,
-        rateElite: currentCycle.rateElite || 100,
-        rateActive: currentCycle.rateActive || 70,
-        rateWarning: currentCycle.rateWarning || 30,
-        rateInactive: currentCycle.rateInactive || 0,
-        status: currentCycle.status || "active",
-        matchStartNo: currentCycle.matchStartNo || 1,
-        matchEndNo: currentCycle.matchEndNo || 12,
-        matchStartNoD2: currentCycle.matchStartNoD2 || 1,
-        matchEndNoD2: currentCycle.matchEndNoD2 || 12,
-      });
-    } else {
-      const lastCycle =
-        currentCycle || (cycles.length > 0 ? cycles[cycles.length - 1] : null);
-      const nextMatchStart = (lastCycle?.matchEndNo || 0) + 1;
-      const targetCount = lastCycle?.matchTarget || 12;
-
-      setConfigData({
-        id: 0,
-        cycleName: `Cycle ${cycles.length + 1}`,
-        startDate: new Date().toISOString().split("T")[0],
-        endDate: new Date(Date.now() + 14 * 86400000)
-          .toISOString()
-          .split("T")[0],
-        matchTarget: targetCount,
-        matchTargetD2: lastCycle?.matchTargetD2 || targetCount,
-        bonusPool: lastCycle?.bonusPool || 0,
-        eiThreshold: lastCycle?.eiThreshold || 15,
-        rateElite: lastCycle?.rateElite || 100,
-        rateActive: lastCycle?.rateActive || 70,
-        rateWarning: lastCycle?.rateWarning || 30,
-        rateInactive: lastCycle?.rateInactive || 0,
-        status: "active",
-        matchStartNo: nextMatchStart,
-        matchEndNo: nextMatchStart + targetCount - 1,
-        matchStartNoD2: lastCycle?.matchStartNoD2 || nextMatchStart,
-        matchEndNoD2: lastCycle?.matchEndNoD2 || (nextMatchStart + targetCount - 1),
-      });
-    }
+    if (!currentCycle) return;
+    setConfigData({
+      id: currentCycle.id,
+      cycleName: currentCycle.cycleName || "",
+      startDate: currentCycle.startDate
+        ? currentCycle.startDate.split("T")[0]
+        : "",
+      endDate: currentCycle.endDate ? currentCycle.endDate.split("T")[0] : "",
+      matchTarget: currentCycle.matchTarget || 12,
+      matchTargetD2: currentCycle.matchTargetD2 || 12,
+      bonusPool: currentCycle.bonusPool || 0,
+      eiThreshold: currentCycle.eiThreshold || 15,
+      rateElite: currentCycle.rateElite || 100,
+      rateActive: currentCycle.rateActive || 70,
+      rateWarning: currentCycle.rateWarning || 30,
+      rateInactive: currentCycle.rateInactive || 0,
+      status: currentCycle.status || "active",
+      matchStartNo: currentCycle.matchStartNo || 1,
+      matchEndNo: currentCycle.matchEndNo || 12,
+      matchStartNoD2: currentCycle.matchStartNoD2 || 1,
+      matchEndNoD2: currentCycle.matchEndNoD2 || 12,
+    });
     setConfigOpen(true);
+  };
+
+  const handleOpenNewConfig = () => {
+    const lastCycle = cycles.length > 0 ? cycles[cycles.length - 1] : null;
+    const nextMatchStart = (lastCycle?.matchEndNo || 0) + 1;
+    const targetCount = lastCycle?.matchTarget || 12;
+
+    setConfigData({
+      id: 0,
+      cycleName: `Cycle ${cycles.length + 1}`,
+      startDate: new Date().toISOString().split("T")[0],
+      endDate: new Date(Date.now() + 14 * 86400000)
+        .toISOString()
+        .split("T")[0],
+      matchTarget: targetCount,
+      matchTargetD2: lastCycle?.matchTargetD2 || targetCount,
+      bonusPool: lastCycle?.bonusPool || 0,
+      eiThreshold: lastCycle?.eiThreshold || 15,
+      rateElite: lastCycle?.rateElite || 100,
+      rateActive: lastCycle?.rateActive || 70,
+      rateWarning: lastCycle?.rateWarning || 30,
+      rateInactive: lastCycle?.rateInactive || 0,
+      status: "active",
+      matchStartNo: nextMatchStart,
+      matchEndNo: nextMatchStart + targetCount - 1,
+      matchStartNoD2: lastCycle?.matchStartNoD2 || nextMatchStart,
+      matchEndNoD2: lastCycle?.matchEndNoD2 || (nextMatchStart + targetCount - 1),
+    });
+    setConfigOpen(true);
+  };
+
+  const handleDeleteCycle = async () => {
+    if (!selectedCycleId) return;
+    const cycleToDelete = cycles.find((c) => c && c.id === selectedCycleId);
+    if (!cycleToDelete) return;
+
+    if (
+      window.confirm(
+        `Are you sure you want to delete "${cycleToDelete.cycleName}"?`
+      )
+    ) {
+      try {
+        setLoading(true);
+        await leagueOpsService.deleteCycle(selectedCycleId);
+        setSnackbar({
+          open: true,
+          message: `Cycle "${cycleToDelete.cycleName}" deleted successfully`,
+          severity: "success",
+        });
+        setSelectedCycleId("");
+        fetchCycles();
+      } catch (err) {
+        setSnackbar({
+          open: true,
+          message: "Failed to delete cycle",
+          severity: "error",
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const handleConfigSave = async () => {
     try {
-      await leagueOpsService.saveCycle(configData);
+      const res = await leagueOpsService.saveCycle(configData);
+      const savedCycle = res.data;
       setSnackbar({
         open: true,
         message: "Cycle configuration saved",
         severity: "success",
       });
       setConfigOpen(false);
+      if (configData.id === 0 && savedCycle && savedCycle.id) {
+        setSelectedCycleId(savedCycle.id);
+      }
       fetchCycles();
     } catch (err) {
       setSnackbar({
@@ -803,22 +849,66 @@ const AdminLeagueOpsPage = () => {
                   </FormControl>
 
                   <Tooltip title="Configure Cycle Settings">
+                    <span>
+                      <IconButton
+                        onClick={handleOpenConfig}
+                        disabled={!selectedCycleId}
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          color: "primary.main",
+                          bgcolor: "transparent",
+                          border: "none",
+                          boxShadow: "none",
+                          "&:hover": {
+                            bgcolor: alpha(theme.palette.primary.main, 0.06),
+                          },
+                        }}
+                      >
+                        <Settings fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+
+                  <Tooltip title="Add New Cycle">
                     <IconButton
-                      onClick={handleOpenConfig}
+                      onClick={handleOpenNewConfig}
                       sx={{
                         width: 40,
                         height: 40,
-                        color: "primary.main",
+                        color: "success.main",
                         bgcolor: "transparent",
                         border: "none",
                         boxShadow: "none",
                         "&:hover": {
-                          bgcolor: alpha(theme.palette.primary.main, 0.06),
+                          bgcolor: alpha(theme.palette.success.main, 0.06),
                         },
                       }}
                     >
-                      <Settings fontSize="small" />
+                      <Add fontSize="small" />
                     </IconButton>
+                  </Tooltip>
+
+                  <Tooltip title="Delete Selected Cycle">
+                    <span>
+                      <IconButton
+                        onClick={handleDeleteCycle}
+                        disabled={!selectedCycleId}
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          color: "error.main",
+                          bgcolor: "transparent",
+                          border: "none",
+                          boxShadow: "none",
+                          "&:hover": {
+                            bgcolor: alpha(theme.palette.error.main, 0.06),
+                          },
+                        }}
+                      >
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </span>
                   </Tooltip>
                 </Box>
               </Box>
