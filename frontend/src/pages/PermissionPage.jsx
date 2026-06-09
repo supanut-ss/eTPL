@@ -53,6 +53,7 @@ const MENU_GROUPS = [
       { key: "admin-sponsors", label: "Manage Sponsors" },
       { key: "admin-league-setting", label: "League Setting" },
       { key: "admin-league-ops", label: "League Ops" },
+      { key: "admin-special-tournament", label: "Special Tournament" },
       { key: "announcements", label: "Announcements" },
     ]
   }

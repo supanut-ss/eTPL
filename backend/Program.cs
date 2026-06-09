@@ -161,6 +161,16 @@ using (var scope = app.Services.CreateScope())
                     ALTER TABLE [dbo].[tbs_sponsor] ALTER COLUMN [name] NVARCHAR(200) NOT NULL;
                 END
             END
+
+            -- Add sponsor_banner_url to tbs_special_tournament if it doesn't exist
+            IF NOT EXISTS (
+                SELECT * FROM sys.columns 
+                WHERE object_id = OBJECT_ID(N'[dbo].[tbs_special_tournament]') 
+                AND name = 'sponsor_banner_url'
+            )
+            BEGIN
+                ALTER TABLE [dbo].[tbs_special_tournament] ADD [sponsor_banner_url] NVARCHAR(MAX) NULL;
+            END
         ";
         context.Database.ExecuteSqlRaw(sql);
     }

@@ -18,6 +18,7 @@ import { useSnackbar } from "notistack";
 import { useAuth } from "../store/AuthContext";
 import { useNavigate } from "react-router-dom";
 import specialTournamentService from "../services/specialTournamentService";
+import { uploadSponsorImage } from "../api/uploadApi";
 import SEO from "../components/SEO";
 
 // ─── Status config ──────────────────────────────────────────────────────────
@@ -65,7 +66,19 @@ const SpecialTournamentAdminPage = () => {
   // Create/Edit tournament dialog
   const [tournamentDialog, setTournamentDialog] = useState(false);
   const [editingTournament, setEditingTournament] = useState(null);
-  const [form, setForm] = useState({ name: "", description: "", format: "knockout", isPublic: false, groupCount: 4, teamsAdvancePerGroup: 2, status: "draft" });
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    format: "knockout",
+    isPublic: false,
+    groupCount: 4,
+    teamsAdvancePerGroup: 2,
+    status: "draft",
+    sponsorBannerUrl: "",
+    sponsorBannerMode: "url",
+    sponsorBannerFile: null,
+    sponsorBannerPreviewUrl: "",
+  });
   const [formSaving, setFormSaving] = useState(false);
 
   // ── Bulk participant dialog ──────────────────────────────────────────────
@@ -83,6 +96,7 @@ const SpecialTournamentAdminPage = () => {
   const [bulkProgress, setBulkProgress] = useState(0);
   const fileInputRefs = useRef({});
   const singleFileInputRef = useRef(null);
+  const bannerFileInputRef = useRef(null);
 
   // Result report dialog
   const [reportDialog, setReportDialog] = useState(false);
@@ -133,16 +147,36 @@ const SpecialTournamentAdminPage = () => {
   // ── Tournament CRUD ───────────────────────────────────────────────────────
   const openCreateDialog = () => {
     setEditingTournament(null);
-    setForm({ name: "", description: "", format: "knockout", isPublic: false, groupCount: 4, teamsAdvancePerGroup: 2, status: "draft" });
+    setForm({
+      name: "",
+      description: "",
+      format: "knockout",
+      isPublic: false,
+      groupCount: 4,
+      teamsAdvancePerGroup: 2,
+      status: "draft",
+      sponsorBannerUrl: "",
+      sponsorBannerMode: "url",
+      sponsorBannerFile: null,
+      sponsorBannerPreviewUrl: "",
+    });
     setTournamentDialog(true);
   };
 
   const openEditDialog = (t) => {
     setEditingTournament(t);
     setForm({
-      name: t.name, description: t.description || "", format: t.format,
-      isPublic: t.isPublic, groupCount: t.groupCount || 4,
-      teamsAdvancePerGroup: t.teamsAdvancePerGroup || 2, status: t.status,
+      name: t.name,
+      description: t.description || "",
+      format: t.format,
+      isPublic: t.isPublic,
+      groupCount: t.groupCount || 4,
+      teamsAdvancePerGroup: t.teamsAdvancePerGroup || 2,
+      status: t.status,
+      sponsorBannerUrl: t.sponsorBannerUrl || "",
+      sponsorBannerMode: "url",
+      sponsorBannerFile: null,
+      sponsorBannerPreviewUrl: t.sponsorBannerUrl || "",
     });
     setTournamentDialog(true);
   };
@@ -151,10 +185,24 @@ const SpecialTournamentAdminPage = () => {
     if (!form.name.trim()) { enqueueSnackbar("Tournament name is required.", { variant: "warning" }); return; }
     setFormSaving(true);
     try {
+      let sponsorBannerUrl = form.sponsorBannerUrl;
+      if (form.sponsorBannerMode === "upload" && form.sponsorBannerFile) {
+        const uploadRes = await uploadSponsorImage(form.sponsorBannerFile);
+        sponsorBannerUrl = uploadRes.data.data?.url || uploadRes.data?.url;
+        if (!sponsorBannerUrl) {
+          throw new Error("Could not retrieve the uploaded banner file URL");
+        }
+      }
+
       const payload = {
-        name: form.name, description: form.description, format: form.format,
-        isPublic: form.isPublic, groupCount: parseInt(form.groupCount) || 4,
-        teamsAdvancePerGroup: parseInt(form.teamsAdvancePerGroup) || 2, status: form.status,
+        name: form.name,
+        description: form.description,
+        format: form.format,
+        isPublic: form.isPublic,
+        groupCount: parseInt(form.groupCount) || 4,
+        teamsAdvancePerGroup: parseInt(form.teamsAdvancePerGroup) || 2,
+        status: form.status,
+        sponsorBannerUrl: sponsorBannerUrl || "",
       };
       if (editingTournament) {
         await specialTournamentService.update(editingTournament.id, payload);
@@ -167,7 +215,7 @@ const SpecialTournamentAdminPage = () => {
       fetchList();
       if (selectedTournament?.id === editingTournament?.id) fetchDetail(editingTournament.id);
     } catch (e) {
-      enqueueSnackbar(e.response?.data?.message || "An error occurred.", { variant: "error" });
+      enqueueSnackbar(e.response?.data?.message || e.message || "An error occurred.", { variant: "error" });
     } finally {
       setFormSaving(false);
     }
@@ -883,6 +931,93 @@ const SpecialTournamentAdminPage = () => {
             </FormControl>
             <FormControlLabel control={<Switch checked={form.isPublic} onChange={e => setForm(f => ({ ...f, isPublic: e.target.checked }))} color="success" />}
               label={<Box><Typography variant="body2" fontWeight={600}>Publicly Visible</Typography><Typography variant="caption" color="text.secondary">Allow anyone to view the bracket</Typography></Box>} />
+            
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="subtitle2" fontWeight={700}>Sponsor Banner (Optional)</Typography>
+            
+            {form.sponsorBannerMode === "url" ? (
+              <TextField
+                label="Sponsor Banner URL"
+                value={form.sponsorBannerUrl}
+                onChange={e => setForm(f => ({ ...f, sponsorBannerUrl: e.target.value, sponsorBannerPreviewUrl: e.target.value }))}
+                fullWidth
+                placeholder="https://..."
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><LinkIcon sx={{ fontSize: 18, color: "text.secondary" }} /></InputAdornment>,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Tooltip title="Switch to file upload">
+                        <IconButton size="small" onClick={() => setForm(f => ({ ...f, sponsorBannerMode: "upload", sponsorBannerPreviewUrl: f.sponsorBannerFile ? URL.createObjectURL(f.sponsorBannerFile) : "" }))} edge="end">
+                          <CloudUpload />
+                        </IconButton>
+                      </Tooltip>
+                    </InputAdornment>
+                  )
+                }}
+              />
+            ) : (
+              <Box display="flex" alignItems="center" gap={1.5} width="100%">
+                <Button
+                  variant={form.sponsorBannerFile ? "contained" : "outlined"}
+                  startIcon={<PhotoCamera />}
+                  onClick={() => bannerFileInputRef.current?.click()}
+                  sx={{
+                    borderRadius: 2,
+                    flexShrink: 0,
+                    px: 3,
+                    py: 1,
+                    textTransform: "none",
+                    ...(form.sponsorBannerFile && { background: "linear-gradient(135deg,#6366f1,#8b5cf6)" })
+                  }}
+                >
+                  {form.sponsorBannerFile ? "Change Banner" : "Upload Banner"}
+                </Button>
+                {form.sponsorBannerFile && (
+                  <Typography variant="body2" color="text.secondary" noWrap sx={{ overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>
+                    {form.sponsorBannerFile.name}
+                  </Typography>
+                )}
+                <Tooltip title="Switch to URL input">
+                  <IconButton onClick={() => setForm(f => ({ ...f, sponsorBannerMode: "url", sponsorBannerPreviewUrl: f.sponsorBannerUrl }))}>
+                    <LinkIcon />
+                  </IconButton>
+                </Tooltip>
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  ref={bannerFileInputRef}
+                  onChange={e => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setForm(f => ({
+                        ...f,
+                        sponsorBannerFile: file,
+                        sponsorBannerPreviewUrl: URL.createObjectURL(file)
+                      }));
+                    }
+                  }}
+                />
+              </Box>
+            )}
+
+            {form.sponsorBannerPreviewUrl && (
+              <Box sx={{ mt: 1, borderRadius: 2, overflow: "hidden", border: "1px solid", borderColor: "divider" }}>
+                <Box
+                  component="img"
+                  src={form.sponsorBannerPreviewUrl}
+                  alt="Sponsor Banner Preview"
+                  sx={{
+                    width: "100%",
+                    maxHeight: 120,
+                    objectFit: "contain",
+                    bgcolor: "rgba(0,0,0,0.02)",
+                    mx: "auto",
+                    display: "block"
+                  }}
+                />
+              </Box>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2.5 }}>

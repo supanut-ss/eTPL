@@ -43,7 +43,8 @@ namespace eTPL.API.Controllers
                 .Select(t => new
                 {
                     t.Id, t.Name, t.Description, t.Format, t.Status,
-                    t.IsPublic, t.CreatedAt, t.GroupCount, t.TeamsAdvancePerGroup
+                    t.IsPublic, t.CreatedAt, t.GroupCount, t.TeamsAdvancePerGroup,
+                    t.SponsorBannerUrl
                 })
                 .ToListAsync();
 
@@ -110,7 +111,8 @@ namespace eTPL.API.Controllers
                     {
                         tournament.Id, tournament.Name, tournament.Description,
                         tournament.Format, tournament.Status, tournament.IsPublic,
-                        tournament.CreatedAt, tournament.GroupCount, tournament.TeamsAdvancePerGroup
+                        tournament.CreatedAt, tournament.GroupCount, tournament.TeamsAdvancePerGroup,
+                        tournament.SponsorBannerUrl
                     },
                     participants = participants.Select(p => new
                     {
@@ -138,6 +140,7 @@ namespace eTPL.API.Controllers
                 IsPublic = dto.IsPublic,
                 GroupCount = dto.GroupCount,
                 TeamsAdvancePerGroup = dto.TeamsAdvancePerGroup,
+                SponsorBannerUrl = dto.SponsorBannerUrl,
                 CreatedBy = userId
             };
             _context.SpecialTournaments.Add(tournament);
@@ -160,6 +163,7 @@ namespace eTPL.API.Controllers
             if (dto.IsPublic.HasValue) tournament.IsPublic = dto.IsPublic.Value;
             if (dto.GroupCount.HasValue) tournament.GroupCount = dto.GroupCount;
             if (dto.TeamsAdvancePerGroup.HasValue) tournament.TeamsAdvancePerGroup = dto.TeamsAdvancePerGroup;
+            if (dto.SponsorBannerUrl != null) tournament.SponsorBannerUrl = dto.SponsorBannerUrl;
 
             _context.SpecialTournaments.Update(tournament);
             await _context.SaveChangesAsync();
@@ -654,6 +658,7 @@ namespace eTPL.API.Controllers
         public bool IsPublic { get; set; } = false;
         public int? GroupCount { get; set; }
         public int? TeamsAdvancePerGroup { get; set; }
+        public string? SponsorBannerUrl { get; set; }
     }
 
     public class UpdateTournamentDto
@@ -665,6 +670,7 @@ namespace eTPL.API.Controllers
         public bool? IsPublic { get; set; }
         public int? GroupCount { get; set; }
         public int? TeamsAdvancePerGroup { get; set; }
+        public string? SponsorBannerUrl { get; set; }
     }
 
     public class ParticipantDto

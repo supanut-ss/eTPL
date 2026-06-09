@@ -62,5 +62,8 @@ namespace eTPL.API.Models
         /// <summary>How many teams from each group advance to the knockout phase.</summary>
         [Column("teams_advance_per_group")]
         public int? TeamsAdvancePerGroup { get; set; }
+
+        [Column("sponsor_banner_url")]
+        public string? SponsorBannerUrl { get; set; }
     }
 }
