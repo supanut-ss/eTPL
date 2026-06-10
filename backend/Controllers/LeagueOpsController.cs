@@ -13,6 +13,7 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 using System;
 using System.Text.Json;
+using eTPL.API.Models.Auction;
 
 using eTPL.API.Models;
 using eTPL.API.Services.Interfaces;
@@ -282,7 +283,7 @@ namespace eTPL.API.Controllers
             try
             {
                 var history = await _context.JudgeHistories
-                    .Where(h => h.CycleId == cycleId)
+                    //.Where(h => h.CycleId == cycleId)
                     .OrderByDescending(h => h.JudgeDate)
                     .ToListAsync();
                 return Ok(history);
@@ -325,93 +326,444 @@ namespace eTPL.API.Controllers
 
             if (results == null || !results.Any()) return BadRequest("No results provided");
 
-            // Record history before applying (to capture the snapshot)
-            var cycle = await _context.LeagueCycles.FindAsync(cycleId);
-            if (cycle != null)
+            var strategy = _context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync<IActionResult>(async () =>
             {
-                var adminId = User.Identity?.Name ?? "system";
-                var history = new JudgeHistory
+                using (var transaction = await _context.Database.BeginTransactionAsync())
                 {
-                    CycleId = cycleId,
-                    JudgeDate = DateTime.Now,
-                    ConfigSnapshot = request.ConfigSnapshot ?? JsonSerializer.Serialize(cycle),
-                    MatchCount = results.Count,
-                    AdminId = adminId
-                };
-                _context.JudgeHistories.Add(history);
-                await _context.SaveChangesAsync();
-            }
-
-            foreach (var item in results)
-            {
-                var match = await _scaffoldedContext.TbmFixtureAlls.FirstOrDefaultAsync(f => f.FixtureId == item.FixtureId);
-                if (match == null) continue;
-
-                match.HomeScore = item.HomeScore;
-                match.AwayScore = item.AwayScore;
-                match.Active = "YES";
-                match.MatchDate = DateTime.Now;
-
-                // 1. Log
-                var existingLog = await _scaffoldedContext.TblFixtureLogs.FirstOrDefaultAsync(l => l.FixtureId == match.FixtureId);
-                if (existingLog != null)
-                {
-                    existingLog.HomeScore = match.HomeScore;
-                    existingLog.AwayScore = match.AwayScore;
-                    existingLog.Active = "YES";
-                    existingLog.MatchDate = DateTime.Now;
-                }
-                else
-                {
-                    await _scaffoldedContext.TblFixtureLogs.AddAsync(new TblFixtureLog
+                    try
                     {
-                        FixtureId = match.FixtureId,
-                        Division = match.Division,
-                        Match = match.Match,
-                        Home = match.Home,
-                        Away = match.Away,
-                        HomeScore = match.HomeScore,
-                        AwayScore = match.AwayScore,
-                        Active = "YES",
-                        Season = match.Season,
-                        MatchDate = DateTime.Now,
-                        Platform = match.Platform
-                    });
+                        // Record history before applying (to capture the snapshot)
+                        var cycle = await _context.LeagueCycles.FindAsync(cycleId);
+                        if (cycle != null)
+                        {
+                            var adminId = User.Identity?.Name ?? "system";
+                            var history = new JudgeHistory
+                            {
+                                CycleId = cycleId,
+                                JudgeDate = DateTime.Now,
+                                ConfigSnapshot = request.ConfigSnapshot ?? JsonSerializer.Serialize(cycle),
+                                MatchCount = results.Count,
+                                AdminId = adminId
+                            };
+                            _context.JudgeHistories.Add(history);
+                            await _context.SaveChangesAsync();
+                        }
+
+                        // 2. Dynamic Bonus Payout (Run calculations BEFORE saving the adjusted matches)
+                        var payouts = new List<PayoutSummaryDto>();
+                        var stats = await _context.Set<LeagueOpsStatResult>()
+                            .FromSqlRaw("EXEC sp_calculate_league_ops @in_int_cycle_id", new SqlParameter("@in_int_cycle_id", cycleId))
+                            .ToListAsync();
+
+                        foreach (var stat in stats)
+                        {
+                            if (stat.est_bonus == null || stat.est_bonus <= 0) continue;
+
+                            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == stat.user_id);
+                            if (user == null) continue;
+
+                            // Check if already paid for this cycle
+                            bool alreadyPaid = await _context.AuctionTransactions.AnyAsync(t => 
+                                t.UserId == user.Id && 
+                                t.Type == "CYCLE_BONUS" && 
+                                t.Description.Contains($"Cycle {cycleId}"));
+
+                            int bonusAmount = (int)Math.Round(stat.est_bonus.Value, MidpointRounding.AwayFromZero);
+
+                            if (alreadyPaid)
+                            {
+                                payouts.Add(new PayoutSummaryDto
+                                {
+                                    UserId = user.UserId,
+                                    DisplayName = user.LineName ?? user.UserId,
+                                    Amount = bonusAmount,
+                                    Tier = stat.tier ?? "UNKNOWN",
+                                    AlreadyPaid = true
+                                });
+                            }
+                            else
+                            {
+                                var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == user.Id);
+                                if (wallet == null)
+                                {
+                                    wallet = new AuctionUserWallet
+                                    {
+                                        UserId = user.Id,
+                                        AvailableBalance = 0,
+                                        ReservedBalance = 0
+                                    };
+                                    _context.AuctionUserWallets.Add(wallet);
+                                    await _context.SaveChangesAsync(); // generate WalletId
+                                }
+
+                                wallet.AvailableBalance += bonusAmount;
+
+                                var tx = new AuctionTransaction
+                                {
+                                    UserId = user.Id,
+                                    Amount = bonusAmount,
+                                    Direction = "CREDIT",
+                                    Type = "CYCLE_BONUS",
+                                    Description = $"Cycle End Bonus (Cycle {cycleId}) - {stat.tier ?? "UNKNOWN"}",
+                                    BalanceAfter = wallet.AvailableBalance,
+                                    CreatedAt = DateTime.UtcNow
+                                };
+                                _context.AuctionTransactions.Add(tx);
+
+                                payouts.Add(new PayoutSummaryDto
+                                {
+                                    UserId = user.UserId,
+                                    DisplayName = user.LineName ?? user.UserId,
+                                    Amount = bonusAmount,
+                                    Tier = stat.tier ?? "UNKNOWN",
+                                    AlreadyPaid = false
+                                });
+                            }
+                        }
+
+                        // 3. Save Match Results and Standings (AFTER dynamic bonus calculation)
+                        foreach (var item in results)
+                        {
+                            var match = await _scaffoldedContext.TbmFixtureAlls.FirstOrDefaultAsync(f => f.FixtureId == item.FixtureId);
+                            if (match == null) continue;
+
+                            match.HomeScore = item.HomeScore;
+                            match.AwayScore = item.AwayScore;
+                            match.Active = "YES";
+                            match.MatchDate = DateTime.Now;
+
+                            // 1. Log
+                            var existingLog = await _scaffoldedContext.TblFixtureLogs.FirstOrDefaultAsync(l => l.FixtureId == match.FixtureId);
+                            if (existingLog != null)
+                            {
+                                existingLog.HomeScore = match.HomeScore;
+                                existingLog.AwayScore = match.AwayScore;
+                                existingLog.Active = "YES";
+                                existingLog.MatchDate = DateTime.Now;
+                            }
+                            else
+                            {
+                                await _scaffoldedContext.TblFixtureLogs.AddAsync(new TblFixtureLog
+                                {
+                                    FixtureId = match.FixtureId,
+                                    Division = match.Division,
+                                    Match = match.Match,
+                                    Home = match.Home,
+                                    Away = match.Away,
+                                    HomeScore = match.HomeScore,
+                                    AwayScore = match.AwayScore,
+                                    Active = "YES",
+                                    Season = match.Season,
+                                    MatchDate = DateTime.Now,
+                                    Platform = match.Platform
+                                });
+                            }
+
+                            // 2. Standing
+                            int hW = 0, hD = 0, hL = 0, hPts = 0;
+                            int aW = 0, aD = 0, aL = 0, aPts = 0;
+
+                            if (match.HomeScore > match.AwayScore) { hW = 1; hPts = 3; aL = 1; }
+                            else if (match.HomeScore == match.AwayScore) { hD = 1; hPts = 1; aD = 1; aPts = 1; }
+                            else { hL = 1; aW = 1; aPts = 3; }
+
+                            await _scaffoldedContext.TbtResults.AddAsync(new TbtResult
+                            {
+                                Id = Guid.NewGuid().ToString(),
+                                FixtureId = match.FixtureId,
+                                Division = match.Division,
+                                Team = match.Home,
+                                Pl = 1, W = hW, D = hD, L = hL,
+                                Gf = match.HomeScore, Ga = match.AwayScore, Gd = match.HomeScore - match.AwayScore,
+                                Pts = hPts, Season = match.Season, Platform = match.Platform, CreateDate = DateTime.Now
+                            });
+
+                            await _scaffoldedContext.TbtResults.AddAsync(new TbtResult
+                            {
+                                Id = Guid.NewGuid().ToString(),
+                                FixtureId = match.FixtureId,
+                                Division = match.Division,
+                                Team = match.Away,
+                                Pl = 1, W = aW, D = aD, L = aL,
+                                Gf = match.AwayScore, Ga = match.HomeScore, Gd = match.AwayScore - match.HomeScore,
+                                Pts = aPts, Season = match.Season, Platform = match.Platform, CreateDate = DateTime.Now
+                            });
+                        }
+
+                        // Save everything to DB context
+                        await _context.SaveChangesAsync();
+                        await _scaffoldedContext.SaveChangesAsync();
+
+                        await transaction.CommitAsync();
+
+                        return Ok(new { updatedCount = results.Count, payouts = payouts });
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        var details = ex.Message + (ex.InnerException != null ? " -> " + ex.InnerException.Message : "");
+                        return BadRequest(new { message = "An error occurred while applying results and payouts.", details = details });
+                    }
                 }
+            });
+        }
 
-                // 2. Standing
-                int hW = 0, hD = 0, hL = 0, hPts = 0;
-                int aW = 0, aD = 0, aL = 0, aPts = 0;
-
-                if (match.HomeScore > match.AwayScore) { hW = 1; hPts = 3; aL = 1; }
-                else if (match.HomeScore == match.AwayScore) { hD = 1; hPts = 1; aD = 1; aPts = 1; }
-                else { hL = 1; aW = 1; aPts = 3; }
-
-                await _scaffoldedContext.TbtResults.AddAsync(new TbtResult
+        [HttpPost("retroactive-payout/{cycleId}")]
+        public async Task<IActionResult> RetroactivePayout(int cycleId)
+        {
+            var strategy = _context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync<IActionResult>(async () =>
+            {
+                using (var transaction = await _context.Database.BeginTransactionAsync())
                 {
-                    Id = Guid.NewGuid().ToString(),
-                    FixtureId = match.FixtureId,
-                    Division = match.Division,
-                    Team = match.Home,
-                    Pl = 1, W = hW, D = hD, L = hL,
-                    Gf = match.HomeScore, Ga = match.AwayScore, Gd = match.HomeScore - match.AwayScore,
-                    Pts = hPts, Season = match.Season, Platform = match.Platform, CreateDate = DateTime.Now
-                });
+                    try
+                    {
+                        var cycle = await _context.LeagueCycles.FindAsync(cycleId);
+                        if (cycle == null) return NotFound(new { message = "Cycle not found" });
 
-                await _scaffoldedContext.TbtResults.AddAsync(new TbtResult
+                        // Find the JudgeHistory for this cycle to determine when matches were adjusted
+                        var history = await _context.JudgeHistories
+                            .Where(h => h.CycleId == cycleId)
+                            .OrderByDescending(h => h.JudgeDate)
+                            .FirstOrDefaultAsync();
+
+                        var adjustedMatches = new List<TbmFixtureAll>();
+                        var originalScores = new List<(string FixtureId, int? HomeScore, int? AwayScore, DateTime? MatchDate, string? Active)>();
+
+                        if (history != null)
+                        {
+                            // Find matches in this cycle's range that were adjusted in this batch (within 2 minutes of JudgeDate)
+                            var minDate = history.JudgeDate.AddMinutes(-2);
+                            var maxDate = history.JudgeDate.AddMinutes(2);
+
+                            adjustedMatches = await _context.TbmFixtureAlls
+                                .Where(f => f.MatchDate >= minDate && f.MatchDate <= maxDate && f.Active == "YES" &&
+                                           (((f.Division == null || (f.Division != "D2" && f.Division != "d2")) && f.Match >= cycle.MatchStartNo && f.Match <= cycle.MatchEndNo) ||
+                                            ((f.Division == "D2" || f.Division == "d2") && f.Match >= cycle.MatchStartNoD2 && f.Match <= cycle.MatchEndNoD2)))
+                                .ToListAsync();
+
+                            foreach (var m in adjustedMatches)
+                            {
+                                originalScores.Add((m.FixtureId, m.HomeScore, m.AwayScore, m.MatchDate, m.Active));
+
+                                // Temporarily set to null (unplayed state)
+                                m.HomeScore = null;
+                                m.AwayScore = null;
+                                m.MatchDate = null;
+                            }
+
+                            if (adjustedMatches.Any())
+                            {
+                                await _context.SaveChangesAsync();
+                            }
+                        }
+
+                        // Run calculations on the temporarily nulled out database state
+                        var payouts = new List<PayoutSummaryDto>();
+                        var stats = await _context.Set<LeagueOpsStatResult>()
+                            .FromSqlRaw("EXEC sp_calculate_league_ops @in_int_cycle_id", new SqlParameter("@in_int_cycle_id", cycleId))
+                            .ToListAsync();
+
+                        foreach (var stat in stats)
+                        {
+                            if (stat.est_bonus == null || stat.est_bonus <= 0) continue;
+
+                            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == stat.user_id);
+                            if (user == null) continue;
+
+                            // Check if already paid for this cycle
+                            bool alreadyPaid = await _context.AuctionTransactions.AnyAsync(t => 
+                                t.UserId == user.Id && 
+                                t.Type == "CYCLE_BONUS" && 
+                                t.Description.Contains($"Cycle {cycleId}"));
+
+                            int bonusAmount = (int)Math.Round(stat.est_bonus.Value, MidpointRounding.AwayFromZero);
+
+                            if (alreadyPaid)
+                            {
+                                payouts.Add(new PayoutSummaryDto
+                                {
+                                    UserId = user.UserId,
+                                    DisplayName = user.LineName ?? user.UserId,
+                                    Amount = bonusAmount,
+                                    Tier = stat.tier ?? "UNKNOWN",
+                                    AlreadyPaid = true
+                                });
+                            }
+                            else
+                            {
+                                var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == user.Id);
+                                if (wallet == null)
+                                {
+                                    wallet = new AuctionUserWallet
+                                    {
+                                        UserId = user.Id,
+                                        AvailableBalance = 0,
+                                        ReservedBalance = 0
+                                    };
+                                    _context.AuctionUserWallets.Add(wallet);
+                                    await _context.SaveChangesAsync(); // generate WalletId
+                                }
+
+                                wallet.AvailableBalance += bonusAmount;
+
+                                var tx = new AuctionTransaction
+                                {
+                                    UserId = user.Id,
+                                    Amount = bonusAmount,
+                                    Direction = "CREDIT",
+                                    Type = "CYCLE_BONUS",
+                                    Description = $"Cycle End Bonus (Cycle {cycleId}) - {stat.tier ?? "UNKNOWN"}",
+                                    BalanceAfter = wallet.AvailableBalance,
+                                    CreatedAt = DateTime.UtcNow
+                                };
+                                _context.AuctionTransactions.Add(tx);
+
+                                payouts.Add(new PayoutSummaryDto
+                                {
+                                    UserId = user.UserId,
+                                    DisplayName = user.LineName ?? user.UserId,
+                                    Amount = bonusAmount,
+                                    Tier = stat.tier ?? "UNKNOWN",
+                                    AlreadyPaid = false
+                                });
+                            }
+                        }
+
+                        // Restore original adjusted matches
+                        if (adjustedMatches.Any())
+                        {
+                            foreach (var m in adjustedMatches)
+                            {
+                                var orig = originalScores.First(o => o.FixtureId == m.FixtureId);
+                                m.HomeScore = orig.HomeScore;
+                                m.AwayScore = orig.AwayScore;
+                                m.MatchDate = orig.MatchDate;
+                                m.Active = orig.Active;
+                            }
+                            await _context.SaveChangesAsync();
+                        }
+
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+
+                        return Ok(new { payouts = payouts });
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        var details = ex.Message + (ex.InnerException != null ? " -> " + ex.InnerException.Message : "");
+                        return BadRequest(new { message = "An error occurred while retroactively distributing payouts.", details = details });
+                    }
+                }
+            });
+        }
+
+        [HttpPost("cut-player/{userId}")]
+        public async Task<IActionResult> CutPlayer(string userId)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+            if (user == null) return NotFound(new { message = "User not found in the system." });
+
+            var strategy = _context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync<IActionResult>(async () =>
+            {
+                using (var transaction = await _context.Database.BeginTransactionAsync())
                 {
-                    Id = Guid.NewGuid().ToString(),
-                    FixtureId = match.FixtureId,
-                    Division = match.Division,
-                    Team = match.Away,
-                    Pl = 1, W = aW, D = aD, L = aL,
-                    Gf = match.AwayScore, Ga = match.HomeScore, Gd = match.AwayScore - match.HomeScore,
-                    Pts = aPts, Season = match.Season, Platform = match.Platform, CreateDate = DateTime.Now
-                });
-            }
+                    try
+                    {
+                        // 1. ลบผลการแข่งขันในตาราง tbt_result
+                        var fixtures = await _context.TbmFixtureAlls
+                            .Where(f => f.Home == userId || f.Away == userId)
+                            .ToListAsync();
 
-            await _scaffoldedContext.SaveChangesAsync();
-            return Ok(new { updatedCount = results.Count });
+                        var fixtureIds = fixtures.Select(f => f.FixtureId).ToList();
+
+                        var results = await _context.TbtResults
+                            .Where(r => r.FixtureId != null && fixtureIds.Contains(r.FixtureId))
+                            .ToListAsync();
+                        if (results.Any())
+                        {
+                            _context.TbtResults.RemoveRange(results);
+                        }
+
+                        // 2. แก้ ACTIVE = 'CC' ในตาราง tbt_fixture_all (และ clear scores/dates)
+                        foreach (var f in fixtures)
+                        {
+                            f.Active = "CC";
+                        }
+                        _context.TbmFixtureAlls.UpdateRange(fixtures);
+
+                        // 3. คืนนักเตะทั้งหมดเข้าตลาด
+                        var userSquad = await _context.AuctionSquads.Where(s => s.UserId == user.Id).ToListAsync();
+                        var squadIds = userSquad.Select(s => s.SquadId).ToList();
+
+                        var relatedOffers = await _context.TransferOffers
+                            .Where(o => o.FromUserId == user.Id || o.ToUserId == user.Id || squadIds.Contains(o.SquadId))
+                            .ToListAsync();
+                        if (relatedOffers.Any()) _context.TransferOffers.RemoveRange(relatedOffers);
+
+                        if (userSquad.Any()) _context.AuctionSquads.RemoveRange(userSquad);
+
+                        // 4. ลบข้อมูลการเงินทั้งหมดที่เกี่ยวข้อง
+                        var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == user.Id);
+                        if (wallet != null) _context.AuctionUserWallets.Remove(wallet);
+
+                        var trans = await _context.AuctionTransactions.Where(t => t.UserId == user.Id).ToListAsync();
+                        if (trans.Any()) _context.AuctionTransactions.RemoveRange(trans);
+
+                        // Active/completed auctions involving the user
+                        var winningAuctions = await _context.AuctionBoards.Where(a => a.HighestBidderId == user.Id).ToListAsync();
+                        foreach (var wa in winningAuctions)
+                        {
+                            wa.HighestBidderId = null;
+                        }
+
+                        var userBids = await _context.AuctionBidLogs.Where(b => b.UserId == user.Id).ToListAsync();
+                        if (userBids.Any()) _context.AuctionBidLogs.RemoveRange(userBids);
+
+                        var initiatedAuctions = await _context.AuctionBoards.Where(a => a.InitiatorUserId == user.Id).ToListAsync();
+                        if (initiatedAuctions.Any())
+                        {
+                            var auctionIds = initiatedAuctions.Select(a => a.AuctionId).ToList();
+                            var logsOnInitiatedAuctions = await _context.AuctionBidLogs.Where(b => auctionIds.Contains(b.AuctionId)).ToListAsync();
+                            if (logsOnInitiatedAuctions.Any()) _context.AuctionBidLogs.RemoveRange(logsOnInitiatedAuctions);
+                            
+                            _context.AuctionBoards.RemoveRange(initiatedAuctions);
+                        }
+
+                        var bonuses = await _context.SpecialBonuses.Where(b => b.UserId == user.Id).ToListAsync();
+                        if (bonuses.Any()) _context.SpecialBonuses.RemoveRange(bonuses);
+
+                        var checkins = await _context.DailyCheckins.Where(c => c.UserId == user.UserId).ToListAsync();
+                        if (checkins.Any()) _context.DailyCheckins.RemoveRange(checkins);
+
+                        var legacyTeams = await _context.TbmTeams.Where(t => t.UserId == user.Id).ToListAsync();
+                        if (legacyTeams.Any()) _context.TbmTeams.RemoveRange(legacyTeams);
+
+                        var notifications = await _context.Notifications.Where(n => n.UserId == user.Id).ToListAsync();
+                        if (notifications.Any()) _context.Notifications.RemoveRange(notifications);
+
+                        var favourites = await _context.AuctionFavourites.Where(f => f.UserId == user.Id).ToListAsync();
+                        if (favourites.Any()) _context.AuctionFavourites.RemoveRange(favourites);
+
+                        // 5. ลบข้อมูลในตาราง user
+                        _context.Users.Remove(user);
+
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+
+                        return Ok(new { message = $"Successfully cut player {userId} from the competition." });
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        var details = ex.Message + (ex.InnerException != null ? " -> " + ex.InnerException.Message : "");
+                        return BadRequest(new { message = "An error occurred while cutting the player.", details = details });
+                    }
+                }
+            });
         }
     }
 }

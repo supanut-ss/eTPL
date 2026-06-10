@@ -19,6 +19,7 @@ namespace eTPL.API.Tests
         {
             var options = new DbContextOptionsBuilder<MsSqlDbContext>()
                 .UseInMemoryDatabase(dbName)
+                .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
             return new MsSqlDbContext(options);
         }

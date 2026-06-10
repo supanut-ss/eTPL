@@ -290,8 +290,8 @@ const SpecialTournamentAdminPage = () => {
   const resolveLogoUrl = async (row) => {
     if (row.logoMode === "url") return row.logoUrl || null;
     if (row.logoFile) {
-      // Convert file to base64 data URL as fallback (no upload service configured)
-      return row.previewUrl || null;
+      const uploadRes = await uploadSponsorImage(row.logoFile);
+      return uploadRes.data.data?.url || uploadRes.data?.url || null;
     }
     return null;
   };
@@ -328,7 +328,8 @@ const SpecialTournamentAdminPage = () => {
       if (pForm.logoMode === "url") {
         finalLogoUrl = pForm.logoUrl || null;
       } else if (pForm.logoFile) {
-        finalLogoUrl = pForm.previewUrl || null;
+        const uploadRes = await uploadSponsorImage(pForm.logoFile);
+        finalLogoUrl = uploadRes.data.data?.url || uploadRes.data?.url || null;
       } else {
         finalLogoUrl = editingParticipant.logoUrl || null;
       }
@@ -490,7 +491,12 @@ const SpecialTournamentAdminPage = () => {
       {/* Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
         <Box display="flex" alignItems="center" gap={1.5}>
-          <EmojiEvents color="primary" sx={{ fontSize: 32 }} />
+          <Box
+            component="img"
+            src="/special-trophy.png"
+            alt="Trophy"
+            sx={{ height: 38, width: "auto" }}
+          />
           <Box>
             <Typography variant="h5" fontWeight="bold">Special Tournaments</Typography>
             <Typography variant="body2" color="text.secondary">Manage custom tournament brackets</Typography>
@@ -514,7 +520,12 @@ const SpecialTournamentAdminPage = () => {
                 <Box display="flex" justifyContent="center" py={6}><CircularProgress size={32} /></Box>
               ) : tournaments.length === 0 ? (
                 <Box sx={{ p: 4, textAlign: "center" }}>
-                  <EmojiEvents sx={{ fontSize: 40, color: "text.disabled", mb: 1 }} />
+                  <Box
+                    component="img"
+                    src="/special-trophy.png"
+                    alt="Trophy"
+                    sx={{ height: 48, width: "auto", opacity: 0.25, mb: 1, mx: "auto" }}
+                  />
                   <Typography color="text.secondary" variant="body2">No tournaments yet.</Typography>
                 </Box>
               ) : (
@@ -550,8 +561,13 @@ const SpecialTournamentAdminPage = () => {
           <Box flex={1} sx={{ minWidth: 0 }}>
             {!selectedTournament ? (
               <Paper elevation={0} sx={{ borderRadius: 3, border: "1px solid", borderColor: "divider", p: 6, textAlign: "center", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Box>
-                  <EmojiEvents sx={{ fontSize: 60, color: "text.disabled", mb: 2 }} />
+                <Box sx={{ textAlign: "center" }}>
+                  <Box
+                    component="img"
+                    src="/special-trophy.png"
+                    alt="Trophy"
+                    sx={{ height: 72, width: "auto", opacity: 0.25, mb: 2, mx: "auto" }}
+                  />
                   <Typography color="text.secondary">Select a tournament from the left to view details.</Typography>
                 </Box>
               </Paper>
@@ -576,7 +592,7 @@ const SpecialTournamentAdminPage = () => {
                   </Box>
                   <Box display="flex" gap={1}>
                     <Tooltip title="View Public Bracket">
-                      <IconButton size="small" sx={{ color: "white" }} onClick={() => navigate(`/special-tournament/${selectedTournament.id}`)}>
+                      <IconButton size="small" sx={{ color: "white" }} onClick={() => window.open(`/special-tournament/${selectedTournament.id}`, "_blank")}>
                         <OpenInNew fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -643,7 +659,7 @@ const SpecialTournamentAdminPage = () => {
                             const groupName = p.groupId && detail.groups.find(g => g.id === p.groupId)?.groupName;
                             return (
                               <Paper key={p.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2.5, width: { xs: "100%", sm: 220 }, display: "flex", alignItems: "center", gap: 1.5, position: "relative" }}>
-                                <Avatar src={p.logoUrl} sx={{ width: 36, height: 36, bgcolor: "#6366f1", fontSize: 14, fontWeight: 700 }}>
+                                <Avatar src={p.logoUrl} sx={{ width: 36, height: 36, bgcolor: p.logoUrl ? "transparent" : "#6366f1", fontSize: 14, fontWeight: 700 }}>
                                   {p.displayName[0]}
                                 </Avatar>
                                 <Box flex={1} overflow="hidden">
@@ -671,13 +687,14 @@ const SpecialTournamentAdminPage = () => {
                     <Box sx={{ p: 2.5 }}>
                       {/* Group Stage */}
                       {detail.tournament.format === "group_knockout" && detail.groups.length > 0 && (
-                        <Box mb={4}>
+                        <>
                           <Typography variant="subtitle1" fontWeight={700} mb={2}>Group Stage</Typography>
-                          {detail.groups.map(group => {
-                            const standings = computeStandings(group.id);
-                            const groupMatches = detail.matches.filter(m => m.groupId === group.id);
-                            return (
-                              <Paper key={group.id} variant="outlined" sx={{ mb: 2.5, borderRadius: 2.5, overflow: "hidden" }}>
+                          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3, mb: 4 }}>
+                            {detail.groups.map(group => {
+                              const standings = computeStandings(group.id);
+                              const groupMatches = detail.matches.filter(m => m.groupId === group.id);
+                              return (
+                                <Paper key={group.id} variant="outlined" sx={{ borderRadius: 2.5, overflow: "hidden" }}>
                                 <Box sx={{ px: 2, py: 1, bgcolor: "rgba(99,102,241,0.08)", borderBottom: "1px solid", borderColor: "divider" }}>
                                   <Typography variant="subtitle2" fontWeight={800} color="primary">Group {group.groupName}</Typography>
                                 </Box>
@@ -702,10 +719,41 @@ const SpecialTournamentAdminPage = () => {
                                         const isAdvancing = idx < advance;
                                         return (
                                           <TableRow key={p.id} sx={{ bgcolor: isAdvancing ? "rgba(16,185,129,0.04)" : "transparent" }}>
-                                            <TableCell sx={{ fontSize: "0.8rem", fontWeight: isAdvancing ? 700 : 400, color: isAdvancing ? "#10b981" : "text.primary" }}>{idx + 1}</TableCell>
+                                             <TableCell>
+                                               {isAdvancing ? (
+                                                 <Box sx={{
+                                                   display: "inline-flex",
+                                                   alignItems: "center",
+                                                   justifyContent: "center",
+                                                   width: 22,
+                                                   height: 22,
+                                                   borderRadius: "50%",
+                                                   border: `2px solid ${idx === 0 ? "#d97706" : "#6366f1"}`,
+                                                   color: idx === 0 ? "#d97706" : "#6366f1",
+                                                   bgcolor: idx === 0 ? "rgba(245, 158, 11, 0.08)" : "rgba(99, 102, 241, 0.08)",
+                                                   fontWeight: 800,
+                                                   fontSize: "0.75rem",
+                                                 }}>
+                                                   {idx + 1}
+                                                 </Box>
+                                               ) : (
+                                                 <Box sx={{
+                                                   display: "inline-flex",
+                                                   alignItems: "center",
+                                                   justifyContent: "center",
+                                                   width: 22,
+                                                   height: 22,
+                                                   fontSize: "0.8rem",
+                                                   fontWeight: 400,
+                                                   color: "text.primary"
+                                                 }}>
+                                                   {idx + 1}
+                                                 </Box>
+                                               )}
+                                             </TableCell>
                                             <TableCell>
                                               <Box display="flex" alignItems="center" gap={1}>
-                                                <Avatar src={p.logoUrl} sx={{ width: 22, height: 22, fontSize: 10, bgcolor: "#6366f1" }}>{p.displayName[0]}</Avatar>
+                                                <Avatar src={p.logoUrl} sx={{ width: 22, height: 22, fontSize: 10, bgcolor: p.logoUrl ? "transparent" : "#6366f1" }}>{p.displayName[0]}</Avatar>
                                                 <Typography variant="body2" fontWeight={isAdvancing ? 700 : 400}>{p.displayName}</Typography>
                                               </Box>
                                             </TableCell>
@@ -753,6 +801,7 @@ const SpecialTournamentAdminPage = () => {
                             );
                           })}
                         </Box>
+                      </>
                       )}
 
                       {/* Knockout matches */}
@@ -882,7 +931,12 @@ const SpecialTournamentAdminPage = () => {
         }}>
           <Box display="flex" alignItems="center" gap={1.5}>
             <Box sx={{ width: 36, height: 36, borderRadius: "10px", bgcolor: "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <EmojiEvents sx={{ fontSize: 20 }} />
+              <Box
+                component="img"
+                src="/special-trophy.png"
+                alt="Trophy"
+                sx={{ height: 20, width: "auto" }}
+              />
             </Box>
             <Box>
               <Typography variant="h6" fontWeight={800} lineHeight={1.2}>
@@ -1144,7 +1198,7 @@ const SpecialTournamentAdminPage = () => {
                   <Box display="flex" justifyContent="center" mt={1}>
                     <Avatar
                       src={pForm.logoMode === "url" ? pForm.logoUrl : pForm.previewUrl}
-                      sx={{ width: 64, height: 64, border: "2px solid #6366f1" }}
+                      sx={{ width: 64, height: 64, border: "2px solid #6366f1", bgcolor: (pForm.logoMode === "url" ? pForm.logoUrl : pForm.previewUrl) ? "transparent" : "#6366f1" }}
                     />
                   </Box>
                 )}
@@ -1235,7 +1289,7 @@ const SpecialTournamentAdminPage = () => {
                               src={logoSrc}
                               sx={{
                                 width: 28, height: 28,
-                                bgcolor: isDup ? "#ef4444" : "#6366f1",
+                                bgcolor: isDup ? "#ef4444" : (logoSrc ? "transparent" : "#6366f1"),
                                 fontSize: 12, fontWeight: 700,
                                 cursor: row.logoMode === "upload" ? "pointer" : "default",
                                 border: isDup ? "2px solid #ef4444" : "2px solid transparent",
@@ -1393,7 +1447,7 @@ const SpecialTournamentAdminPage = () => {
                           src={logoSrc}
                           sx={{
                             width: 36, height: 36,
-                            bgcolor: isDup ? "#ef4444" : "#6366f1",
+                            bgcolor: isDup ? "#ef4444" : (logoSrc ? "transparent" : "#6366f1"),
                             fontSize: 14, fontWeight: 700,
                             cursor: row.logoMode === "upload" ? "pointer" : "default",
                             border: isDup ? "2px solid #ef4444" : "2px solid transparent",
@@ -1589,7 +1643,7 @@ const SpecialTournamentAdminPage = () => {
           {selectedMatch && (
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: { xs: 2, md: 4 } }}>
               <Box sx={{ flex: 1, textAlign: "center" }}>
-                <Avatar src={selectedMatch.homeLogoUrl} sx={{ width: 64, height: 64, mx: "auto", mb: 1, bgcolor: "#6366f1", fontSize: 20 }}>
+                <Avatar src={selectedMatch.homeLogoUrl} sx={{ width: 64, height: 64, mx: "auto", mb: 1, bgcolor: selectedMatch.homeLogoUrl ? "transparent" : "#6366f1", fontSize: 20 }}>
                   {(selectedMatch.homeDisplayName || "?")[0]}
                 </Avatar>
                 <Typography variant="subtitle1" fontWeight="800" noWrap>{selectedMatch.homeDisplayName || "TBD"}</Typography>
@@ -1603,7 +1657,7 @@ const SpecialTournamentAdminPage = () => {
                   inputProps={{ min: 0 }} InputProps={{ disableUnderline: true, sx: { fontSize: "2rem", fontWeight: 900, width: 50, "& input": { textAlign: "center", p: 0 } } }} />
               </Box>
               <Box sx={{ flex: 1, textAlign: "center" }}>
-                <Avatar src={selectedMatch.awayLogoUrl} sx={{ width: 64, height: 64, mx: "auto", mb: 1, bgcolor: "#8b5cf6", fontSize: 20 }}>
+                <Avatar src={selectedMatch.awayLogoUrl} sx={{ width: 64, height: 64, mx: "auto", mb: 1, bgcolor: selectedMatch.awayLogoUrl ? "transparent" : "#8b5cf6", fontSize: 20 }}>
                   {(selectedMatch.awayDisplayName || "?")[0]}
                 </Avatar>
                 <Typography variant="subtitle1" fontWeight="800" noWrap>{selectedMatch.awayDisplayName || "TBD"}</Typography>

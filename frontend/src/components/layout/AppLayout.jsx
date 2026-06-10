@@ -62,6 +62,8 @@ import {
   Info,
   Ballot,
   WorkspacePremium,
+  Hub,
+  Pages,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -72,7 +74,6 @@ import leagueOpsService from "../../services/leagueOpsService";
 import specialTournamentService from "../../services/specialTournamentService";
 import { CheckCircle, LocationPin } from "@mui/icons-material";
 
-
 const DRAWER_WIDTH = 240;
 
 const navItems = [
@@ -80,6 +81,12 @@ const navItems = [
   { label: "Standings", path: "/standings", icon: <Leaderboard /> },
   { label: "Matches", path: "/matches", icon: <CalendarMonth /> },
   { label: "Cup Bracket", path: "/cup-bracket", icon: <EmojiEvents /> },
+  {
+    label: "Tournament",
+    icon: <Hub />,
+    key: "tournament-group",
+    children: [], // will be populated dynamically with special tournaments
+  },
   // Special Tournament public items are injected dynamically — see filteredNav below
   { label: "Hall of Fame", path: "/hall-of-fame", icon: <MilitaryTech /> },
   { label: "Auction Board", path: "/auction-results", icon: <HotelClass /> },
@@ -148,7 +155,7 @@ const navItems = [
   },
   {
     label: "About",
-    icon: <Campaign />,
+    icon: <Pages />,
     key: "about-group",
     children: [
       { label: "Members", path: "/members", icon: <SwitchAccount /> },
@@ -231,7 +238,6 @@ const navItems = [
   },
 ];
 
-
 const AppLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -270,10 +276,13 @@ const AppLayout = () => {
 
   // Fetch public special tournaments for navigation
   useEffect(() => {
-    specialTournamentService.list().then(res => {
-      const list = res.data?.data || [];
-      setPublicTournaments(list.filter(t => t.isPublic));
-    }).catch(() => {});
+    specialTournamentService
+      .list()
+      .then((res) => {
+        const list = res.data?.data || [];
+        setPublicTournaments(list.filter((t) => t.isPublic));
+      })
+      .catch(() => {});
   }, []);
 
   const handleCheckin = async () => {
@@ -282,16 +291,19 @@ const AppLayout = () => {
     try {
       const res = await leagueOpsService.userCheckin();
       setHasCheckedIn(true);
-      enqueueSnackbar(res?.data?.message || "รายงานตัวประจำวันสำเร็จ! 🔥", { variant: "success" });
+      enqueueSnackbar(res?.data?.message || "รายงานตัวประจำวันสำเร็จ! 🔥", {
+        variant: "success",
+      });
     } catch (err) {
       console.error("Check-in error", err);
-      const errMsg = err?.response?.data?.message || "เกิดข้อผิดพลาดในการรายงานตัว";
+      const errMsg =
+        err?.response?.data?.message || "เกิดข้อผิดพลาดในการรายงานตัว";
       enqueueSnackbar(errMsg, { variant: "error" });
     } finally {
       setCheckinLoading(false);
     }
   };
-  
+
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isDrawerExpanded = isMobile ? true : desktopOpen;
@@ -312,7 +324,7 @@ const AppLayout = () => {
   };
 
   const toggleGroup = (key) => {
-    setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }));
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const filterMenuItems = (items) => {
@@ -328,7 +340,8 @@ const AppLayout = () => {
         if (item.key.endsWith("-group")) {
           // If it's the admin group, check if user is admin or moderator
           if (item.key === "admin-group") {
-            if (user?.userLevel === "admin" || user?.userLevel === "moderator") return true;
+            if (user?.userLevel === "admin" || user?.userLevel === "moderator")
+              return true;
           } else {
             // Other groups like Transfer, Member, About might always be shown
             if (item.loginRequired && !user) return false;
@@ -357,7 +370,7 @@ const AppLayout = () => {
         // If it's a parent, only show if it has visible children OR user is admin
         if (item.children) {
           if (item.key === "admin-group") {
-             return item.children.length > 0;
+            return item.children.length > 0;
           }
           return item.children.length > 0;
         }
@@ -365,45 +378,54 @@ const AppLayout = () => {
       });
   };
 
-  // Build final nav: inject public Special Tournament items after Cup Bracket
+  // Build final nav: inject public Special Tournament items inside Tournament group
   const buildFinalNav = () => {
-    const base = filterMenuItems(navItems);
-    const cupIdx = base.findIndex(item => item.path === "/cup-bracket");
-    const dynamicItems = publicTournaments.map(t => ({
+    const dynamicItems = publicTournaments.map((t) => ({
       label: t.name,
       path: `/special-tournament/${t.id}`,
       icon: <WorkspacePremium />,
     }));
-    if (cupIdx === -1 || dynamicItems.length === 0) return base;
-    return [
-      ...base.slice(0, cupIdx + 1),
-      ...dynamicItems,
-      ...base.slice(cupIdx + 1),
-    ];
+
+    const navWithTournaments = navItems.map((item) => {
+      if (item.key === "tournament-group") {
+        return {
+          ...item,
+          children: dynamicItems,
+        };
+      }
+      return item;
+    });
+
+    return filterMenuItems(navWithTournaments);
   };
 
   const filteredNav = buildFinalNav();
-  
+
   // Get current page title
   const getCurrentPageTitle = () => {
     // Flatten nav items including children
-    const allItems = navItems.reduce((acc, item) => {
+    const allItems = filteredNav.reduce((acc, item) => {
       acc.push(item);
       if (item.children) acc.push(...item.children);
       return acc;
     }, []);
-    
+
     if (location.pathname === "/profile") return "Profile";
-    const current = allItems.find(item => item.path === location.pathname);
+    const current = allItems.find((item) => item.path === location.pathname);
     return current?.label || "eTPL";
   };
 
   const pageTitle = getCurrentPageTitle();
 
-
   const drawer = (
     <Box>
-      <Toolbar sx={{ justifyContent: isDrawerExpanded ? "flex-start" : "center", px: isDrawerExpanded ? 2 : 1.5, minHeight: 70 }}>
+      <Toolbar
+        sx={{
+          justifyContent: isDrawerExpanded ? "flex-start" : "center",
+          px: isDrawerExpanded ? 2 : 1.5,
+          minHeight: 70,
+        }}
+      >
         <Typography
           variant="h5"
           fontWeight="900"
@@ -412,7 +434,7 @@ const AppLayout = () => {
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             letterSpacing: 1.5,
-            cursor: 'pointer'
+            cursor: "pointer",
           }}
           noWrap
           onClick={() => navigate("/main")}
@@ -596,7 +618,7 @@ const AppLayout = () => {
               flexGrow: 1,
               color: "white",
               letterSpacing: 1,
-              cursor: 'pointer'
+              cursor: "pointer",
             }}
             onClick={() => navigate("/main")}
           >
@@ -606,10 +628,10 @@ const AppLayout = () => {
           {user && (
             <>
               {(isWithinHours || hasCheckedIn) && (
-                <Tooltip 
+                <Tooltip
                   title={
-                    hasCheckedIn 
-                      ? "รายงานตัวเรียบร้อยแล้ว!" 
+                    hasCheckedIn
+                      ? "รายงานตัวเรียบร้อยแล้ว!"
                       : "กดเพื่อรายงานตัวประจำวัน"
                   }
                 >
@@ -620,24 +642,34 @@ const AppLayout = () => {
                       sx={{
                         mr: 1.5,
                         color: hasCheckedIn ? "#10b981 !important" : "#f59e0b",
-                        border: hasCheckedIn 
-                          ? "1px solid rgba(16, 185, 129, 0.3)" 
+                        border: hasCheckedIn
+                          ? "1px solid rgba(16, 185, 129, 0.3)"
                           : "1px solid rgba(245, 158, 11, 0.3)",
-                        background: hasCheckedIn 
-                          ? "rgba(16, 185, 129, 0.1) !important" 
+                        background: hasCheckedIn
+                          ? "rgba(16, 185, 129, 0.1) !important"
                           : "rgba(245, 158, 11, 0.05)",
-                        animation: !hasCheckedIn ? "pulseGlow 2s infinite ease-in-out" : "none",
+                        animation: !hasCheckedIn
+                          ? "pulseGlow 2s infinite ease-in-out"
+                          : "none",
                         "@keyframes pulseGlow": {
-                          "0%": { boxShadow: "0 0 0 0 rgba(245, 158, 11, 0.4)" },
-                          "70%": { boxShadow: "0 0 0 8px rgba(245, 158, 11, 0)" },
-                          "100%": { boxShadow: "0 0 0 0 rgba(245, 158, 11, 0)" }
+                          "0%": {
+                            boxShadow: "0 0 0 0 rgba(245, 158, 11, 0.4)",
+                          },
+                          "70%": {
+                            boxShadow: "0 0 0 8px rgba(245, 158, 11, 0)",
+                          },
+                          "100%": {
+                            boxShadow: "0 0 0 0 rgba(245, 158, 11, 0)",
+                          },
                         },
                         "&:hover": {
-                          background: hasCheckedIn 
-                            ? "rgba(16, 185, 129, 0.1) !important" 
+                          background: hasCheckedIn
+                            ? "rgba(16, 185, 129, 0.1) !important"
                             : "rgba(245, 158, 11, 0.15)",
-                          borderColor: hasCheckedIn ? "rgba(16, 185, 129, 0.3)" : "#f59e0b",
-                        }
+                          borderColor: hasCheckedIn
+                            ? "rgba(16, 185, 129, 0.3)"
+                            : "#f59e0b",
+                        },
                       }}
                     >
                       {hasCheckedIn ? <CheckCircle /> : <LocationPin />}
@@ -709,18 +741,27 @@ const AppLayout = () => {
 
               {user ? (
                 [
-                  <MenuItem key="profile-card" onClick={() => { setAnchorEl(null); navigate("/profile"); }}>
+                  <MenuItem
+                    key="profile-card"
+                    onClick={() => {
+                      setAnchorEl(null);
+                      navigate("/profile");
+                    }}
+                  >
                     <Person sx={{ mr: 1 }} fontSize="small" />
                     Profile
                   </MenuItem>,
-                  <MenuItem key="change-password" onClick={handleChangePassword}>
+                  <MenuItem
+                    key="change-password"
+                    onClick={handleChangePassword}
+                  >
                     <LockReset sx={{ mr: 1 }} fontSize="small" />
                     Change Password
                   </MenuItem>,
                   <MenuItem key="logout" onClick={handleLogout}>
                     <Logout sx={{ mr: 1 }} fontSize="small" />
                     Logout
-                  </MenuItem>
+                  </MenuItem>,
                 ]
               ) : (
                 <MenuItem onClick={handleLogin}>
@@ -795,7 +836,15 @@ const AppLayout = () => {
             "radial-gradient(circle at top right, rgba(99,102,241,0.05), transparent 40%), #f1f5f9",
         }}
       >
-        <Box sx={{ width: "100%", maxWidth: 'none', mx: 0, position: 'relative', minHeight: '100%' }}>
+        <Box
+          sx={{
+            width: "100%",
+            maxWidth: "none",
+            mx: 0,
+            position: "relative",
+            minHeight: "100%",
+          }}
+        >
           <Outlet />
         </Box>
         {/* <ManagerOnboarding /> */}

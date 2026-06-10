@@ -150,23 +150,89 @@ const CupBracketPage = () => {
 
   return (
     <Box
-      sx={{ width: "100%", bgcolor: "background.default", minHeight: "100vh" }}
+      sx={{
+        width: "100%",
+        bgcolor: "background.default",
+        minHeight: "100vh",
+        position: "relative",
+        overflow: "hidden"
+      }}
     >
       <SEO 
         title="ตารางสายการแข่งขันฟุตบอลถ้วย Cup Bracket" 
         description="สายการจับคู่และอันดับล่วงหน้าของทัวร์นาเมนต์บอลถ้วยแบบแพ้คัดออก (Knockout Cup) ในรายการ eTPL ประจำฤดูกาล ติดตามดูคู่แข่งขัน รายงานผลการแข่งขัน และผู้ผ่านเข้ารอบต่อไป"
         keywords="สายแข่งบอลถ้วย eTPL, Cup Bracket eTPL, บอลถ้วย eTPL, eFootball PES Knockout, ตารางการแข่งขัน eTPL Cup"
       />
-      {/* Header */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 4,
-          px: { xs: 1, sm: 0 },
-        }}
-      >
+
+      {/* Decorative Blur Blobs */}
+      <Box sx={{
+        position: "absolute",
+        top: "10%",
+        left: "15%",
+        width: "50vw",
+        height: "50vw",
+        borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(99, 102, 241, 0) 70%)",
+        filter: "blur(90px)",
+        animation: "floatBlob1 28s infinite ease-in-out",
+        pointerEvents: "none",
+        zIndex: 0
+      }} />
+      <Box sx={{
+        position: "absolute",
+        top: "45%",
+        right: "10%",
+        width: "55vw",
+        height: "55vw",
+        borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(139, 92, 246, 0.07) 0%, rgba(139, 92, 246, 0) 70%)",
+        filter: "blur(110px)",
+        animation: "floatBlob2 34s infinite ease-in-out",
+        pointerEvents: "none",
+        zIndex: 0
+      }} />
+      <Box sx={{
+        position: "absolute",
+        bottom: "10%",
+        left: "30%",
+        width: "40vw",
+        height: "40vw",
+        borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(148, 163, 184, 0.05) 0%, rgba(148, 163, 184, 0) 70%)",
+        filter: "blur(80px)",
+        animation: "floatBlob3 22s infinite ease-in-out",
+        pointerEvents: "none",
+        zIndex: 0
+      }} />
+
+      {/* Faint Background Football Stadium Watermark */}
+      <Box sx={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundImage: "url(/stadium.png)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        opacity: 0.05,
+        filter: "brightness(0.7) contrast(1.1)",
+        zIndex: 0,
+        pointerEvents: "none",
+      }} />
+
+      <Box sx={{ position: "relative", zIndex: 1, px: { xs: 1.5, sm: 2, md: 3 }, py: 3 }}>
+        {/* Header */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 4,
+            px: { xs: 1, sm: 0 },
+          }}
+        >
         <Box display="flex" alignItems="center" gap={1.5}>
           <EmojiEvents color="primary" sx={{ fontSize: 32 }} />
           <Box>
@@ -804,15 +870,18 @@ const CupBracketPage = () => {
                         )}
 
                         {isFinal && matchNo === 1 && (
-                          <EmojiEvents
+                          <Box
+                            component="img"
+                            src="/trophy.png"
+                            alt="Champion Trophy"
                             sx={{
                               position: "absolute",
                               left: CARD_WIDTH / 2,
-                              top: Math.max(8, (slotH - MATCH_HEIGHT) / 2 - 72),
+                              top: Math.max(8, (slotH - MATCH_HEIGHT) / 2 - 130),
                               transform: "translateX(-50%)",
-                              fontSize: 64,
-                              color: "gold",
-                              filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.15))",
+                              height: 120,
+                              width: "auto",
+                              filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.3))",
                               zIndex: 2,
                             }}
                           />
@@ -830,7 +899,8 @@ const CupBracketPage = () => {
                                   top: `calc(50% - ${LINE_THICKNESS / 2}px)`,
                                   width: H_STUB + JOIN_OVERLAP,
                                   height: `${LINE_THICKNESS}px`,
-                                  bgcolor: "grey.400",
+                                  bgcolor: "rgba(251, 191, 36, 0.6)",
+                                  boxShadow: "0 0 6px rgba(251, 191, 36, 0.4)",
                                   zIndex: 1,
                                 }}
                               />
@@ -845,7 +915,8 @@ const CupBracketPage = () => {
                                   top: lineStart, // relative to this slot's top
                                   width: `${LINE_THICKNESS}px`,
                                   height: lineHeight,
-                                  bgcolor: "grey.400",
+                                  bgcolor: "rgba(251, 191, 36, 0.6)",
+                                  boxShadow: "0 0 6px rgba(251, 191, 36, 0.4)",
                                   zIndex: 0,
                                 }}
                               >
@@ -857,7 +928,8 @@ const CupBracketPage = () => {
                                     top: exitOffsetY - LINE_THICKNESS / 2,
                                     width: H_STUB + JOIN_OVERLAP,
                                     height: `${LINE_THICKNESS}px`,
-                                    bgcolor: "grey.400",
+                                    bgcolor: "rgba(251, 191, 36, 0.6)",
+                                    boxShadow: "0 0 6px rgba(251, 191, 36, 0.4)",
                                   }}
                                 />
                               </Box>
@@ -1073,6 +1145,7 @@ const CupBracketPage = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      </Box>
     </Box>
   );
 };

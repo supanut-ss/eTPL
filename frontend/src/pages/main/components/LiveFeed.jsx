@@ -98,6 +98,9 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
         
         // ซ่อนรายการแจกเงินรางวัล/รางวัลพิเศษต่างๆ
         const isPrize = sub.includes("รางวัล") || sub.includes("prize") || sub.includes("reward") || txType.includes("PRIZE");
+        
+        // ซ่อนรายการ Cycle End Bonus
+        const isCycleBonus = txType.includes("CYCLE_BONUS") || sub.includes("cycle");
 
         // กรองฝั่ง "คนขาย/คนให้ยืม" ออกจากรายการ DEAL เพราะเราต้องการประกาศแค่ฝั่ง "คนซื้อ/คนยืมไป" เท่านั้น
         // (เช่น ถ้า Chalif ยืมตัวจาก Admin ให้แสดงแค่ Chalif ยืมตัว... ไม่ต้องแสดง Admin ปล่อยยืม...)
@@ -107,7 +110,7 @@ const LiveFeed = ({ lastFixtures, marketActivity }) => {
           sub.includes("loaned out") || sub.includes("ปล่อยยืม")
         );
 
-        return !isAuto && (type === "DEAL" || !isBid) && !isOutgoingSide && !isPrize;
+        return !isAuto && (type === "DEAL" || !isBid) && !isOutgoingSide && !isPrize && !isCycleBonus;
       })
       .map((m) => ({
         type: m.type === "DEAL" ? "DEAL" : "MARKET",

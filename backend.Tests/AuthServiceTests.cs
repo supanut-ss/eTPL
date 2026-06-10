@@ -157,15 +157,12 @@ namespace eTPL.API.Tests
             var memoryCache = CreateMemoryCache();
             var service = new AuthService(db, config, httpFactory.Object, memoryCache);
 
-            // Act
-            var result = await service.LineLoginAsync(new LineLoginRequest
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(() => service.LineLoginAsync(new LineLoginRequest
             {
                 Code = "bad-code",
                 RedirectUri = "https://example.com/callback"
-            });
-
-            // Assert
-            Assert.Null(result);
+            }));
         }
 
         [Fact]

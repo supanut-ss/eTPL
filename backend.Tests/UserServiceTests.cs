@@ -101,7 +101,7 @@ namespace eTPL.API.Tests
             Assert.Equal("Ubob1", dto.LineId);
 
             // Also verify persisted in DB
-            var persisted = await db.Users.FindAsync("bob");
+            var persisted = await db.Users.FirstOrDefaultAsync(u => u.UserId == "bob");
             Assert.NotNull(persisted);
             Assert.Equal("secret", persisted.Password);
         }
@@ -131,7 +131,7 @@ namespace eTPL.API.Tests
             Assert.Equal("Carol", dto.LineName);
 
             // Verify password was updated
-            var persisted = await db.Users.FindAsync("carol");
+            var persisted = await db.Users.FirstOrDefaultAsync(u => u.UserId == "carol");
             Assert.Equal("newpass", persisted!.Password);
         }
 
@@ -149,7 +149,7 @@ namespace eTPL.API.Tests
                 Password = "",   // empty → should NOT overwrite
             });
 
-            var persisted = await db.Users.FindAsync("dave");
+            var persisted = await db.Users.FirstOrDefaultAsync(u => u.UserId == "dave");
             Assert.Equal("original", persisted!.Password);
         }
 
@@ -177,7 +177,7 @@ namespace eTPL.API.Tests
             var success = await service.DeleteByUserIdAsync("eve");
 
             Assert.True(success);
-            Assert.Null(await db.Users.FindAsync("eve"));
+            Assert.Null(await db.Users.FirstOrDefaultAsync(u => u.UserId == "eve"));
         }
 
         [Fact]
@@ -208,7 +208,7 @@ namespace eTPL.API.Tests
             });
 
             Assert.True(success);
-            var persisted = await db.Users.FindAsync("frank");
+            var persisted = await db.Users.FirstOrDefaultAsync(u => u.UserId == "frank");
             Assert.Equal("newpwd", persisted!.Password);
         }
 
@@ -227,7 +227,7 @@ namespace eTPL.API.Tests
             });
 
             Assert.False(success);
-            var persisted = await db.Users.FindAsync("grace");
+            var persisted = await db.Users.FirstOrDefaultAsync(u => u.UserId == "grace");
             Assert.Equal("correct", persisted!.Password);  // unchanged
         }
 

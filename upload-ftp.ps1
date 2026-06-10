@@ -150,12 +150,9 @@ function Upload-File {
             return
         }
 
-        # Rule 2: CLUB_LOGO - skip if exists
+        # Rule 2: CLUB_LOGO - skip completely (we don't upload club logos during deploy)
         if ($isClubLogo) {
-            $request = New-FtpRequest -Uri $remoteUri -Method ([System.Net.WebRequestMethods+Ftp]::GetFileSize)
-            $response = $request.GetResponse()
-            $response.Close()
-            Write-Host "Skipped (Exists): $RelativePath" -ForegroundColor Gray
+            Write-Host "Skipped (CLUB_LOGO): $RelativePath" -ForegroundColor Gray
             return
         }
 

@@ -17,20 +17,32 @@ namespace eTPL.API.Tests
         private static UserDto MakeUserDto(string userId = "user1", string level = "user") =>
             new() { UserId = userId, UserLevel = level };
 
-        private static UserController CreateController(IUserService service, string? identityName = null)
+        private static UserController CreateController(IUserService service, string? identityName = null, string? role = null)
         {
             var controller = new UserController(service);
 
+            var claims = new List<Claim>();
             if (identityName != null)
             {
-                var claims = new[] { new Claim(ClaimTypes.Name, identityName) };
-                var identity = new ClaimsIdentity(claims, "Test");
-                var principal = new ClaimsPrincipal(identity);
-                controller.ControllerContext = new ControllerContext
-                {
-                    HttpContext = new DefaultHttpContext { User = principal }
-                };
+                claims.Add(new Claim(ClaimTypes.Name, identityName));
+                claims.Add(new Claim(ClaimTypes.NameIdentifier, identityName));
             }
+            else
+            {
+                claims.Add(new Claim(ClaimTypes.NameIdentifier, "dummy"));
+            }
+            if (role != null)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, role));
+                claims.Add(new Claim("UserLevel", role));
+            }
+
+            var identity = new ClaimsIdentity(claims, "Test");
+            var principal = new ClaimsPrincipal(identity);
+            controller.ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext { User = principal }
+            };
 
             return controller;
         }
@@ -63,7 +75,7 @@ namespace eTPL.API.Tests
             mockService.Setup(s => s.GetByUserIdAsync("alice"))
                 .ReturnsAsync(MakeUserDto("alice"));
 
-            var controller = CreateController(mockService.Object);
+            var controller = CreateController(mockService.Object, identityName: "alice");
 
             var result = await controller.GetByUserId("alice");
 
@@ -79,7 +91,7 @@ namespace eTPL.API.Tests
             mockService.Setup(s => s.GetByUserIdAsync("ghost"))
                 .ReturnsAsync((UserDto?)null);
 
-            var controller = CreateController(mockService.Object);
+            var controller = CreateController(mockService.Object, identityName: "ghost");
 
             var result = await controller.GetByUserId("ghost");
 

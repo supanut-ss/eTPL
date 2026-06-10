@@ -55,7 +55,7 @@ const MatchCard = ({ match }) => {
           height: 26, 
           fontSize: 11, 
           fontWeight: "bold", 
-          bgcolor: isWinner ? "#6366f1" : "rgba(255, 255, 255, 0.1)", 
+          bgcolor: logoUrl ? "transparent" : (isWinner ? "#6366f1" : "rgba(255, 255, 255, 0.1)"), 
           color: "rgba(241, 245, 249, 0.8)",
           flexShrink: 0,
           boxShadow: isWinner ? "0 2px 8px rgba(99, 102, 241, 0.3)" : "none"
@@ -97,7 +97,7 @@ const MatchCard = ({ match }) => {
     }}>
       {match.isBye ? (
         <Box sx={{ p: 2, display: "flex", alignItems: "center", gap: 1.5, height: "100%" }}>
-          <Avatar src={match.homeLogoUrl} sx={{ width: 28, height: 28, bgcolor: "#6366f1", fontSize: 12 }}>{(match.homeDisplayName || "?")[0]}</Avatar>
+          <Avatar src={match.homeLogoUrl} sx={{ width: 28, height: 28, bgcolor: match.homeLogoUrl ? "transparent" : "#6366f1", fontSize: 12 }}>{(match.homeDisplayName || "?")[0]}</Avatar>
           <Box>
             <Typography variant="body2" fontWeight={700} sx={{ color: "#ffffff" }}>{match.homeDisplayName}</Typography>
             <Chip label="BYE" size="small" sx={{ height: 16, fontSize: "0.6rem", bgcolor: "rgba(99, 102, 241, 0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.2)", mt: 0.5 }} />
@@ -260,15 +260,18 @@ const HorizontalBracket = ({ matches }) => {
                     )}
 
                     {isFinal && matchNo === 1 && (
-                      <EmojiEvents
+                      <Box
+                        component="img"
+                        src="/special-trophy.png"
+                        alt="Champion Trophy"
                         sx={{
                           position: "absolute",
                           left: CARD_WIDTH / 2,
-                          top: Math.max(8, (slotH - MATCH_HEIGHT) / 2 - 72),
+                          top: Math.max(8, (slotH - MATCH_HEIGHT) / 2 - 150),
                           transform: "translateX(-50%)",
-                          fontSize: 64,
-                          color: "gold",
-                          filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.15))",
+                          height: 140,
+                          width: "auto",
+                          filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.3))",
                           zIndex: 2,
                         }}
                       />
@@ -381,14 +384,45 @@ const GroupStandings = ({ group, participants, matches, advanceCount }) => {
                     }
                   }}
                 >
-                  <TableCell sx={{ pl: { xs: 1, sm: 2 }, pr: { xs: 0.5, sm: 1.5 }, fontSize: "0.8rem", fontWeight: isAdvancing ? 800 : 400, color: isAdvancing ? "#818cf8" : "rgba(241, 245, 249, 0.6)", borderColor: "rgba(255, 255, 255, 0.05)" }}>{idx + 1}</TableCell>
+                  <TableCell sx={{ pl: { xs: 1, sm: 2 }, pr: { xs: 0.5, sm: 1.5 }, borderColor: "rgba(255, 255, 255, 0.05)" }}>
+                    {isAdvancing ? (
+                      <Box sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: { xs: 20, sm: 24 },
+                        height: { xs: 20, sm: 24 },
+                        borderRadius: "50%",
+                        border: `2px solid ${idx === 0 ? "#fbbf24" : "#818cf8"}`,
+                        color: idx === 0 ? "#fbbf24" : "#818cf8",
+                        bgcolor: idx === 0 ? "rgba(251, 191, 36, 0.1)" : "rgba(129, 140, 248, 0.1)",
+                        fontWeight: 800,
+                        fontSize: { xs: "0.7rem", sm: "0.8rem" }
+                      }}>
+                        {idx + 1}
+                      </Box>
+                    ) : (
+                      <Box sx={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: { xs: 20, sm: 24 },
+                        height: { xs: 20, sm: 24 },
+                        fontSize: "0.8rem",
+                        fontWeight: 400,
+                        color: "rgba(241, 245, 249, 0.6)"
+                      }}>
+                        {idx + 1}
+                      </Box>
+                    )}
+                  </TableCell>
                   <TableCell sx={{ px: { xs: 0.5, sm: 1.5 }, borderColor: "rgba(255, 255, 255, 0.05)" }}>
                     <Box display="flex" alignItems="center" gap={isMobile ? 0.75 : 1.2}>
                       <Avatar src={p.logoUrl} sx={{ 
                         width: isMobile ? 20 : 24, 
                         height: isMobile ? 20 : 24, 
                         fontSize: isMobile ? 9 : 10, 
-                        bgcolor: isAdvancing ? "#6366f1" : "rgba(255, 255, 255, 0.1)",
+                        bgcolor: p.logoUrl ? "transparent" : (isAdvancing ? "#6366f1" : "rgba(255, 255, 255, 0.1)"),
                         boxShadow: isAdvancing ? "0 2px 6px rgba(99, 102, 241, 0.2)" : "none"
                       }}>
                         {p.displayName[0]}
@@ -397,21 +431,6 @@ const GroupStandings = ({ group, participants, matches, advanceCount }) => {
                         <Typography variant="body2" fontWeight={isAdvancing ? 700 : 500} noWrap sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" }, color: "rgba(241, 245, 249, 0.95)" }}>{p.displayName}</Typography>
                         {p.teamName && <Typography variant="caption" color="rgba(241, 245, 249, 0.5)" sx={{ fontSize: "0.6rem", display: "block" }} noWrap>{p.teamName}</Typography>}
                       </Box>
-                      {isAdvancing && (
-                        <Chip 
-                          label={isMobile ? "ADV" : "ADVANCED"} 
-                          size="small" 
-                          sx={{ 
-                            height: 14, 
-                            fontSize: "0.5rem", 
-                            fontWeight: 800,
-                            bgcolor: "rgba(34, 197, 94, 0.15)", 
-                            color: "#4ade80", 
-                            ml: 0.5,
-                            letterSpacing: "0.05em"
-                          }} 
-                        />
-                      )}
                     </Box>
                   </TableCell>
                   <TableCell align="center" sx={{ px: { xs: 0.5, sm: 1.5 }, fontSize: "0.8rem", fontWeight: 600, color: "#4ade80", borderColor: "rgba(255, 255, 255, 0.05)" }}>{p.w}</TableCell>
@@ -811,7 +830,16 @@ const SpecialTournamentBracketPage = () => {
                       }
                     }}
                   >
-                    <EmojiEvents sx={{ color: "#fbbf24", fontSize: 26, filter: "drop-shadow(0 2px 6px rgba(245, 158, 11, 0.3))" }} />
+                    <Box
+                      component="img"
+                      src="/special-trophy.png"
+                      alt="Trophy"
+                      sx={{
+                        height: 56,
+                        width: "auto",
+                        filter: "drop-shadow(0 2px 8px rgba(251, 191, 36, 0.4))",
+                      }}
+                    />
                     <Box>
                       <Typography variant="caption" fontWeight={700} color="#fbbf24" display="block" sx={{ letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "0.65rem" }}>🏆 CHAMPION</Typography>
                       <Typography variant="body1" fontWeight={800} color="#ffffff" sx={{ fontSize: "0.95rem" }}>{champion}</Typography>
@@ -938,7 +966,7 @@ const SpecialTournamentBracketPage = () => {
                 <Typography color="inherit" fontWeight={500}>Group stage has not been generated yet.</Typography>
               </Paper>
             ) : (
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3 }}>
                 {groups.map(group => {
                   const gParticipants = participants.filter(p => p.groupId === group.id);
                   const gMatches = groupMatches.filter(m => m.groupId === group.id);
@@ -950,8 +978,6 @@ const SpecialTournamentBracketPage = () => {
                         borderRadius: 4, 
                         border: "1px solid rgba(255, 255, 255, 0.06)", 
                         overflow: "hidden", 
-                        flex: "1 1 420px", 
-                        minWidth: { xs: "100%", md: 400 },
                         background: "linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)",
                         backdropFilter: "blur(20px)",
                         boxShadow: "0 10px 30px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05)",

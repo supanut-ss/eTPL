@@ -228,6 +228,9 @@ const AdminLeagueOpsPage = () => {
   });
   const [historyDetailOpen, setHistoryDetailOpen] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState(null);
+  const [payoutSummaryOpen, setPayoutSummaryOpen] = useState(false);
+  const [payoutSummaryData, setPayoutSummaryData] = useState([]);
+  const [isPayingRetroactive, setIsPayingRetroactive] = useState(false);
   const [previewResults, setPreviewResults] = useState({});
   const [isApplying, setIsApplying] = useState(false);
   const [judgeHistory, setJudgeHistory] = useState([]);
@@ -357,10 +360,9 @@ const AdminLeagueOpsPage = () => {
   }, [selectedCycleId, cycles]);
 
   const fetchHistory = useCallback(async () => {
-    if (!selectedCycleId) return;
     setLoadingHistory(true);
     try {
-      const res = await leagueOpsService.getJudgeHistory(selectedCycleId);
+      const res = await leagueOpsService.getJudgeHistory(selectedCycleId || 0);
       setJudgeHistory(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Failed to fetch judge history", err);
@@ -598,17 +600,22 @@ const AdminLeagueOpsPage = () => {
         match_target_d2: currentCycle?.matchTargetD2,
       });
 
-      await leagueOpsService.applyBatchResults(
+      const res = await leagueOpsService.applyBatchResults(
         selectedCycleId,
         payload,
         configSnapshot,
       );
       setSnackbar({
         open: true,
-        message: "Successfully applied all results",
+        message: "Successfully applied all results and processed payouts",
         severity: "success",
       });
       setPreviewResults({});
+      setPreviewOpen(false); // Close the preview review dialog
+      if (res.data?.payouts && res.data.payouts.length > 0) {
+        setPayoutSummaryData(res.data.payouts);
+        setPayoutSummaryOpen(true);
+      }
       fetchData();
       fetchHistory();
     } catch (err) {
@@ -619,6 +626,50 @@ const AdminLeagueOpsPage = () => {
       });
     } finally {
       setIsApplying(false);
+    }
+  };
+
+  const handleRetroactivePayout = async (cycleId, cycleName) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to retroactively distribute cycle bonuses for "${cycleName}"?\n\nThis will credit missing bonuses to user wallets for this cycle.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setIsPayingRetroactive(true);
+      const res = await leagueOpsService.retroactivePayout(cycleId);
+      setSnackbar({
+        open: true,
+        message: "Successfully completed retroactive payouts",
+        severity: "success",
+      });
+
+      if (res.data?.payouts && res.data.payouts.length > 0) {
+        setPayoutSummaryData(res.data.payouts);
+        setPayoutSummaryOpen(true);
+      } else {
+        setSnackbar({
+          open: true,
+          message: "No unpaid eligible players found for this cycle.",
+          severity: "info",
+        });
+      }
+      fetchData();
+    } catch (err) {
+      const msg =
+        err.response?.data?.details ||
+        err.response?.data?.message ||
+        err.message;
+      setSnackbar({
+        open: true,
+        message: `Failed retroactive payout: ${msg}`,
+        severity: "error",
+      });
+    } finally {
+      setIsPayingRetroactive(false);
     }
   };
 
@@ -639,6 +690,37 @@ const AdminLeagueOpsPage = () => {
         message: "Failed to delete history",
         severity: "error",
       });
+    }
+  };
+
+  const handleCutPlayer = async (userId) => {
+    if (
+      window.confirm(
+        `Are you sure you want to cut player "${userId}" from the competition?\n\nThis action will:\n1. Delete competition results in tbt_result table\n2. Set ACTIVE = 'CC' in tbt_fixture_all table\n3. Return all squad players of this user to the auction market\n4. Delete all related financial and wallet records\n5. Delete the user from user table\n\n**This action cannot be undone!**`
+      )
+    ) {
+      try {
+        setLoading(true);
+        await leagueOpsService.cutPlayer(userId);
+        setSnackbar({
+          open: true,
+          message: `Successfully cut player "${userId}" from the competition`,
+          severity: "success",
+        });
+        fetchData();
+      } catch (err) {
+        const msg =
+          err.response?.data?.details ||
+          err.response?.data?.message ||
+          err.message;
+        setSnackbar({
+          open: true,
+          message: `Failed to cut player: ${msg}`,
+          severity: "error",
+        });
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -957,29 +1039,17 @@ const AdminLeagueOpsPage = () => {
         </Paper>
       </Box>
 
-      <Grid
-        container
-        spacing={2}
+      <Box
         sx={{
-          width: "100%",
-          flex: 1,
           px: { xs: 1, sm: 2 },
           pb: 2,
-          alignItems: "stretch",
-          flexWrap: { xs: "wrap", lg: "nowrap" },
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          gap: 3,
         }}
       >
-        <Grid
-          item
-          xs={12}
-          lg={6}
-          sx={{
-            display: "flex",
-            minWidth: 0,
-            flex: { lg: "1 1 0" },
-          }}
-        >
-          <Card
+        <Card
             sx={{
               borderRadius: 3,
               boxShadow: "0 18px 40px rgba(15,23,42,0.08)",
@@ -1102,6 +1172,7 @@ const AdminLeagueOpsPage = () => {
                   <TableRow>
                     {[
                       { id: "userId", label: "USER ID", align: "left" },
+                      { id: "actions", label: "ACTIONS", align: "center" },
                       { id: "division", label: "DIVISION", align: "center" },
                       { id: "pScore", label: "P-SCORE", align: "center" },
                       { id: "rScore", label: "R-SCORE", align: "center" },
@@ -1118,30 +1189,41 @@ const AdminLeagueOpsPage = () => {
                           py: 1.5,
                         }}
                       >
-                        <TableSortLabel
-                          active={sortField === col.id}
-                          direction={sortField === col.id ? sortOrder : "asc"}
-                          onClick={() => {
-                            const isAsc = sortField === col.id && sortOrder === "asc";
-                            setSortOrder(isAsc ? "desc" : "asc");
-                            setSortField(col.id);
-                          }}
-                          sx={{
-                            color: "#64748b",
-                            fontWeight: "800",
-                            fontSize: 11,
-                            letterSpacing: "0.05em",
-                            "&.MuiTableSortLabel-active": {
-                              color: "primary.main",
+                        {col.id === "actions" ? (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: "#64748b",
                               fontWeight: "900",
-                            },
-                            "& .MuiTableSortLabel-icon": {
-                              color: `${theme.palette.primary.main} !important`,
-                            },
-                          }}
-                        >
-                          {col.label}
-                        </TableSortLabel>
+                              fontSize: 11,
+                              letterSpacing: "0.05em",
+                            }}
+                          >
+                            {col.label}
+                          </Typography>
+                        ) : (
+                          <TableSortLabel
+                            active={sortField === col.id}
+                            direction={sortField === col.id ? sortOrder : "asc"}
+                            onClick={() => {
+                              const isAsc = sortField === col.id && sortOrder === "asc";
+                              setSortOrder(isAsc ? "desc" : "asc");
+                              setSortField(col.id);
+                            }}
+                            sx={{
+                              color: "#64748b",
+                              fontWeight: "800",
+                              fontSize: 11,
+                              letterSpacing: "0.05em",
+                              "&.MuiTableSortLabel-active": {
+                                color: "primary.main",
+                                fontWeight: "900",
+                              },
+                            }}
+                          >
+                            {col.label}
+                          </TableSortLabel>
+                        )}
                       </TableCell>
                     ))}
                   </TableRow>
@@ -1184,6 +1266,27 @@ const AdminLeagueOpsPage = () => {
                                 </Typography>
                               </Box>
                             </Box>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Tooltip title="Cut player from competition">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleCutPlayer(uid)}
+                                  sx={{
+                                    bgcolor: alpha(theme.palette.error.main, 0.05),
+                                    "&:hover": {
+                                      bgcolor: alpha(theme.palette.error.main, 0.12),
+                                    },
+                                    border: "none",
+                                    boxShadow: "none",
+                                  }}
+                                >
+                                  <Delete fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
                           </TableCell>
                           <TableCell align="center">
                             {row.division ? (
@@ -1262,7 +1365,7 @@ const AdminLeagueOpsPage = () => {
                     })
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 10 }}>
+                      <TableCell colSpan={8} align="center" sx={{ py: 10 }}>
                         <Typography variant="body2" color="text.secondary" fontWeight="700">
                           {stats.length === 0
                             ? "No player records for this cycle."
@@ -1275,19 +1378,7 @@ const AdminLeagueOpsPage = () => {
               </Table>
             </TableContainer>
           </Card>
-        </Grid>
 
-        <Grid
-          item
-          xs={12}
-          lg={6}
-          sx={{
-            display: "flex",
-            minWidth: 0,
-            flex: { lg: "1 1 0" },
-            mt: { xs: 2, lg: 0 },
-          }}
-        >
           <Card
             sx={{
               borderRadius: 3,
@@ -1450,6 +1541,25 @@ const AdminLeagueOpsPage = () => {
                             >
                               <Settings fontSize="small" />
                             </IconButton>
+                            <Tooltip title="Payout Bonus">
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleRetroactivePayout(row.cycleId, config.cycleName || config.CycleName || row.cycleName || cycleRef?.cycleName || `Cycle ${row.cycleId}`)}
+                                  disabled={isPayingRetroactive}
+                                  sx={{
+                                    ml: 1,
+                                    color: "success.main",
+                                    bgcolor: alpha(theme.palette.success.main, 0.05),
+                                    "&:hover": {
+                                      bgcolor: alpha(theme.palette.success.main, 0.1),
+                                    },
+                                  }}
+                                >
+                                  <EmojiEvents fontSize="small" />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
                             <IconButton
                               size="small"
                               color="error"
@@ -1482,8 +1592,7 @@ const AdminLeagueOpsPage = () => {
               </Table>
             </TableContainer>
           </Card>
-        </Grid>
-      </Grid>
+      </Box>
 
       {/* Match Adjustments Modal */}
       <Dialog
@@ -2590,6 +2699,235 @@ const AdminLeagueOpsPage = () => {
             }}
           >
             Close Details
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Payout Summary Dialog */}
+      <Dialog
+        open={payoutSummaryOpen}
+        onClose={() => setPayoutSummaryOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            borderRadius: isMobile ? 0 : 4,
+            overflow: "hidden",
+            boxShadow: "0 24px 60px rgba(15,23,42,0.16)",
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            fontWeight: "900",
+            bgcolor: "white",
+            color: "#0f172a",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            borderBottom: "1px solid #f1f5f9",
+            py: 2.5,
+            px: 3,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Box
+              sx={{
+                width: 36,
+                height: 36,
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette.success.main, 0.1),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "success.main",
+              }}
+            >
+              <EmojiEvents sx={{ fontSize: 22 }} />
+            </Box>
+            <Box>
+              <Typography variant="h6" fontWeight="900" sx={{ fontSize: 18, lineHeight: 1.2 }}>
+                Cycle Bonus Summary
+              </Typography>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600 }}>
+                Bonus distribution results
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            size="small"
+            onClick={() => setPayoutSummaryOpen(false)}
+            sx={{ color: "#94a3b8" }}
+          >
+            <Close fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0, bgcolor: "#f8fafc" }}>
+          <Box sx={{ p: 3 }}>
+            <TableContainer
+              component={Paper}
+              elevation={0}
+              sx={{
+                borderRadius: 3,
+                border: "1px solid #e2e8f0",
+                maxHeight: 350,
+                overflowY: "auto",
+              }}
+            >
+              <Table stickyHeader size="small">
+                <TableHead>
+                  <TableRow>
+                    {["PLAYER", "TIER", "AMOUNT", "STATUS"].map((h) => (
+                      <TableCell
+                        key={h}
+                        align={h === "PLAYER" ? "left" : h === "AMOUNT" ? "right" : "center"}
+                        sx={{
+                          bgcolor: "#f1f5f9",
+                          color: "#64748b",
+                          fontWeight: "800",
+                          fontSize: 10,
+                          py: 1.5,
+                          letterSpacing: "0.05em",
+                        }}
+                      >
+                        {h}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody sx={{ bgcolor: "white" }}>
+                  {payoutSummaryData.length > 0 ? (
+                    payoutSummaryData.map((row) => {
+                      let color = theme.palette.error.main;
+                      const tier = (row.tier || "UNKNOWN").toUpperCase();
+                      if (tier === "ELITE") color = theme.palette.secondary.main;
+                      else if (tier === "ACTIVE") color = theme.palette.success.main;
+                      else if (tier === "WARNING") color = theme.palette.warning.main;
+
+                      return (
+                        <TableRow key={row.userId} hover>
+                          <TableCell sx={{ py: 1.5 }}>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Avatar
+                                src={getUserLogoUrl(row.userId)}
+                                sx={{ width: 26, height: 26, bgcolor: alpha(color, 0.1), color: color, fontWeight: "800", fontSize: 12 }}
+                              >
+                                {row.userId.charAt(0).toUpperCase()}
+                              </Avatar>
+                              <Box>
+                                <Typography variant="body2" fontWeight="800" color="#1e293b">
+                                  {row.displayName}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: 9 }}>
+                                  {row.userId}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip
+                              label={row.tier}
+                              size="small"
+                              sx={{
+                                fontWeight: "800",
+                                fontSize: 9,
+                                height: 18,
+                                bgcolor: alpha(color, 0.08),
+                                color: color,
+                                border: `1px solid ${alpha(color, 0.2)}`,
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" fontWeight="900" color="#0f172a">
+                              ฿{row.amount.toLocaleString()}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            {row.alreadyPaid ? (
+                              <Chip
+                                label="Already Paid"
+                                size="small"
+                                sx={{
+                                  fontWeight: "800",
+                                  fontSize: 9,
+                                  height: 18,
+                                  bgcolor: "#f1f5f9",
+                                  color: "#64748b",
+                                }}
+                              />
+                            ) : (
+                              <Chip
+                                label="Distributed"
+                                size="small"
+                                sx={{
+                                  fontWeight: "800",
+                                  fontSize: 9,
+                                  height: 18,
+                                  bgcolor: alpha(theme.palette.success.main, 0.1),
+                                  color: "success.main",
+                                }}
+                              />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} align="center" sx={{ py: 6 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          No players qualified for bonuses.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            {/* Payout Totals Summary Card */}
+            <Box sx={{ mt: 3, p: 2, bgcolor: "#fff", borderRadius: 3, border: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between" }}>
+              <Box>
+                <Typography variant="caption" sx={{ color: "#94a3b8", fontWeight: 800 }}>
+                  NEWLY DISTRIBUTED
+                </Typography>
+                <Typography variant="h6" fontWeight="900" sx={{ color: "success.main" }}>
+                  ฿{payoutSummaryData.filter(p => !p.alreadyPaid).reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}
+                </Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem />
+              <Box sx={{ textAlign: "right" }}>
+                <Typography variant="caption" sx={{ color: "#94a3b8", fontWeight: 800 }}>
+                  ALREADY PAID PREVIOUSLY
+                </Typography>
+                <Typography variant="h6" fontWeight="900" sx={{ color: "#64748b" }}>
+                  ฿{payoutSummaryData.filter(p => p.alreadyPaid).reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, bgcolor: "white", borderTop: "1px solid #f1f5f9" }}>
+          <Button
+            fullWidth
+            variant="contained"
+            color="success"
+            onClick={() => setPayoutSummaryOpen(false)}
+            sx={{
+              borderRadius: 2.5,
+              fontWeight: "900",
+              py: 1.2,
+              color: "white",
+              boxShadow: "0 4px 12px rgba(16, 185, 129, 0.2)",
+              "&:hover": {
+                bgcolor: "success.dark",
+                boxShadow: "0 6px 16px rgba(16, 185, 129, 0.3)",
+              },
+            }}
+          >
+            Done
           </Button>
         </DialogActions>
       </Dialog>

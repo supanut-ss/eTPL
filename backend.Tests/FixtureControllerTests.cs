@@ -4,18 +4,23 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using eTPL.API.Controllers;
-using eTPL.API.Data.Scaffolded;
+using eTPL.API.Data;
+using eTPL.API.Services.Interfaces;
 using eTPL.API.Models.DTOs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
+using Moq;
 
 namespace eTPL.API.Tests
 {
     public class FixtureControllerTests
     {
+        private static readonly IAuctionService MockAuctionService = new Mock<IAuctionService>().Object;
+        private static readonly IDiscordService MockDiscordService = new Mock<IDiscordService>().Object;
+
         [Fact]
         public async Task GetPublic_ReturnsCurrentSeasonFixturesWithCardData()
         {
@@ -30,7 +35,7 @@ namespace eTPL.API.Tests
             );
 
             await using var context = database.CreateContext();
-            var controller = new FixtureController(context);
+            var controller = new FixtureController(context, MockAuctionService, MockDiscordService);
 
             var result = await controller.GetPublic();
 
@@ -60,7 +65,7 @@ namespace eTPL.API.Tests
             );
 
             await using var context = database.CreateContext();
-            var controller = new FixtureController(context);
+            var controller = new FixtureController(context, MockAuctionService, MockDiscordService);
 
             var result = await controller.GetH2H("alice", "bob");
 
@@ -138,9 +143,9 @@ namespace eTPL.API.Tests
             Assert.DoesNotContain(items, item => GetValue<string>(item, "FixtureId") == "search-miss");
         }
 
-        private static FixtureController CreateController(ScaffoldedDbContext context, string? userId = null, string? role = null)
+        private static FixtureController CreateController(MsSqlDbContext context, string? userId = null, string? role = null)
         {
-            var controller = new FixtureController(context);
+            var controller = new FixtureController(context, MockAuctionService, MockDiscordService);
 
             if (userId != null || role != null)
             {
@@ -174,7 +179,7 @@ namespace eTPL.API.Tests
             var connection = new SqliteConnection("Data Source=:memory:");
             await connection.OpenAsync();
 
-            var options = new DbContextOptionsBuilder<ScaffoldedDbContext>()
+            var options = new DbContextOptionsBuilder<MsSqlDbContext>()
                 .UseSqlite(connection)
                 .Options;
 
@@ -186,19 +191,20 @@ namespace eTPL.API.Tests
         private sealed class TestFixtureDatabase : IAsyncDisposable
         {
             private readonly SqliteConnection _connection;
-            private readonly DbContextOptions<ScaffoldedDbContext> _options;
+            private readonly DbContextOptions<MsSqlDbContext> _options;
 
-            public TestFixtureDatabase(SqliteConnection connection, DbContextOptions<ScaffoldedDbContext> options)
+            public TestFixtureDatabase(SqliteConnection connection, DbContextOptions<MsSqlDbContext> options)
             {
                 _connection = connection;
                 _options = options;
             }
 
-            public ScaffoldedDbContext CreateContext() => new(_options);
+            public MsSqlDbContext CreateContext() => new(_options);
 
             public async Task InitializeAsync()
             {
                 await ExecuteAsync(
+                    "CREATE TABLE tbm_user (id INTEGER PRIMARY KEY, user_id TEXT, password TEXT, user_level TEXT, line_id TEXT, line_pic TEXT, line_name TEXT, current_team TEXT, team_nickname TEXT, current_division TEXT)",
                     "CREATE TABLE tbm_current_season (id TEXT PRIMARY KEY, platform TEXT, season INTEGER)",
                     "CREATE TABLE tbm_fixture_all (fixture_id TEXT PRIMARY KEY, DIVISION TEXT, MATCH INTEGER, HOME TEXT, HOME_SCORE INTEGER NULL, AWAY_SCORE INTEGER NULL, AWAY TEXT, ACTIVE TEXT, SEASON INTEGER NULL, PLATFORM TEXT, home_yellow INTEGER NULL, home_red INTEGER NULL, away_yellow INTEGER NULL, away_red INTEGER NULL)",
                     "CREATE TABLE v_fixture_all (fixture_id TEXT, DIVISION TEXT, MATCH INTEGER, HOME TEXT, HOME_SCORE INTEGER NULL, AWAY_SCORE INTEGER NULL, AWAY TEXT, ACTIVE TEXT, HOME_IMAGE TEXT, AWAY_IMAGE TEXT, SEASON INTEGER NULL, HOME_TEAM_NAME TEXT, AWAY_TEAM_NAME TEXT, PLATFORM TEXT)",
