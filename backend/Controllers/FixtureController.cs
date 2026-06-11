@@ -512,15 +512,24 @@ namespace eTPL.API.Controllers
                 var homeUser = await _db.Users.FirstOrDefaultAsync(u => u.UserId == fixture.Home);
                 if (homeUser != null)
                 {
-                    var hasCheckin = await _db.DailyCheckins.AnyAsync(c => c.UserId == homeUser.UserId && c.CheckinDate == checkinDateTarget);
-                    if (hasCheckin)
+                    // Prevent duplicate Match Bonus TP for this fixture
+                    bool alreadyRewarded = await _db.AuctionTransactions.AnyAsync(t =>
+                        t.UserId == homeUser.Id &&
+                        t.Type == "BONUS" &&
+                        t.Description.Contains(fixtureId));
+
+                    if (!alreadyRewarded)
                     {
-                        await _auctionService.GiveBonusAsync(0, new GiveBonusRequest
+                        var hasCheckin = await _db.DailyCheckins.AnyAsync(c => c.UserId == homeUser.UserId && c.CheckinDate == checkinDateTarget);
+                        if (hasCheckin)
                         {
-                            TargetUserId = homeUser.Id,
-                            Amount = 2,
-                            Reason = $"Match Bonus (Match #{fixture.Match}) - Daily Check-in verified ({checkinDateTarget:yyyy-MM-dd})"
-                        });
+                            await _auctionService.GiveBonusAsync(0, new GiveBonusRequest
+                            {
+                                TargetUserId = homeUser.Id,
+                                Amount = 2,
+                                Reason = $"Match Bonus (Match #{fixture.Match}) [Fixture: {fixture.FixtureId}] - Daily Check-in verified ({checkinDateTarget:yyyy-MM-dd})"
+                            });
+                        }
                     }
                 }
 
@@ -528,15 +537,24 @@ namespace eTPL.API.Controllers
                 var awayUser = await _db.Users.FirstOrDefaultAsync(u => u.UserId == fixture.Away);
                 if (awayUser != null)
                 {
-                    var hasCheckin = await _db.DailyCheckins.AnyAsync(c => c.UserId == awayUser.UserId && c.CheckinDate == checkinDateTarget);
-                    if (hasCheckin)
+                    // Prevent duplicate Match Bonus TP for this fixture
+                    bool alreadyRewarded = await _db.AuctionTransactions.AnyAsync(t =>
+                        t.UserId == awayUser.Id &&
+                        t.Type == "BONUS" &&
+                        t.Description.Contains(fixtureId));
+
+                    if (!alreadyRewarded)
                     {
-                        await _auctionService.GiveBonusAsync(0, new GiveBonusRequest
+                        var hasCheckin = await _db.DailyCheckins.AnyAsync(c => c.UserId == awayUser.UserId && c.CheckinDate == checkinDateTarget);
+                        if (hasCheckin)
                         {
-                            TargetUserId = awayUser.Id,
-                            Amount = 2,
-                            Reason = $"Match Bonus (Match #{fixture.Match}) - Daily Check-in verified ({checkinDateTarget:yyyy-MM-dd})"
-                        });
+                            await _auctionService.GiveBonusAsync(0, new GiveBonusRequest
+                            {
+                                TargetUserId = awayUser.Id,
+                                Amount = 2,
+                                Reason = $"Match Bonus (Match #{fixture.Match}) [Fixture: {fixture.FixtureId}] - Daily Check-in verified ({checkinDateTarget:yyyy-MM-dd})"
+                            });
+                        }
                     }
                 }
             }
