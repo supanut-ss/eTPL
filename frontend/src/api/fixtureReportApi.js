@@ -8,3 +8,6 @@ export const editFixtureResult = (fixtureId, data) =>
 
 export const getFixtureDetail = (fixtureId) =>
   axiosInstance.get(`/api/fixtures/${fixtureId}/detail`);
+
+export const cancelFixtureResult = (fixtureId) =>
+  axiosInstance.post(`/api/fixtures/${fixtureId}/report/cancel`);

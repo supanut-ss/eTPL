@@ -19,7 +19,12 @@ import {
   useTheme,
   useMediaQuery,
   Tabs,
-  Tab
+  Tab,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
@@ -34,6 +39,7 @@ import {
 import { getFixtures } from "../api/fixtureApi";
 import { useAuth } from "../store/AuthContext";
 import ReportResultDialog from "../components/ReportResultDialog";
+import { cancelFixtureResult } from "../api/fixtureReportApi";
 
 
 
@@ -128,6 +134,8 @@ const FixturePage = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [reportFixture, setReportFixture] = useState(null);
+  const [cancelFixture, setCancelFixture] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const fetchFixtures = useCallback((searchValue = "", currentDiv = division) => {
     setLoading(true);
@@ -159,6 +167,26 @@ const FixturePage = () => {
   const handleClearSearch = () => {
     setSearch("");
     fetchFixtures("", division);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelFixture) return;
+    setCancelling(true);
+    setError("");
+    try {
+      await cancelFixtureResult(cancelFixture.fixtureId);
+      setCancelFixture(null);
+      fetchFixtures(search, division);
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        "Failed to cancel match result";
+      setError(msg);
+      setCancelFixture(null);
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const played = rows.filter(
@@ -330,7 +358,7 @@ const FixturePage = () => {
     {
       field: "action",
       headerName: "",
-      width: 130,
+      width: isAdminOrMod ? 240 : 130,
       sortable: false,
       align: "center",
       headerAlign: "center",
@@ -340,27 +368,51 @@ const FixturePage = () => {
 
         if (isAdminOrMod) {
           return (
-            <Button
-              size="small"
-              variant="outlined"
-              color={isPlayed ? "warning" : "primary"}
-              startIcon={<EditNote />}
-              onClick={() => setReportFixture(params.row)}
-              sx={{
-                fontSize: 11,
-                px: 1.5,
-                fontWeight: "700",
-                textTransform: "none",
-                borderRadius: 1.75,
-                borderWidth: "1.5px",
-                "&:hover": {
+            <Stack direction="row" spacing={1} justifyContent="center" alignItems="center">
+              <Button
+                size="small"
+                variant="outlined"
+                color={isPlayed ? "warning" : "primary"}
+                startIcon={<EditNote />}
+                onClick={() => setReportFixture(params.row)}
+                sx={{
+                  fontSize: 11,
+                  px: 1.5,
+                  fontWeight: "700",
+                  textTransform: "none",
+                  borderRadius: 1.75,
                   borderWidth: "1.5px",
-                },
-                whiteSpace: "nowrap"
-              }}
-            >
-              {isPlayed ? "Edit Result" : "Report Result"}
-            </Button>
+                  "&:hover": {
+                    borderWidth: "1.5px",
+                  },
+                  whiteSpace: "nowrap"
+                }}
+              >
+                {isPlayed ? "Edit Result" : "Report Result"}
+              </Button>
+              {isPlayed && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  onClick={() => setCancelFixture(params.row)}
+                  sx={{
+                    fontSize: 11,
+                    px: 1.5,
+                    fontWeight: "700",
+                    textTransform: "none",
+                    borderRadius: 1.75,
+                    borderWidth: "1.5px",
+                    "&:hover": {
+                      borderWidth: "1.5px",
+                    },
+                    whiteSpace: "nowrap"
+                  }}
+                >
+                  Cancel
+                </Button>
+              )}
+            </Stack>
           );
         }
 
@@ -619,6 +671,71 @@ const FixturePage = () => {
           </Typography>
         </Box>
       </Paper>
+
+      {/* Premium Confirm Cancel Match Result Dialog */}
+      <Dialog
+        open={!!cancelFixture}
+        onClose={() => !cancelling && setCancelFixture(null)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            overflow: "hidden",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.15)",
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            p: 3,
+            pb: 2,
+            background: "linear-gradient(to right, #7f1d1d, #b91c1c)",
+            color: "white",
+            fontWeight: "900",
+            fontSize: "1.1rem",
+            letterSpacing: 0.5,
+          }}
+        >
+          Cancel Match Result?
+        </DialogTitle>
+        <DialogContent sx={{ p: 3, pt: 4, bgcolor: "#f8fafc" }}>
+          <Typography variant="body1" sx={{ mb: 2, fontWeight: 500 }}>
+            Are you sure you want to cancel the match result between{" "}
+            <strong>{cancelFixture ? (cancelFixture.homeTeamName || cancelFixture.home) : ""}</strong> and{" "}
+            <strong>{cancelFixture ? (cancelFixture.awayTeamName || cancelFixture.away) : ""}</strong>?
+          </Typography>
+          <Alert severity="warning" sx={{ borderRadius: 2 }}>
+            This action will permanently delete stats, fixture logs, and reset the score.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, bgcolor: "white", gap: 1.5 }}>
+          <Button
+            onClick={() => setCancelFixture(null)}
+            disabled={cancelling}
+            sx={{ fontWeight: "bold", color: "text.secondary" }}
+          >
+            Go Back
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleConfirmCancel}
+            disabled={cancelling}
+            sx={{
+              fontWeight: "bold",
+              borderRadius: 2,
+              px: 3,
+              boxShadow: "0 4px 12px rgba(239, 68, 68, 0.2)",
+            }}
+            startIcon={
+              cancelling && <CircularProgress size={16} color="inherit" />
+            }
+          >
+            {cancelling ? "Cancelling..." : "Yes, Cancel Result"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <ReportResultDialog
         open={!!reportFixture}

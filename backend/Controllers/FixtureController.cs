@@ -712,6 +712,77 @@ namespace eTPL.API.Controllers
             return Ok(ApiResponse<object>.Ok(new { message = "แก้ไขผลสำเร็จ" }));
         }
 
+        // POST api/fixtures/{fixtureId}/report/cancel  (admin/moderator only — ยกเลิกผลที่บันทึกแล้ว)
+        [HttpPost("{fixtureId}/report/cancel")]
+        [Authorize(Roles = "admin,moderator")]
+        public async Task<IActionResult> CancelResult(string fixtureId)
+        {
+            var fixture = await _db.TbmFixtureAlls
+                .FirstOrDefaultAsync(f => f.FixtureId == fixtureId);
+
+            if (fixture == null)
+                return NotFound(ApiResponse<object>.Fail("ไม่พบ Fixture นี้"));
+
+            if (fixture.HomeScore == null || fixture.AwayScore == null)
+                return BadRequest(ApiResponse<object>.Fail("ยังไม่มีการบันทึกผล ไม่สามารถยกเลิกได้"));
+
+            // 1. ลบ tbl_fixture_log
+            var logs = _db.TblFixtureLogs.Where(l => l.FixtureId == fixtureId);
+            _db.TblFixtureLogs.RemoveRange(logs);
+
+            // fallback: ถ้าไม่มีใน tbl_fixture_log ด้วย FixtureId ให้ลองหาด้วย Home, Away, Season, Platform
+            var fallbackLogs = await _db.TblFixtureLogs
+                .Where(l =>
+                    l.Home == fixture.Home &&
+                    l.Away == fixture.Away &&
+                    l.Season == fixture.Season &&
+                    l.Platform == fixture.Platform)
+                .ToListAsync();
+            if (fallbackLogs.Any())
+            {
+                _db.TblFixtureLogs.RemoveRange(fallbackLogs);
+            }
+
+            // 2. ลบ tbt_result
+            var oldResults = _db.TbtResults.Where(r => r.FixtureId == fixtureId);
+            _db.TbtResults.RemoveRange(oldResults);
+
+            // 3. Update tbm_fixture_all
+            fixture.HomeScore = null;
+            fixture.AwayScore = null;
+            fixture.MatchDate = null;
+            fixture.HomeYellow = null;
+            fixture.HomeRed = null;
+            fixture.AwayYellow = null;
+            fixture.AwayRed = null;
+            _db.TbmFixtureAlls.Update(fixture);
+
+            await _db.SaveChangesAsync();
+
+            // SEND DISCORD NOTIFICATION
+            try
+            {
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Unknown";
+                var reportUser = await _db.Users.FirstOrDefaultAsync(u => u.UserId == userId);
+                var reportUserName = reportUser?.LineName ?? userId ?? "Admin";
+
+                var vFixture = await _db.VFixtureAlls.FirstOrDefaultAsync(v => v.FixtureId == fixtureId);
+                string homeName = vFixture?.HomeTeamName ?? fixture.Home ?? "Home";
+                string awayName = vFixture?.AwayTeamName ?? fixture.Away ?? "Away";
+
+                _ = _discordService.SendCustomEmbedAsync(
+                    "Match Result Cancelled 🚫", 
+                    $"{reportUserName} has cancelled the match result between **{homeName}** and **{awayName}** (Match #{fixture.Match} in Division {fixture.Division}).", 
+                    0xef4444);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex.Message);
+            }
+
+            return Ok(ApiResponse<object>.Ok(new { message = "ยกเลิกผลการแข่งขันสำเร็จ" }));
+        }
+
 
         // ─────────────────────────────────────────────
         // GET api/fixtures/generate-preview  (Admin only)
