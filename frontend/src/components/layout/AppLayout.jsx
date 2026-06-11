@@ -64,6 +64,7 @@ import {
   WorkspacePremium,
   Hub,
   Pages,
+  Stadium,
 } from "@mui/icons-material";
 import { useAuth } from "../../store/AuthContext";
 import ChangePasswordDialog from "../ChangePasswordDialog";
@@ -81,6 +82,7 @@ const navItems = [
   { label: "Standings", path: "/standings", icon: <Leaderboard /> },
   { label: "Matches", path: "/matches", icon: <CalendarMonth /> },
   { label: "Cup Bracket", path: "/cup-bracket", icon: <EmojiEvents /> },
+  { label: "WC Predictions", path: "/worldcup-prediction", icon: <Stadium /> },
   {
     label: "Tournament",
     icon: <Hub />,

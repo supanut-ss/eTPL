@@ -34,6 +34,7 @@ namespace eTPL.API.Data
         public DbSet<ClubLogo> ClubLogos { get; set; }
         public DbSet<AuctionFavourite> AuctionFavourites { get; set; }
         public DbSet<Sponsor> Sponsors { get; set; }
+        public DbSet<WorldCupPrediction> WorldCupPredictions { get; set; }
 
         // --- Special Tournament ---
         public DbSet<SpecialTournament> SpecialTournaments { get; set; }
@@ -393,6 +394,23 @@ namespace eTPL.API.Data
                     .HasForeignKey(e => e.PlayerId)
                     .OnDelete(DeleteBehavior.Cascade);
                 entity.HasIndex(e => new { e.UserId, e.PlayerId }).IsUnique();
+            });
+
+            modelBuilder.Entity<WorldCupPrediction>(entity =>
+            {
+                entity.ToTable("tbs_world_cup_prediction", "dbo");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id").ValueGeneratedOnAdd();
+                entity.Property(e => e.UserId).HasColumnName("UserId");
+                entity.Property(e => e.PredictedTeam).HasColumnName("PredictedTeam").HasMaxLength(100).IsRequired();
+                entity.Property(e => e.UpdatedAt).HasColumnName("UpdatedAt");
+
+                entity.HasOne(e => e.User).WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .HasPrincipalKey(e => e.Id)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => e.UserId).IsUnique();
             });
 
             // ─── Legacy / Scaffolded Mappings (full column mapping in partial class) ─

@@ -34,6 +34,7 @@ import FacebookSettingsPage from "./pages/FacebookSettingsPage";
 import PitchViewPage from "./pages/PitchViewPage";
 import AboutUsPage from "./pages/AboutUsPage";
 import AdminSponsorPage from "./pages/AdminSponsorPage";
+import WorldCupPredictionPage from "./pages/WorldCupPredictionPage";
 
 
 import LineCallbackPage from "./pages/LineCallbackPage";
@@ -66,6 +67,7 @@ function App() {
               <Route path="special-tournament/:id" element={<SpecialTournamentBracketPage />} />
               <Route path="news" element={<NewsPage />} />
               <Route path="members" element={<UserListPage />} />
+              <Route path="worldcup-prediction" element={<WorldCupPredictionPage />} />
 
               {/* Login required */}
               <Route
