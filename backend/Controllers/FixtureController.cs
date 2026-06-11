@@ -775,6 +775,52 @@ namespace eTPL.API.Controllers
             fixture.AwayRed = null;
             _db.TbmFixtureAlls.Update(fixture);
 
+            // 4. Revoke Match Bonus TP
+            try
+            {
+                var homeUser = await _db.Users.FirstOrDefaultAsync(u => u.UserId == fixture.Home);
+                if (homeUser != null)
+                {
+                    var homeBonusTxs = await _db.AuctionTransactions
+                        .Where(t => t.UserId == homeUser.Id && t.Type == "BONUS" && t.Description.Contains(fixtureId))
+                        .ToListAsync();
+
+                    foreach (var tx in homeBonusTxs)
+                    {
+                        var wallet = await _db.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == homeUser.Id);
+                        if (wallet != null)
+                        {
+                            wallet.AvailableBalance -= tx.Amount;
+                            _db.AuctionUserWallets.Update(wallet);
+                        }
+                        _db.AuctionTransactions.Remove(tx);
+                    }
+                }
+
+                var awayUser = await _db.Users.FirstOrDefaultAsync(u => u.UserId == fixture.Away);
+                if (awayUser != null)
+                {
+                    var awayBonusTxs = await _db.AuctionTransactions
+                        .Where(t => t.UserId == awayUser.Id && t.Type == "BONUS" && t.Description.Contains(fixtureId))
+                        .ToListAsync();
+
+                    foreach (var tx in awayBonusTxs)
+                    {
+                        var wallet = await _db.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == awayUser.Id);
+                        if (wallet != null)
+                        {
+                            wallet.AvailableBalance -= tx.Amount;
+                            _db.AuctionUserWallets.Update(wallet);
+                        }
+                        _db.AuctionTransactions.Remove(tx);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error revoking bonus: {ex.Message}");
+            }
+
             await _db.SaveChangesAsync();
 
             // SEND DISCORD NOTIFICATION
