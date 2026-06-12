@@ -350,7 +350,7 @@ const GroupStandings = ({ group, participants, matches, advanceCount }) => {
       gf += my; ga += opp;
       if (my > opp) w++; else if (my === opp) d++; else l++;
     });
-    return { ...p, w, d, l, pts: w * 3 + d, gd: gf - ga, gf, ga };
+    return { ...p, mp: w + d + l, w, d, l, pts: w * 3 + d, gd: gf - ga, gf, ga };
   }).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
 
   return (
@@ -361,6 +361,7 @@ const GroupStandings = ({ group, participants, matches, advanceCount }) => {
             <TableRow sx={{ bgcolor: "rgba(255, 255, 255, 0.02)" }}>
               <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", pl: { xs: 1, sm: 2 }, pr: { xs: 0.5, sm: 1.5 }, color: "rgba(241, 245, 249, 0.5)", borderColor: "rgba(255, 255, 255, 0.05)" }}>#</TableCell>
               <TableCell sx={{ fontWeight: 800, fontSize: "0.75rem", px: { xs: 0.5, sm: 1.5 }, color: "rgba(241, 245, 249, 0.5)", borderColor: "rgba(255, 255, 255, 0.05)" }}>Team</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 800, fontSize: "0.75rem", px: { xs: 0.5, sm: 1.5 }, color: "rgba(241, 245, 249, 0.5)", borderColor: "rgba(255, 255, 255, 0.05)" }}>P</TableCell>
               <TableCell align="center" sx={{ fontWeight: 800, fontSize: "0.75rem", px: { xs: 0.5, sm: 1.5 }, color: "rgba(241, 245, 249, 0.5)", borderColor: "rgba(255, 255, 255, 0.05)" }}>W</TableCell>
               <TableCell align="center" sx={{ fontWeight: 800, fontSize: "0.75rem", px: { xs: 0.5, sm: 1.5 }, color: "rgba(241, 245, 249, 0.5)", borderColor: "rgba(255, 255, 255, 0.05)" }}>D</TableCell>
               <TableCell align="center" sx={{ fontWeight: 800, fontSize: "0.75rem", px: { xs: 0.5, sm: 1.5 }, color: "rgba(241, 245, 249, 0.5)", borderColor: "rgba(255, 255, 255, 0.05)" }}>L</TableCell>
@@ -433,6 +434,7 @@ const GroupStandings = ({ group, participants, matches, advanceCount }) => {
                       </Box>
                     </Box>
                   </TableCell>
+                  <TableCell align="center" sx={{ px: { xs: 0.5, sm: 1.5 }, fontSize: "0.8rem", color: "rgba(241, 245, 249, 0.7)", borderColor: "rgba(255, 255, 255, 0.05)" }}>{p.mp}</TableCell>
                   <TableCell align="center" sx={{ px: { xs: 0.5, sm: 1.5 }, fontSize: "0.8rem", fontWeight: 600, color: "#4ade80", borderColor: "rgba(255, 255, 255, 0.05)" }}>{p.w}</TableCell>
                   <TableCell align="center" sx={{ px: { xs: 0.5, sm: 1.5 }, fontSize: "0.8rem", color: "rgba(241, 245, 249, 0.7)", borderColor: "rgba(255, 255, 255, 0.05)" }}>{p.d}</TableCell>
                   <TableCell align="center" sx={{ px: { xs: 0.5, sm: 1.5 }, fontSize: "0.8rem", color: "#f87171", borderColor: "rgba(255, 255, 255, 0.05)" }}>{p.l}</TableCell>

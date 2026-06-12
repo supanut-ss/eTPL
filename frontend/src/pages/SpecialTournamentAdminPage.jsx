@@ -471,7 +471,7 @@ const SpecialTournamentAdminPage = () => {
         gf += my; ga += opp;
         if (my > opp) w++; else if (my === opp) d++; else l++;
       });
-      return { ...p, w, d, l, pts: w * 3 + d, gd: gf - ga, gf, ga };
+      return { ...p, mp: w + d + l, w, d, l, pts: w * 3 + d, gd: gf - ga, gf, ga };
     }).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
   };
 
@@ -705,6 +705,7 @@ const SpecialTournamentAdminPage = () => {
                                       <TableRow sx={{ bgcolor: "#f8fafc" }}>
                                         <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem" }}>#</TableCell>
                                         <TableCell sx={{ fontWeight: 700, fontSize: "0.75rem" }}>Team</TableCell>
+                                        <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>P</TableCell>
                                         <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>W</TableCell>
                                         <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>D</TableCell>
                                         <TableCell align="center" sx={{ fontWeight: 700, fontSize: "0.75rem" }}>L</TableCell>
@@ -757,6 +758,7 @@ const SpecialTournamentAdminPage = () => {
                                                 <Typography variant="body2" fontWeight={isAdvancing ? 700 : 400}>{p.displayName}</Typography>
                                               </Box>
                                             </TableCell>
+                                            <TableCell align="center" sx={{ fontSize: "0.8rem" }}>{p.mp}</TableCell>
                                             <TableCell align="center" sx={{ fontSize: "0.8rem" }}>{p.w}</TableCell>
                                             <TableCell align="center" sx={{ fontSize: "0.8rem" }}>{p.d}</TableCell>
                                             <TableCell align="center" sx={{ fontSize: "0.8rem" }}>{p.l}</TableCell>
