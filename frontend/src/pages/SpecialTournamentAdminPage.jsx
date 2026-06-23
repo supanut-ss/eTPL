@@ -472,7 +472,36 @@ const SpecialTournamentAdminPage = () => {
         if (my > opp) w++; else if (my === opp) d++; else l++;
       });
       return { ...p, mp: w + d + l, w, d, l, pts: w * 3 + d, gd: gf - ga, gf, ga };
-    }).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+    }).sort((a, b) => {
+      // 1. Points
+      if (b.pts !== a.pts) return b.pts - a.pts;
+
+      // 2. Head-to-Head (H2H)
+      const h2hMatch = matches.find(m =>
+        m.isPlayed &&
+        ((m.homeParticipantId === a.id && m.awayParticipantId === b.id) ||
+         (m.homeParticipantId === b.id && m.awayParticipantId === a.id))
+      );
+      if (h2hMatch) {
+        const isHomeA = h2hMatch.homeParticipantId === a.id;
+        const aScore = isHomeA ? h2hMatch.homeScore : h2hMatch.awayScore;
+        const bScore = isHomeA ? h2hMatch.awayScore : h2hMatch.homeScore;
+        if (aScore !== bScore) {
+          return bScore - aScore;
+        }
+      }
+
+      // 3. Goal Difference (GD)
+      if (b.gd !== a.gd) return b.gd - a.gd;
+
+      // 4. Goals For (GF)
+      if (b.gf !== a.gf) return b.gf - a.gf;
+
+      // 5. Goals Against (GA) - lower is better
+      if (a.ga !== b.ga) return a.ga - b.ga;
+
+      return 0;
+    });
   };
 
   const knockoutRoundLabel = (r) => {

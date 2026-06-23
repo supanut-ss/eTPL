@@ -526,12 +526,43 @@ namespace eTPL.API.Controllers
                         else if (myScore == oppScore) d++;
                         else l++;
                     }
-                    return new { Participant = p, W = w, D = d, L = l, Pts = w * 3 + d, GD = gf - ga, GF = gf };
-                })
-                .OrderByDescending(x => x.Pts)
-                .ThenByDescending(x => x.GD)
-                .ThenByDescending(x => x.GF)
-                .ToList();
+                    return new { Participant = p, W = w, D = d, L = l, Pts = w * 3 + d, GD = gf - ga, GF = gf, GA = ga };
+                }).ToList();
+
+                standings.Sort((a, b) =>
+                {
+                    // 1. Points
+                    if (b.Pts != a.Pts)
+                        return b.Pts.CompareTo(a.Pts);
+
+                    // 2. Head-to-Head
+                    var h2hMatch = groupMatches.FirstOrDefault(m =>
+                        m.IsPlayed &&
+                        ((m.HomeParticipantId == a.Participant.Id && m.AwayParticipantId == b.Participant.Id) ||
+                         (m.HomeParticipantId == b.Participant.Id && m.AwayParticipantId == a.Participant.Id)));
+                    if (h2hMatch != null)
+                    {
+                        bool isHomeA = h2hMatch.HomeParticipantId == a.Participant.Id;
+                        int aScore = isHomeA ? (h2hMatch.HomeScore ?? 0) : (h2hMatch.AwayScore ?? 0);
+                        int bScore = isHomeA ? (h2hMatch.AwayScore ?? 0) : (h2hMatch.HomeScore ?? 0);
+                        if (aScore != bScore)
+                            return bScore.CompareTo(aScore);
+                    }
+
+                    // 3. Goal Difference
+                    if (b.GD != a.GD)
+                        return b.GD.CompareTo(a.GD);
+
+                    // 4. Goals For
+                    if (b.GF != a.GF)
+                        return b.GF.CompareTo(a.GF);
+
+                    // 5. Goals Against (lower is better)
+                    if (a.GA != b.GA)
+                        return a.GA.CompareTo(b.GA);
+
+                    return 0;
+                });
 
                 advancers.AddRange(standings.Take(advanceCount).Select(x => x.Participant));
             }
