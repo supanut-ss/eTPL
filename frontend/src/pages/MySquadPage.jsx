@@ -475,8 +475,13 @@ const MySquadPage = () => {
     if (!window.confirm(confirmMsg)) return;
 
     try {
-      await auctionService.respondOffer(offerId, accept);
+      const res = await auctionService.respondOffer(offerId, accept);
       enqueueSnackbar(accept ? "Offer accepted successfully." : "Offer declined.", { variant: "success" });
+      if (accept && res?.data?.warnings && res.data.warnings.length > 0) {
+        res.data.warnings.forEach(warning => {
+          enqueueSnackbar(warning, { variant: "warning", autoHideDuration: 10000 });
+        });
+      }
       fetchData();
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });

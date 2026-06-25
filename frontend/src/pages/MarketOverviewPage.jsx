@@ -301,17 +301,18 @@ const MarketOverviewPage = () => {
 
 
   const handleRespondOffer = async (offerId, accept) => {
-
     try {
-      await auctionService.respondOffer(offerId, accept);
+      const res = await auctionService.respondOffer(offerId, accept);
       enqueueSnackbar(accept ? "Sale confirmed!" : "Offer rejected", { variant: accept ? "success" : "info" });
+      if (accept && res?.data?.warnings && res.data.warnings.length > 0) {
+        res.data.warnings.forEach(warning => {
+          enqueueSnackbar(warning, { variant: "warning", autoHideDuration: 10000 });
+        });
+      }
       await fetchData(true);
     } catch (err) {
-
       enqueueSnackbar(err.response?.data?.message || "Action failed", { variant: "error" });
-
     }
-
   };
 
 

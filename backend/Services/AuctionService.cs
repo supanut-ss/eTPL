@@ -1934,14 +1934,15 @@ namespace eTPL.API.Services
             return MapOfferDto(offer!);
         }
 
-        public async Task RespondOfferAsync(int sellerUserId, int offerId, RespondOfferRequest request)
+        public async Task<List<string>> RespondOfferAsync(int sellerUserId, int offerId, RespondOfferRequest request)
         {
             var strategy = _context.Database.CreateExecutionStrategy();
-            await strategy.ExecuteAsync(async () =>
+            return await strategy.ExecuteAsync(async () =>
             {
                 using var transaction = await _context.Database.BeginTransactionAsync();
                 try
                 {
+                var warnings = new List<string>();
                 var offer = await _context.TransferOffers
                     .Include(o => o.FromUser)
                     .Include(o => o.Squad).ThenInclude(s => s!.Player)
@@ -1963,7 +1964,7 @@ namespace eTPL.API.Services
                     );
 
                     await transaction.CommitAsync();
-                    return;
+                    return warnings;
                 }
 
                 // If Accept, check buyer balance! (Use AsNoTracking then Find to ensure fresh look outside cache if needed, but inside TX is usually fine)
@@ -2000,14 +2001,10 @@ namespace eTPL.API.Services
                 var buyerWinning = await GetUserWinningAuctionsInternalAsync(offer.FromUserId);
                 var totalBuyerCount = buyerSquad.Count + buyerWinning.Count;
 
-                // 1. Max Squad Size Check
+                // 1. Max Squad Size Check - Unblocked with Warning
                 if (totalBuyerCount >= settings.MaxSquadSize)
                 {
-                    offer.Status = "Collapsed";
-                    offer.UpdatedAt = DateTime.UtcNow;
-                    await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
-                    throw new Exception($"ดีลล่ม! ทีมผู้เสนอ ({offer.FromUser?.LineName ?? offer.FromUserId.ToString()}) มีนักเตะครบ {settings.MaxSquadSize} คนแล้ว กรุณาแจ้งให้ผู้ซื้อไปจัดการทีมก่อน");
+                    warnings.Add($"ทีมผู้รับ ({offer.FromUser?.LineName ?? offer.FromUserId.ToString()}) มีจำนวนผู้เล่นในทีม ({totalBuyerCount + 1} คน) เกินโควต้าขนาดทีมสูงสุดแล้ว ({settings.MaxSquadSize} คน)");
                 }
 
                 // 2. Budget Lock Check (Must have enough left for remaining slots)
@@ -2029,7 +2026,7 @@ namespace eTPL.API.Services
                     throw new Exception($"ดีลล่ม! ทีมผู้เสนอ ({offer.FromUser?.LineName ?? offer.FromUserId.ToString()}) ติดกฎ Budget Lock (หลังจ่ายเงินต้องเหลือเงินสำรอง {requiredReserve} TP สำหรับ {remainingSlotsAfterThis} สล็อตที่เหลือ แต่ทีมนี้จะเหลือเพียง {buyerWallet.AvailableBalance - offer.Amount} TP)");
                 }
 
-                // 3. Grade Quota Check
+                // 3. Grade Quota Check - Unblocked with Warning
                 var targetOvr = offer.Squad!.Player!.PlayerOvr;
                 var targetGrade = quotas.FirstOrDefault(q => targetOvr >= q.MinOVR && targetOvr <= q.MaxOVR);
 
@@ -2041,11 +2038,7 @@ namespace eTPL.API.Services
 
                     if (currentGradeCount >= targetGrade.MaxAllowedPerUser)
                     {
-                        offer.Status = "Collapsed";
-                        offer.UpdatedAt = DateTime.UtcNow;
-                        await _context.SaveChangesAsync();
-                        await transaction.CommitAsync();
-                        throw new Exception($"ดีลล่ม! ทีมผู้เสนอ ({offer.FromUser?.LineName ?? offer.FromUserId.ToString()}) มีโควตาเกรด {targetGrade.GradeName} เต็มแล้ว ({targetGrade.MaxAllowedPerUser} คน)");
+                        warnings.Add($"ทีมผู้รับ ({offer.FromUser?.LineName ?? offer.FromUserId.ToString()}) มีโควตาเกรด {targetGrade.GradeName} ({currentGradeCount + 1} คน) เกินโควต้าสูงสุดแล้ว (สูงสุด {targetGrade.MaxAllowedPerUser} คน)");
                     }
                 }
 
@@ -2106,10 +2099,15 @@ namespace eTPL.API.Services
                     await RecordTransactionAsync(sellerUserId, offer.Amount, "CREDIT", "MARKET_SELL", $"ขาย {playerName} {offer.Amount} TP (Season {currentSeasonNum})", sellerWallet.AvailableBalance, null, offer.Squad.PlayerId);
 
                     // Add notification for the buyer
+                    string buyerNotificationMsg = $"Your offer for {playerName} was accepted! {playerName} has joined your squad.";
+                    if (warnings.Any())
+                    {
+                        buyerNotificationMsg += $" (คำเตือน: {string.Join(", ", warnings)})";
+                    }
                     await _notificationService.CreateNotificationAsync(
                         offer.FromUserId,
                         "Offer Accepted!",
-                        $"Your offer for {playerName} was accepted! {playerName} has joined your squad.",
+                        buyerNotificationMsg,
                         "/my-squad"
                     );
                 }
@@ -2147,10 +2145,15 @@ namespace eTPL.API.Services
                     await RecordTransactionAsync(sellerUserId, offer.Amount, "CREDIT", "LOAN_INCOME", $"รายได้ให้ยืม {playerName} 1 ฤดูกาล", sellerWallet.AvailableBalance, null, offer.Squad.PlayerId);
 
                     // Add notification for the borrower
+                    string borrowerNotificationMsg = $"Your loan offer for {playerName} was accepted! {playerName} has joined your squad on loan.";
+                    if (warnings.Any())
+                    {
+                        borrowerNotificationMsg += $" (คำเตือน: {string.Join(", ", warnings)})";
+                    }
                     await _notificationService.CreateNotificationAsync(
                         offer.FromUserId,
                         "Loan Offer Accepted!",
-                        $"Your loan offer for {playerName} was accepted! {playerName} has joined your squad on loan.",
+                        borrowerNotificationMsg,
                         "/my-squad"
                     );
                 }
@@ -2170,6 +2173,7 @@ namespace eTPL.API.Services
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
+                return warnings;
                 }
                 catch
                 {

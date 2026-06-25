@@ -644,8 +644,8 @@ namespace eTPL.API.Controllers
             try
             {
                 var userId = await GetCurrentUserIdAsync();
-                await _auctionService.RespondOfferAsync(userId, offerId, request);
-                return Ok(ApiResponse<object>.Ok(new { message = "จัดการข้อเสนอสำเร็จ" }));
+                var warnings = await _auctionService.RespondOfferAsync(userId, offerId, request);
+                return Ok(ApiResponse<object>.Ok(new { message = "จัดการข้อเสนอสำเร็จ", warnings = warnings }));
             }
             catch (Exception ex)
             {

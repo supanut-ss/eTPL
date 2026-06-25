@@ -61,7 +61,7 @@ namespace eTPL.API.Services.Interfaces
         Task ListPlayerAsync(int userId, int squadId, int listingPrice);
         Task DelistPlayerAsync(int userId, int squadId);
         Task<TransferOfferDto> SubmitOfferAsync(int buyerUserId, CreateOfferRequest request);
-        Task RespondOfferAsync(int sellerUserId, int offerId, RespondOfferRequest request);
+        Task<List<string>> RespondOfferAsync(int sellerUserId, int offerId, RespondOfferRequest request);
         Task CancelOfferAsync(int buyerUserId, int offerId);
         Task<List<TransferOfferDto>> GetIncomingOffersAsync(int userId);
         Task<List<TransferOfferDto>> GetOutgoingOffersAsync(int userId);
