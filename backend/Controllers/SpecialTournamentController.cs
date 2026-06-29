@@ -505,7 +505,7 @@ namespace eTPL.API.Controllers
                 .ToListAsync();
 
             // Calculate group standings and pick top teams
-            var advancers = new List<SpecialParticipant>();
+            var qualifiedByGroup = new List<List<SpecialParticipant>>();
             foreach (var group in groups)
             {
                 var groupMatches = allMatches.Where(m => m.GroupId == group.Id).ToList();
@@ -564,7 +564,38 @@ namespace eTPL.API.Controllers
                     return 0;
                 });
 
-                advancers.AddRange(standings.Take(advanceCount).Select(x => x.Participant));
+                var groupAdvancers = standings.Take(advanceCount).Select(x => x.Participant).ToList();
+                qualifiedByGroup.Add(groupAdvancers);
+            }
+
+            var advancers = new List<SpecialParticipant>();
+            if (advanceCount == 2 && qualifiedByGroup.Count % 2 == 0 && qualifiedByGroup.All(q => q.Count >= 2))
+            {
+                int numGroups = qualifiedByGroup.Count;
+                int numBlocks = numGroups / 2;
+                var tempMatches = new (SpecialParticipant Home, SpecialParticipant Away)[numGroups];
+
+                for (int b = 0; b < numBlocks; b++)
+                {
+                    int g1 = 2 * b;
+                    int g2 = 2 * b + 1;
+
+                    tempMatches[b] = (qualifiedByGroup[g1][0], qualifiedByGroup[g2][1]);
+                    tempMatches[b + numBlocks] = (qualifiedByGroup[g2][0], qualifiedByGroup[g1][1]);
+                }
+
+                foreach (var match in tempMatches)
+                {
+                    advancers.Add(match.Home);
+                    advancers.Add(match.Away);
+                }
+            }
+            else
+            {
+                foreach (var q in qualifiedByGroup)
+                {
+                    advancers.AddRange(q);
+                }
             }
 
             if (advancers.Count < 2)

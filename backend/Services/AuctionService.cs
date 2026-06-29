@@ -1732,6 +1732,9 @@ namespace eTPL.API.Services
                     throw new Exception("ไม่สามารถขายนักเตะที่ยืมตัวมาได้");
 
                 var settings = await _context.AuctionSettings.FirstOrDefaultAsync() ?? new AuctionSetting();
+                if (settings.AuctionStartDate.HasValue && squad.AcquiredAt >= settings.AuctionStartDate.Value)
+                    throw new Exception("ไม่สามารถขาย/โอนย้ายนักเตะที่ได้มาในตลาดรอบปัจจุบันได้");
+
                 if (squad.SeasonsWithTeam <= 1 && !settings.IsMarketRound2)
                     throw new Exception("ไม่สามารถขาย/โอนย้ายนักเตะที่เพิ่งได้มาในฤดูกาลเดียวกันได้ (ต้องผ่านอย่างน้อย 1 ฤดูกาล)");
 
@@ -1809,6 +1812,9 @@ namespace eTPL.API.Services
             if (squad.IsLoan) throw new Exception("นักเตะยืมตัว ไม่สามารถตั้งขายได้");
             
             var settings = await _context.AuctionSettings.FirstOrDefaultAsync() ?? new AuctionSetting();
+            if (settings.AuctionStartDate.HasValue && squad.AcquiredAt >= settings.AuctionStartDate.Value)
+                throw new Exception("ไม่สามารถตั้งขายนักเตะที่ได้มาในตลาดรอบปัจจุบันได้");
+
             if (squad.SeasonsWithTeam <= 1 && !settings.IsMarketRound2)
                 throw new Exception("ไม่สามารถขายนักเตะที่เพิ่งได้มาในฤดูกาลเดียวกันได้ (ต้องผ่านอย่างน้อย 1 ฤดูกาล)");
 
@@ -1890,6 +1896,9 @@ namespace eTPL.API.Services
             if (squad.Status == "Loaned") throw new Exception("นักเตะคนนี้ถูกปล่อยยืมตัวอยู่ ไม่สามารถทำรายการได้");
 
             var settings = await _context.AuctionSettings.FirstOrDefaultAsync() ?? new AuctionSetting();
+            if (request.OfferType == "Transfer" && settings.AuctionStartDate.HasValue && squad.AcquiredAt >= settings.AuctionStartDate.Value)
+                throw new Exception("ไม่สามารถยื่นข้อเสนอซื้อนักเตะที่ได้มาในตลาดรอบปัจจุบันได้ (แต่สามารถส่งข้อเสนอแบบยืมตัวได้)");
+
             if (request.OfferType == "Transfer" && squad.SeasonsWithTeam <= 1 && !settings.IsMarketRound2)
                 throw new Exception("ไม่สามารถยื่นข้อเสนอซื้อนักเตะที่เพิ่งย้ายเข้าทีมได้ในฤดูกาลเดียวกัน (กรุณาส่งข้อเสนอแบบยืมตัวแทน)");
             
@@ -2068,6 +2077,15 @@ namespace eTPL.API.Services
 
                 if (offer.OfferType == "Transfer")
                 {
+                    if (settings.AuctionStartDate.HasValue && offer.Squad!.AcquiredAt >= settings.AuctionStartDate.Value)
+                    {
+                        offer.Status = "Collapsed";
+                        offer.UpdatedAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+                        throw new Exception("ดีลล่ม! ไม่สามารถขาย/โอนย้ายนักเตะที่ได้มาในตลาดรอบปัจจุบันได้");
+                    }
+
                     if (offer.Squad?.SeasonsWithTeam <= 1 && !settings.IsMarketRound2)
                     {
                         offer.Status = "Collapsed";
