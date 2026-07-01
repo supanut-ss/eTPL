@@ -409,13 +409,13 @@ namespace eTPL.API.Controllers
                     Grades = grades.Select(grade => new
                     {
                         GradeName = grade.GradeName,
-                        Count = squads.Where(s => s.UserId == user.Id && s.Status == "Active" && s.Player != null)
+                        Count = squads.Where(s => s.UserId == user.Id && (s.Status == "Active" || s.Status == "Listed") && s.Player != null)
                                       .Count(s => s.Player!.PlayerOvr >= grade.MinOVR && s.Player.PlayerOvr <= grade.MaxOVR),
                         Limit = grade.MaxAllowedPerUser
                     }).ToList(),
-                    LoanInCount = squads.Count(s => s.UserId == user.Id && s.IsLoan && s.Status == "Active"),
+                    LoanInCount = squads.Count(s => s.UserId == user.Id && s.IsLoan && (s.Status == "Active" || s.Status == "Listed")),
                     LoanOutCount = squads.Count(s => s.UserId == user.Id && s.Status == "Loaned"),
-                    TotalPlayers = squads.Count(s => s.UserId == user.Id && s.Status == "Active"), // Only active ones count towards main squad limit
+                    TotalPlayers = squads.Count(s => s.UserId == user.Id && (s.Status == "Active" || s.Status == "Listed")), // Only active and listed ones count towards main squad limit
                     MaxLimit = maxSquadSize
                 }).OrderBy(u => u.UserId).ToList();
 

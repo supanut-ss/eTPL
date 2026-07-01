@@ -2523,7 +2523,7 @@ namespace eTPL.API.Services
                     // 6. Auto Release Expired Contracts
                     var activeSquads = await _context.AuctionSquads
                         .Include(s => s.Player)
-                        .Where(s => s.Status == "Active" && s.IsLoan == false)
+                        .Where(s => (s.Status == "Active" || s.Status == "Listed") && s.IsLoan == false)
                         .ToListAsync();
                     
                     var quotas = await _context.AuctionGradeQuotas.ToListAsync();
@@ -2693,7 +2693,7 @@ namespace eTPL.API.Services
                     // 2. Calculate Renewal Costs & Validate Balances
                     var activeSquads = await _context.AuctionSquads
                         .Include(s => s.Player)
-                        .Where(s => s.Status == "Active" && s.IsLoan == false)
+                        .Where(s => (s.Status == "Active" || s.Status == "Listed") && s.IsLoan == false)
                         .ToListAsync();
                     
                     if (!activeSquads.Any())
@@ -2999,7 +2999,7 @@ namespace eTPL.API.Services
                 var grades = await _context.AuctionGradeQuotas.OrderBy(g => g.GradeId).ToListAsync();
                 var squads = await _context.AuctionSquads
                     .Include(s => s.Player)
-                    .Where(s => s.Status == "Active" && s.IsLoan == false)
+                    .Where(s => (s.Status == "Active" || s.Status == "Listed") && s.IsLoan == false)
                     .ToListAsync();
                 
                 var users = await _context.Users.ToListAsync();
