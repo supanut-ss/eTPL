@@ -200,5 +200,27 @@ app.MapFallbackToFile("index.html");
 
 
 
+if (args.Contains("--restore-tx-amounts"))
+{
+    using var scope = app.Services.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<MsSqlDbContext>();
+
+    var t9329 = await context.AuctionTransactions.FindAsync(9329);
+    if (t9329 != null) { t9329.Amount = 0; }
+
+    var t9317 = await context.AuctionTransactions.FindAsync(9317);
+    if (t9317 != null) { t9317.Amount = 0; }
+
+    var t9314 = await context.AuctionTransactions.FindAsync(9314);
+    if (t9314 != null) { t9314.Amount = 44; }
+
+    var t8367 = await context.AuctionTransactions.FindAsync(8367);
+    if (t8367 != null) { t8367.Amount = 73; }
+
+    await context.SaveChangesAsync();
+    Console.WriteLine("[RESTORE COMPLETE] Restored 4 original transaction amounts.");
+    return;
+}
+
 app.Run();
 

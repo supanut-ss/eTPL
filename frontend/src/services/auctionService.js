@@ -131,6 +131,11 @@ const auctionService = {
     return res.data;
   },
 
+  fixReleaseRefunds: async () => {
+    const res = await api.post("/api/auction/admin/fix-release-refunds");
+    return res.data;
+  },
+
   renewContract: async (squadId, cost, addSeasons) => {
     const res = await api.post("/api/auction/squad/renew", { squadId, cost, addSeasons });
     return res.data;

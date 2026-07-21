@@ -166,11 +166,14 @@ const LegendCard = ({ legend }) => {
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
           {Object.entries(legend.groups)
             .sort(([typeA], [typeB]) => {
-              const aIsLeague = typeA.toLowerCase().includes('league');
-              const bIsLeague = typeB.toLowerCase().includes('league');
-              if (aIsLeague && !bIsLeague) return -1;
-              if (!aIsLeague && bIsLeague) return 1;
-              return typeA.localeCompare(typeB);
+              const getPriority = (t = "") => {
+                const title = t.trim().toLowerCase();
+                if (title === "etpl league") return 1;
+                if (title === "etpl cup") return 2;
+                if (title === "etpl league 2" || title.includes("league 2") || title.includes("d2")) return 3;
+                return 4;
+              };
+              return getPriority(typeA) - getPriority(typeB);
             })
             .map(([type, data], idx) => (
             <Box 

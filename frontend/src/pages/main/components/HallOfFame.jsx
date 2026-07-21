@@ -20,16 +20,39 @@ const HofBox = memo(({ hofData, loading }) => {
       <Skeleton variant="rectangular" height="100%" sx={{ borderRadius: 2 }} />
     );
   
+  const getTournamentPriority = (title = "") => {
+    const t = (title || "").trim().toLowerCase();
+    if (t === "etpl league") return 1;
+    if (t === "etpl cup") return 2;
+    if (t === "etpl league 2" || t.includes("league 2") || t.includes("d2")) return 3;
+    return 4;
+  };
+
+  const getWinnerLabel = (title = "") => {
+    const t = (title || "").trim().toLowerCase();
+    if (t === "etpl league 2" || t.includes("league 2") || t.includes("d2")) {
+      return "League 2 Winner";
+    }
+    if (t.includes("cup")) {
+      return "Cup Winner";
+    }
+    if (t.includes("league")) {
+      return "League Winner";
+    }
+    return "Champion";
+  };
+
   // Filter for eTPL branded tournaments only
   const filteredHof = (hofData || []).filter(entry => 
     entry.tournamentTitle?.toUpperCase().includes("ETPL")
   );
 
-  // Sort by season descending
+  // Sort by season descending, then by tournament priority (1. eTPL League, 2. eTPL Cup, 3. eTPL League 2)
   const sortedHof = [...filteredHof].sort((a, b) => {
     const sA = parseInt(String(a.season || '').replace(/\D/g, '') || '0');
     const sB = parseInt(String(b.season || '').replace(/\D/g, '') || '0');
-    return sB - sA;
+    if (sB !== sA) return sB - sA;
+    return getTournamentPriority(a.tournamentTitle) - getTournamentPriority(b.tournamentTitle);
   });
 
   // Get the last 2 unique seasons
@@ -222,7 +245,7 @@ const HofBox = memo(({ hofData, loading }) => {
                   {entry.winnerName}
                 </Typography>
                 <Typography variant="caption" sx={{ fontSize: 8, color: "text.secondary", fontWeight: 700, display: "block" }}>
-                  {entry.season} • {entry.tournamentTitle.includes("Cup") ? "Cup Winner" : "League Winner"}
+                  {entry.season} • {getWinnerLabel(entry.tournamentTitle)}
                 </Typography>
               </Box>
             </Box>

@@ -323,6 +323,21 @@ namespace eTPL.API.Controllers
             }
         }
 
+        [HttpPost("admin/fix-release-refunds")]
+        [Authorize(Roles = "admin,moderator")]
+        public async Task<IActionResult> FixReleaseRefunds()
+        {
+            try
+            {
+                int adjustedCount = await _auctionService.FixPastReleaseRefundsAsync();
+                return Ok(ApiResponse<object>.Ok(new { message = $"ปรับปรุงคืนเงินให้เคสปล่อยตัวย้อนหลังสำเร็จ ({adjustedCount} รายการ)" }));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
         [HttpPut("settings")]
         public async Task<IActionResult> UpdateSettings([FromBody] UpdateAuctionSettingsDto updatedSettings)
         {

@@ -1046,15 +1046,17 @@ const AuctionPage = () => {
                                     </Button>
                                 )}
                                 {isWaiting && String(user?.id || user?.Id) === String(auction.winnerId) && (
-                                    <Button 
-                                        variant="contained" 
-                                        size="small" 
-                                        fullWidth
-                                        sx={{ borderRadius: 1.5, fontWeight: "900", bgcolor: '#2196f3', '&:hover': { bgcolor: '#1e88e5' } }} 
-                                        onClick={() => handleConfirm(auction.auctionId)}
-                                    >
-                                        Confirm Player
-                                    </Button>
+                                    <Tooltip title="Confirm now or player will be automatically signed to your team after 24 hours">
+                                        <Button 
+                                            variant="contained" 
+                                            size="small" 
+                                            fullWidth
+                                            sx={{ borderRadius: 1.5, fontWeight: "900", bgcolor: '#2196f3', '&:hover': { bgcolor: '#1e88e5' } }} 
+                                            onClick={() => handleConfirm(auction.auctionId)}
+                                        >
+                                            Confirm Player
+                                        </Button>
+                                    </Tooltip>
                                 )}
                             </Box>
                         </Box>

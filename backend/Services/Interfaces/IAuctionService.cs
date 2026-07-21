@@ -73,5 +73,6 @@ namespace eTPL.API.Services.Interfaces
         Task<SeasonTransitionResultDto> ValidateAllQuotasAsync();
         Task DistributeCupPrizesAsync(int season);
         Task ResetMarketAsync();
+        Task<int> FixPastReleaseRefundsAsync();
     }
 }

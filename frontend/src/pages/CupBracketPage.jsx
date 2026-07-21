@@ -148,6 +148,17 @@ const CupBracketPage = () => {
     ? allRounds.filter((r) => r <= 32)
     : allRounds;
 
+  const handleDistributePrizes = async () => {
+    if (!window.confirm("คุณต้องการคำนวณและแจกเงินรางวัลบอลถ้วยประจำซีซั่นนี้ใหม่หรือไม่?")) return;
+    try {
+      const res = await cupService.distributePrizes();
+      enqueueSnackbar(res.data?.message || "แจกเงินรางวัลบอลถ้วยสำเร็จ!", { variant: "success" });
+      fetchBracket();
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || "คำนวณเงินรางวัลบอลถ้วยไม่สำเร็จ", { variant: "error" });
+    }
+  };
+
   return (
     <Box
       sx={{
@@ -185,9 +196,9 @@ const CupBracketPage = () => {
         width: "55vw",
         height: "55vw",
         borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(139, 92, 246, 0.07) 0%, rgba(139, 92, 246, 0) 70%)",
-        filter: "blur(110px)",
-        animation: "floatBlob2 34s infinite ease-in-out",
+        background: "radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0) 70%)",
+        filter: "blur(100px)",
+        animation: "floatBlob3 30s infinite ease-in-out",
         pointerEvents: "none",
         zIndex: 0
       }} />
@@ -233,18 +244,30 @@ const CupBracketPage = () => {
             px: { xs: 1, sm: 0 },
           }}
         >
-        <Box display="flex" alignItems="center" gap={1.5}>
-          <EmojiEvents color="primary" sx={{ fontSize: 32 }} />
-          <Box>
-            <Typography variant="h5" fontWeight="bold">
-              Cup Bracket
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              KNOCKOUT TOURNAMENT TREE
-            </Typography>
+          <Box display="flex" alignItems="center" gap={1.5}>
+            <EmojiEvents color="primary" sx={{ fontSize: 32 }} />
+            <Box>
+              <Typography variant="h5" fontWeight="bold">
+                Cup Bracket
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                KNOCKOUT TOURNAMENT TREE
+              </Typography>
+            </Box>
           </Box>
+
+          {isAdminOrMod && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<EmojiEvents />}
+              onClick={handleDistributePrizes}
+              sx={{ borderRadius: 2, textTransform: "none", fontWeight: "bold" }}
+            >
+              คำนวณเงินรางวัลบอลถ้วย
+            </Button>
+          )}
         </Box>
-      </Box>
 
       {/* Play-in Matches Section */}
       {!loading && isPlayInActive && playInMatches.length > 0 && (

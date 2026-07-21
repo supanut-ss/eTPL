@@ -336,11 +336,16 @@ const MySquadPage = () => {
       });
       
       const releasePercent = q?.releasePercent ?? q?.ReleasePercent ?? 0;
-      const refund = Math.floor((playerToRelease.pricePaid || 0) * releasePercent / 100);
-      
-      await auctionService.releasePlayer(playerToRelease.squadId, refund);
+      const basePrice = Math.max(playerToRelease.pricePaid || 0, playerToRelease.playerOvr || 0);
+      const refund = Math.floor(basePrice * releasePercent / 100);
+      const targetSquadId = playerToRelease.squadId;
+      await auctionService.releasePlayer(targetSquadId, refund);
       enqueueSnackbar(`Player released. Refunded ${refund.toLocaleString()} TP.`, { variant: "success" });
-      fetchData();
+      setSquad((prev) => prev.filter((p) => p.squadId !== targetSquadId));
+      await fetchData();
+      if (typeof fetchTransactions === "function") {
+        await fetchTransactions(1);
+      }
     } catch (err) {
       enqueueSnackbar(err.response?.data?.message || "Failed to release player.", { variant: "error" });
     } finally {
@@ -2120,8 +2125,8 @@ const MySquadPage = () => {
           
           <Box sx={{ mt: 3, p: 2, borderRadius: 2, bgcolor: '#f8fafc', border: '1px dashed #e2e8f0' }}>
             <Box display="flex" justifyContent="space-between" mb={1}>
-              <Typography variant="caption" color="text.secondary">Purchase Price:</Typography>
-              <Typography variant="caption" fontWeight="bold">{(playerToRelease?.pricePaid || 0).toLocaleString()} TP</Typography>
+              <Typography variant="caption" color="text.secondary">Base Price (Paid vs OVR):</Typography>
+              <Typography variant="caption" fontWeight="bold">{Math.max(playerToRelease?.pricePaid || 0, playerToRelease?.playerOvr || 0).toLocaleString()} TP</Typography>
             </Box>
             <Box display="flex" justifyContent="space-between" mb={1}>
               <Typography variant="caption" color="text.secondary">Release Refund %:</Typography>
@@ -2147,7 +2152,8 @@ const MySquadPage = () => {
                     return playerToRelease?.playerOvr >= min && playerToRelease?.playerOvr <= max;
                   });
                   const rate = q?.releasePercent ?? q?.ReleasePercent ?? 0;
-                  return Math.floor((playerToRelease?.pricePaid || 0) * rate / 100).toLocaleString();
+                  const basePrice = Math.max(playerToRelease?.pricePaid || 0, playerToRelease?.playerOvr || 0);
+                  return Math.floor(basePrice * rate / 100).toLocaleString();
                 })()} TP
               </Typography>
             </Box>

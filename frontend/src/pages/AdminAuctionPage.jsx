@@ -177,6 +177,18 @@ const AdminAuctionPage = () => {
     }
   };
 
+  const handleFixReleaseRefunds = async () => {
+    try {
+      setSaving(true);
+      const res = await auctionService.fixReleaseRefunds();
+      enqueueSnackbar(res?.message || "ปรับปรุงคืนเงินให้เคสปล่อยตัวย้อนหลังสำเร็จ", { variant: "success" });
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || err.message, { variant: "error" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleResetMarket = async () => {
     if (!password) {
       enqueueSnackbar("Please enter password to confirm", { variant: "warning" });
@@ -422,9 +434,21 @@ const AdminAuctionPage = () => {
         {/* Right Column: Quotas */}
         <Grid item xs={12} md={7}>
           <Paper elevation={2} sx={{ borderRadius: 3, p: 4, height: '100%', border: '1px solid', borderColor: 'divider' }}>
-            <Box display="flex" alignItems="center" gap={1.5} mb={3}>
-              <Event color="primary" />
-              <Typography variant="h6" fontWeight="bold">Grade Quotas & Limits</Typography>
+            <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
+              <Box display="flex" alignItems="center" gap={1.5}>
+                <Event color="primary" />
+                <Typography variant="h6" fontWeight="bold">Grade Quotas & Limits</Typography>
+              </Box>
+              <Button
+                variant="outlined"
+                color="secondary"
+                size="small"
+                onClick={handleFixReleaseRefunds}
+                disabled={saving}
+                sx={{ fontWeight: 'bold' }}
+              >
+                คำนวณคืนเงิน Release ย้อนหลัง
+              </Button>
             </Box>
             <Box sx={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>

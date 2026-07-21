@@ -417,6 +417,7 @@ namespace eTPL.API.Services
             await AutoRefundEndedLosersAsync();
 
             var expiredAuctions = await _context.AuctionBoards
+                .Include(b => b.Player)
                 .Where(b => b.DbStatus == "Active" && DateTime.UtcNow >= b.FinalEndTime.AddHours(24))
                 .ToListAsync();
 
@@ -430,39 +431,39 @@ namespace eTPL.API.Services
                 {
                 foreach (var auction in expiredAuctions)
                 {
-                    auction.DbStatus = "Cancelled";
-                    
-                    var finalBids = await _context.AuctionBidLogs
+                    var normalWinnerId = auction.HighestBidderId;
+                    var finalBidsList = await _context.AuctionBidLogs
                         .Where(l => l.AuctionId == auction.AuctionId && l.Phase == "Final")
                         .ToListAsync();
-                    
-                    // Refund Normal leader's normal bid
-                    if (auction.HighestBidderId.HasValue)
+
+                    var finalBids = finalBidsList
+                        .OrderByDescending(l => l.BidAmount)
+                        .ThenByDescending(l => l.UserId == normalWinnerId)
+                        .ThenBy(l => l.CreatedAt)
+                        .ToList();
+
+                    int? winnerId = null;
+                    int winningPrice = auction.CurrentPrice;
+
+                    if (finalBids.Any())
                     {
-                        var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == auction.HighestBidderId.Value);
-                        if (wallet != null)
-                        {
-                            wallet.AvailableBalance += auction.CurrentPrice;
-                            wallet.ReservedBalance -= auction.CurrentPrice;
-                        }
+                        winnerId = finalBids.First().UserId;
+                        winningPrice = finalBids.First().BidAmount;
+                    }
+                    else if (auction.HighestBidderId.HasValue)
+                    {
+                        winnerId = auction.HighestBidderId.Value;
+                        winningPrice = auction.CurrentPrice;
                     }
 
-                    // Refund all final bids
-                    foreach (var bid in finalBids)
+                    if (winnerId.HasValue)
                     {
-                        var bidderWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == bid.UserId);
-                        // To refund their Final bid fully, we need to refund the `actualDeduction` they paid!
-                        if (bidderWallet != null)
-                        {
-                            int refundAmount = bid.BidAmount;
-                            if (auction.HighestBidderId == bid.UserId)
-                            {
-                                refundAmount = bid.BidAmount - auction.CurrentPrice;
-                            }
-
-                            bidderWallet.AvailableBalance += refundAmount;
-                            bidderWallet.ReservedBalance -= refundAmount;
-                        }
+                        // Auto confirm: add player to winner squad after 24h expiration
+                        await ExecuteConfirmAuctionInternalAsync(auction, winnerId.Value, winningPrice, finalBids, isAutoConfirm: true);
+                    }
+                    else
+                    {
+                        auction.DbStatus = "Cancelled";
                     }
                 }
                 await _context.SaveChangesAsync();
@@ -1128,6 +1129,108 @@ namespace eTPL.API.Services
             });
         }
 
+        private async Task ExecuteConfirmAuctionInternalAsync(AuctionBoard auction, int winnerId, int winningPrice, List<AuctionBidLog> finalBids, bool isAutoConfirm = false)
+        {
+            var playerName2 = auction.Player?.PlayerName ?? "";
+            var refunds = new Dictionary<int, int>();
+
+            if (auction.HighestBidderId.HasValue && auction.HighestBidderId.Value != winnerId)
+            {
+                refunds[auction.HighestBidderId.Value] = auction.CurrentPrice;
+            }
+
+            foreach (var bid in finalBids)
+            {
+                if (bid.UserId != winnerId)
+                {
+                    int refundAmount = bid.BidAmount;
+                    if (auction.HighestBidderId == bid.UserId)
+                    {
+                        refundAmount = bid.BidAmount - auction.CurrentPrice;
+                    }
+
+                    if (refunds.ContainsKey(bid.UserId))
+                    {
+                        refunds[bid.UserId] += refundAmount;
+                    }
+                    else
+                    {
+                        refunds[bid.UserId] = refundAmount;
+                    }
+                }
+            }
+
+            foreach (var kvp in refunds)
+            {
+                int loserId = kvp.Key;
+                int amount = kvp.Value;
+
+                if (amount <= 0) continue;
+
+                bool bidRefunded = await _context.AuctionTransactions.AnyAsync(t => t.UserId == loserId && t.RelatedAuctionId == auction.AuctionId && t.Type == "FINAL_BID_REFUND");
+                if (!bidRefunded)
+                {
+                    var loserWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == loserId);
+                    if (loserWallet != null)
+                    {
+                        loserWallet.AvailableBalance += amount;
+                        loserWallet.ReservedBalance -= amount;
+                        await RecordTransactionAsync(loserId, amount, "CREDIT", "FINAL_BID_REFUND",
+                            $"คืนเงินประมูลไม่ชนะรอบ Final {playerName2}", loserWallet.AvailableBalance, auction.AuctionId, auction.PlayerId);
+                    }
+                }
+            }
+
+            auction.DbStatus = "Sold";
+            auction.HighestBidderId = winnerId;
+            auction.CurrentPrice = winningPrice;
+
+            var currentSeasonObj = await _scaffoldedContext.TbmCurrentSeasons.FirstOrDefaultAsync();
+            int currentSeasonNum = currentSeasonObj?.Season ?? 1;
+
+            var winnerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == winnerId);
+            if (winnerWallet != null)
+            {
+                winnerWallet.ReservedBalance -= winningPrice;
+                string txNote = isAutoConfirm
+                    ? $"ชนะประมูลได้ {playerName2} ราคา {winningPrice} TP (Season {currentSeasonNum}) (Auto Confirm 24h)"
+                    : $"ชนะประมูลได้ {playerName2} ราคา {winningPrice} TP (Season {currentSeasonNum})";
+
+                await RecordTransactionAsync(winnerId, winningPrice, "DEBIT", "AUCTION_WIN",
+                    txNote, winnerWallet.AvailableBalance, auction.AuctionId, auction.PlayerId);
+            }
+
+            var existingSquad = await _context.AuctionSquads.FirstOrDefaultAsync(s => s.UserId == winnerId && s.PlayerId == auction.PlayerId);
+            if (existingSquad != null)
+            {
+                existingSquad.PricePaid = winningPrice;
+                existingSquad.Status = "Active";
+                existingSquad.AcquiredAt = DateTime.UtcNow;
+                existingSquad.IsLoan = false;
+                existingSquad.LoanedFromUserId = null;
+            }
+            else
+            {
+                _context.AuctionSquads.Add(new AuctionSquad
+                {
+                    UserId = winnerId,
+                    PlayerId = auction.PlayerId,
+                    PricePaid = winningPrice,
+                    AcquiredAt = DateTime.UtcNow,
+                    Status = "Active"
+                });
+            }
+
+            // SEND DISCORD NOTIFICATION
+            try
+            {
+                var winnerUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == winnerId);
+                string winTeam = winnerUser?.UserId ?? "Unknown";
+                _ = _discordService.SendAuctionConfirmAsync(playerName2, winTeam, winningPrice, auction.PlayerId.ToString());
+            }
+            catch { }
+        }
+
         public async Task<AuctionBoardDto> ConfirmAuctionAsync(int auctionId, int userId)
         {
             var strategy = _context.Database.CreateExecutionStrategy();
@@ -1180,105 +1283,10 @@ namespace eTPL.API.Services
                 if (!winnerId.HasValue) throw new Exception("ไม่มีผู้ชนะ");
                 if (winnerId.Value != userId) throw new Exception("คุณไม่ใช่ผู้ชนะประมูลนี้");
 
-                // Refund losers
-                var playerName2 = auction.Player?.PlayerName ?? "";
-                var refunds = new Dictionary<int, int>();
-
-                if (auction.HighestBidderId.HasValue && auction.HighestBidderId.Value != winnerId.Value)
-                {
-                    refunds[auction.HighestBidderId.Value] = auction.CurrentPrice;
-                }
-
-                foreach (var bid in finalBids)
-                {
-                    if (bid.UserId != winnerId.Value)
-                    {
-                        int refundAmount = bid.BidAmount;
-                        if (auction.HighestBidderId == bid.UserId)
-                        {
-                            refundAmount = bid.BidAmount - auction.CurrentPrice;
-                        }
-
-                        if (refunds.ContainsKey(bid.UserId))
-                        {
-                            refunds[bid.UserId] += refundAmount;
-                        }
-                        else
-                        {
-                            refunds[bid.UserId] = refundAmount;
-                        }
-                    }
-                }
-
-                foreach (var kvp in refunds)
-                {
-                    int loserId = kvp.Key;
-                    int amount = kvp.Value;
-
-                    if (amount <= 0) continue;
-
-                    bool bidRefunded = await _context.AuctionTransactions.AnyAsync(t => t.UserId == loserId && t.RelatedAuctionId == auctionId && t.Type == "FINAL_BID_REFUND");
-                    if (!bidRefunded)
-                    {
-                        var loserWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == loserId);
-                        if (loserWallet != null)
-                        {
-                            loserWallet.AvailableBalance += amount;
-                            loserWallet.ReservedBalance -= amount;
-                            await RecordTransactionAsync(loserId, amount, "CREDIT", "FINAL_BID_REFUND",
-                                $"คืนเงินประมูลไม่ชนะรอบ Final {playerName2}", loserWallet.AvailableBalance, auctionId, auction.PlayerId);
-                        }
-                    }
-                }
-
-                auction.DbStatus = "Sold";
-                auction.HighestBidderId = winnerId;
-                auction.CurrentPrice = winningPrice;
-
-                var currentSeasonObj = await _scaffoldedContext.TbmCurrentSeasons.FirstOrDefaultAsync();
-                int currentSeasonNum = currentSeasonObj?.Season ?? 1;
-
-                var winnerWallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == winnerId.Value);
-                if (winnerWallet != null)
-                {
-                    winnerWallet.ReservedBalance -= winningPrice;
-                    await RecordTransactionAsync(winnerId.Value, winningPrice, "DEBIT", "AUCTION_WIN",
-                        $"ชนะประมูลได้ {playerName2} ราคา {winningPrice} TP (Season {currentSeasonNum})",
-                        winnerWallet.AvailableBalance, auctionId, auction.PlayerId);
-                }
-
-                var existingSquad = await _context.AuctionSquads.FirstOrDefaultAsync(s => s.UserId == winnerId.Value && s.PlayerId == auction.PlayerId);
-                if (existingSquad != null)
-                {
-                    existingSquad.PricePaid = winningPrice;
-                    existingSquad.Status = "Active";
-                    existingSquad.AcquiredAt = DateTime.UtcNow;
-                    existingSquad.IsLoan = false;
-                    existingSquad.LoanedFromUserId = null;
-                }
-                else
-                {
-                    _context.AuctionSquads.Add(new AuctionSquad
-                    {
-                        UserId = winnerId.Value,
-                        PlayerId = auction.PlayerId,
-                        PricePaid = winningPrice,
-                        AcquiredAt = DateTime.UtcNow,
-                        Status = "Active"
-                    });
-                }
+                await ExecuteConfirmAuctionInternalAsync(auction, winnerId.Value, winningPrice, finalBids, isAutoConfirm: false);
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
-
-                // SEND DISCORD NOTIFICATION
-                try
-                {
-                    var winnerUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == winnerId.Value);
-                    string winTeam = winnerUser?.UserId ?? "Unknown";
-                    _ = _discordService.SendAuctionConfirmAsync(playerName2, winTeam, winningPrice, auction.PlayerId.ToString());
-                }
-                catch { }
 
                 return MapToDto(auction);
                 }
@@ -1551,9 +1559,16 @@ namespace eTPL.API.Services
                 var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == userId)
                     ?? throw new Exception("Wallet not found.");
 
-                if (request.RefundAmount > 0)
+                var quotas = await _context.AuctionGradeQuotas.ToListAsync();
+                var quota = quotas.FirstOrDefault(q => squad.Player!.PlayerOvr >= q.MinOVR && squad.Player!.PlayerOvr <= q.MaxOVR);
+                int releasePercent = quota?.ReleasePercent ?? 0;
+
+                int basePrice = Math.Max(squad.PricePaid, squad.Player!.PlayerOvr);
+                int refundAmount = (int)Math.Round((double)basePrice * releasePercent / 100.0);
+
+                if (refundAmount > 0)
                 {
-                    wallet.AvailableBalance += request.RefundAmount;
+                    wallet.AvailableBalance += refundAmount;
                 }
 
                 var playerName = squad.Player?.PlayerName ?? "Unknown";
@@ -1571,7 +1586,7 @@ namespace eTPL.API.Services
                 int currentSeasonNum = currentSeasonObj?.Season ?? 1;
 
                 await RecordTransactionAsync(
-                    userId, request.RefundAmount, "CREDIT", "FREE_RELEASE",
+                    userId, refundAmount, "CREDIT", "FREE_RELEASE",
                     $"ปล่อย {playerName} (Season {currentSeasonNum})",
                     wallet.AvailableBalance, relatedPlayerId: squad.PlayerId);
 
@@ -2255,20 +2270,38 @@ namespace eTPL.API.Services
                     int currentSeason = currentSeasonObj.Season ?? 1;
                     string seasonLabel = $"Season {currentSeason - 22}";
                     string prizeTag = $"(Season {currentSeason})";
+                    string tournamentTitle = division == "D2" ? "eTPL League 2" : "eTPL League";
+
+                    // 2. Get Standings from api_v_result_table
+                    var standings = await _scaffoldedContext.ApiVResultTables
+                        .Where(s => s.Platform == platform && s.Season == currentSeason && s.Division == division)
+                        .ToListAsync();
+                    
+                    var rankedStandings = standings.OrderByDescending(s => s.Pts)
+                        .ThenByDescending(s => s.Gd)
+                        .ThenByDescending(s => s.Gf)
+                        .ToList();
+
+                    var divisionUsers = await _context.Users
+                        .Where(u => rankedStandings.Select(s => s.Team).Contains(u.UserId))
+                        .Select(u => u.Id)
+                        .ToListAsync();
 
                     // --- IDEMPOTENCY CLEANUP ---
-                    // 1. Remove previous HOF entries for this season
+                    // 1. Remove previous HOF entries for this season & tournament title (D1: "eTPL League", D2: "eTPL League 2")
                     var existingHof = await _scaffoldedContext.TbmHofs
-                        .Where(h => h.Season == seasonLabel)
+                        .Where(h => h.Season == seasonLabel && h.TournamentTitle == tournamentTitle)
                         .ToListAsync();
                     if (existingHof.Any())
                     {
                         _scaffoldedContext.TbmHofs.RemoveRange(existingHof);
                     }
 
-                    // 2. Remove previous League prize/deduction transactions and revert wallet balances
+                    // 2. Remove previous League prize/deduction transactions for users in THIS division and revert wallet balances
                     var oldPrizeTxs = await _context.AuctionTransactions
-                        .Where(t => (t.Type == "PRIZE" || t.Type == "PRIZE_SPECIAL" || t.Type == "CARD_DEDUCTION") && t.Description.Contains(prizeTag))
+                        .Where(t => (t.Type == "PRIZE" || t.Type == "PRIZE_SPECIAL" || t.Type == "CARD_DEDUCTION") 
+                                 && t.Description.Contains(prizeTag)
+                                 && divisionUsers.Contains(t.UserId))
                         .ToListAsync();
                     if (oldPrizeTxs.Any())
                     {
@@ -2293,16 +2326,6 @@ namespace eTPL.API.Services
                     await _scaffoldedContext.SaveChangesAsync();
                     // ---------------------------
                     logs.Add($"เริ่มกระบวนการปิดฤดูกาล {currentSeason} ({platform} - {division})");
-
-                    // 2. Get Standings from api_v_result_table
-                    var standings = await _scaffoldedContext.ApiVResultTables
-                        .Where(s => s.Platform == platform && s.Season == currentSeason && s.Division == division)
-                        .ToListAsync();
-                    
-                    var rankedStandings = standings.OrderByDescending(s => s.Pts)
-                        .ThenByDescending(s => s.Gd)
-                        .ThenByDescending(s => s.Gf)
-                        .ToList();
 
                     // 3. Get Prizes
                     var prizes = await _scaffoldedContext.TbsPrizeSettings.OrderBy(p => p.SortOrder).ToListAsync();
@@ -2339,7 +2362,7 @@ namespace eTPL.API.Services
 
                                 wallet.AvailableBalance += calculatedAmountInt;
                                 await RecordTransactionAsync(user.Id, calculatedAmountInt, "CREDIT", "PRIZE",
-                                    $"รางวัลอันดับ {i + 1} {prize.RankLabel} (Season {currentSeason})",
+                                    $"รางวัลอันดับ {i + 1} {prize.RankLabel} ({division}) (Season {currentSeason})",
                                     wallet.AvailableBalance);
                                 prizeCount++;
                             }
@@ -2368,7 +2391,7 @@ namespace eTPL.API.Services
                                     int amountInt = (int)Math.Round(dividedAmount, MidpointRounding.AwayFromZero);
                                     wallet.AvailableBalance += amountInt;
                                     await RecordTransactionAsync(user.Id, amountInt, "CREDIT", "PRIZE_SPECIAL",
-                                        $"รางวัลพิเศษ Top Scorer (หาร {winners.Count} ทีม: {team.Gf} Goals) (Season {currentSeason})",
+                                        $"รางวัลพิเศษ Top Scorer ({division}) (หาร {winners.Count} ทีม: {team.Gf} Goals) (Season {currentSeason})",
                                         wallet.AvailableBalance);
 
                                     
@@ -2398,7 +2421,7 @@ namespace eTPL.API.Services
                                     int amountInt = (int)Math.Round(dividedAmount, MidpointRounding.AwayFromZero);
                                     wallet.AvailableBalance += amountInt;
                                     await RecordTransactionAsync(user.Id, amountInt, "CREDIT", "PRIZE_SPECIAL",
-                                        $"รางวัลพิเศษ Best Defense (หาร {winners.Count} ทีม: {team.Ga} GA) (Season {currentSeason})",
+                                        $"รางวัลพิเศษ Best Defense ({division}) (หาร {winners.Count} ทีม: {team.Ga} GA) (Season {currentSeason})",
                                         wallet.AvailableBalance);
 
                                     
@@ -2459,7 +2482,7 @@ namespace eTPL.API.Services
 
                             wallet.AvailableBalance -= totalDeduction;
                             await RecordTransactionAsync(user.Id, totalDeduction, "DEBIT", "CARD_DEDUCTION",
-                                $"หักเงินใบเหลือง/แดง: ใบเหลือง {yellowCount} ใบ (-{yellowDeduction}), ใบแดง {redCount} ใบ (-{redDeduction}) (Season {currentSeason})",
+                                $"หักเงินใบเหลือง/แดง ({division}): ใบเหลือง {yellowCount} ใบ (-{yellowDeduction}), ใบแดง {redCount} ใบ (-{redDeduction}) (Season {currentSeason})",
                                 wallet.AvailableBalance);
 
                             deductionCount++;
@@ -2475,17 +2498,17 @@ namespace eTPL.API.Services
                         
                         // Try to get color from existing HOF entries for this title
                         var latestLeagueHof = await _scaffoldedContext.TbmHofs
-                            .Where(h => h.TournamentTitle == "eTPL League")
+                            .Where(h => h.TournamentTitle == tournamentTitle)
                             .OrderByDescending(h => h.Season)
                             .FirstOrDefaultAsync();
-                        string leagueColor = latestLeagueHof?.DisplayColor ?? "#fbbf24";
+                        string leagueColor = latestLeagueHof?.DisplayColor ?? (division == "D2" ? "#A86929" : "#fbbf24");
 
                         var hofEntry = new eTPL.API.Models.Scaffolded.TbmHof
                         {
                             HofId = Guid.NewGuid().ToString(),
                             Platform = platform,
                             Season = $"Season {currentSeason - 22}",
-                            TournamentTitle = "eTPL League",
+                            TournamentTitle = tournamentTitle,
                             TournamentSubtitle = $"{division} Division",
                             WinnerName = winnerUser?.UserId ?? winner.Team,
                             WinnerTeam = winner.TeamName,
@@ -2511,13 +2534,13 @@ namespace eTPL.API.Services
                             {
                                 UserId = winnerUser.Id,
                                 Title = "🏆 ขอแสดงความยินดีกับแชมป์ลีก!",
-                                Message = $"คุณคือแชมป์ eTPL League ({division}) ประจำ {hofEntry.Season}! สุดยอดมากครับ",
+                                Message = $"คุณคือแชมป์ {tournamentTitle} ({division}) ประจำ {hofEntry.Season}! สุดยอดมากครับ",
                                 TargetUrl = "/hall-of-fame",
                                 CreatedAt = DateTime.UtcNow
                             });
                         }
 
-                        logs.Add($"บันทึกข้อมูล Hall of Fame และแจ้งเตือนผู้ชนะ ({winner.TeamName}) สำเร็จ");
+                        logs.Add($"บันทึกข้อมูล Hall of Fame ({tournamentTitle}) และแจ้งเตือนผู้ชนะ ({winner.TeamName}) สำเร็จ");
                     }
 
                     // 6. Auto Release Expired Contracts
@@ -2536,7 +2559,8 @@ namespace eTPL.API.Services
                         var quota = quotas.FirstOrDefault(q => squad.Player.PlayerOvr >= q.MinOVR && squad.Player.PlayerOvr <= q.MaxOVR);
                         if (quota != null && squad.SeasonsWithTeam >= quota.MaxSeasonsPerTeam)
                         {
-                            int refund = squad.PricePaid * quota.ReleasePercent / 100;
+                            int basePrice = Math.Max(squad.PricePaid, squad.Player.PlayerOvr);
+                            int refund = (int)Math.Round((double)basePrice * quota.ReleasePercent / 100.0);
                             var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == squad.UserId);
                             if (wallet != null)
                             {
@@ -3104,148 +3128,136 @@ namespace eTPL.API.Services
             await _scaffoldedContext.SaveChangesAsync();
             // ---------------------------------
 
-
-            // 2. Get all matches for this season (including unplayed ones to identify all participants)
+            // 3. Get all matches for this season
             var allFixtures = await _context.CupFixtures
                 .Where(f => f.Season == season)
                 .ToListAsync();
 
             if (!allFixtures.Any()) return;
 
-                    // Get all users who participated in this cup season
-                    var allUserIds = allFixtures
-                        .SelectMany(f => new[] { f.HomeUserId, f.AwayUserId })
-                        .Where(id => !string.IsNullOrEmpty(id))
-                        .Distinct()
-                        .ToList();
+            // Get all user IDs who participated in this cup season
+            var allUserIds = allFixtures
+                .SelectMany(f => new[] { f.HomeUserId, f.AwayUserId })
+                .Where(id => !string.IsNullOrEmpty(id) && !string.Equals(id, "TBD", StringComparison.OrdinalIgnoreCase) && !string.Equals(id, "null", StringComparison.OrdinalIgnoreCase))
+                .Distinct()
+                .ToList();
 
-                    foreach (var rawUserIdStr in allUserIds)
+            foreach (var rawUserIdStr in allUserIds)
+            {
+                var userIdStr = rawUserIdStr?.Trim();
+                if (string.IsNullOrEmpty(userIdStr)) continue;
+
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userIdStr);
+                if (user == null && int.TryParse(userIdStr, out int idVal))
+                {
+                    user = await _context.Users.FirstOrDefaultAsync(u => u.Id == idVal);
+                }
+
+                if (user == null) continue;
+
+                var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == user.Id);
+                if (wallet == null)
+                {
+                    wallet = new AuctionUserWallet { UserId = user.Id, AvailableBalance = 0, ReservedBalance = 0 };
+                    _context.AuctionUserWallets.Add(wallet);
+                }
+
+                // Helper to check match participation for this user
+                bool isUserInMatch(CupFixture f) =>
+                    (!string.IsNullOrEmpty(f.HomeUserId) && (string.Equals(f.HomeUserId.Trim(), user.UserId, StringComparison.OrdinalIgnoreCase) || string.Equals(f.HomeUserId.Trim(), user.Id.ToString(), StringComparison.OrdinalIgnoreCase))) ||
+                    (!string.IsNullOrEmpty(f.AwayUserId) && (string.Equals(f.AwayUserId.Trim(), user.UserId, StringComparison.OrdinalIgnoreCase) || string.Equals(f.AwayUserId.Trim(), user.Id.ToString(), StringComparison.OrdinalIgnoreCase)));
+
+                var userMatches = allFixtures.Where(isUserInMatch).ToList();
+                if (!userMatches.Any()) continue;
+
+                // Smallest Round number = furthest round reached
+                int maxRoundReached = userMatches.Min(f => f.Round);
+                var finalMatch = userMatches.FirstOrDefault(f => f.Round == 2 || !f.NextMatchId.HasValue);
+
+                decimal amount = 0;
+                string label = "";
+
+                if (finalMatch != null && finalMatch.IsPlayed)
+                {
+                    bool isHome = !string.IsNullOrEmpty(finalMatch.HomeUserId) && (string.Equals(finalMatch.HomeUserId.Trim(), user.UserId, StringComparison.OrdinalIgnoreCase) || string.Equals(finalMatch.HomeUserId.Trim(), user.Id.ToString(), StringComparison.OrdinalIgnoreCase));
+                    bool won = isHome ? (finalMatch.HomeScore > finalMatch.AwayScore) : (finalMatch.AwayScore > finalMatch.HomeScore);
+
+                    if (won)
                     {
-                        var userIdStr = rawUserIdStr?.Trim();
-                        if (string.IsNullOrEmpty(userIdStr)) continue;
-                        // Try matching by UserId (string) or Id (int if applicable)
-                        var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userIdStr);
-                        if (user == null && int.TryParse(userIdStr, out int idVal))
+                        amount = 100;
+                        label = "Cup Winner";
+
+                        var latestCupHof = await _scaffoldedContext.TbmHofs
+                            .Where(h => h.TournamentTitle == "eTPL Cup")
+                            .OrderByDescending(h => h.Season)
+                            .FirstOrDefaultAsync();
+                        string cupColor = latestCupHof?.DisplayColor ?? "#6366f1";
+
+                        var hofEntry = new eTPL.API.Models.Scaffolded.TbmHof
                         {
-                            user = await _context.Users.FirstOrDefaultAsync(u => u.Id == idVal);
+                            HofId = Guid.NewGuid().ToString(),
+                            Platform = "PC",
+                            Season = $"Season {season - 22}",
+                            TournamentTitle = "eTPL Cup",
+                            TournamentSubtitle = "Knockout King",
+                            WinnerName = user.UserId,
+                            WinnerTeam = user.CurrentTeam,
+                            WinnerImage = user.LinePic != null && user.LinePic.Length > 500 ? user.LinePic.Substring(0, 500) : user.LinePic,
+                            DisplayColor = cupColor
+                        };
+
+                        string runnerUpId = isHome ? (finalMatch.AwayUserId?.Trim() ?? "") : (finalMatch.HomeUserId?.Trim() ?? "");
+                        if (!string.IsNullOrEmpty(runnerUpId))
+                        {
+                            var runnerUpUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == runnerUpId || u.Id.ToString() == runnerUpId);
+                            hofEntry.RunnerUpName = runnerUpUser?.UserId ?? runnerUpId;
                         }
 
-                        if (user == null) continue;
+                        _scaffoldedContext.TbmHofs.Add(hofEntry);
+                        hofIdsToProcess.Add(hofEntry.HofId);
 
-                        var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == user.Id);
-                        if (wallet == null)
+                        _context.Notifications.Add(new Notification
                         {
-                            wallet = new AuctionUserWallet { UserId = user.Id, AvailableBalance = 0, ReservedBalance = 0 };
-                            _context.AuctionUserWallets.Add(wallet);
-                        }
-
-                        // Find all matches for this user in this season (using Trim and IgnoreCase)
-                        var userMatches = allFixtures.Where(f => 
-                            (f.HomeUserId != null && string.Equals(f.HomeUserId.Trim(), userIdStr, StringComparison.OrdinalIgnoreCase)) || 
-                            (f.AwayUserId != null && string.Equals(f.AwayUserId.Trim(), userIdStr, StringComparison.OrdinalIgnoreCase))).ToList();
-                        
-                        if (!userMatches.Any()) continue;
-
-                        // The furthest round is the smallest Round number
-                        int maxRoundReached = userMatches.Min(f => f.Round); 
-                        
-                        decimal amount = 0;
-                        string label = "";
-
-                        if (maxRoundReached == 2)
-                        {
-                            // Special check for the Final
-                            var finalMatch = userMatches.FirstOrDefault(f => f.Round == 2);
-                            if (finalMatch != null && finalMatch.IsPlayed)
-                            {
-                                bool isHome = finalMatch.HomeUserId != null && string.Equals(finalMatch.HomeUserId.Trim(), userIdStr, StringComparison.OrdinalIgnoreCase);
-                                bool won = isHome ? (finalMatch.HomeScore > finalMatch.AwayScore) : (finalMatch.AwayScore > finalMatch.HomeScore);
-                                
-                                if (won)
-                                {
-                                    amount = 100;
-                                    label = "Cup Winner (Round 1)";
-
-                                    // Try to get color from existing HOF entries for this title
-                                    var latestCupHof = await _scaffoldedContext.TbmHofs
-                                        .Where(h => h.TournamentTitle == "eTPL Cup")
-                                        .OrderByDescending(h => h.Season)
-                                        .FirstOrDefaultAsync();
-                                    string cupColor = latestCupHof?.DisplayColor ?? "#A86929";
-
-                                    // Hall of Fame
-                                    var hofEntry = new eTPL.API.Models.Scaffolded.TbmHof
-                                    {
-                                        HofId = Guid.NewGuid().ToString(),
-                                        Platform = "PC",
-                                        Season = $"Season {season - 22}",
-                                        TournamentTitle = "eTPL Cup",
-                                        TournamentSubtitle = "Knockout King",
-                                        WinnerName = user.UserId,
-                                        WinnerTeam = user.CurrentTeam,
-                                        WinnerImage = user.LinePic != null && user.LinePic.Length > 500 ? user.LinePic.Substring(0, 500) : user.LinePic,
-                                        DisplayColor = cupColor
-                                    };
-
-                                    // Add Runner-up (The loser of the final)
-                                    string runnerUpId = isHome ? (finalMatch.AwayUserId?.Trim() ?? "") : (finalMatch.HomeUserId?.Trim() ?? "");
-                                    if (!string.IsNullOrEmpty(runnerUpId))
-                                    {
-                                        var runnerUpUser = await _context.Users.FirstOrDefaultAsync(u => u.UserId == runnerUpId);
-                                        hofEntry.RunnerUpName = runnerUpUser?.UserId ?? runnerUpId;
-                                    }
-
-                                    _scaffoldedContext.TbmHofs.Add(hofEntry);
-                                    hofIdsToProcess.Add(hofEntry.HofId);
-
-                                    // Notify Winner
-                                    _context.Notifications.Add(new Notification
-                                    {
-                                        UserId = user.Id,
-                                        Title = "🏆 ขอแสดงความยินดีกับแชมป์บอลถ้วย!",
-                                        Message = $"คุณคือแชมป์ eTPL Cup ประจำ {hofEntry.Season}! เก่งมากครับ",
-                                        TargetUrl = "/hall-of-fame",
-                                        CreatedAt = DateTime.UtcNow
-                                    });
-                                }
-                                else
-                                {
-                                    amount = 60;
-                                    label = "Cup Runner-up (Round 2)";
-                                }
-                            }
-                            else if (finalMatch != null)
-                            {
-                                // If final is not played, they get Semifinalist prize for reaching this far
-                                amount = 50;
-                                label = "Cup Semifinalist (Round 4)";
-                            }
-                        }
-                        else if (maxRoundReached == 4) { amount = 50; label = "Cup Semifinalist (Round 4)"; }
-                        else if (maxRoundReached == 8) { amount = 40; label = "Cup Quarterfinalist (Round 8)"; }
-                        else if (maxRoundReached == 16) { amount = 30; label = "Cup Round of 16"; }
-                        else if (maxRoundReached == 32) { amount = 20; label = "Cup Round of 32"; }
-
-                        if (amount > 0)
-                        {
-                            int amountInt = (int)amount;
-                            wallet.AvailableBalance += amountInt;
-                            await RecordTransactionAsync(user.Id, amountInt, "CREDIT", "CUP_PRIZE",
-                                $"รางวัลบอลถ้วย {label} (Season {season})",
-                                wallet.AvailableBalance);
-                        }
+                            UserId = user.Id,
+                            Title = "🏆 ขอแสดงความยินดีกับแชมป์บอลถ้วย!",
+                            Message = $"คุณคือแชมป์ eTPL Cup ประจำ {hofEntry.Season}! เก่งมากครับ",
+                            TargetUrl = "/hall-of-fame",
+                            CreatedAt = DateTime.UtcNow
+                        });
                     }
-                try
-                {
-                    await _context.SaveChangesAsync();
-                    await _scaffoldedContext.SaveChangesAsync();
+                    else
+                    {
+                        amount = 60;
+                        label = "Cup Runner-up";
+                    }
                 }
-                catch (Exception ex)
+                else if (maxRoundReached == 4) { amount = 50; label = "Cup Semifinalist"; }
+                else if (maxRoundReached == 8) { amount = 40; label = "Cup Quarterfinalist"; }
+                else if (maxRoundReached == 16) { amount = 30; label = "Cup Round of 16"; }
+                else if (maxRoundReached == 32) { amount = 20; label = "Cup Round of 32"; }
+                else if (maxRoundReached == 64) { amount = 10; label = "Cup Round of 64"; }
+
+                if (amount > 0)
                 {
-                    Console.WriteLine($"[CUP PRIZE ERROR] {ex}");
-                    var inner = ex.InnerException?.Message ?? ex.Message;
-                    throw new Exception($"Cup Prize DB Error: {inner}");
+                    int amountInt = (int)amount;
+                    wallet.AvailableBalance += amountInt;
+                    await RecordTransactionAsync(user.Id, amountInt, "CREDIT", "CUP_PRIZE",
+                        $"รางวัลบอลถ้วย {label} (Season {season})",
+                        wallet.AvailableBalance);
                 }
+            }
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                await _scaffoldedContext.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[CUP PRIZE ERROR] {ex}");
+                var inner = ex.InnerException?.Message ?? ex.Message;
+                throw new Exception($"Cup Prize DB Error: {inner}");
+            }
         }
 
         private async Task CheckPreviousOwnerRestrictionAsync(int userId, int playerId)
@@ -3295,6 +3307,100 @@ namespace eTPL.API.Services
                 await _context.SaveChangesAsync();
                 return true; // Added
             }
+        }
+
+        public async Task<int> FixPastReleaseRefundsAsync()
+        {
+            var strategy = _context.Database.CreateExecutionStrategy();
+            int totalAdjusted = 0;
+
+            await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
+                    var quotas = await _context.AuctionGradeQuotas.ToListAsync();
+
+                    var releaseTxs = await _context.AuctionTransactions
+                        .Where(t => (t.Type == "FREE_RELEASE" || t.Type == "AUTO_RELEASE_EXPIRED") && t.Direction == "CREDIT")
+                        .ToListAsync();
+
+                    if (!releaseTxs.Any()) return;
+
+                    var playerIds = releaseTxs.Where(t => t.RelatedPlayerId.HasValue).Select(t => t.RelatedPlayerId!.Value).Distinct().ToList();
+                    var players = await _context.PesPlayerTeams.Where(p => playerIds.Contains(p.IdPlayer)).ToListAsync();
+                    var playerMap = players.ToDictionary(p => p.IdPlayer, p => p);
+
+                    var userWallets = await _context.AuctionUserWallets.ToListAsync();
+                    var walletMap = userWallets.ToDictionary(w => w.UserId, w => w);
+
+                    var existingAdjustments = await _context.AuctionTransactions
+                        .Where(t => t.Type == "REFUND_ADJUSTMENT" && t.RelatedPlayerId.HasValue)
+                        .Select(t => new { t.UserId, PlayerId = t.RelatedPlayerId!.Value })
+                        .Distinct()
+                        .ToListAsync();
+
+                    var adjustedSet = new HashSet<(int UserId, int PlayerId)>(existingAdjustments.Select(x => (x.UserId, x.PlayerId)));
+
+                    foreach (var tx in releaseTxs)
+                    {
+                        if (!tx.RelatedPlayerId.HasValue || !playerMap.TryGetValue(tx.RelatedPlayerId.Value, out var player))
+                        {
+                            continue;
+                        }
+
+                        if (adjustedSet.Contains((tx.UserId, tx.RelatedPlayerId.Value)) || tx.Description.Contains("[ได้รับการชดเชย"))
+                        {
+                            continue;
+                        }
+
+                        int ovr = player.PlayerOvr;
+                        var quota = quotas.FirstOrDefault(q => ovr >= q.MinOVR && ovr <= q.MaxOVR);
+                        int releasePercent = quota?.ReleasePercent ?? 0;
+                        if (releasePercent == 0) continue;
+
+                        int minRequiredRefund = (int)Math.Round((double)ovr * releasePercent / 100.0);
+
+                        if (tx.Amount < minRequiredRefund)
+                        {
+                            int diff = minRequiredRefund - tx.Amount;
+
+                            if (walletMap.TryGetValue(tx.UserId, out var wallet))
+                            {
+                                wallet.AvailableBalance += diff;
+
+                                // Keep original tx.Amount intact to prevent double-counting in transaction history log
+                                tx.Description += $" [ได้รับการชดเชยส่วนต่างเพิ่ม (+{diff} TP)]";
+
+                                _context.AuctionTransactions.Add(new AuctionTransaction
+                                {
+                                    UserId = tx.UserId,
+                                    Amount = diff,
+                                    Direction = "CREDIT",
+                                    Type = "REFUND_ADJUSTMENT",
+                                    Description = $"ชดเชยส่วนต่างเงินคืนการปล่อยตัวตามเกณฑ์ OVR: {player.PlayerName} (OVR {ovr})",
+                                    BalanceAfter = wallet.AvailableBalance,
+                                    RelatedPlayerId = player.IdPlayer,
+                                    CreatedAt = DateTime.UtcNow
+                                });
+
+                                totalAdjusted++;
+                            }
+                        }
+                    }
+
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    Console.WriteLine($"[FIX PAST RELEASE REFUNDS ERROR] {ex}");
+                    throw;
+                }
+            });
+
+            return totalAdjusted;
         }
     }
 }

@@ -662,6 +662,7 @@ const AdminDataPage = () => {
                   <TextField fullWidth label="Season" name="season" size="small" type="number" value={hofData.season} onChange={handleHofChange} />
                   <TextField fullWidth label="Tournament" name="tournamentTitle" size="small" value={hofData.tournamentTitle} onChange={handleHofChange} select SelectProps={{ native: true }}>
                     <option value="eTPL League">eTPL LEAGUE</option>
+                    <option value="eTPL League 2">eTPL LEAGUE 2</option>
                     <option value="eTPL Cup">eTPL CUP</option>
                   </TextField>
                   <Autocomplete fullWidth options={users} getOptionLabel={(option) => option ? `${option.userId} (${option.lineName || ""})` : ""} value={(users || []).find(u => u.userId === hofData.winnerName) || null} onChange={(e, v) => setHofData(prev => ({ ...prev, winnerName: v ? v.userId : "" }))} renderInput={(params) => <TextField {...params} size="small" label="Winner" />} />

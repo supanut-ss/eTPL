@@ -306,13 +306,32 @@ namespace eTPL.API.Controllers
                 }
             }
 
-            // Distribute Prizes if it's the Final (Round 2)
-            if (match.Round == 2)
+            // Distribute Prizes if it's the Final match (Round == 2 or NextMatchId == null)
+            if (match.Round == 2 || !match.NextMatchId.HasValue)
             {
                 await _auctionService.DistributeCupPrizesAsync(match.Season);
             }
 
             return Ok(new { message = "บันทึกผลการแข่งขันสำเร็จ!" });
+        }
+
+        [HttpPost("distribute-prizes")]
+        [Authorize(Roles = "admin,moderator")]
+        public async Task<IActionResult> DistributePrizesManually([FromQuery] int? season)
+        {
+            var targetSeason = season;
+            if (!targetSeason.HasValue)
+            {
+                targetSeason = await _scaffoldedContext.TbmCurrentSeasons
+                    .Where(s => s.Platform == "PC")
+                    .Select(s => s.Season)
+                    .FirstOrDefaultAsync();
+            }
+
+            if (!targetSeason.HasValue) return BadRequest(new { message = "ไม่พบ Season ปัจจุบัน" });
+
+            await _auctionService.DistributeCupPrizesAsync(targetSeason.Value);
+            return Ok(new { message = $"คำนวณและแจกเงินรางวัลบอลถ้วย Season {targetSeason.Value} สำเร็จ!" });
         }
     }
 
