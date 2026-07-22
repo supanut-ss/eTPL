@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Paper,
@@ -22,7 +22,7 @@ import {
   useTheme,
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
-import { Add, Edit, Delete, Refresh, Person, ManageAccounts, Badge, Visibility, VisibilityOff } from "@mui/icons-material";
+import { Add, Edit, Delete, Refresh, Person, ManageAccounts, Badge, Visibility, VisibilityOff, Search, Clear } from "@mui/icons-material";
 import { getUsers, createUser, updateUser, deleteUser, getClubLogos } from "../api/userApi";
 import { useAuth } from "../store/AuthContext";
 import auctionService from "../services/auctionService";
@@ -56,6 +56,46 @@ const UserMasterPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [clubLogos, setClubLogos] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredAndSortedRows = useMemo(() => {
+    let result = [...rows];
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter((row) => {
+        const uId = (row.userId || "").toLowerCase();
+        const lName = (row.lineName || "").toLowerCase();
+        const cTeam = (row.currentTeam || "").toLowerCase();
+        const tNick = (row.teamNickname || "").toLowerCase();
+        const cDiv = (row.currentDivision || "").toLowerCase();
+        
+        return (
+          uId.includes(query) ||
+          lName.includes(query) ||
+          cTeam.includes(query) ||
+          tNick.includes(query) ||
+          cDiv.includes(query)
+        );
+      });
+    }
+    
+    return result.sort((a, b) => {
+      const divA = a.currentDivision || "";
+      const divB = b.currentDivision || "";
+      
+      if (divA !== divB) {
+        if (divA === "") return 1;
+        if (divB === "") return -1;
+        return divA.localeCompare(divB);
+      }
+      
+      const userA = a.userId || "";
+      const userB = b.userId || "";
+      return userA.localeCompare(userB, undefined, { sensitivity: "accent", numeric: true });
+    });
+  }, [rows, searchQuery]);
+
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -386,7 +426,7 @@ const UserMasterPage = () => {
               Member Control
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              MANAGE USER ACCOUNTS AND ACCESS LEVELS • {rows.length} TOTAL
+              MANAGE USER ACCOUNTS AND ACCESS LEVELS • {searchQuery ? `${filteredAndSortedRows.length} OF ` : ""}{rows.length} TOTAL
             </Typography>
           </Box>
         </Box>
@@ -417,6 +457,39 @@ const UserMasterPage = () => {
         </Button>
       </Box>
 
+      {/* Search Bar */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          fullWidth
+          variant="outlined"
+          placeholder="ค้นหาตาม User ID, ชื่อ Line, ทีม หรือ Division..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          sx={{
+            bgcolor: "background.paper",
+            borderRadius: "14px",
+            "& .MuiOutlinedInput-root": {
+              borderRadius: "14px",
+              bgcolor: "background.paper",
+            }
+          }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search sx={{ color: "text.secondary" }} />
+              </InputAdornment>
+            ),
+            endAdornment: searchQuery && (
+              <InputAdornment position="end">
+                <IconButton onClick={() => setSearchQuery("")} edge="end" size="small">
+                  <Clear />
+                </IconButton>
+              </InputAdornment>
+            )
+          }}
+        />
+      </Box>
+
       {/* DataGrid Section */}
       <Paper elevation={0} sx={{
         borderRadius: 4,
@@ -427,7 +500,7 @@ const UserMasterPage = () => {
         boxShadow: '0 12px 24px rgba(0,0,0,0.03)'
       }}>
         <DataGrid
-          rows={rows}
+          rows={filteredAndSortedRows}
           columns={columns}
           loading={loading}
           autoHeight
