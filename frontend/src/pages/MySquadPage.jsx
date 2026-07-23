@@ -58,7 +58,7 @@ import {
 import auctionService from "../services/auctionService";
 import { useAuth } from "../store/AuthContext";
 import { useSnackbar } from "notistack";
-import { checkMarketOpen } from "../utils/marketUtils";
+import { checkMarketOpen, checkMarketOpenForListing } from "../utils/marketUtils";
 import { getPesdbLinkFromUrl, getPlayerCardUrl } from "../utils/imageUtils";
 
 const getPesdbLink = getPesdbLinkFromUrl;
@@ -429,7 +429,7 @@ const MySquadPage = () => {
   };
 
   const handleOpenList = (player) => {
-    const market = checkMarketOpen(marketSummary);
+    const market = checkMarketOpenForListing(marketSummary);
     if (!market.isOpen) {
       enqueueSnackbar(market.message, { variant: "error" });
       return;
@@ -476,6 +476,13 @@ const MySquadPage = () => {
   };
 
   const handleRespondOffer = async (offerId, accept) => {
+    if (accept) {
+      const market = checkMarketOpen(marketSummary);
+      if (!market.isOpen) {
+        enqueueSnackbar(market.message, { variant: "error" });
+        return;
+      }
+    }
     const confirmMsg = accept ? "Confirm and accept this offer?" : "Decline this offer?";
     if (!window.confirm(confirmMsg)) return;
 

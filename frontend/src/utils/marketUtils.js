@@ -63,3 +63,39 @@ export const checkMarketOpen = (summary) => {
 
   return { isOpen: true, message: "" };
 };
+
+/**
+ * Checks if the market is currently open for listing players (can list on opening day anytime, but must be within start/end dates).
+ * @param {Object} summary - The summary object containing market start/end times and dates.
+ * @returns {Object} { isOpen: boolean, message: string }
+ */
+export const checkMarketOpenForListing = (summary) => {
+  if (!summary) return { isOpen: true, message: "" };
+
+  const { marketStartDate, marketEndDate } = summary;
+  
+  // Current Thailand Time (UTC+7)
+  const now = new Date();
+  const thailandTime = new Date(now.getTime() + (now.getTimezoneOffset() + 420) * 60000);
+  
+  const currentYear = thailandTime.getFullYear();
+  
+  if (marketStartDate && marketStartDate !== "N/A") {
+    const [day, month] = marketStartDate.split('/').map(Number);
+    const startDate = new Date(currentYear, month - 1, day, 0, 0, 0);
+    if (thailandTime < startDate) {
+      return { isOpen: false, message: `Market is not open until ${marketStartDate}` };
+    }
+  }
+
+  if (marketEndDate && marketEndDate !== "N/A") {
+    const [day, month] = marketEndDate.split('/').map(Number);
+    const endDate = new Date(currentYear, month - 1, day, 23, 59, 59);
+    if (thailandTime > endDate) {
+      return { isOpen: false, message: `Market closed on ${marketEndDate}` };
+    }
+  }
+
+  return { isOpen: true, message: "" };
+};
+
