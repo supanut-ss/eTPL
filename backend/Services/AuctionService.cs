@@ -1537,6 +1537,29 @@ namespace eTPL.API.Services
             await _context.SaveChangesAsync();
         }
 
+        private async Task<int> GetBaseReleasePriceAsync(int playerId, int pricePaid, int playerOvr)
+        {
+            var latestSoldAuction = await _context.AuctionBoards
+                .Where(b => b.PlayerId == playerId && b.DbStatus == "Sold")
+                .OrderByDescending(b => b.AuctionId)
+                .FirstOrDefaultAsync();
+
+            int latestAuctionPrice = latestSoldAuction?.CurrentPrice ?? playerOvr;
+
+            // 1. ถ้าราคาต่ำกว่า OVR ให้คืนตาม OVR
+            if (pricePaid < playerOvr)
+            {
+                return playerOvr;
+            }
+            // 2. ถ้าราคาเกินราคาประมูลก่อนการซื้อขาย คิดแค่ราคาประมูลล่าสุด ไม่ว่าจะผ่านมาแล้วกี่คนก็ตาม
+            if (pricePaid > latestAuctionPrice)
+            {
+                return latestAuctionPrice;
+            }
+            // 3. นอกเหนือจากนี้คิดราคาตามจริง
+            return pricePaid;
+        }
+
         public async Task ReleasePlayerAsync(int userId, ReleasePlayerRequest request)
         {
             var strategy = _context.Database.CreateExecutionStrategy();
@@ -1563,7 +1586,7 @@ namespace eTPL.API.Services
                 var quota = quotas.FirstOrDefault(q => squad.Player!.PlayerOvr >= q.MinOVR && squad.Player!.PlayerOvr <= q.MaxOVR);
                 int releasePercent = quota?.ReleasePercent ?? 0;
 
-                int basePrice = Math.Max(squad.PricePaid, squad.Player!.PlayerOvr);
+                int basePrice = await GetBaseReleasePriceAsync(squad.PlayerId, squad.PricePaid, squad.Player!.PlayerOvr);
                 int refundAmount = (int)Math.Round((double)basePrice * releasePercent / 100.0);
 
                 if (refundAmount > 0)
@@ -1969,6 +1992,7 @@ namespace eTPL.API.Services
                 var warnings = new List<string>();
                 var offer = await _context.TransferOffers
                     .Include(o => o.FromUser)
+                    .Include(o => o.ToUser)
                     .Include(o => o.Squad).ThenInclude(s => s!.Player)
                     .FirstOrDefaultAsync(o => o.OfferId == offerId && o.ToUserId == sellerUserId && o.Status == "Pending");
 
@@ -2206,6 +2230,24 @@ namespace eTPL.API.Services
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
+
+                // SEND DISCORD NOTIFICATION
+                try
+                {
+                    string sellerName = offer.ToUser?.UserId ?? "Unknown";
+                    string buyerName = offer.FromUser?.UserId ?? "Unknown";
+                    bool isLoan = offer.OfferType == "Loan";
+                    _ = _discordService.SendTransferAsync(
+                        playerName, 
+                        sellerName, 
+                        buyerName, 
+                        offer.Amount, 
+                        isLoan: isLoan, 
+                        pesPlayerId: offer.Squad?.PlayerId.ToString()
+                    );
+                }
+                catch { }
+
                 return warnings;
                 }
                 catch
@@ -2559,7 +2601,7 @@ namespace eTPL.API.Services
                         var quota = quotas.FirstOrDefault(q => squad.Player.PlayerOvr >= q.MinOVR && squad.Player.PlayerOvr <= q.MaxOVR);
                         if (quota != null && squad.SeasonsWithTeam >= quota.MaxSeasonsPerTeam)
                         {
-                            int basePrice = Math.Max(squad.PricePaid, squad.Player.PlayerOvr);
+                            int basePrice = await GetBaseReleasePriceAsync(squad.PlayerId, squad.PricePaid, squad.Player.PlayerOvr);
                             int refund = (int)Math.Round((double)basePrice * quota.ReleasePercent / 100.0);
                             var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == squad.UserId);
                             if (wallet != null)
