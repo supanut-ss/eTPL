@@ -1200,6 +1200,15 @@ namespace eTPL.API.Services
                     txNote, winnerWallet.AvailableBalance, auction.AuctionId, auction.PlayerId);
             }
 
+            // Check if winner previously released this player AFTER having renewed the contract
+            bool winnerHadContractRenewal = await _context.AuctionTransactions
+                .AnyAsync(t => t.UserId == winnerId && t.RelatedPlayerId == auction.PlayerId && (t.Type == "CONTRACT_RENEWAL" || t.Type == "CONTRACT_RENEWAL_AUTO"));
+
+            bool winnerPreviouslyReleased = await _context.AuctionTransactions
+                .AnyAsync(t => t.UserId == winnerId && t.RelatedPlayerId == auction.PlayerId && (t.Type == "FREE_RELEASE" || t.Type == "AUTO_RELEASE_EXPIRED"));
+
+            bool isRenewedAndReleased = winnerHadContractRenewal && winnerPreviouslyReleased;
+
             var existingSquad = await _context.AuctionSquads.FirstOrDefaultAsync(s => s.UserId == winnerId && s.PlayerId == auction.PlayerId);
             if (existingSquad != null)
             {
@@ -1208,16 +1217,27 @@ namespace eTPL.API.Services
                 existingSquad.AcquiredAt = DateTime.UtcNow;
                 existingSquad.IsLoan = false;
                 existingSquad.LoanedFromUserId = null;
+                if (!isRenewedAndReleased)
+                {
+                    existingSquad.SeasonsWithTeam = 1; // Normal release without prior renewal resets to 1
+                }
             }
             else
             {
+                int seasonsCount = 1;
+                if (isRenewedAndReleased)
+                {
+                    seasonsCount = 2; // Preserve/continue accumulated seasons if previously renewed before release
+                }
+
                 _context.AuctionSquads.Add(new AuctionSquad
                 {
                     UserId = winnerId,
                     PlayerId = auction.PlayerId,
                     PricePaid = winningPrice,
                     AcquiredAt = DateTime.UtcNow,
-                    Status = "Active"
+                    Status = "Active",
+                    SeasonsWithTeam = seasonsCount
                 });
             }
 
@@ -1801,6 +1821,7 @@ namespace eTPL.API.Services
                 squad.LoanedFromUserId = null;
                 squad.LoanExpiry = null;
                 squad.Status = "Active";
+                squad.SeasonsWithTeam = 1; // Transfers between teams reset seasons to 1
 
                 var currentSeasonObj = await _scaffoldedContext.TbmCurrentSeasons.FirstOrDefaultAsync();
                 int currentSeasonNum = currentSeasonObj?.Season ?? 1;
@@ -2147,7 +2168,7 @@ namespace eTPL.API.Services
                     offer.Squad.LoanExpiry = null;
                     offer.Squad.Status = "Active";
                     offer.Squad.ListingPrice = null;
-                    offer.Squad.SeasonsWithTeam = 1; // Reset seasons
+                    offer.Squad.SeasonsWithTeam = 1; // Transfers between teams reset seasons to 1
 
                     var currentSeasonObj = await _scaffoldedContext.TbmCurrentSeasons.FirstOrDefaultAsync();
                     int currentSeasonNum = currentSeasonObj?.Season ?? 1;

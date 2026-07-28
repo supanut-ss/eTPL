@@ -31,7 +31,8 @@ import {
   Handshake, 
   Groups, 
   SportsSoccer, 
-  Lightbulb
+  Lightbulb,
+  Autorenew
 } from "@mui/icons-material";
 import { Link as RouterLink } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
@@ -231,19 +232,36 @@ const UserManualPage = () => {
         </Box>
       </Paper>
     ),
-    code: ({node, inline, ...props}) => 
-      inline ? 
-      <Box component="code" sx={{ 
-        bgcolor: "#f1f5f9", 
-        px: 0.8, py: 0.2, 
-        borderRadius: 1.5, 
-        color: "#2563eb", 
-        fontWeight: 700, 
-        fontSize: "0.95em",
-        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-        border: "1px solid rgba(0,0,0,0.05)"
-      }} {...props} /> :
-      <Box component="pre" sx={{ bgcolor: "#0f172a", p: 2, borderRadius: 2, overflowX: "auto", my: 3 }}><code {...props} /></Box>
+    code: ({node, inline, children, ...props}) => {
+      const isInline = inline || (node && node.inline) || !String(children).includes("\n");
+      return isInline ? (
+        <Box component="span" sx={{ 
+          bgcolor: "rgba(37, 99, 235, 0.08)", 
+          px: 0.8, py: 0.2, 
+          borderRadius: 1.5, 
+          color: "#2563eb", 
+          fontWeight: 700, 
+          fontSize: "0.95em",
+          fontFamily: "'JetBrains Mono', 'Fira Code', monospace"
+        }}>
+          {children}
+        </Box>
+      ) : (
+        <Box component="pre" sx={{ 
+          bgcolor: "#f8fafc", 
+          p: 2, 
+          borderRadius: 2, 
+          overflowX: "auto", 
+          my: 2,
+          border: "1px solid #e2e8f0",
+          color: "#1e293b",
+          fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+          fontSize: "0.9rem"
+        }}>
+          <code {...props}>{children}</code>
+        </Box>
+      );
+    }
   };
 
   if (loading) {
@@ -454,6 +472,7 @@ const UserManualPage = () => {
                   { icon: <Groups sx={{ fontSize: 20 }} />, text: "7. การจัดการทีม", id: "7-การจัดการทีมและหน้า-my-squad-squad--finance" },
                   { icon: <SportsSoccer sx={{ fontSize: 20 }} />, text: "8. การรายงานผล", id: "8-การรายงานผลการแข่งขัน-match-reporting" },
                   { icon: <Lightbulb sx={{ fontSize: 20 }} />, text: "9. Pro-Tips", id: "9-เกร็ดความรู้และเงื่อนไขทางเทคนิค-pro-tips" },
+                  { icon: <Autorenew sx={{ fontSize: 20 }} />, text: "10. การปล่อยตัว/ต่อสัญญา", id: "10-สรุปรายละเอียดการปล่อยตัว-การต่อสัญญา-และกฎการซื้อตัวกลับ-release-buyback-rules" },
                 ].map((item, idx) => (
                   <Button
                     key={idx}
@@ -531,7 +550,7 @@ const UserManualPage = () => {
       {/* Icons Import Fix */}
       <Box sx={{ display: "none" }}>
         <Article /><Info /><TableChart /><TipsAndUpdates />
-        <Gavel /><Storefront /><Handshake /><Groups /><SportsSoccer /><Lightbulb />
+        <Gavel /><Storefront /><Handshake /><Groups /><SportsSoccer /><Lightbulb /><Autorenew />
       </Box>
     </Box>
   );
