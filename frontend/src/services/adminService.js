@@ -4,6 +4,7 @@ const adminService = {
   getUsers: () => api.get("/api/admin/users"),
   scrapePlayer: (id) => api.post(`/api/admin/scrape-player/${id}`),
   addPlayerManual: (data) => api.post("/api/admin/add-player-manual", data),
+  deletePlayer: (id) => api.delete(`/api/admin/players/${id}`),
   addHof: (data) => api.post("/api/admin/add-hof", data),
   getUserTeam: (userId, platform, season) => api.get(`/api/admin/get-user-team?userId=${userId}&platform=${platform}&season=${season}`),
   getQuotaSummary: () => api.get("/api/auction/quota-summary"),

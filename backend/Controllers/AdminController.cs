@@ -180,6 +180,46 @@ namespace eTPL.API.Controllers
             }
         }
 
+        [HttpDelete("players/{id}")]
+        public async Task<IActionResult> DeletePlayer(int id)
+        {
+            try
+            {
+                var player = await _context.PesPlayerTeams.FirstOrDefaultAsync(p => p.IdPlayer == id);
+                if (player == null) return NotFound(new { message = "Player not found" });
+
+                var squadRecords = await _context.AuctionSquads.Where(s => s.PlayerId == id).ToListAsync();
+                if (squadRecords.Any())
+                {
+                    var squadIds = squadRecords.Select(s => s.SquadId).ToList();
+                    var offers = await _context.TransferOffers.Where(o => squadIds.Contains(o.SquadId)).ToListAsync();
+                    if (offers.Any()) _context.TransferOffers.RemoveRange(offers);
+                    _context.AuctionSquads.RemoveRange(squadRecords);
+                }
+
+                var auctions = await _context.AuctionBoards.Where(a => a.PlayerId == id).ToListAsync();
+                if (auctions.Any())
+                {
+                    var auctionIds = auctions.Select(a => a.AuctionId).ToList();
+                    var bidLogs = await _context.AuctionBidLogs.Where(b => auctionIds.Contains(b.AuctionId)).ToListAsync();
+                    if (bidLogs.Any()) _context.AuctionBidLogs.RemoveRange(bidLogs);
+                    _context.AuctionBoards.RemoveRange(auctions);
+                }
+
+                var favs = await _context.AuctionFavourites.Where(f => f.PlayerId == id).ToListAsync();
+                if (favs.Any()) _context.AuctionFavourites.RemoveRange(favs);
+
+                _context.PesPlayerTeams.Remove(player);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = $"Player {player.PlayerName} (ID: {id}) deleted successfully from the system" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error deleting player: " + ex.Message });
+            }
+        }
+
         [HttpPost("add-hof")]
         public async Task<IActionResult> AddHof([FromBody] TbmHof hof)
         {
@@ -663,16 +703,7 @@ namespace eTPL.API.Controllers
                 else if (auction.DbStatus == "Sold")
                 {
                     // Process cancellation for Sold/Completed auctions
-                    // 1. Remove player from winning user's squad
-                    var squadRecord = await _context.AuctionSquads
-                        .FirstOrDefaultAsync(s => s.PlayerId == auction.PlayerId && s.UserId == auction.HighestBidderId);
-
-                    if (squadRecord != null)
-                    {
-                        _context.AuctionSquads.Remove(squadRecord);
-                    }
-
-                    // 2. Refund the winning price to the winner's wallet (AvailableBalance)
+                    // 1. Refund the winning price to the winner's wallet (AvailableBalance)
                     if (auction.HighestBidderId.HasValue)
                     {
                         var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == auction.HighestBidderId.Value);
@@ -694,6 +725,24 @@ namespace eTPL.API.Controllers
                             });
                         }
                     }
+                }
+
+                // Always remove player from squad(s) if present (for both Active and Sold cancellations)
+                var squadRecords = await _context.AuctionSquads
+                    .Where(s => s.PlayerId == auction.PlayerId)
+                    .ToListAsync();
+
+                if (squadRecords.Any())
+                {
+                    var squadIds = squadRecords.Select(s => s.SquadId).ToList();
+                    var relatedOffers = await _context.TransferOffers
+                        .Where(o => squadIds.Contains(o.SquadId))
+                        .ToListAsync();
+                    if (relatedOffers.Any())
+                    {
+                        _context.TransferOffers.RemoveRange(relatedOffers);
+                    }
+                    _context.AuctionSquads.RemoveRange(squadRecords);
                 }
 
                 // 2. Set status to Cancelled
