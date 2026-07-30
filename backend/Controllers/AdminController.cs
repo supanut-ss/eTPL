@@ -703,18 +703,25 @@ namespace eTPL.API.Controllers
                 else if (auction.DbStatus == "Sold")
                 {
                     // Process cancellation for Sold/Completed auctions
-                    // 1. Refund the winning price to the winner's wallet (AvailableBalance)
-                    if (auction.HighestBidderId.HasValue)
+                    // Refund to the CURRENT OWNER in AuctionSquads if exists (in case player was transferred/sold on market), otherwise to HighestBidderId
+                    var squadRecordsForRefund = await _context.AuctionSquads
+                        .Where(s => s.PlayerId == auction.PlayerId)
+                        .ToListAsync();
+
+                    int refundUserId = squadRecordsForRefund.FirstOrDefault()?.UserId ?? auction.HighestBidderId ?? 0;
+                    int refundAmount = squadRecordsForRefund.FirstOrDefault()?.PricePaid ?? auction.CurrentPrice;
+
+                    if (refundUserId > 0)
                     {
-                        var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == auction.HighestBidderId.Value);
+                        var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == refundUserId);
                         if (wallet != null)
                         {
-                            wallet.AvailableBalance += auction.CurrentPrice;
+                            wallet.AvailableBalance += refundAmount;
 
                             _context.AuctionTransactions.Add(new AuctionTransaction
                             {
-                                UserId = auction.HighestBidderId.Value,
-                                Amount = auction.CurrentPrice,
+                                UserId = refundUserId,
+                                Amount = refundAmount,
                                 Direction = "CREDIT",
                                 Type = "AUCTION_REFUND",
                                 Description = $"[Cancel Sold] คืนเงินจากการยกเลิกประมูลสำเร็จ {auction.Player?.PlayerName ?? ""}",
