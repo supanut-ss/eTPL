@@ -166,6 +166,20 @@ namespace eTPL.API.Controllers
                 return;
             }
 
+            // 1.5. Check "!fixture" command
+            if (userMessage.Equals("!fixture", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrEmpty(lineUserId))
+                {
+                    await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
+                        new { type = "text", text = "ไม่สามารถดูตารางแข่งได้ เนื่องจากบอตไม่สามารถเข้าถึง LINE ID ของคุณได้ (กรุณาเพิ่มเพื่อนกับแชทบอตก่อน)" } 
+                    });
+                    return;
+                }
+                await HandleFixtureCommand(lineUserId, replyToken);
+                return;
+            }
+
             // 2. Fallback to Q&A database
             bool handled = await HandleQA(userMessage, replyToken);
 
@@ -260,6 +274,64 @@ namespace eTPL.API.Controllers
                 Console.WriteLine($"Error in HandleCheckIn: {ex.Message}");
                 await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
                     new { type = "text", text = "ขออภัย เกิดข้อผิดพลาดในระบบรายงานตัว" } 
+                });
+            }
+        }
+
+        private async Task HandleFixtureCommand(string lineUserId, string replyToken)
+        {
+            try
+            {
+                // Find User by LineId
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.LineId == lineUserId);
+                if (user == null)
+                {
+                    await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
+                        new { type = "text", text = "ไม่พบข้อมูลผู้ใช้ที่ผูกกับ LINE ID นี้ กรุณาผูกบัญชีก่อนเรียกดูตารางการแข่งขัน" } 
+                    });
+                    return;
+                }
+
+                // Find Current Season
+                var currentSeason = await _context.TbmCurrentSeasons
+                    .Where(s => s.Platform == "PC")
+                    .Select(s => s.Season)
+                    .FirstOrDefaultAsync();
+
+                string division = user.CurrentDivision ?? "D1";
+
+                // Query user's unplayed fixtures
+                var query = _context.VFixtureAlls
+                    .Where(f => f.Platform == "PC" && f.Division == division && f.Active == "YES" && 
+                                (f.Home == user.UserId || f.Away == user.UserId) &&
+                                (f.HomeScore == null || f.AwayScore == null));
+
+                if (currentSeason.HasValue)
+                {
+                    query = query.Where(f => f.Season == currentSeason.Value);
+                }
+
+                var fixtures = await query
+                    .OrderBy(f => f.Match)
+                    .ToListAsync();
+
+                if (fixtures == null || fixtures.Count == 0)
+                {
+                    await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
+                        new { type = "text", text = "ไม่มีโปรแกรมการแข่งขันตกค้าง" } 
+                    });
+                    return;
+                }
+
+                string userName = user.LineName ?? user.UserId;
+                var flexMsg = _lineService.GetFixtureFlexMessage(user.UserId, userName, division, currentSeason, fixtures, user.CurrentTeam);
+                await _lineService.ReplyMessageAsync(replyToken, new List<object> { flexMsg });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in HandleFixtureCommand: {ex.Message}");
+                await _lineService.ReplyMessageAsync(replyToken, new List<object> { 
+                    new { type = "text", text = "ขออภัย เกิดข้อผิดพลาดในระบบเรียกดูตารางการแข่งขัน" } 
                 });
             }
         }
