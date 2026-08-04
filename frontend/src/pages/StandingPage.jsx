@@ -401,6 +401,15 @@ const StandingPage = () => {
                 disableRowSelectionOnClick
                 disableColumnMenu
                 rowHeight={56}
+                getRowClassName={(params) => {
+                  const rank = params.row.rank;
+                  if (division === "D1") {
+                    if (rank >= 16 && rank <= 20) return "row-relegation";
+                  } else if (division === "D2") {
+                    if (rank >= 1 && rank <= 5) return "row-promotion-direct";
+                  }
+                  return "";
+                }}
                 sx={{
                   border: "none",
                   "& .MuiDataGrid-cell": {
@@ -410,12 +419,53 @@ const StandingPage = () => {
                   "& .MuiDataGrid-row:nth-of-type(even)": {
                     bgcolor: "#fafafa",
                   },
+                  "& .MuiDataGrid-row.row-promotion-direct": {
+                    bgcolor: "rgba(13, 148, 136, 0.09)",
+                    borderLeft: "3px solid #0d9488",
+                    "&:nth-of-type(even)": {
+                      bgcolor: "rgba(13, 148, 136, 0.04)",
+                    },
+                    "&:hover": {
+                      bgcolor: "rgba(13, 148, 136, 0.16)",
+                    },
+                  },
+                  "& .MuiDataGrid-row.row-relegation": {
+                    bgcolor: "rgba(225, 29, 72, 0.04)",
+                    borderLeft: "3px solid #e11d48",
+                    "&:nth-of-type(even)": {
+                      bgcolor: "rgba(225, 29, 72, 0.09)",
+                    },
+                    "&:hover": {
+                      bgcolor: "rgba(225, 29, 72, 0.16)",
+                    },
+                  },
                 }}
               />
             </Box>
           </Box>
         )}
       </Paper>
+
+      {/* Legend / คำอธิบายโซนคะแนน */}
+      {!loading && !error && rows.length > 0 && (
+        <Box display="flex" flexWrap="wrap" alignItems="center" gap={3} mt={2.5} px={1}>
+          {division === "D1" ? (
+            <Box display="flex" alignItems="center" gap={1}>
+              <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: "#e11d48" }} />
+              <Typography variant="body2" color="text.secondary" fontSize={13} fontWeight={500}>
+                อันดับ 16 - 20 : โซนตกชั้น (Relegation)
+              </Typography>
+            </Box>
+          ) : (
+            <Box display="flex" alignItems="center" gap={1}>
+              <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: "#0d9488" }} />
+              <Typography variant="body2" color="text.secondary" fontSize={13} fontWeight={500}>
+                อันดับ 1 - 5 : โซนเลื่อนชั้นสู่ Division 1 (Promotion)
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      )}
 
       {/* Footer */}
       <Typography
