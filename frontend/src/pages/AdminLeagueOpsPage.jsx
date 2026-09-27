@@ -37,6 +37,11 @@ import {
   Stack,
   Avatar,
   useMediaQuery,
+  Tabs,
+  Tab,
+  InputAdornment,
+  FormControlLabel,
+  Switch,
 } from "@mui/material";
 import {
   Settings,
@@ -63,6 +68,9 @@ import {
   CalendarMonth,
   Person,
   Add,
+  Assessment,
+  Search,
+  Visibility,
 } from "@mui/icons-material";
 import leagueOpsService from "../services/leagueOpsService";
 import { getFixtures } from "../api/fixtureApi";
@@ -235,6 +243,24 @@ const AdminLeagueOpsPage = () => {
   const [isApplying, setIsApplying] = useState(false);
   const [judgeHistory, setJudgeHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Forfeit Statistics Dialog States
+  const [forfeitStatsOpen, setForfeitStatsOpen] = useState(false);
+  const [forfeitLoading, setForfeitLoading] = useState(false);
+  const [forfeitSeason, setForfeitSeason] = useState(null);
+  const [forfeitCycleId, setForfeitCycleId] = useState("ALL");
+  const [forfeitDivision, setForfeitDivision] = useState("ALL");
+  const [forfeitSearch, setForfeitSearch] = useState("");
+  const [forfeitOnlyLosses, setForfeitOnlyLosses] = useState(true);
+  const [forfeitTab, setForfeitTab] = useState(0);
+  const [forfeitData, setForfeitData] = useState({
+    seasons: [],
+    selectedSeason: null,
+    cycles: [],
+    players: [],
+    matches: [],
+    summary: {},
+  });
 
   const [configData, setConfigData] = useState({
     id: 0,
@@ -731,6 +757,94 @@ const AdminLeagueOpsPage = () => {
     }));
   };
 
+  const fetchForfeitStats = useCallback(async (seasonToFetch, cycleToFetch) => {
+    try {
+      setForfeitLoading(true);
+      const res = await leagueOpsService.getForfeitStats(
+        seasonToFetch || undefined,
+        cycleToFetch && cycleToFetch !== "ALL" ? cycleToFetch : undefined
+      );
+      if (res.data) {
+        setForfeitData(res.data);
+        if (res.data.selectedSeason && !seasonToFetch) {
+          setForfeitSeason(res.data.selectedSeason);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch forfeit stats", err);
+      setSnackbar({
+        open: true,
+        message: "Failed to load forfeit statistics",
+        severity: "error",
+      });
+    } finally {
+      setForfeitLoading(false);
+    }
+  }, []);
+
+  const handleOpenForfeitStats = () => {
+    setForfeitStatsOpen(true);
+    fetchForfeitStats(forfeitSeason, forfeitCycleId);
+  };
+
+  const handleSeasonChange = (newSeason) => {
+    setForfeitSeason(newSeason);
+    setForfeitCycleId("ALL");
+    fetchForfeitStats(newSeason, "ALL");
+  };
+
+  const handleCycleChange = (newCycle) => {
+    setForfeitCycleId(newCycle);
+    fetchForfeitStats(forfeitSeason, newCycle);
+  };
+
+  const filteredForfeitPlayers = useMemo(() => {
+    if (!forfeitData?.players) return [];
+    return forfeitData.players.filter((p) => {
+      if (forfeitDivision !== "ALL" && p.division?.toUpperCase() !== forfeitDivision.toUpperCase()) {
+        return false;
+      }
+      if (forfeitOnlyLosses && p.totalByeLosses <= 0) {
+        return false;
+      }
+      if (forfeitSearch.trim()) {
+        const query = forfeitSearch.toLowerCase();
+        const uid = (p.userId || "").toLowerCase();
+        const line = (p.lineName || "").toLowerCase();
+        if (!uid.includes(query) && !line.includes(query)) return false;
+      }
+      return true;
+    });
+  }, [forfeitData, forfeitDivision, forfeitOnlyLosses, forfeitSearch]);
+
+  const filteredForfeitMatches = useMemo(() => {
+    if (!forfeitData?.matches) return [];
+    return forfeitData.matches.filter((m) => {
+      if (forfeitCycleId !== "ALL" && m.cycleId != forfeitCycleId) {
+        return false;
+      }
+      if (forfeitDivision !== "ALL" && m.division?.toUpperCase() !== forfeitDivision.toUpperCase()) {
+        return false;
+      }
+      if (forfeitSearch.trim()) {
+        const query = forfeitSearch.toLowerCase();
+        const hUid = (m.home || "").toLowerCase();
+        const hLine = (m.homeLineName || "").toLowerCase();
+        const aUid = (m.away || "").toLowerCase();
+        const aLine = (m.awayLineName || "").toLowerCase();
+        if (!hUid.includes(query) && !hLine.includes(query) && !aUid.includes(query) && !aLine.includes(query)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [forfeitData, forfeitCycleId, forfeitDivision, forfeitSearch]);
+
+  const handleDrilldownPlayerMatches = (userId) => {
+    setForfeitSearch(userId);
+    setForfeitTab(1);
+  };
+
   return (
     <Box
       sx={{
@@ -1164,6 +1278,34 @@ const AdminLeagueOpsPage = () => {
                 >
                   Review & Judge
                 </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  startIcon={<Assessment />}
+                  onClick={handleOpenForfeitStats}
+                  sx={{
+                    borderRadius: 1.75,
+                    px: { xs: 2, sm: 2.5 },
+                    py: 1,
+                    fontWeight: "900",
+                    textTransform: "none",
+                    fontSize: { xs: 12, sm: 14 },
+                    borderColor: alpha(theme.palette.secondary.main, 0.4),
+                    color: theme.palette.secondary.main,
+                    bgcolor: alpha(theme.palette.secondary.main, 0.05),
+                    boxShadow: "0 4px 14px rgba(124, 58, 237, 0.08)",
+                    "&:hover": {
+                      bgcolor: alpha(theme.palette.secondary.main, 0.12),
+                      borderColor: theme.palette.secondary.main,
+                      transform: "translateY(-2px)",
+                      boxShadow: "0 8px 20px rgba(124, 58, 237, 0.16)",
+                    },
+                    transition: "all 0.2s",
+                    height: 38,
+                  }}
+                >
+                  สถิติแพ้บาย
+                </Button>
               </Box>
             </Box>
             <TableContainer sx={{ overflowX: "auto" }}>
@@ -1435,7 +1577,28 @@ const AdminLeagueOpsPage = () => {
                   </Typography>
                 </Box>
               </Box>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  color="secondary"
+                  startIcon={<Assessment fontSize="small" />}
+                  onClick={handleOpenForfeitStats}
+                  sx={{
+                    borderRadius: 2,
+                    fontWeight: 800,
+                    fontSize: { xs: 11, sm: 12 },
+                    textTransform: "none",
+                    height: 32,
+                    borderColor: alpha(theme.palette.secondary.main, 0.4),
+                    "&:hover": {
+                      bgcolor: alpha(theme.palette.secondary.main, 0.08),
+                      borderColor: theme.palette.secondary.main,
+                    },
+                  }}
+                >
+                  ดูสถิติแพ้บายทั้งหมด
+                </Button>
                 {loadingHistory && <CircularProgress size={20} thickness={5} />}
                 <IconButton
                   onClick={fetchHistory}
@@ -2928,6 +3091,583 @@ const AdminLeagueOpsPage = () => {
             }}
           >
             Done
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Forfeit Statistics Modal */}
+      <Dialog
+        open={forfeitStatsOpen}
+        onClose={() => setForfeitStatsOpen(false)}
+        maxWidth="xl"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            borderRadius: isMobile ? 0 : 4,
+            bgcolor: "#f8fafc",
+            overflow: "hidden",
+            maxHeight: isMobile ? "100vh" : "92vh",
+          },
+        }}
+      >
+        {/* Header */}
+        <Box
+          sx={{
+            px: { xs: 2, sm: 3 },
+            py: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            bgcolor: "white",
+            borderBottom: "1px solid #e2e8f0",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Box
+              sx={{
+                p: 1,
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette.secondary.main, 0.1),
+                color: "secondary.main",
+                display: "flex",
+              }}
+            >
+              <Assessment sx={{ fontSize: 24 }} />
+            </Box>
+            <Box>
+              <Typography variant="h6" fontWeight="900" sx={{ color: "#0f172a", lineHeight: 1.2 }}>
+                สถิติตัดแพ้บาย (Adjudication & Forfeit Statistics)
+              </Typography>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600 }}>
+                ดูสถิติผู้เล่นที่ถูกตัดผลแพ้บาย ชนะบาย และรายการคู่นัดทั้งหมดในแต่ละ Season
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton onClick={() => setForfeitStatsOpen(false)} size="small">
+            <Close sx={{ color: "#64748b" }} />
+          </IconButton>
+        </Box>
+
+        <DialogContent sx={{ p: { xs: 2, sm: 3 }, bgcolor: "#f8fafc", display: "flex", flexDirection: "column", gap: 2.5 }}>
+          {/* Top Filters */}
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              borderRadius: 3,
+              bgcolor: "white",
+              border: "1px solid #e2e8f0",
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 2,
+            }}
+          >
+            {/* Season Selector */}
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel id="forfeit-season-label" sx={{ fontWeight: 700, fontSize: 13 }}>
+                Season
+              </InputLabel>
+              <Select
+                labelId="forfeit-season-label"
+                label="Season"
+                value={forfeitSeason ?? forfeitData?.selectedSeason ?? ""}
+                onChange={(e) => handleSeasonChange(Number(e.target.value))}
+                sx={{ borderRadius: 2, fontWeight: 800, fontSize: 13 }}
+              >
+                {(forfeitData?.seasons || []).map((s) => (
+                  <MenuItem key={s} value={s} sx={{ fontWeight: 700, fontSize: 13 }}>
+                    Season {s} {s === forfeitData?.selectedSeason ? "(Current)" : ""}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* Cycle Selector */}
+            <FormControl size="small" sx={{ minWidth: 180 }}>
+              <InputLabel id="forfeit-cycle-label" sx={{ fontWeight: 700, fontSize: 13 }}>
+                รอบการแข่งขัน (Cycle)
+              </InputLabel>
+              <Select
+                labelId="forfeit-cycle-label"
+                label="รอบการแข่งขัน (Cycle)"
+                value={forfeitCycleId}
+                onChange={(e) => handleCycleChange(e.target.value)}
+                sx={{ borderRadius: 2, fontWeight: 800, fontSize: 13 }}
+              >
+                <MenuItem value="ALL" sx={{ fontWeight: 700, fontSize: 13 }}>
+                  -- ทุกลูป (All Cycles) --
+                </MenuItem>
+                {(forfeitData?.cycles || []).map((c) => (
+                  <MenuItem key={c.id} value={c.id} sx={{ fontWeight: 700, fontSize: 13 }}>
+                    {c.cycleName || `Cycle ${c.id}`}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {/* Division Selector */}
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel id="forfeit-division-label" sx={{ fontWeight: 700, fontSize: 13 }}>
+                Division
+              </InputLabel>
+              <Select
+                labelId="forfeit-division-label"
+                label="Division"
+                value={forfeitDivision}
+                onChange={(e) => setForfeitDivision(e.target.value)}
+                sx={{ borderRadius: 2, fontWeight: 800, fontSize: 13 }}
+              >
+                <MenuItem value="ALL" sx={{ fontWeight: 700, fontSize: 13 }}>
+                  ALL DIVISIONS
+                </MenuItem>
+                <MenuItem value="D1" sx={{ fontWeight: 700, fontSize: 13 }}>
+                  DIVISION 1
+                </MenuItem>
+                <MenuItem value="D2" sx={{ fontWeight: 700, fontSize: 13 }}>
+                  DIVISION 2
+                </MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Search Box */}
+            <TextField
+              size="small"
+              placeholder="ค้นหา User ID หรือชื่อ LINE..."
+              value={forfeitSearch}
+              onChange={(e) => setForfeitSearch(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search fontSize="small" sx={{ color: "text.secondary" }} />
+                  </InputAdornment>
+                ),
+                sx: { borderRadius: 2, fontSize: 13 },
+              }}
+              sx={{ flexGrow: 1, minWidth: 200 }}
+            />
+
+            {/* Toggle: เฉพาะคนที่แพ้บายเท่านั้น */}
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={forfeitOnlyLosses}
+                  onChange={(e) => setForfeitOnlyLosses(e.target.checked)}
+                  color="error"
+                />
+              }
+              label={
+                <Typography variant="body2" sx={{ fontWeight: 800, fontSize: 13, color: forfeitOnlyLosses ? "error.main" : "text.secondary" }}>
+                  เฉพาะคนที่แพ้บาย
+                </Typography>
+              }
+            />
+
+            {/* Refresh */}
+            <IconButton
+              onClick={() => fetchForfeitStats(forfeitSeason, forfeitCycleId)}
+              disabled={forfeitLoading}
+              size="small"
+              sx={{ border: "1px solid #e2e8f0", borderRadius: 2 }}
+            >
+              <Refresh fontSize="small" />
+            </IconButton>
+          </Paper>
+
+          {/* Stat Summary Cards */}
+          <Grid container spacing={2}>
+            <Grid item xs={6} sm={3}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  borderRadius: 3,
+                  bgcolor: "white",
+                  border: "1px solid #e2e8f0",
+                  textAlign: "center",
+                }}
+              >
+                <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 800, textTransform: "uppercase" }}>
+                  นัดที่ถูกตัดผลทั้งหมด
+                </Typography>
+                <Typography variant="h5" fontWeight="900" sx={{ color: "primary.main", mt: 0.5 }}>
+                  {forfeitData?.summary?.totalMatchesJudged ?? 0} <Typography component="span" variant="caption">นัด</Typography>
+                </Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  borderRadius: 3,
+                  bgcolor: "white",
+                  border: "1px solid #e2e8f0",
+                  textAlign: "center",
+                }}
+              >
+                <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 800, textTransform: "uppercase" }}>
+                  ผู้เล่นที่ถูกตัดผล
+                </Typography>
+                <Typography variant="h5" fontWeight="900" sx={{ color: "secondary.main", mt: 0.5 }}>
+                  {forfeitData?.players?.length ?? 0} <Typography component="span" variant="caption">คน</Typography>
+                </Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  borderRadius: 3,
+                  bgcolor: alpha("#ef4444", 0.05),
+                  border: `1px solid ${alpha("#ef4444", 0.2)}`,
+                  textAlign: "center",
+                }}
+              >
+                <Typography variant="caption" sx={{ color: "#ef4444", fontWeight: 800, textTransform: "uppercase" }}>
+                  โดนปรับแพ้บายรวม
+                </Typography>
+                <Typography variant="h5" fontWeight="900" sx={{ color: "#ef4444", mt: 0.5 }}>
+                  {forfeitData?.summary?.totalByeLosses ?? 0} <Typography component="span" variant="caption">ครั้ง</Typography>
+                </Typography>
+              </Paper>
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  borderRadius: 3,
+                  bgcolor: alpha("#64748b", 0.05),
+                  border: `1px solid ${alpha("#64748b", 0.2)}`,
+                  textAlign: "center",
+                }}
+              >
+                <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 800, textTransform: "uppercase" }}>
+                  ผลเสมอ 0-0 (ไม่มีใครเล่น)
+                </Typography>
+                <Typography variant="h5" fontWeight="900" sx={{ color: "#475569", mt: 0.5 }}>
+                  {forfeitData?.summary?.totalDraws ?? 0} <Typography component="span" variant="caption">นัด</Typography>
+                </Typography>
+              </Paper>
+            </Grid>
+          </Grid>
+
+          {/* Tabs for switching between Players view and Matches view */}
+          <Paper elevation={0} sx={{ borderRadius: 3, bgcolor: "white", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+            <Box sx={{ borderBottom: 1, borderColor: "divider", px: 2, pt: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Tabs
+                value={forfeitTab}
+                onChange={(_, val) => setForfeitTab(val)}
+                sx={{
+                  "& .MuiTab-root": {
+                    fontWeight: 900,
+                    textTransform: "none",
+                    fontSize: 13,
+                    py: 1.5,
+                  },
+                }}
+              >
+                <Tab label={`สรุปรายชื่อผู้เล่น (${filteredForfeitPlayers.length})`} />
+                <Tab label={`รายการคู่นัดแข่งขัน (${filteredForfeitMatches.length})`} />
+              </Tabs>
+              {forfeitSearch && (
+                <Chip
+                  size="small"
+                  label={`กรองตาม: "${forfeitSearch}"`}
+                  onDelete={() => setForfeitSearch("")}
+                  color="primary"
+                  variant="outlined"
+                  sx={{ fontWeight: 700 }}
+                />
+              )}
+            </Box>
+
+            {forfeitLoading ? (
+              <Box sx={{ p: 6, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
+                <CircularProgress size={36} color="secondary" />
+                <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 700 }}>
+                  กำลังโหลดสถิติตัดแพ้บาย...
+                </Typography>
+              </Box>
+            ) : forfeitTab === 0 ? (
+              /* TAB 0: PLAYERS TABLE */
+              <TableContainer sx={{ maxHeight: 460 }}>
+                <Table stickyHeader size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell align="center" sx={{ bgcolor: "#f1f5f9", fontWeight: 900, fontSize: 11, width: 50 }}>#</TableCell>
+                      <TableCell sx={{ bgcolor: "#f1f5f9", fontWeight: 900, fontSize: 11 }}>ผู้เล่น (USER / LINE)</TableCell>
+                      <TableCell align="center" sx={{ bgcolor: "#f1f5f9", fontWeight: 900, fontSize: 11 }}>DIV</TableCell>
+                      {/* Cycle breakdown columns */}
+                      {(forfeitData?.cycles || []).map((c) => (
+                        <TableCell key={c.id} align="center" sx={{ bgcolor: "#f1f5f9", fontWeight: 900, fontSize: 11, minWidth: 90 }}>
+                          {c.cycleName || `Cycle ${c.id}`}
+                        </TableCell>
+                      ))}
+                      <TableCell align="center" sx={{ bgcolor: alpha("#ef4444", 0.1), color: "#dc2626", fontWeight: 900, fontSize: 11 }}>
+                        แพ้บายรวม
+                      </TableCell>
+                      <TableCell align="center" sx={{ bgcolor: alpha("#10b981", 0.08), color: "#059669", fontWeight: 900, fontSize: 11 }}>
+                        ชนะบาย
+                      </TableCell>
+                      <TableCell align="center" sx={{ bgcolor: "#f1f5f9", fontWeight: 900, fontSize: 11 }}>
+                        เสมอ 0-0
+                      </TableCell>
+                      <TableCell align="center" sx={{ bgcolor: "#f1f5f9", fontWeight: 900, fontSize: 11 }}>
+                        รวมตัดผล
+                      </TableCell>
+                      <TableCell align="center" sx={{ bgcolor: "#f1f5f9", fontWeight: 900, fontSize: 11, width: 80 }}>
+                        ดูคู่นัด
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredForfeitPlayers.length > 0 ? (
+                      filteredForfeitPlayers.map((player, idx) => (
+                        <TableRow key={player.userId} hover sx={{ bgcolor: idx % 2 === 1 ? alpha("#f8fafc", 0.5) : "transparent" }}>
+                          <TableCell align="center">
+                            <Typography variant="caption" fontWeight="900" color="text.secondary">
+                              {idx + 1}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                              <Avatar
+                                src={getUserLogoUrl(player.userId)}
+                                sx={{ width: 28, height: 28, bgcolor: alpha(theme.palette.primary.main, 0.1), color: "primary.main", fontSize: 12, fontWeight: 900 }}
+                              >
+                                {player.userId?.charAt(0)}
+                              </Avatar>
+                              <Box>
+                                <Typography variant="body2" fontWeight="900" sx={{ color: "#0f172a" }}>
+                                  {player.userId}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600 }}>
+                                  {player.lineName}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Chip
+                              size="small"
+                              label={player.division?.toUpperCase() || "D1"}
+                              sx={{
+                                fontWeight: 900,
+                                fontSize: 10,
+                                height: 20,
+                                bgcolor: player.division?.toUpperCase() === "D2" ? alpha("#f59e0b", 0.12) : alpha("#2563eb", 0.12),
+                                color: player.division?.toUpperCase() === "D2" ? "#d97706" : "#1d4ed8",
+                              }}
+                            />
+                          </TableCell>
+                          {/* Cycle columns */}
+                          {(forfeitData?.cycles || []).map((c) => {
+                            const count = player.cycleLosses?.[c.id] || 0;
+                            return (
+                              <TableCell key={c.id} align="center">
+                                {count > 0 ? (
+                                  <Chip
+                                    size="small"
+                                    label={`${count} นัด`}
+                                    sx={{
+                                      fontWeight: 900,
+                                      fontSize: 10,
+                                      height: 20,
+                                      bgcolor: alpha("#ef4444", 0.1),
+                                      color: "#dc2626",
+                                    }}
+                                  />
+                                ) : (
+                                  <Typography variant="caption" sx={{ color: "#94a3b8" }}>-</Typography>
+                                )}
+                              </TableCell>
+                            );
+                          })}
+                          <TableCell align="center">
+                            <Chip
+                              size="small"
+                              label={`${player.totalByeLosses} นัด`}
+                              sx={{
+                                fontWeight: 900,
+                                fontSize: 11,
+                                bgcolor: "#ef4444",
+                                color: "white",
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell align="center">
+                            <Typography variant="body2" fontWeight="800" sx={{ color: player.totalByeWins > 0 ? "#059669" : "#94a3b8" }}>
+                              {player.totalByeWins > 0 ? `${player.totalByeWins}` : "-"}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Typography variant="body2" fontWeight="700" sx={{ color: player.totalDraws > 0 ? "#475569" : "#94a3b8" }}>
+                              {player.totalDraws > 0 ? `${player.totalDraws}` : "-"}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Typography variant="body2" fontWeight="900" sx={{ color: "#0f172a" }}>
+                              {player.totalJudged}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <Tooltip title={`ดูรายการคู่นัดของ ${player.userId}`}>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDrilldownPlayerMatches(player.userId)}
+                                sx={{ color: "primary.main", bgcolor: alpha(theme.palette.primary.main, 0.08) }}
+                              >
+                                <Visibility fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={8 + (forfeitData?.cycles?.length || 0)} align="center" sx={{ py: 6 }}>
+                          <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 700 }}>
+                            ไม่พบข้อมูลผู้เล่นตามเงื่อนไขที่เลือก
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              /* TAB 1: MATCHES TABLE */
+              <TableContainer sx={{ maxHeight: 460 }}>
+                <Table stickyHeader size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ bgcolor: "#f1f5f9", fontWeight: 900, fontSize: 11 }}>เวลาตัดสิน</TableCell>
+                      <TableCell sx={{ bgcolor: "#f1f5f9", fontWeight: 900, fontSize: 11 }}>รอบ (CYCLE)</TableCell>
+                      <TableCell align="center" sx={{ bgcolor: "#f1f5f9", fontWeight: 900, fontSize: 11 }}>DIV & นัด</TableCell>
+                      <TableCell align="right" sx={{ bgcolor: "#f1f5f9", fontWeight: 900, fontSize: 11 }}>ทีมเหย้า (HOME)</TableCell>
+                      <TableCell align="center" sx={{ bgcolor: "#f1f5f9", fontWeight: 900, fontSize: 11, width: 90 }}>สกอร์</TableCell>
+                      <TableCell align="left" sx={{ bgcolor: "#f1f5f9", fontWeight: 900, fontSize: 11 }}>ทีมเยือน (AWAY)</TableCell>
+                      <TableCell align="center" sx={{ bgcolor: "#f1f5f9", fontWeight: 900, fontSize: 11 }}>ผลการตัดสิน</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredForfeitMatches.length > 0 ? (
+                      filteredForfeitMatches.map((m) => {
+                        const isHomeWin = m.homeScore > m.awayScore;
+                        const isAwayWin = m.awayScore > m.homeScore;
+                        return (
+                          <TableRow key={m.fixtureId} hover>
+                            <TableCell>
+                              <Typography variant="caption" fontWeight="700" sx={{ color: "#64748b" }}>
+                                {m.matchDate}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="caption" fontWeight="800" sx={{ color: "primary.main" }}>
+                                {m.cycleName}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                size="small"
+                                label={`${m.division || "D1"} • นัด ${m.match}`}
+                                sx={{ fontWeight: 800, fontSize: 10, height: 20 }}
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              <Box sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}>
+                                <Box sx={{ textAlign: "right" }}>
+                                  <Typography variant="body2" fontWeight={isHomeWin ? 900 : 600} sx={{ color: isHomeWin ? "#059669" : isAwayWin ? "#dc2626" : "#0f172a" }}>
+                                    {m.home}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: "#64748b", fontSize: 10 }}>
+                                    {m.homeLineName}
+                                  </Typography>
+                                </Box>
+                                <Avatar
+                                  src={getUserLogoUrl(m.home)}
+                                  sx={{ width: 24, height: 24, fontSize: 10, fontWeight: 900 }}
+                                >
+                                  {m.home?.charAt(0)}
+                                </Avatar>
+                              </Box>
+                            </TableCell>
+                            <TableCell align="center">
+                              <Box
+                                sx={{
+                                  display: "inline-block",
+                                  px: 1.2,
+                                  py: 0.2,
+                                  borderRadius: 1.5,
+                                  bgcolor: isHomeWin || isAwayWin ? alpha("#2563eb", 0.08) : alpha("#64748b", 0.08),
+                                  border: `1px solid ${isHomeWin || isAwayWin ? alpha("#2563eb", 0.2) : alpha("#64748b", 0.2)}`,
+                                }}
+                              >
+                                <Typography variant="body2" fontWeight="900" sx={{ letterSpacing: 1 }}>
+                                  {m.homeScore} - {m.awayScore}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell align="left">
+                              <Box sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}>
+                                <Avatar
+                                  src={getUserLogoUrl(m.away)}
+                                  sx={{ width: 24, height: 24, fontSize: 10, fontWeight: 900 }}
+                                >
+                                  {m.away?.charAt(0)}
+                                </Avatar>
+                                <Box>
+                                  <Typography variant="body2" fontWeight={isAwayWin ? 900 : 600} sx={{ color: isAwayWin ? "#059669" : isHomeWin ? "#dc2626" : "#0f172a" }}>
+                                    {m.away}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: "#64748b", fontSize: 10 }}>
+                                    {m.awayLineName}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </TableCell>
+                            <TableCell align="center">
+                              {isHomeWin ? (
+                                <Chip size="small" label="เหย้าชนะบาย (3-0)" sx={{ fontWeight: 800, fontSize: 10, height: 20, bgcolor: alpha("#10b981", 0.1), color: "#059669" }} />
+                              ) : isAwayWin ? (
+                                <Chip size="small" label="เยือนชนะบาย (0-3)" sx={{ fontWeight: 800, fontSize: 10, height: 20, bgcolor: alpha("#10b981", 0.1), color: "#059669" }} />
+                              ) : (
+                                <Chip size="small" label="เสมอ 0-0" sx={{ fontWeight: 800, fontSize: 10, height: 20, bgcolor: alpha("#64748b", 0.1), color: "#475569" }} />
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                          <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 700 }}>
+                            ไม่พบคู่นัดแข่งขันตามเงื่อนไขที่เลือก
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Paper>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, bgcolor: "white", borderTop: "1px solid #e2e8f0", justifyContent: "space-between" }}>
+          <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 700 }}>
+            * ข้อมูลคำนวณจากบันทึกการตัดสินออโต้ (Auto-Judge) โดยระบบ League Operations
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setForfeitStatsOpen(false)}
+            sx={{ borderRadius: 2, fontWeight: 900, px: 3 }}
+          >
+            ปิดหน้าต่าง
           </Button>
         </DialogActions>
       </Dialog>

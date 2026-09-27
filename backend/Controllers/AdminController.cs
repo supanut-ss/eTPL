@@ -31,6 +31,7 @@ namespace eTPL.API.Controllers
             _hubContext = hubContext;
             _httpClient = new HttpClient();
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            _httpClient.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.9");
         }
 
         [HttpGet("users")]
@@ -52,79 +53,7 @@ namespace eTPL.API.Controllers
                 string url = $"https://pesdb.net/efootball/?id={id}";
                 var response = await _httpClient.GetStringAsync(url);
                 
-                var doc = new HtmlDocument();
-                doc.LoadHtml(response);
-
-                var player = new PesPlayerTeam { IdPlayer = id };
-
-                // Use the user-provided XPaths for better accuracy
-                var spanOvr = doc.DocumentNode.SelectSingleNode("//span[@class='c0' and @id='a0']");
-                if (spanOvr != null && int.TryParse(spanOvr.InnerText, out int overall))
-                {
-                    player.PlayerOvr = overall;
-                }
-                else
-                {
-                    // Fallback to old method if span not found
-                    var ovrNode = doc.DocumentNode.SelectSingleNode("//td[text()='Overall Rating:']/following-sibling::td/b");
-                    if (ovrNode != null)
-                    {
-                        var parts = ovrNode.InnerText.Trim().Split(' ');
-                        if (int.TryParse(parts[0], out int ovr)) player.PlayerOvr = ovr;
-                    }
-                }
-
-                player.PlayerName = CleanString(doc.DocumentNode.SelectSingleNode("//tr/th[text()='Player Name:']/following-sibling::td/span")?.InnerText 
-                    ?? doc.DocumentNode.SelectSingleNode("//td[text()='Player Name:']/following-sibling::td")?.InnerText 
-                    ?? "");
-
-                player.TeamName = CleanString(doc.DocumentNode.SelectSingleNode("//tr/th[text()='Team Name:']/following-sibling::td/span/a")?.InnerText 
-                    ?? doc.DocumentNode.SelectSingleNode("//td[text()='Team Name:']/following-sibling::td/a")?.InnerText 
-                    ?? "");
-
-                player.League = CleanString(doc.DocumentNode.SelectSingleNode("//tr/th[text()='League:']/following-sibling::td/span/a")?.InnerText 
-                    ?? doc.DocumentNode.SelectSingleNode("//td[text()='League:']/following-sibling::td/a")?.InnerText 
-                    ?? "");
-
-                player.Nationality = CleanString(
-                    doc.DocumentNode.SelectSingleNode("//tr/th[text()='Nationality:']/following-sibling::td/span/a")?.InnerText 
-                    ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Nationality:']/following-sibling::td/span")?.InnerText 
-                    ?? doc.DocumentNode.SelectSingleNode("//td[text()='Nationality:']/following-sibling::td/a")?.InnerText 
-                    ?? "");
-
-                player.Position = CleanString(doc.DocumentNode.SelectSingleNode("//tr/th[text()='Position:']/following-sibling::td/span")?.InnerText 
-                    ?? doc.DocumentNode.SelectSingleNode("//td[text()='Position:']/following-sibling::td")?.InnerText 
-                    ?? "");
-
-                var playingStyleNode = doc.DocumentNode.SelectSingleNode("//tr[th[contains(normalize-space(.),'Playing Style')]]/td/span/a")
-                    ?? doc.DocumentNode.SelectSingleNode("//tr[th[contains(normalize-space(.),'Playing Style')]]/td/span")
-                    ?? doc.DocumentNode.SelectSingleNode("//tr[th[contains(normalize-space(.),'Playing Style')]]/td")
-                    ?? doc.DocumentNode.SelectSingleNode("//table[contains(@class,'playing_styles')]//tr[th[contains(normalize-space(.),'Playing Style')]]/following-sibling::tr[1]/td")
-                    ?? doc.DocumentNode.SelectSingleNode("//th[text()='Playing Style']/parent::tr/following-sibling::tr/td");
-                
-                player.PlayingStyle = CleanString(playingStyleNode?.InnerText ?? "");
-
-                player.Foot = CleanString(doc.DocumentNode.SelectSingleNode("//tr/th[text()='Foot:']/following-sibling::td/span")?.InnerText 
-                    ?? doc.DocumentNode.SelectSingleNode("//td[text()='Foot:']/following-sibling::td")?.InnerText 
-                    ?? "");
-
-                player.Height = ParseInt(CleanString(
-                    doc.DocumentNode.SelectSingleNode("//tr/th[text()='Height (cm):']/following-sibling::td/span")?.InnerText 
-                    ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Height:']/following-sibling::td/span")?.InnerText 
-                    ?? doc.DocumentNode.SelectSingleNode("//td[text()='Height:']/following-sibling::td")?.InnerText 
-                    ?? ""));
-
-                player.Weight = ParseInt(CleanString(
-                    doc.DocumentNode.SelectSingleNode("//tr/th[text()='Weight (kg):']/following-sibling::td/span")?.InnerText 
-                    ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Weight:']/following-sibling::td/span")?.InnerText 
-                    ?? doc.DocumentNode.SelectSingleNode("//td[text()='Weight:']/following-sibling::td")?.InnerText 
-                    ?? ""));
-
-                player.Age = ParseInt(CleanString(
-                    doc.DocumentNode.SelectSingleNode("//tr/th[text()='Age:']/following-sibling::td/span")?.InnerText 
-                    ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Age:']/following-sibling::td")?.InnerText 
-                    ?? doc.DocumentNode.SelectSingleNode("//td[text()='Age:']/following-sibling::td")?.InnerText 
-                    ?? ""));
+                var player = ParsePlayerFromHtml(response, id);
 
                 if (string.IsNullOrEmpty(player.PlayerName))
                 {
@@ -148,6 +77,241 @@ namespace eTPL.API.Controllers
             {
                 return StatusCode(500, new { message = "Error scraping player: " + ex.Message });
             }
+        }
+
+        public static PesPlayerTeam ParsePlayerFromHtml(string html, int id = 0)
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+
+            var player = new PesPlayerTeam { IdPlayer = id };
+
+            // Helper to get text or node from dt/dd
+            string GetDtValue(string dtLabel)
+            {
+                var node = doc.DocumentNode.SelectSingleNode($"//dt[contains(normalize-space(.), '{dtLabel}')]/following-sibling::dd[1]")
+                    ?? doc.DocumentNode.SelectSingleNode($"//div[dt[contains(normalize-space(.), '{dtLabel}')]]/dd");
+                return node != null ? CleanString(node.InnerText) : "";
+            }
+
+            HtmlNode? GetDtNode(string dtLabel)
+            {
+                return doc.DocumentNode.SelectSingleNode($"//dt[contains(normalize-space(.), '{dtLabel}')]/following-sibling::dd[1]")
+                    ?? doc.DocumentNode.SelectSingleNode($"//div[dt[contains(normalize-space(.), '{dtLabel}')]]/dd");
+            }
+
+            // 1. Overall Rating: Attribute data-current-overall, <dt>Overall Rating</dt>, Fallback JSON/Meta and Old Structure
+            int? overall = null;
+            var ovrAttrNode = doc.DocumentNode.SelectSingleNode("//*[@data-current-overall]");
+            if (ovrAttrNode != null)
+            {
+                var ovrVal = ovrAttrNode.GetAttributeValue("data-current-overall", "").Trim();
+                if (!string.IsNullOrEmpty(ovrVal) && int.TryParse(ovrVal, out int val))
+                    overall = val;
+                else if (int.TryParse(CleanString(ovrAttrNode.InnerText), out int txtVal))
+                    overall = txtVal;
+            }
+
+            if (!overall.HasValue)
+            {
+                var dtOvr = GetDtValue("Overall Rating");
+                if (!string.IsNullOrEmpty(dtOvr)) overall = ParseInt(dtOvr);
+            }
+
+            if (!overall.HasValue)
+            {
+                var spanOvr = doc.DocumentNode.SelectSingleNode("//span[@class='c0' and @id='a0']");
+                if (spanOvr != null && int.TryParse(spanOvr.InnerText, out int spanVal))
+                {
+                    overall = spanVal;
+                }
+                else
+                {
+                    var ovrNode = doc.DocumentNode.SelectSingleNode("//tr[th[contains(text(),'Overall Rating')]]/td/b")
+                        ?? doc.DocumentNode.SelectSingleNode("//td[text()='Overall Rating:']/following-sibling::td/b");
+                    if (ovrNode != null)
+                    {
+                        var parts = ovrNode.InnerText.Trim().Split(' ');
+                        if (int.TryParse(parts[0], out int ovr)) overall = ovr;
+                    }
+                }
+            }
+
+            if (!overall.HasValue)
+            {
+                var metaDesc = doc.DocumentNode.SelectSingleNode("//meta[@name='description']")?.GetAttributeValue("content", "");
+                if (!string.IsNullOrEmpty(metaDesc))
+                {
+                    var m = System.Text.RegularExpressions.Regex.Match(metaDesc, @"Overall Rating\s+(\d+)");
+                    if (m.Success && int.TryParse(m.Groups[1].Value, out int mVal))
+                        overall = mVal;
+                }
+            }
+
+            player.PlayerOvr = overall ?? 0;
+
+            // 2. PlayerName: <h1 id="player-name">, <dt>Player Name</dt>, or old table
+            var nameNode = doc.DocumentNode.SelectSingleNode("//h1[@id='player-name']")
+                ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Player Name:']/following-sibling::td/span")
+                ?? doc.DocumentNode.SelectSingleNode("//td[text()='Player Name:']/following-sibling::td");
+            string playerName = nameNode != null ? CleanString(nameNode.InnerText) : GetDtValue("Player Name");
+            if (string.IsNullOrEmpty(playerName))
+            {
+                var ogTitle = doc.DocumentNode.SelectSingleNode("//meta[@property='og:title']")?.GetAttributeValue("content", "");
+                if (!string.IsNullOrEmpty(ogTitle))
+                {
+                    playerName = ogTitle.Split('-')[0].Trim();
+                }
+            }
+            player.PlayerName = playerName;
+
+            // 3. TeamName & TeamId: <dt>Club</dt><dd> with team_id from href
+            var clubNode = GetDtNode("Club")
+                ?? doc.DocumentNode.SelectSingleNode("//div[contains(@class,'player-club-row')]//span[2]")
+                ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Team Name:']/following-sibling::td/span/a")
+                ?? doc.DocumentNode.SelectSingleNode("//td[text()='Team Name:']/following-sibling::td/a")
+                ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Team Name:']/following-sibling::td/span")
+                ?? doc.DocumentNode.SelectSingleNode("//td[text()='Team Name:']/following-sibling::td");
+            
+            player.TeamName = CleanString(clubNode?.InnerText ?? "");
+
+            var clubLinkNode = clubNode?.SelectSingleNode(".//a")
+                ?? doc.DocumentNode.SelectSingleNode("//div[contains(@class,'player-club-row')]//a[contains(@href,'team_id=')]");
+            if (clubLinkNode != null)
+            {
+                var href = clubLinkNode.GetAttributeValue("href", "");
+                var match = System.Text.RegularExpressions.Regex.Match(href, @"team_id=(\d+)");
+                if (match.Success)
+                {
+                    player.IdTeam = match.Groups[1].Value;
+                }
+            }
+
+            // 4. League: <dt>League</dt><dd>
+            var leagueNode = GetDtNode("League")
+                ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='League:']/following-sibling::td/span/a")
+                ?? doc.DocumentNode.SelectSingleNode("//td[text()='League:']/following-sibling::td/a")
+                ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='League:']/following-sibling::td/span")
+                ?? doc.DocumentNode.SelectSingleNode("//td[text()='League:']/following-sibling::td");
+            player.League = CleanString(leagueNode?.InnerText ?? "");
+
+            // 5. Nationality: <dt>Nationality</dt><dd>
+            var natNode = GetDtNode("Nationality")
+                ?? doc.DocumentNode.SelectSingleNode("//div[contains(@class,'player-club-row')]//a[contains(@href,'nationality_id=')]")
+                ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Nationality:']/following-sibling::td/span/a")
+                ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Nationality:']/following-sibling::td/span")
+                ?? doc.DocumentNode.SelectSingleNode("//td[text()='Nationality:']/following-sibling::td/a")
+                ?? doc.DocumentNode.SelectSingleNode("//td[text()='Nationality:']/following-sibling::td");
+            player.Nationality = CleanString(natNode?.InnerText ?? "");
+
+            // 6. Position: //*[@data-current-position] or <dt>Primary Position</dt>
+            var posNode = doc.DocumentNode.SelectSingleNode("//*[@data-current-position]")
+                ?? GetDtNode("Primary Position")
+                ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Position:']/following-sibling::td/span")
+                ?? doc.DocumentNode.SelectSingleNode("//td[text()='Position:']/following-sibling::td");
+            player.Position = CleanString(posNode?.InnerText ?? "");
+
+            // 7. PlayingStyle: check Attacking and Defensive styles, prioritize non-Basic
+            string atkStyle = CleanString(doc.DocumentNode.SelectSingleNode("//div[contains(@class,'playing-style-row')]//span[contains(text(),'Attacking Playing Style')]/following-sibling::strong")?.InnerText 
+                ?? GetDtValue("Attacking Playing Style"));
+            string defStyle = CleanString(doc.DocumentNode.SelectSingleNode("//div[contains(@class,'playing-style-row')]//span[contains(text(),'Defensive Playing Style')]/following-sibling::strong")?.InnerText 
+                ?? GetDtValue("Defensive Playing Style"));
+
+            string chosenStyle = "";
+            bool isAtkValid = !string.IsNullOrEmpty(atkStyle) && !atkStyle.Equals("Basic", StringComparison.OrdinalIgnoreCase) && atkStyle != "---";
+            bool isDefValid = !string.IsNullOrEmpty(defStyle) && !defStyle.Equals("Basic", StringComparison.OrdinalIgnoreCase) && defStyle != "---";
+
+            if (isAtkValid)
+            {
+                chosenStyle = atkStyle;
+            }
+            else if (isDefValid)
+            {
+                chosenStyle = defStyle;
+            }
+            else if (!string.IsNullOrEmpty(atkStyle))
+            {
+                chosenStyle = atkStyle;
+            }
+            else if (!string.IsNullOrEmpty(defStyle))
+            {
+                chosenStyle = defStyle;
+            }
+
+            if (string.IsNullOrEmpty(chosenStyle))
+            {
+                var playingStyleNode = GetDtNode("Playing Style")
+                    ?? doc.DocumentNode.SelectSingleNode("//tr[th[contains(normalize-space(.),'Playing Style')]]/td/span/a")
+                    ?? doc.DocumentNode.SelectSingleNode("//tr[th[contains(normalize-space(.),'Playing Style')]]/td/span")
+                    ?? doc.DocumentNode.SelectSingleNode("//tr[th[contains(normalize-space(.),'Playing Style')]]/td")
+                    ?? doc.DocumentNode.SelectSingleNode("//table[contains(@class,'playing_styles')]//tr[th[contains(normalize-space(.),'Playing Style')]]/following-sibling::tr[1]/td")
+                    ?? doc.DocumentNode.SelectSingleNode("//th[text()='Playing Style']/parent::tr/following-sibling::tr/td");
+                chosenStyle = CleanString(playingStyleNode?.InnerText ?? "");
+            }
+            player.PlayingStyle = chosenStyle;
+
+            // 8. Foot: <dt>Stronger Foot</dt>
+            var footNode = GetDtNode("Stronger Foot")
+                ?? GetDtNode("Foot")
+                ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Foot:']/following-sibling::td/span")
+                ?? doc.DocumentNode.SelectSingleNode("//td[text()='Foot:']/following-sibling::td");
+            player.Foot = CleanString(footNode?.InnerText ?? "");
+
+            // 9. Height: <dt>Height</dt>
+            var heightNode = GetDtNode("Height")
+                ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Height (cm):']/following-sibling::td/span")
+                ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Height:']/following-sibling::td/span")
+                ?? doc.DocumentNode.SelectSingleNode("//td[text()='Height:']/following-sibling::td");
+            player.Height = ParseInt(CleanString(heightNode?.InnerText ?? ""));
+
+            // 10. Weight: <dt>Weight</dt>
+            var weightNode = GetDtNode("Weight")
+                ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Weight (kg):']/following-sibling::td/span")
+                ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Weight:']/following-sibling::td/span")
+                ?? doc.DocumentNode.SelectSingleNode("//td[text()='Weight:']/following-sibling::td");
+            player.Weight = ParseInt(CleanString(weightNode?.InnerText ?? ""));
+
+            // 11. Age: <dt>Age</dt>
+            var ageNode = GetDtNode("Age")
+                ?? doc.DocumentNode.SelectSingleNode("//tr/th[text()='Age:']/following-sibling::td/span")
+                ?? doc.DocumentNode.SelectSingleNode("//td[text()='Age:']/following-sibling::td");
+            player.Age = ParseInt(CleanString(ageNode?.InnerText ?? ""));
+
+            // Auto-detect player ID if not provided
+            if (player.IdPlayer <= 0)
+            {
+                var inputId = doc.DocumentNode.SelectSingleNode("//input[@name='player_id']")?.GetAttributeValue("value", "");
+                if (!string.IsNullOrEmpty(inputId) && int.TryParse(inputId, out int parsedId))
+                {
+                    player.IdPlayer = parsedId;
+                }
+                else
+                {
+                    var canonical = doc.DocumentNode.SelectSingleNode("//link[@rel='canonical']")?.GetAttributeValue("href", "");
+                    if (!string.IsNullOrEmpty(canonical))
+                    {
+                        var m = System.Text.RegularExpressions.Regex.Match(canonical, @"-(\d+)$");
+                        if (m.Success && int.TryParse(m.Groups[1].Value, out int cId))
+                        {
+                            player.IdPlayer = cId;
+                        }
+                    }
+                    else
+                    {
+                        var cardImg = doc.DocumentNode.SelectSingleNode("//img[@data-player-card-image]")?.GetAttributeValue("src", "");
+                        if (!string.IsNullOrEmpty(cardImg))
+                        {
+                            var m = System.Text.RegularExpressions.Regex.Match(cardImg, @"[bf](\d+)\.png");
+                            if (m.Success && int.TryParse(m.Groups[1].Value, out int imgId))
+                            {
+                                player.IdPlayer = imgId;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return player;
         }
 
         [HttpPost("add-player-manual")]
@@ -368,13 +532,13 @@ namespace eTPL.API.Controllers
             }
         }
 
-        private string CleanString(string input)
+        public static string CleanString(string input)
         {
             if (string.IsNullOrEmpty(input)) return "";
             return System.Net.WebUtility.HtmlDecode(input).Trim();
         }
 
-        private int? ParseInt(string input)
+        public static int? ParseInt(string input)
         {
             if (string.IsNullOrEmpty(input)) return null;
             // Handle cases like "180 cm" or "75 kg"

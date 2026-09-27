@@ -317,6 +317,287 @@ namespace eTPL.API.Controllers
             return Ok(new { message = "Cycle deleted successfully" });
         }
 
+        [HttpGet("forfeit-stats")]
+        public async Task<IActionResult> GetForfeitStats([FromQuery] int? season, [FromQuery] int? cycleId)
+        {
+            try
+            {
+                // 1. Get current season & available seasons
+                var currentSeasonObj = await _context.TbmCurrentSeasons.FirstOrDefaultAsync(s => s.Platform == "PC")
+                                       ?? await _context.TbmCurrentSeasons.FirstOrDefaultAsync();
+                int defaultSeason = currentSeasonObj?.Season ?? 38;
+                int targetSeason = season ?? defaultSeason;
+
+                var fixtureSeasons = await _context.TbmFixtureAlls
+                    .Where(f => f.Season != null)
+                    .Select(f => f.Season!.Value)
+                    .Distinct()
+                    .ToListAsync();
+
+                var logSeasons = await _context.TblFixtureLogs
+                    .Where(l => l.Season != null)
+                    .Select(l => l.Season!.Value)
+                    .Distinct()
+                    .ToListAsync();
+
+                var availableSeasons = fixtureSeasons
+                    .Union(logSeasons)
+                    .Union(new[] { defaultSeason })
+                    .OrderByDescending(s => s)
+                    .ToList();
+
+                // 2. Load Judge Histories and Cycles
+                var judgeHistories = await _context.JudgeHistories
+                    .OrderByDescending(j => j.JudgeDate)
+                    .ToListAsync();
+
+                var cycles = await _context.LeagueCycles.ToListAsync();
+                var cycleDict = cycles.ToDictionary(c => c.Id, c => c);
+
+                // 3. Load fixtures for target season
+                var fixtures = await _context.TbmFixtureAlls
+                    .Where(f => f.Season == targetSeason && f.MatchDate != null && f.Active == "YES")
+                    .Select(f => new
+                    {
+                        f.FixtureId,
+                        f.Division,
+                        f.Match,
+                        f.Home,
+                        f.Away,
+                        f.HomeScore,
+                        f.AwayScore,
+                        f.MatchDate
+                    })
+                    .ToListAsync();
+
+                // Fallback to tbl_fixture_log if no active fixtures in tbm_fixture_all for that season
+                if (!fixtures.Any())
+                {
+                    var logs = await _context.TblFixtureLogs
+                        .Where(l => l.Season == targetSeason && l.MatchDate != null && l.Active == "YES")
+                        .Select(l => new
+                        {
+                            l.FixtureId,
+                            l.Division,
+                            l.Match,
+                            l.Home,
+                            l.Away,
+                            l.HomeScore,
+                            l.AwayScore,
+                            l.MatchDate
+                        })
+                        .ToListAsync();
+
+                    fixtures = logs;
+                }
+
+                // 4. Match fixtures to judge history runs (within 20s window)
+                var adjudicatedMatches = new List<(
+                    string FixtureId,
+                    string? Division,
+                    int? Match,
+                    string Home,
+                    string Away,
+                    int HomeScore,
+                    int AwayScore,
+                    DateTime MatchDate,
+                    JudgeHistory History,
+                    LeagueCycle? Cycle
+                )>();
+
+                foreach (var fix in fixtures)
+                {
+                    if (fix.MatchDate == null || fix.HomeScore == null || fix.AwayScore == null) continue;
+                    if (string.IsNullOrEmpty(fix.Home) || string.IsNullOrEmpty(fix.Away)) continue;
+
+                    // Auto-judge results are 3-0, 0-3, or 0-0
+                    bool isJudgedScore = (fix.HomeScore == 3 && fix.AwayScore == 0) ||
+                                         (fix.HomeScore == 0 && fix.AwayScore == 3) ||
+                                         (fix.HomeScore == 0 && fix.AwayScore == 0);
+                    if (!isJudgedScore) continue;
+
+                    var matchedHistory = judgeHistories.FirstOrDefault(jh =>
+                        Math.Abs((fix.MatchDate.Value - jh.JudgeDate).TotalSeconds) <= 20);
+
+                    if (matchedHistory != null)
+                    {
+                        cycleDict.TryGetValue(matchedHistory.CycleId, out var cycle);
+                        adjudicatedMatches.Add((
+                            fix.FixtureId,
+                            fix.Division,
+                            fix.Match,
+                            fix.Home,
+                            fix.Away,
+                            fix.HomeScore.Value,
+                            fix.AwayScore.Value,
+                            fix.MatchDate.Value,
+                            matchedHistory,
+                            cycle
+                        ));
+                    }
+                }
+
+                // Filter by cycleId if requested
+                if (cycleId.HasValue && cycleId.Value > 0)
+                {
+                    adjudicatedMatches = adjudicatedMatches.Where(m => m.History.CycleId == cycleId.Value).ToList();
+                }
+
+                // 5. Load User profiles for LineName and CurrentDivision
+                var userIds = adjudicatedMatches
+                    .SelectMany(m => new[] { m.Home, m.Away })
+                    .Where(u => !string.IsNullOrEmpty(u))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var users = await _context.Users
+                    .Where(u => userIds.Contains(u.UserId))
+                    .ToDictionaryAsync(u => u.UserId, StringComparer.OrdinalIgnoreCase);
+
+                // Helper stats tracking class
+                var playerStats = new Dictionary<string, (
+                    string LineName,
+                    string Division,
+                    int ByeLosses,
+                    int ByeWins,
+                    int Draws,
+                    Dictionary<int, int> CycleLosses,
+                    Dictionary<int, int> CycleWins,
+                    Dictionary<int, int> CycleDraws
+                )>(StringComparer.OrdinalIgnoreCase);
+
+                void EnsurePlayer(string uid, string? defaultDiv)
+                {
+                    if (!playerStats.ContainsKey(uid))
+                    {
+                        users.TryGetValue(uid, out var u);
+                        playerStats[uid] = (
+                            LineName: u?.LineName ?? uid,
+                            Division: u?.CurrentDivision ?? defaultDiv ?? "D1",
+                            ByeLosses: 0,
+                            ByeWins: 0,
+                            Draws: 0,
+                            CycleLosses: new Dictionary<int, int>(),
+                            CycleWins: new Dictionary<int, int>(),
+                            CycleDraws: new Dictionary<int, int>()
+                        );
+                    }
+                }
+
+                var matchList = new List<object>();
+
+                foreach (var item in adjudicatedMatches.OrderByDescending(m => m.MatchDate).ThenBy(m => m.Match))
+                {
+                    var cId = item.History.CycleId;
+                    var cName = item.Cycle?.CycleName ?? $"Cycle {cId}";
+
+                    EnsurePlayer(item.Home, item.Division);
+                    EnsurePlayer(item.Away, item.Division);
+
+                    var homeEntry = playerStats[item.Home];
+                    var awayEntry = playerStats[item.Away];
+
+                    string resultType = "DRAW";
+
+                    if (item.HomeScore > item.AwayScore)
+                    {
+                        resultType = "HOME_WIN";
+                        homeEntry.ByeWins++;
+                        homeEntry.CycleWins[cId] = homeEntry.CycleWins.GetValueOrDefault(cId) + 1;
+
+                        awayEntry.ByeLosses++;
+                        awayEntry.CycleLosses[cId] = awayEntry.CycleLosses.GetValueOrDefault(cId) + 1;
+                    }
+                    else if (item.HomeScore < item.AwayScore)
+                    {
+                        resultType = "AWAY_WIN";
+                        awayEntry.ByeWins++;
+                        awayEntry.CycleWins[cId] = awayEntry.CycleWins.GetValueOrDefault(cId) + 1;
+
+                        homeEntry.ByeLosses++;
+                        homeEntry.CycleLosses[cId] = homeEntry.CycleLosses.GetValueOrDefault(cId) + 1;
+                    }
+                    else
+                    {
+                        resultType = "DRAW";
+                        homeEntry.Draws++;
+                        homeEntry.CycleDraws[cId] = homeEntry.CycleDraws.GetValueOrDefault(cId) + 1;
+
+                        awayEntry.Draws++;
+                        awayEntry.CycleDraws[cId] = awayEntry.CycleDraws.GetValueOrDefault(cId) + 1;
+                    }
+
+                    playerStats[item.Home] = homeEntry;
+                    playerStats[item.Away] = awayEntry;
+
+                    matchList.Add(new
+                    {
+                        fixtureId = item.FixtureId,
+                        cycleId = cId,
+                        cycleName = cName,
+                        division = item.Division,
+                        match = item.Match,
+                        home = item.Home,
+                        homeLineName = playerStats[item.Home].LineName,
+                        homeScore = item.HomeScore,
+                        away = item.Away,
+                        awayLineName = playerStats[item.Away].LineName,
+                        awayScore = item.AwayScore,
+                        resultType = resultType,
+                        matchDate = item.MatchDate.ToString("yyyy-MM-dd HH:mm:ss")
+                    });
+                }
+
+                var adjudicatedCycleIds = adjudicatedMatches.Select(m => m.History.CycleId).Distinct().ToHashSet();
+                var relevantCycles = cycles
+                    .Where(c => adjudicatedCycleIds.Contains(c.Id))
+                    .OrderBy(c => c.StartDate)
+                    .Select(c => new { id = c.Id, cycleName = c.CycleName, startDate = c.StartDate, endDate = c.EndDate })
+                    .ToList();
+
+                var playerList = playerStats.Select(kvp => new
+                {
+                    userId = kvp.Key,
+                    lineName = kvp.Value.LineName,
+                    division = kvp.Value.Division,
+                    totalByeLosses = kvp.Value.ByeLosses,
+                    totalByeWins = kvp.Value.ByeWins,
+                    totalDraws = kvp.Value.Draws,
+                    totalJudged = kvp.Value.ByeLosses + kvp.Value.ByeWins + kvp.Value.Draws,
+                    cycleLosses = kvp.Value.CycleLosses,
+                    cycleWins = kvp.Value.CycleWins,
+                    cycleDraws = kvp.Value.CycleDraws
+                })
+                .OrderByDescending(p => p.totalByeLosses)
+                .ThenByDescending(p => p.totalJudged)
+                .ToList();
+
+                return Ok(new
+                {
+                    seasons = availableSeasons,
+                    selectedSeason = targetSeason,
+                    cycles = relevantCycles,
+                    players = playerList,
+                    matches = matchList,
+                    summary = new
+                    {
+                        totalMatchesJudged = adjudicatedMatches.Count,
+                        totalPlayersAffected = playerList.Count,
+                        totalByeLosses = playerList.Sum(p => p.totalByeLosses),
+                        totalDraws = matchList.Count(m => {
+                            var prop = m.GetType().GetProperty("resultType");
+                            return (string?)prop?.GetValue(m) == "DRAW";
+                        })
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = "Error calculating forfeit stats", details = ex.Message });
+            }
+        }
+
+
 
         [HttpPost("batch-apply")]
         public async Task<IActionResult> ApplyBatchResults([FromBody] BatchApplyRequest request)

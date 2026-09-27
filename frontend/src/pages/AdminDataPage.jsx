@@ -62,7 +62,7 @@ import {
 import adminService from "../services/adminService";
 import { useSnackbar } from "notistack";
 import { useNavigate } from "react-router-dom";
-import { getPlayerCardUrl } from "../utils/imageUtils";
+import { getPlayerCardUrl, getPlayerCardFUrl } from "../utils/imageUtils";
 import { InputAdornment } from "@mui/material";
 
 const AdminDataPage = () => {
@@ -368,8 +368,8 @@ const AdminDataPage = () => {
   };
 
   const handleManualParse = () => {
-    if (!pastedHtml || !playerId) {
-      enqueueSnackbar("Please enter Player ID AND paste HTML content", { variant: "warning" });
+    if (!pastedHtml) {
+      enqueueSnackbar("Please paste HTML content", { variant: "warning" });
       return;
     }
     try {
@@ -377,35 +377,212 @@ const AdminDataPage = () => {
       const doc = parser.parseFromString(pastedHtml, "text/html");
       const getXPathNode = (xpath) => doc.evaluate(xpath, doc, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
 
-      const spanOvr = getXPathNode("//tr[th[contains(text(),'Overall Rating')]]/td/b") || 
-                      getXPathNode("//td[text()='Overall Rating:']/following-sibling::td/b") ||
-                      getXPathNode("//span[@class='c0' and @id='a0']");
-      
-      const data = {
-        idPlayer: parseInt(playerId),
-        playerOvr: spanOvr ? parseInt(spanOvr.textContent) : 0,
-        playerName: (getXPathNode("//tr/th[text()='Player Name:']/following-sibling::td/span")?.textContent || 
-                    getXPathNode("//td[text()='Player Name:']/following-sibling::td")?.textContent || "Unknown").trim(),
-        teamName: (getXPathNode("//tr/th[text()='Team Name:']/following-sibling::td/span/a")?.textContent || 
-                   getXPathNode("//td[text()='Team Name:']/following-sibling::td/a")?.textContent || "").trim(),
-        league: (getXPathNode("//tr/th[text()='League:']/following-sibling::td/span/a")?.textContent || "").trim(),
-        position: (getXPathNode("//tr/th[text()='Position:']/following-sibling::td/span")?.textContent || 
-                  getXPathNode("//td[text()='Position:']/following-sibling::td")?.textContent || "").trim(),
-        nationality: (getXPathNode("//tr/th[text()='Nationality:']/following-sibling::td/span/a")?.textContent || 
-                     getXPathNode("//tr/th[text()='Nationality:']/following-sibling::td/span")?.textContent || "").trim(),
-        playingStyle: (getXPathNode("//tr[th[contains(normalize-space(.),'Playing Style')]]/td/span/a")?.textContent || 
-                        getXPathNode("//tr[th[contains(normalize-space(.),'Playing Style')]]/td/span")?.textContent || 
-                        getXPathNode("//tr[th[contains(normalize-space(.),'Playing Style')]]/td")?.textContent || "").trim(),
-        foot: (getXPathNode("//tr/th[text()='Foot:']/following-sibling::td/span")?.textContent || "").trim(),
-        height: parseInt(getXPathNode("//tr/th[text()='Height (cm):']/following-sibling::td/span")?.textContent || 
-                        getXPathNode("//tr/th[text()='Height:']/following-sibling::td/span")?.textContent || "0"),
-        weight: parseInt(getXPathNode("//tr/th[text()='Weight (kg):']/following-sibling::td/span")?.textContent || 
-                        getXPathNode("//tr/th[text()='Weight:']/following-sibling::td/span")?.textContent || "0"),
-        age: parseInt(getXPathNode("//tr/th[text()='Age:']/following-sibling::td/span")?.textContent || 
-                     getXPathNode("//tr/th[text()='Age:']/following-sibling::td")?.textContent || "0"),
+      // Helper to find <dt> label and return following <dd> text or element
+      const getDtNode = (label) => {
+        const dts = Array.from(doc.querySelectorAll('dt'));
+        const targetDt = dts.find(dt => dt.textContent.trim().toLowerCase().includes(label.toLowerCase()));
+        if (!targetDt) return null;
+        return targetDt.nextElementSibling || targetDt.closest('div')?.querySelector('dd');
+      };
+      const getDtValue = (label) => {
+        const node = getDtNode(label);
+        return node ? node.textContent.trim() : '';
       };
 
-      if (!spanOvr && !data.playerName) {
+      // 1. Player ID: from input, or auto-detect from HTML
+      let parsedId = playerId ? parseInt(playerId) : 0;
+      if (!parsedId || isNaN(parsedId)) {
+        const inputId = doc.querySelector('input[name="player_id"]')?.value;
+        if (inputId && !isNaN(parseInt(inputId))) {
+          parsedId = parseInt(inputId);
+        } else {
+          const canonical = doc.querySelector('link[rel="canonical"]')?.getAttribute('href') ||
+                            doc.querySelector('meta[property="og:url"]')?.getAttribute('content');
+          const mCanon = canonical?.match(/-(\d+)$/);
+          if (mCanon) {
+            parsedId = parseInt(mCanon[1]);
+          } else {
+            const cardImg = doc.querySelector('img[data-player-card-image]')?.getAttribute('src') ||
+                            doc.querySelector('img[src*="/card/"]')?.getAttribute('src');
+            const mImg = cardImg?.match(/[bf](\d+)\.png/);
+            if (mImg) {
+              parsedId = parseInt(mImg[1]);
+            }
+          }
+        }
+        if (parsedId && !isNaN(parsedId)) {
+          setPlayerId(parsedId.toString());
+        }
+      }
+
+      if (!parsedId || isNaN(parsedId)) {
+        enqueueSnackbar("Please enter a Player ID or ensure HTML contains player ID", { variant: "warning" });
+        return;
+      }
+
+      // 2. Overall Rating: [data-current-overall], <dt>Overall Rating</dt>, fallback old/meta
+      let overall = 0;
+      const ovrAttrNode = doc.querySelector('[data-current-overall]');
+      if (ovrAttrNode) {
+        const attrVal = ovrAttrNode.getAttribute('data-current-overall');
+        if (attrVal && !isNaN(parseInt(attrVal))) {
+          overall = parseInt(attrVal);
+        } else if (ovrAttrNode.textContent && !isNaN(parseInt(ovrAttrNode.textContent.trim()))) {
+          overall = parseInt(ovrAttrNode.textContent.trim());
+        }
+      }
+
+      if (!overall) {
+        const dtOvr = getDtValue('Overall Rating');
+        if (dtOvr) {
+          const digits = dtOvr.replace(/\D/g, '');
+          if (digits) overall = parseInt(digits);
+        }
+      }
+
+      if (!overall) {
+        const spanOvr = getXPathNode("//span[@class='c0' and @id='a0']") ||
+                        getXPathNode("//tr[th[contains(text(),'Overall Rating')]]/td/b") || 
+                        getXPathNode("//td[text()='Overall Rating:']/following-sibling::td/b");
+        if (spanOvr && spanOvr.textContent) {
+          const digits = spanOvr.textContent.replace(/\D/g, '');
+          if (digits) overall = parseInt(digits);
+        }
+      }
+
+      if (!overall) {
+        const metaDesc = doc.querySelector('meta[name="description"]')?.getAttribute('content');
+        const mDesc = metaDesc?.match(/Overall Rating\s+(\d+)/);
+        if (mDesc) overall = parseInt(mDesc[1]);
+      }
+
+      // 3. Player Name: <h1 id="player-name">, <dt>Player Name</dt>, or fallback old
+      let playerName = doc.querySelector('#player-name')?.textContent?.trim() ||
+                       getDtValue('Player Name') ||
+                       getXPathNode("//tr/th[text()='Player Name:']/following-sibling::td/span")?.textContent?.trim() || 
+                       getXPathNode("//td[text()='Player Name:']/following-sibling::td")?.textContent?.trim() || "";
+      if (!playerName) {
+        const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content');
+        if (ogTitle) {
+          playerName = ogTitle.split('-')[0].trim();
+        }
+      }
+
+      // 4. Team Name & Team ID: <dt>Club</dt><dd> with team_id from href
+      const clubNode = getDtNode('Club') ||
+                       doc.querySelector('.player-club-row span:nth-of-type(2)') ||
+                       getXPathNode("//tr/th[text()='Team Name:']/following-sibling::td/span/a") ||
+                       getXPathNode("//td[text()='Team Name:']/following-sibling::td/a") ||
+                       getXPathNode("//tr/th[text()='Team Name:']/following-sibling::td/span") ||
+                       getXPathNode("//td[text()='Team Name:']/following-sibling::td");
+      const teamName = clubNode?.textContent?.trim() || "";
+
+      let idTeam = null;
+      const clubLink = clubNode?.querySelector ? clubNode.querySelector('a[href*="team_id="]') : null;
+      const rowLink = doc.querySelector('.player-club-row a[href*="team_id="]');
+      const href = clubLink?.getAttribute('href') || rowLink?.getAttribute('href') || "";
+      const mTeamId = href.match(/team_id=(\d+)/);
+      if (mTeamId) {
+        idTeam = mTeamId[1];
+      }
+
+      // 5. League: <dt>League</dt><dd>
+      const league = getDtValue('League') ||
+                     getXPathNode("//tr/th[text()='League:']/following-sibling::td/span/a")?.textContent?.trim() ||
+                     getXPathNode("//td[text()='League:']/following-sibling::td/a")?.textContent?.trim() ||
+                     getXPathNode("//tr/th[text()='League:']/following-sibling::td/span")?.textContent?.trim() ||
+                     getXPathNode("//td[text()='League:']/following-sibling::td")?.textContent?.trim() || "";
+
+      // 6. Nationality: <dt>Nationality</dt><dd>
+      const nationality = getDtValue('Nationality') ||
+                          doc.querySelector('.player-club-row a[href*="nationality_id="]')?.textContent?.trim() ||
+                          getXPathNode("//tr/th[text()='Nationality:']/following-sibling::td/span/a")?.textContent?.trim() || 
+                          getXPathNode("//tr/th[text()='Nationality:']/following-sibling::td/span")?.textContent?.trim() ||
+                          getXPathNode("//td[text()='Nationality:']/following-sibling::td/a")?.textContent?.trim() ||
+                          getXPathNode("//td[text()='Nationality:']/following-sibling::td")?.textContent?.trim() || "";
+
+      // 7. Position: [data-current-position] or <dt>Primary Position</dt>
+      const position = doc.querySelector('[data-current-position]')?.textContent?.trim() ||
+                       getDtValue('Primary Position') ||
+                       getXPathNode("//tr/th[text()='Position:']/following-sibling::td/span")?.textContent?.trim() || 
+                       getXPathNode("//td[text()='Position:']/following-sibling::td")?.textContent?.trim() || "";
+
+      // 8. PlayingStyle: check Attacking and Defensive styles, prioritize non-Basic
+      const getStyleFromRow = (label) => {
+        const el = Array.from(doc.querySelectorAll('.playing-style-row div, .playing-style-row span, .playing-style-row dt'))
+          .find(e => e.textContent.trim().toLowerCase().includes(label.toLowerCase()));
+        if (!el) return '';
+        const strong = el.closest('div')?.querySelector('strong, dd');
+        return strong ? strong.textContent.trim() : '';
+      };
+      const atkStyle = getStyleFromRow('Attacking Playing Style') || getDtValue('Attacking Playing Style');
+      const defStyle = getStyleFromRow('Defensive Playing Style') || getDtValue('Defensive Playing Style');
+      let playingStyle = '';
+      const isAtkValid = atkStyle && atkStyle.toLowerCase() !== 'basic' && atkStyle !== '---';
+      const isDefValid = defStyle && defStyle.toLowerCase() !== 'basic' && defStyle !== '---';
+      if (isAtkValid) {
+        playingStyle = atkStyle;
+      } else if (isDefValid) {
+        playingStyle = defStyle;
+      } else if (atkStyle) {
+        playingStyle = atkStyle;
+      } else if (defStyle) {
+        playingStyle = defStyle;
+      } else {
+        playingStyle = getDtValue('Playing Style') ||
+          getXPathNode("//tr[th[contains(normalize-space(.),'Playing Style')]]/td/span/a")?.textContent?.trim() || 
+          getXPathNode("//tr[th[contains(normalize-space(.),'Playing Style')]]/td/span")?.textContent?.trim() || 
+          getXPathNode("//tr[th[contains(normalize-space(.),'Playing Style')]]/td")?.textContent?.trim() || 
+          getXPathNode("//table[contains(@class,'playing_styles')]//tr[th[contains(normalize-space(.),'Playing Style')]]/following-sibling::tr[1]/td")?.textContent?.trim() ||
+          getXPathNode("//th[text()='Playing Style']/parent::tr/following-sibling::tr/td")?.textContent?.trim() || "";
+      }
+
+      // 9. Foot: <dt>Stronger Foot</dt>
+      const foot = getDtValue('Stronger Foot') ||
+                   getDtValue('Foot') ||
+                   getXPathNode("//tr/th[text()='Foot:']/following-sibling::td/span")?.textContent?.trim() ||
+                   getXPathNode("//td[text()='Foot:']/following-sibling::td")?.textContent?.trim() || "";
+
+      // 10. Height
+      const heightRaw = getDtValue('Height') ||
+                        getXPathNode("//tr/th[text()='Height (cm):']/following-sibling::td/span")?.textContent || 
+                        getXPathNode("//tr/th[text()='Height:']/following-sibling::td/span")?.textContent || 
+                        getXPathNode("//td[text()='Height:']/following-sibling::td")?.textContent || "";
+      const heightDigits = heightRaw.replace(/\D/g, '');
+      const height = heightDigits ? parseInt(heightDigits) : 0;
+
+      // 11. Weight
+      const weightRaw = getDtValue('Weight') ||
+                        getXPathNode("//tr/th[text()='Weight (kg):']/following-sibling::td/span")?.textContent || 
+                        getXPathNode("//tr/th[text()='Weight:']/following-sibling::td/span")?.textContent || 
+                        getXPathNode("//td[text()='Weight:']/following-sibling::td")?.textContent || "";
+      const weightDigits = weightRaw.replace(/\D/g, '');
+      const weight = weightDigits ? parseInt(weightDigits) : 0;
+
+      // 12. Age
+      const ageRaw = getDtValue('Age') ||
+                     getXPathNode("//tr/th[text()='Age:']/following-sibling::td/span")?.textContent || 
+                     getXPathNode("//tr/th[text()='Age:']/following-sibling::td")?.textContent || "";
+      const ageDigits = ageRaw.replace(/\D/g, '');
+      const age = ageDigits ? parseInt(ageDigits) : 0;
+
+      const data = {
+        idPlayer: parsedId,
+        playerOvr: overall,
+        playerName: playerName || "Unknown",
+        idTeam: idTeam,
+        teamName: teamName,
+        league: league,
+        position: position,
+        nationality: nationality,
+        playingStyle: playingStyle,
+        foot: foot,
+        height: height,
+        weight: weight,
+        age: age,
+      };
+
+      if (!overall && !data.playerName) {
         enqueueSnackbar("Could not parse player data. Check HTML source.", { variant: "error" });
         return;
       }
@@ -414,7 +591,7 @@ const AdminDataPage = () => {
       enqueueSnackbar("HTML Parsed! Please review and save.", { variant: "info" });
     } catch (err) {
       console.error(err);
-      enqueueSnackbar("Parsing failed", { variant: "error" });
+      enqueueSnackbar("Parsing failed: " + err.message, { variant: "error" });
     }
   };
 
@@ -583,14 +760,26 @@ const AdminDataPage = () => {
               </Box>
               <Divider />
               <Stack spacing={2} flexGrow={1}>
+                {importMode === "manual" && (
+                  <TextField 
+                    fullWidth 
+                    label="PesDB Player ID (Optional - auto-detected)" 
+                    placeholder="e.g. 40240 (leave blank to auto-detect from HTML)" 
+                    variant="outlined" 
+                    size="small" 
+                    value={playerId} 
+                    onChange={(e) => setPlayerId(e.target.value)} 
+                    disabled={scraping} 
+                  />
+                )}
                 <TextField 
                   fullWidth 
                   label={importMode === "auto" ? "PesDB Player ID" : "Paste HTML Source"} 
-                  placeholder={importMode === "auto" ? "e.g. 123456" : "Paste player source code here..."} 
+                  placeholder={importMode === "auto" ? "e.g. 123456" : "Paste player page HTML source here (Ctrl+U -> Select All -> Copy -> Paste)..."} 
                   variant="outlined" 
                   size="small" 
                   multiline={importMode === "manual"} 
-                  rows={importMode === "manual" ? 4 : 1} 
+                  rows={importMode === "manual" ? 5 : 1} 
                   value={importMode === "auto" ? playerId : pastedHtml} 
                   onChange={(e) => importMode === "auto" ? setPlayerId(e.target.value) : setPastedHtml(e.target.value)} 
                   onKeyDown={(e) => e.key === "Enter" && importMode === "auto" && handleScrape()} 
@@ -621,7 +810,15 @@ const AdminDataPage = () => {
                   <CardContent>
                     <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
                       <Box sx={{ position: 'relative' }}>
-                        <Box component="img" src={getPlayerCardUrl(scrapedData.idPlayer)} sx={{ width: 85, height: 'auto', borderRadius: 2, boxShadow: '0 8px 16px rgba(0,0,0,0.15)', border: '2px solid #fff' }} />
+                        <Box 
+                          component="img" 
+                          src={getPlayerCardUrl(scrapedData.idPlayer)} 
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = getPlayerCardFUrl(scrapedData.idPlayer);
+                          }}
+                          sx={{ width: 85, height: 'auto', borderRadius: 2, boxShadow: '0 8px 16px rgba(0,0,0,0.15)', border: '2px solid #fff' }} 
+                        />
                         <Box sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'white', borderRadius: '50%' }}><CheckCircle color="success" sx={{ fontSize: 24 }} /></Box>
                       </Box>
                       <Box sx={{ flexGrow: 1 }}>
@@ -632,11 +829,20 @@ const AdminDataPage = () => {
                             <Typography variant="body2" sx={{ fontWeight: 900 }}>{scrapedData.playerOvr}</Typography>
                           </Box>
                         </Box>
-                        <Box sx={{ display: 'flex', gap: 4, mb: 1, flexWrap: 'wrap' }}>
-                          {[{ label: 'POS', value: scrapedData.position }, { label: 'AGE', value: scrapedData.age }, { label: 'FOOT', value: scrapedData.foot }].map((s, i) => (
+                        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(85px, 1fr))', gap: 1.5, mb: 1 }}>
+                          {[
+                            { label: 'POS', value: scrapedData.position },
+                            { label: 'STYLE', value: scrapedData.playingStyle },
+                            { label: 'CLUB', value: scrapedData.teamName + (scrapedData.idTeam ? ` (${scrapedData.idTeam})` : '') },
+                            { label: 'LEAGUE', value: scrapedData.league },
+                            { label: 'NAT', value: scrapedData.nationality },
+                            { label: 'AGE', value: scrapedData.age },
+                            { label: 'FOOT', value: scrapedData.foot },
+                            { label: 'HT / WT', value: (scrapedData.height || scrapedData.weight) ? `${scrapedData.height || "-"} cm / ${scrapedData.weight || "-"} kg` : "-" }
+                          ].map((s, i) => (
                             <Box key={i}>
                               <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, fontSize: '0.65rem' }}>{s.label}</Typography>
-                              <Typography variant="body2" sx={{ fontWeight: 700 }}>{s.value || "-"}</Typography>
+                              <Typography variant="body2" sx={{ fontWeight: 700, wordBreak: 'break-word', fontSize: '0.85rem' }}>{s.value || "-"}</Typography>
                             </Box>
                           ))}
                         </Box>

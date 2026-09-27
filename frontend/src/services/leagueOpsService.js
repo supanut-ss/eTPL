@@ -20,6 +20,8 @@ const leagueOpsService = {
   addCheckin: (data) => api.post("/api/leagueops/checkin", data),
   getUserCheckinStatus: () => api.get("/api/leagueops/user-checkin-status"),
   userCheckin: () => api.post("/api/leagueops/user-checkin"),
+  getForfeitStats: (season, cycleId) =>
+    api.get("/api/leagueops/forfeit-stats", { params: { season, cycleId } }),
 };
 
 export default leagueOpsService;
