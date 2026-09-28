@@ -2723,11 +2723,45 @@ namespace eTPL.API.Services
                         .FirstOrDefaultAsync(s => s.Platform == platform)
                         ?? throw new Exception("ไม่พบข้อมูลฤดูกาลปัจจุบัน");
                     
-                    int oldSeason = currentSeasonObj.Season ?? 1;
-                    int newSeason = oldSeason + 1;
-                    string renewalSearchTag = $"ต่อสัญญาอัตโนมัติ (เปิดฤดูกาลใหม่): ";
-                    string renewalSeasonTag = $"(Season {newSeason})";
+                    int currentSeason = currentSeasonObj.Season ?? 1;
+                    int newSeason;
                     bool alreadyIncremented = false;
+                    string renewalSearchTag = $"ต่อสัญญาอัตโนมัติ (เปิดฤดูกาลใหม่): ";
+
+                    // Check if currentSeason in DB has already been closed (prizes awarded, final standings archived, or contracts expired)
+                    bool isCurrentSeasonClosed = await _context.AuctionTransactions.AnyAsync(t =>
+                        (t.Type == "AUTO_RELEASE_EXPIRED" || t.Type == "PRIZE" || t.Type == "CARD_DEDUCTION")
+                        && t.Description.Contains($"(Season {currentSeason})"))
+                        || await _scaffoldedContext.TbmFinalResults.AnyAsync(f => f.Season == currentSeason && f.Platform == platform);
+
+                    if (isCurrentSeasonClosed)
+                    {
+                        // Current season was already closed, so we advance to the next season
+                        newSeason = currentSeason + 1;
+                        alreadyIncremented = false;
+                    }
+                    else
+                    {
+                        // Current season has not been closed yet. Check if renewals for currentSeason were already processed
+                        bool isCurrentSeasonAlreadyOpened = await _context.AuctionTransactions.AnyAsync(t =>
+                            t.Type == "CONTRACT_RENEWAL_AUTO"
+                            && t.Description.Contains(renewalSearchTag)
+                            && t.Description.Contains($"(Season {currentSeason})"));
+
+                        if (isCurrentSeasonAlreadyOpened)
+                        {
+                            newSeason = currentSeason;
+                            alreadyIncremented = true;
+                            logs.Add($"ตรวจพบว่าระบบอยู่ในสถานะที่อัปเดตเลขฤดูกาลเป็น {currentSeason} ไปแล้ว (ข้ามการอัปเดตเลข SS)");
+                        }
+                        else
+                        {
+                            newSeason = currentSeason;
+                            alreadyIncremented = true;
+                        }
+                    }
+
+                    string renewalSeasonTag = $"(Season {newSeason})";
 
                     // --- IDEMPOTENCY CLEANUP (OPEN SEASON) ---
                     // Find all renewals recorded for the upcoming season transition (newSeason)
@@ -2735,29 +2769,19 @@ namespace eTPL.API.Services
                         .Where(t => t.Type == "CONTRACT_RENEWAL_AUTO" && t.Description.Contains(renewalSearchTag) && t.Description.Contains(renewalSeasonTag))
                         .ToListAsync();
 
-                    // If not found, check if they were recorded under 'oldSeason' (meaning we already incremented the DB season)
-                    if (!oldRenewals.Any())
-                    {
-                        var potentialRenewals = await _context.AuctionTransactions
-                            .Where(t => t.Type == "CONTRACT_RENEWAL_AUTO" && t.Description.Contains(renewalSearchTag) && t.Description.Contains($"(Season {oldSeason})"))
-                            .ToListAsync();
-                        
-                        if (potentialRenewals.Any())
-                        {
-                            oldRenewals = potentialRenewals;
-                            newSeason = oldSeason; // The DB is already at the target season
-                            alreadyIncremented = true;
-                            logs.Add($"ตรวจพบว่าระบบอยู่ในสถานะที่อัปเดตเลขฤดูกาลเป็น {oldSeason} ไปแล้ว (ข้ามการอัปเดตเลข SS)");
-                        }
-                    }
-
                     if (oldRenewals.Any())
                     {
                         foreach (var tx in oldRenewals)
                         {
-                            // 1. Return money
+                            // 1. Return money (and log the reversal as its own transaction, so BalanceAfter history stays unbroken)
                             var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == tx.UserId);
-                            if (wallet != null) wallet.AvailableBalance += tx.Amount;
+                            if (wallet != null)
+                            {
+                                wallet.AvailableBalance += tx.Amount;
+                                await RecordTransactionAsync(tx.UserId, tx.Amount, "CREDIT", "CONTRACT_RENEWAL_REVERT",
+                                    $"ย้อนคืนค่าต่อสัญญาอัตโนมัติเดิม (คำนวณใหม่จาก tx #{tx.TransactionId}): {tx.Description}",
+                                    wallet.AvailableBalance, relatedPlayerId: tx.RelatedPlayerId);
+                            }
 
                             // 2. Revert SeasonsWithTeam
                             if (tx.RelatedPlayerId.HasValue)
@@ -2771,11 +2795,11 @@ namespace eTPL.API.Services
                         }
                         _context.AuctionTransactions.RemoveRange(oldRenewals);
                         await _context.SaveChangesAsync();
-                        logs.Add($"[REVERT] ล้างข้อมูลการต่อสัญญาเดิม เพื่อคำนวณใหม่ ({oldRenewals.Count} รายการ)");
+                        logs.Add($"[REVERT] ล้างข้อมูลการต่อสัญญาเดิม เพื่อคำนวณใหม่ ({oldRenewals.Count} รายการ) — บันทึกเป็น CONTRACT_RENEWAL_REVERT ในประวัติธุรกรรมแล้ว");
                     }
                     // ------------------------------------------
 
-                    logs.Add($"เริ่มกระบวนการเปิดฤดูกาลใหม่ ({oldSeason} -> {newSeason})");
+                    logs.Add($"เริ่มกระบวนการเปิดฤดูกาลใหม่ ({(alreadyIncremented ? newSeason.ToString() : $"{currentSeason} -> {newSeason}")})");
 
                     // 2. Calculate Renewal Costs & Validate Balances
                     var activeSquads = await _context.AuctionSquads
@@ -2860,6 +2884,7 @@ namespace eTPL.API.Services
                     if (!alreadyIncremented)
                     {
                         currentSeasonObj.Season = newSeason;
+                        _scaffoldedContext.Entry(currentSeasonObj).Property(x => x.Season).IsModified = true;
                         logs.Add($"อัปเดตเลขฤดูกาลเป็น {newSeason} สำเร็จ");
                     }
                     else
