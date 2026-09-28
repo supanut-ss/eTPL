@@ -95,6 +95,7 @@ namespace eTPL.API.Controllers
                 Direction = "CREDIT",
                 Type = "SPECIAL_BONUS",
                 Description = $"Bonus Approved: {bonus.Reason}",
+                BalanceAfter = wallet.AvailableBalance,
                 CreatedAt = DateTime.UtcNow
             };
             _context.AuctionTransactions.Add(transaction);
@@ -158,6 +159,7 @@ namespace eTPL.API.Controllers
                     Direction = "CREDIT",
                     Type = "SPECIAL_BONUS",
                     Description = $"Bonus Approved: {bonus.Reason}",
+                    BalanceAfter = wallet.AvailableBalance,
                     CreatedAt = DateTime.UtcNow
                 };
                 _context.AuctionTransactions.Add(transaction);

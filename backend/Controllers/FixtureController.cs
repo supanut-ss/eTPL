@@ -792,6 +792,16 @@ namespace eTPL.API.Controllers
                         {
                             wallet.AvailableBalance -= tx.Amount;
                             _db.AuctionUserWallets.Update(wallet);
+                            _db.AuctionTransactions.Add(new AuctionTransaction
+                            {
+                                UserId = homeUser.Id,
+                                Amount = tx.Amount,
+                                Direction = "DEBIT",
+                                Type = "BONUS_REVERT",
+                                Description = $"ย้อนคืน Bonus เดิม (รีเซ็ตผลการแข่งขัน tx #{tx.TransactionId}): {tx.Description}",
+                                BalanceAfter = wallet.AvailableBalance,
+                                CreatedAt = DateTime.UtcNow
+                            });
                         }
                         _db.AuctionTransactions.Remove(tx);
                     }
@@ -811,6 +821,16 @@ namespace eTPL.API.Controllers
                         {
                             wallet.AvailableBalance -= tx.Amount;
                             _db.AuctionUserWallets.Update(wallet);
+                            _db.AuctionTransactions.Add(new AuctionTransaction
+                            {
+                                UserId = awayUser.Id,
+                                Amount = tx.Amount,
+                                Direction = "DEBIT",
+                                Type = "BONUS_REVERT",
+                                Description = $"ย้อนคืน Bonus เดิม (รีเซ็ตผลการแข่งขัน tx #{tx.TransactionId}): {tx.Description}",
+                                BalanceAfter = wallet.AvailableBalance,
+                                CreatedAt = DateTime.UtcNow
+                            });
                         }
                         _db.AuctionTransactions.Remove(tx);
                     }

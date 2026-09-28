@@ -2376,10 +2376,16 @@ namespace eTPL.API.Services
                                 if (tx.Direction == "CREDIT")
                                 {
                                     wallet.AvailableBalance -= tx.Amount;
+                                    await RecordTransactionAsync(tx.UserId, tx.Amount, "DEBIT", "PRIZE_REVERT",
+                                        $"ย้อนคืนรายการเดิม (คำนวณใหม่จาก tx #{tx.TransactionId}): {tx.Description}",
+                                        wallet.AvailableBalance, relatedPlayerId: tx.RelatedPlayerId);
                                 }
                                 else if (tx.Direction == "DEBIT")
                                 {
                                     wallet.AvailableBalance += tx.Amount;
+                                    await RecordTransactionAsync(tx.UserId, tx.Amount, "CREDIT", "PRIZE_REVERT",
+                                        $"ย้อนคืนรายการเดิม (คำนวณใหม่จาก tx #{tx.TransactionId}): {tx.Description}",
+                                        wallet.AvailableBalance, relatedPlayerId: tx.RelatedPlayerId);
                                 }
                             }
                         }
@@ -3208,7 +3214,13 @@ namespace eTPL.API.Services
                 foreach (var tx in oldCupTxs)
                 {
                     var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == tx.UserId);
-                    if (wallet != null) wallet.AvailableBalance -= tx.Amount;
+                    if (wallet != null)
+                    {
+                        wallet.AvailableBalance -= tx.Amount;
+                        await RecordTransactionAsync(tx.UserId, tx.Amount, "DEBIT", "CUP_PRIZE_REVERT",
+                            $"ย้อนคืนรายการเดิม (คำนวณใหม่จาก tx #{tx.TransactionId}): {tx.Description}",
+                            wallet.AvailableBalance, relatedPlayerId: tx.RelatedPlayerId);
+                    }
                 }
                 _context.AuctionTransactions.RemoveRange(oldCupTxs);
             }

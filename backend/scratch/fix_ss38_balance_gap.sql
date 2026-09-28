@@ -1,73 +1,109 @@
 /* =========================================================================
    PURPOSE
-   Some users' AvailableBalance jumped by an amount with no matching logged
-   transaction, because a season-transition bug reverted their real SS38
-   CONTRACT_RENEWAL_AUTO charges (credited the money back) without ever
-   re-charging an equivalent SS38 amount. This script finds that gap per
-   user and re-applies it as a real, logged DEBIT transaction, so wallets
-   end up correct and the history stays complete.
+   The season-open bug reverted real SS38 CONTRACT_RENEWAL_AUTO charges
+   (credited the money back, deleted the transaction) without re-charging
+   an equivalent SS38 amount, then charged SS39 renewals fresh on top.
+   The incident happened during the season transition run overnight
+   between 2026-09-27 and 2026-09-28.
+
+   This checks, per user, the TRUE final balance of 2026-09-27 (reconciled -
+   see note below) against the FIRST transaction's BalanceAfter on
+   2026-09-28, and reports the gap.
+
+   "True final balance of the 27th" is NOT simply the last transaction's
+   BalanceAfter, because SPECIAL_BONUS transactions have a separate, known
+   logging bug (BonusController.cs never sets BalanceAfter, so it's always
+   stored as 0) even though wallet.AvailableBalance itself was updated
+   correctly at the time. So we walk back to the most recent NON-
+   SPECIAL_BONUS transaction (its BalanceAfter is trustworthy) and add back
+   the Amount/Direction of every SPECIAL_BONUS transaction since then, to
+   reconstruct the true end-of-day balance - without summing the user's
+   entire history (which would pull in unrelated noise from other,
+   unrelated transaction types elsewhere).
 
    HOW TO USE
-   1. Run STEP 1 (read-only). Review every row - each one is a point where
-      BalanceAfter didn't match what the previous transaction + this
-      transaction's own Amount would produce.
-   2. Only rows with Gap > 0 (money appeared) are auto-fixable by STEP 2.
-      Gap < 0 (money disappeared) needs manual investigation - do not
-      blindly apply STEP 2 if you see any negative gaps you haven't
-      explained yet.
-   3. Run STEP 2. It runs inside an explicit transaction and PRINTs what it
-      is about to change, then leaves the transaction OPEN.
-   4. Inspect the PRINT output and the #ss38_fix_preview temp table.
-      If it looks correct: COMMIT TRAN
-      If anything looks wrong: ROLLBACK TRAN
+   1. Run STEP 1 (read-only). Should show one row per affected user.
+   2. Run STEP 2 (wrapped in an explicit, uncommitted transaction).
+      Review the preview output.
+   3. COMMIT TRAN; if correct, or ROLLBACK TRAN; if not.
    ========================================================================= */
+
+DECLARE @BoundaryDate DATE = '2026-09-28';
 
 
 /* ---------------------------------------------------------------------
-   STEP 1: READ-ONLY DIAGNOSTIC - list every balance-continuity gap
+   STEP 1: READ-ONLY DIAGNOSTIC
    --------------------------------------------------------------------- */
-WITH ordered_tx AS (
-    SELECT
-        t.transaction_id,
-        t.UserId,
-        u.user_id AS Username,
-        t.Amount,
-        t.Direction,
-        t.Type,
-        t.BalanceAfter,
-        t.CreatedAt,
-        LAG(t.BalanceAfter) OVER (PARTITION BY t.UserId ORDER BY t.CreatedAt ASC, t.transaction_id ASC) AS PrevBalanceAfter,
-        LAG(t.transaction_id) OVER (PARTITION BY t.UserId ORDER BY t.CreatedAt ASC, t.transaction_id ASC) AS PrevTxId,
-        LAG(t.CreatedAt) OVER (PARTITION BY t.UserId ORDER BY t.CreatedAt ASC, t.transaction_id ASC) AS PrevCreatedAt
+WITH reliable_anchor AS (
+    SELECT t.*,
+        ROW_NUMBER() OVER (PARTITION BY t.UserId ORDER BY t.CreatedAt DESC, t.transaction_id DESC) AS rn
     FROM tbs_auction_transactions t
-    JOIN tbm_user u ON u.id = t.UserId
+    WHERE t.CreatedAt < @BoundaryDate AND t.Type <> 'SPECIAL_BONUS'
 ),
-expected AS (
-    SELECT *,
-        CASE
-            WHEN PrevBalanceAfter IS NULL THEN NULL
-            WHEN Type = 'AUCTION_WIN' THEN PrevBalanceAfter
-            WHEN Direction = 'DEBIT' THEN PrevBalanceAfter - Amount
-            WHEN Direction = 'CREDIT' THEN PrevBalanceAfter + Amount
-            ELSE PrevBalanceAfter
-        END AS ExpectedBalanceAfter
-    FROM ordered_tx
+anchor_only AS (
+    SELECT UserId, transaction_id AS AnchorTxId, BalanceAfter AS AnchorBalanceAfter, CreatedAt AS AnchorCreatedAt
+    FROM reliable_anchor WHERE rn = 1
+),
+catchup AS (
+    SELECT
+        d.UserId,
+        SUM(CASE
+            WHEN d.Type = 'AUCTION_WIN' THEN 0
+            WHEN d.Direction = 'DEBIT' THEN -d.Amount
+            WHEN d.Direction = 'CREDIT' THEN d.Amount
+            ELSE 0
+        END) AS CatchupDelta
+    FROM tbs_auction_transactions d
+    JOIN anchor_only a ON a.UserId = d.UserId
+    WHERE d.CreatedAt < @BoundaryDate
+      AND (d.CreatedAt > a.AnchorCreatedAt OR (d.CreatedAt = a.AnchorCreatedAt AND d.transaction_id > a.AnchorTxId))
+    GROUP BY d.UserId
+),
+true_last_27 AS (
+    SELECT
+        a.UserId,
+        a.AnchorBalanceAfter + ISNULL(c.CatchupDelta, 0) AS TrueLastBalanceAfter_27th
+    FROM anchor_only a
+    LEFT JOIN catchup c ON c.UserId = a.UserId
+),
+first_on_28 AS (
+    SELECT t.*,
+        ROW_NUMBER() OVER (PARTITION BY t.UserId ORDER BY t.CreatedAt ASC, t.transaction_id ASC) AS rn
+    FROM tbs_auction_transactions t
+    WHERE t.CreatedAt >= @BoundaryDate
 )
 SELECT
-    Username,
-    UserId,
-    BalanceAfter - ExpectedBalanceAfter AS Gap,
-    PrevTxId,
-    PrevBalanceAfter,
-    PrevCreatedAt,
-    transaction_id AS NextTxId,
-    Type AS NextType,
-    BalanceAfter AS NextBalanceAfter,
-    CreatedAt AS NextCreatedAt
-FROM expected
-WHERE ExpectedBalanceAfter IS NOT NULL
-  AND BalanceAfter <> ExpectedBalanceAfter
-ORDER BY Username, NextCreatedAt;
+    u.user_id AS Username,
+    f28.UserId,
+    tl.TrueLastBalanceAfter_27th,
+    f28.transaction_id AS FirstTxId_28th,
+    f28.Type AS FirstType_28th,
+    f28.Direction AS FirstDirection_28th,
+    f28.Amount AS FirstAmount_28th,
+    f28.BalanceAfter AS FirstBalanceAfter_28th,
+    CASE
+        WHEN f28.Type = 'AUCTION_WIN' THEN tl.TrueLastBalanceAfter_27th
+        WHEN f28.Direction = 'DEBIT' THEN tl.TrueLastBalanceAfter_27th - f28.Amount
+        WHEN f28.Direction = 'CREDIT' THEN tl.TrueLastBalanceAfter_27th + f28.Amount
+        ELSE tl.TrueLastBalanceAfter_27th
+    END AS ExpectedBalanceAfter_28th,
+    f28.BalanceAfter - (CASE
+        WHEN f28.Type = 'AUCTION_WIN' THEN tl.TrueLastBalanceAfter_27th
+        WHEN f28.Direction = 'DEBIT' THEN tl.TrueLastBalanceAfter_27th - f28.Amount
+        WHEN f28.Direction = 'CREDIT' THEN tl.TrueLastBalanceAfter_27th + f28.Amount
+        ELSE tl.TrueLastBalanceAfter_27th
+    END) AS Gap
+FROM first_on_28 f28
+JOIN true_last_27 tl ON tl.UserId = f28.UserId
+JOIN tbm_user u ON u.id = f28.UserId
+WHERE f28.rn = 1
+  AND f28.BalanceAfter <> (CASE
+        WHEN f28.Type = 'AUCTION_WIN' THEN tl.TrueLastBalanceAfter_27th
+        WHEN f28.Direction = 'DEBIT' THEN tl.TrueLastBalanceAfter_27th - f28.Amount
+        WHEN f28.Direction = 'CREDIT' THEN tl.TrueLastBalanceAfter_27th + f28.Amount
+        ELSE tl.TrueLastBalanceAfter_27th
+    END)
+ORDER BY Username;
 
 
 /* ---------------------------------------------------------------------
@@ -76,47 +112,70 @@ ORDER BY Username, NextCreatedAt;
    --------------------------------------------------------------------- */
 BEGIN TRAN;
 
-WITH ordered_tx AS (
-    SELECT
-        t.transaction_id,
-        t.UserId,
-        t.Amount,
-        t.Direction,
-        t.Type,
-        t.BalanceAfter,
-        t.CreatedAt,
-        LAG(t.BalanceAfter) OVER (PARTITION BY t.UserId ORDER BY t.CreatedAt ASC, t.transaction_id ASC) AS PrevBalanceAfter
+DECLARE @BoundaryDate2 DATE = '2026-09-28';
+
+WITH reliable_anchor AS (
+    SELECT t.*,
+        ROW_NUMBER() OVER (PARTITION BY t.UserId ORDER BY t.CreatedAt DESC, t.transaction_id DESC) AS rn
     FROM tbs_auction_transactions t
+    WHERE t.CreatedAt < @BoundaryDate2 AND t.Type <> 'SPECIAL_BONUS'
 ),
-expected AS (
-    SELECT *,
-        CASE
-            WHEN PrevBalanceAfter IS NULL THEN NULL
-            WHEN Type = 'AUCTION_WIN' THEN PrevBalanceAfter
-            WHEN Direction = 'DEBIT' THEN PrevBalanceAfter - Amount
-            WHEN Direction = 'CREDIT' THEN PrevBalanceAfter + Amount
-            ELSE PrevBalanceAfter
-        END AS ExpectedBalanceAfter
-    FROM ordered_tx
+anchor_only AS (
+    SELECT UserId, transaction_id AS AnchorTxId, BalanceAfter AS AnchorBalanceAfter, CreatedAt AS AnchorCreatedAt
+    FROM reliable_anchor WHERE rn = 1
 ),
-gaps_per_user AS (
-    SELECT UserId, SUM(BalanceAfter - ExpectedBalanceAfter) AS GapSum
-    FROM expected
-    WHERE ExpectedBalanceAfter IS NOT NULL
-      AND BalanceAfter > ExpectedBalanceAfter   -- only positive gaps; negative gaps are skipped on purpose
-    GROUP BY UserId
+catchup AS (
+    SELECT
+        d.UserId,
+        SUM(CASE
+            WHEN d.Type = 'AUCTION_WIN' THEN 0
+            WHEN d.Direction = 'DEBIT' THEN -d.Amount
+            WHEN d.Direction = 'CREDIT' THEN d.Amount
+            ELSE 0
+        END) AS CatchupDelta
+    FROM tbs_auction_transactions d
+    JOIN anchor_only a ON a.UserId = d.UserId
+    WHERE d.CreatedAt < @BoundaryDate2
+      AND (d.CreatedAt > a.AnchorCreatedAt OR (d.CreatedAt = a.AnchorCreatedAt AND d.transaction_id > a.AnchorTxId))
+    GROUP BY d.UserId
+),
+true_last_27 AS (
+    SELECT
+        a.UserId,
+        a.AnchorBalanceAfter + ISNULL(c.CatchupDelta, 0) AS TrueLastBalanceAfter_27th
+    FROM anchor_only a
+    LEFT JOIN catchup c ON c.UserId = a.UserId
+),
+first_on_28 AS (
+    SELECT t.*,
+        ROW_NUMBER() OVER (PARTITION BY t.UserId ORDER BY t.CreatedAt ASC, t.transaction_id ASC) AS rn
+    FROM tbs_auction_transactions t
+    WHERE t.CreatedAt >= @BoundaryDate2
+),
+gaps AS (
+    SELECT
+        f28.UserId,
+        f28.BalanceAfter - (CASE
+            WHEN f28.Type = 'AUCTION_WIN' THEN tl.TrueLastBalanceAfter_27th
+            WHEN f28.Direction = 'DEBIT' THEN tl.TrueLastBalanceAfter_27th - f28.Amount
+            WHEN f28.Direction = 'CREDIT' THEN tl.TrueLastBalanceAfter_27th + f28.Amount
+            ELSE tl.TrueLastBalanceAfter_27th
+        END) AS Gap
+    FROM first_on_28 f28
+    JOIN true_last_27 tl ON tl.UserId = f28.UserId
+    WHERE f28.rn = 1
 )
 SELECT
     g.UserId,
     u.user_id AS Username,
-    g.GapSum,
+    g.Gap AS GapSum,
     w.AvailableBalance AS CurrentBalance,
-    w.AvailableBalance - g.GapSum AS NewBalance
+    w.AvailableBalance - g.Gap AS NewBalance
 INTO #ss38_fix_preview
-FROM gaps_per_user g
+FROM gaps g
 JOIN tbm_user u ON u.id = g.UserId
 JOIN tbs_auction_user_wallet w ON w.UserId = g.UserId
-WHERE g.GapSum > 0;
+WHERE g.Gap > 0;
 
 -- Review this before deciding COMMIT or ROLLBACK:
 SELECT * FROM #ss38_fix_preview ORDER BY Username;
