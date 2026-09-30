@@ -9,6 +9,7 @@ using HtmlAgilityPack;
 using System.Net.Http;
 using eTPL.API.Hubs;
 using Microsoft.AspNetCore.SignalR;
+using eTPL.API.Services;
 
 namespace eTPL.API.Controllers
 {
@@ -41,6 +42,23 @@ namespace eTPL.API.Controllers
                 .Select(u => new { u.Id, u.UserId, u.LineName, u.LinePic, u.CurrentTeam })
                 .ToListAsync();
             return Ok(users);
+        }
+
+        [HttpGet("players/search")]
+        public async Task<IActionResult> SearchPlayersByName([FromQuery] string name)
+        {
+            if (string.IsNullOrWhiteSpace(name) || name.Trim().Length < 2)
+                return Ok(new List<object>());
+
+            var term = name.Trim();
+            var players = await _context.PesPlayerTeams
+                .Where(p => p.PlayerName.Contains(term))
+                .OrderBy(p => p.PlayerName)
+                .Take(20)
+                .Select(p => new { p.IdPlayer, p.PlayerName, p.TeamName, p.PlayerOvr })
+                .ToListAsync();
+
+            return Ok(players);
         }
 
         [HttpPost("scrape-player/{id}")]
@@ -929,6 +947,167 @@ namespace eTPL.API.Controllers
             {
                 return StatusCode(500, new { message = "Error cancelling auction: " + ex.Message });
             }
+        }
+
+        /// <summary>
+        /// Fully removes a player who no longer exists in the game: cancels any active
+        /// auction (refunding bidders), releases them from every squad that owns them
+        /// (refunding PricePaid like a FREE_RELEASE), deletes their historical
+        /// auction/bid-log/favourites rows, clears the dangling reference on existing
+        /// transactions (the transactions themselves are kept), then deletes the player.
+        /// </summary>
+        [HttpPost("players/{playerId}/remove-from-game")]
+        public async Task<IActionResult> RemovePlayerFromGame(int playerId)
+        {
+            var player = await _context.PesPlayerTeams.FirstOrDefaultAsync(p => p.IdPlayer == playerId);
+            if (player == null) return NotFound(new { message = "Player not found" });
+
+            var strategy = _context.Database.CreateExecutionStrategy();
+            try
+            {
+                await strategy.ExecuteAsync(async () =>
+                {
+                    using var transaction = await _context.Database.BeginTransactionAsync();
+                    try
+                    {
+                        var auctions = await _context.AuctionBoards
+                            .Where(a => a.PlayerId == playerId)
+                            .ToListAsync();
+
+                        foreach (var auction in auctions)
+                        {
+                            if (auction.DbStatus == "Active")
+                            {
+                                await AuctionLockHelper.AcquireFinalizeLockAsync(_context.Database, auction.AuctionId);
+
+                                var finalBids = await _context.AuctionBidLogs
+                                    .Where(l => l.AuctionId == auction.AuctionId && l.Phase == "Final")
+                                    .ToListAsync();
+
+                                if (finalBids.Any())
+                                {
+                                    var uniqueFinalBidders = finalBids
+                                        .GroupBy(b => b.UserId)
+                                        .Select(g => g.OrderByDescending(b => b.BidAmount).First())
+                                        .ToList();
+
+                                    foreach (var bid in uniqueFinalBidders)
+                                    {
+                                        var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == bid.UserId);
+                                        if (wallet != null)
+                                        {
+                                            wallet.AvailableBalance += bid.BidAmount;
+                                            wallet.ReservedBalance -= bid.BidAmount;
+                                            _context.AuctionTransactions.Add(new AuctionTransaction
+                                            {
+                                                UserId = bid.UserId,
+                                                Amount = bid.BidAmount,
+                                                Direction = "CREDIT",
+                                                Type = "FINAL_BID_REFUND",
+                                                Description = $"[Player Removed] คืนเงินจากการยกเลิกประมูล {player.PlayerName}",
+                                                BalanceAfter = wallet.AvailableBalance,
+                                                RelatedAuctionId = auction.AuctionId,
+                                                RelatedPlayerId = playerId,
+                                                CreatedAt = DateTime.UtcNow
+                                            });
+                                        }
+                                    }
+                                }
+                                else if (auction.HighestBidderId.HasValue)
+                                {
+                                    var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == auction.HighestBidderId.Value);
+                                    if (wallet != null)
+                                    {
+                                        wallet.AvailableBalance += auction.CurrentPrice;
+                                        wallet.ReservedBalance -= auction.CurrentPrice;
+                                        _context.AuctionTransactions.Add(new AuctionTransaction
+                                        {
+                                            UserId = auction.HighestBidderId.Value,
+                                            Amount = auction.CurrentPrice,
+                                            Direction = "CREDIT",
+                                            Type = "AUCTION_REFUND",
+                                            Description = $"[Player Removed] คืนเงินจากการยกเลิกประมูล {player.PlayerName}",
+                                            BalanceAfter = wallet.AvailableBalance,
+                                            RelatedAuctionId = auction.AuctionId,
+                                            RelatedPlayerId = playerId,
+                                            CreatedAt = DateTime.UtcNow
+                                        });
+                                    }
+                                }
+
+                                auction.DbStatus = "Cancelled";
+                            }
+                        }
+
+                        await _context.SaveChangesAsync();
+
+                        // Release from every squad that owns this player, refunding PricePaid
+                        var squadRecords = await _context.AuctionSquads
+                            .Where(s => s.PlayerId == playerId)
+                            .ToListAsync();
+
+                        foreach (var squad in squadRecords)
+                        {
+                            var wallet = await _context.AuctionUserWallets.FirstOrDefaultAsync(w => w.UserId == squad.UserId);
+                            if (wallet != null)
+                            {
+                                wallet.AvailableBalance += squad.PricePaid;
+                                _context.AuctionTransactions.Add(new AuctionTransaction
+                                {
+                                    UserId = squad.UserId,
+                                    Amount = squad.PricePaid,
+                                    Direction = "CREDIT",
+                                    Type = "FREE_RELEASE",
+                                    Description = $"ปล่อย {player.PlayerName} (นักเตะถูกลบออกจากระบบ)",
+                                    BalanceAfter = wallet.AvailableBalance,
+                                    RelatedPlayerId = playerId,
+                                    CreatedAt = DateTime.UtcNow
+                                });
+                            }
+
+                            var relatedOffers = await _context.TransferOffers.Where(o => o.SquadId == squad.SquadId).ToListAsync();
+                            if (relatedOffers.Any()) _context.TransferOffers.RemoveRange(relatedOffers);
+                        }
+                        if (squadRecords.Any()) _context.AuctionSquads.RemoveRange(squadRecords);
+
+                        await _context.SaveChangesAsync();
+
+                        // Delete historical bid logs, auction boards, and favourites for this player
+                        var auctionIds = auctions.Select(a => a.AuctionId).ToList();
+                        var bidLogs = await _context.AuctionBidLogs.Where(l => auctionIds.Contains(l.AuctionId)).ToListAsync();
+                        if (bidLogs.Any()) _context.AuctionBidLogs.RemoveRange(bidLogs);
+
+                        _context.AuctionBoards.RemoveRange(auctions);
+
+                        var favourites = await _context.AuctionFavourites.Where(f => f.PlayerId == playerId).ToListAsync();
+                        if (favourites.Any()) _context.AuctionFavourites.RemoveRange(favourites);
+
+                        await _context.SaveChangesAsync();
+
+                        // Keep transaction history, just clear the dangling player reference
+                        await _context.Database.ExecuteSqlInterpolatedAsync(
+                            $"UPDATE tbs_auction_transactions SET RelatedPlayerId = NULL WHERE RelatedPlayerId = {playerId}");
+
+                        _context.PesPlayerTeams.Remove(player);
+                        await _context.SaveChangesAsync();
+
+                        await transaction.CommitAsync();
+                    }
+                    catch
+                    {
+                        try { await transaction.RollbackAsync(); } catch { }
+                        throw;
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error removing player: " + ex.Message });
+            }
+
+            await _hubContext.Clients.All.SendCoreAsync("AuctionUpdated", new object[] { new { removedPlayerId = playerId } });
+
+            return Ok(new { message = $"ลบ {player.PlayerName} ออกจากระบบสำเร็จ" });
         }
 
         [HttpPost("auctions/{auctionId}/adjust-price")]

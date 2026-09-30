@@ -78,6 +78,14 @@ const AdminDataPage = () => {
   const [importMode, setImportMode] = useState("auto"); // "auto" or "manual"
   const [pastedHtml, setPastedHtml] = useState("");
 
+  // --- Remove Player From Game ---
+  const [removePlayerModalOpen, setRemovePlayerModalOpen] = useState(false);
+  const [removePlayerSearch, setRemovePlayerSearch] = useState("");
+  const [removePlayerResults, setRemovePlayerResults] = useState([]);
+  const [removePlayerSearching, setRemovePlayerSearching] = useState(false);
+  const [removePlayerTarget, setRemovePlayerTarget] = useState(null); // player pending confirmation
+  const [removingPlayerId, setRemovingPlayerId] = useState(null);
+
   const [users, setUsers] = useState([]);
   const [hofData, setHofData] = useState({
     platform: "PC",
@@ -364,6 +372,39 @@ const AdminDataPage = () => {
       enqueueSnackbar(err.response?.data?.message || "Scraping failed", { variant: "error" });
     } finally {
       setScraping(false);
+    }
+  };
+
+  const handleSearchPlayersToRemove = async (term) => {
+    setRemovePlayerSearch(term);
+    if (!term || term.trim().length < 2) {
+      setRemovePlayerResults([]);
+      return;
+    }
+    try {
+      setRemovePlayerSearching(true);
+      const res = await adminService.searchPlayersByName(term.trim());
+      setRemovePlayerResults(res.data || []);
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || "ค้นหานักเตะไม่สำเร็จ", { variant: "error" });
+    } finally {
+      setRemovePlayerSearching(false);
+    }
+  };
+
+  const handleConfirmRemovePlayer = async () => {
+    if (!removePlayerTarget) return;
+    const { idPlayer, playerName } = removePlayerTarget;
+    try {
+      setRemovingPlayerId(idPlayer);
+      await adminService.removePlayerFromGame(idPlayer);
+      enqueueSnackbar(`ลบ ${playerName} ออกจากระบบสำเร็จ (คืนเงินให้ผู้เกี่ยวข้องแล้ว)`, { variant: "success" });
+      setRemovePlayerResults((prev) => prev.filter((p) => p.idPlayer !== idPlayer));
+      setRemovePlayerTarget(null);
+    } catch (err) {
+      enqueueSnackbar(err.response?.data?.message || "ลบนักเตะไม่สำเร็จ", { variant: "error" });
+    } finally {
+      setRemovingPlayerId(null);
     }
   };
 
@@ -753,9 +794,20 @@ const AdminDataPage = () => {
                   <CloudDownload color="primary" sx={{ fontSize: 28 }} />
                   <Typography variant="h6" fontWeight="bold">Add New Player</Typography>
                 </Box>
-                <Box sx={{ display: "flex", bgcolor: "action.hover", p: 0.5, borderRadius: 2 }}>
-                  <Button size="small" variant={importMode === "auto" ? "contained" : "text"} onClick={() => setImportMode("auto")} disableElevation sx={{ borderRadius: 1.5, textTransform: 'none', px: 2 }}>Auto</Button>
-                  <Button size="small" variant={importMode === "manual" ? "contained" : "text"} onClick={() => setImportMode("manual")} disableElevation sx={{ borderRadius: 1.5, textTransform: 'none', px: 2 }}>Manual</Button>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Button
+                    size="small"
+                    color="error"
+                    variant="outlined"
+                    onClick={() => setRemovePlayerModalOpen(true)}
+                    sx={{ borderRadius: 1.5, textTransform: 'none' }}
+                  >
+                    ลบนักเตะออกจากระบบ
+                  </Button>
+                  <Box sx={{ display: "flex", bgcolor: "action.hover", p: 0.5, borderRadius: 2 }}>
+                    <Button size="small" variant={importMode === "auto" ? "contained" : "text"} onClick={() => setImportMode("auto")} disableElevation sx={{ borderRadius: 1.5, textTransform: 'none', px: 2 }}>Auto</Button>
+                    <Button size="small" variant={importMode === "manual" ? "contained" : "text"} onClick={() => setImportMode("manual")} disableElevation sx={{ borderRadius: 1.5, textTransform: 'none', px: 2 }}>Manual</Button>
+                  </Box>
                 </Box>
               </Box>
               <Divider />
@@ -1127,6 +1179,107 @@ const AdminDataPage = () => {
           <Button variant="contained" color="warning" onClick={handleApproveBonus}>
             {modalMode === "approve_all" ? "Approve All" : "Approve & Pay"}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={removePlayerModalOpen}
+        onClose={() => {
+          setRemovePlayerModalOpen(false);
+          setRemovePlayerSearch("");
+          setRemovePlayerResults([]);
+          setRemovePlayerTarget(null);
+        }}
+        fullWidth
+        maxWidth="sm"
+        fullScreen={isMobile}
+      >
+        <DialogTitle sx={{ fontWeight: 'bold', borderBottom: '1px solid #eee' }}>ลบนักเตะออกจากระบบ</DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            พิมพ์ชื่อนักเตะเพื่อค้นหา ระบบจะยกเลิกการประมูลที่ยัง Active, เอาออกจากทีมที่ถือครองอยู่ พร้อมคืนเงินให้ผู้เกี่ยวข้องอัตโนมัติ ก่อนลบข้อมูลนักเตะออกจากระบบ
+          </Typography>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="พิมพ์ชื่อนักเตะอย่างน้อย 2 ตัวอักษร..."
+            value={removePlayerSearch}
+            onChange={(e) => handleSearchPlayersToRemove(e.target.value)}
+            InputProps={{
+              endAdornment: removePlayerSearching ? (
+                <InputAdornment position="end"><CircularProgress size={18} /></InputAdornment>
+              ) : (
+                <InputAdornment position="end"><Search sx={{ fontSize: 20, color: 'text.disabled' }} /></InputAdornment>
+              )
+            }}
+          />
+
+          <Box sx={{ mt: 2, maxHeight: 360, overflowY: 'auto' }}>
+            {removePlayerResults.length === 0 && !removePlayerSearching && removePlayerSearch.trim().length >= 2 && (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+                ไม่พบนักเตะที่ตรงกับ "{removePlayerSearch}"
+              </Typography>
+            )}
+            {removePlayerResults.map((p) => (
+              <Box
+                key={p.idPlayer}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  py: 1.2,
+                  px: 1,
+                  borderBottom: '1px solid #f0f0f0',
+                }}
+              >
+                {removePlayerTarget?.idPlayer === p.idPlayer ? (
+                  <>
+                    <Typography variant="body2" color="error.main" fontWeight="bold">
+                      ยืนยันลบ "{p.playerName}"? เงินที่เกี่ยวข้องจะถูกคืนอัตโนมัติ
+                    </Typography>
+                    <Stack direction="row" spacing={1}>
+                      <Button size="small" onClick={() => setRemovePlayerTarget(null)} disabled={removingPlayerId === p.idPlayer}>ยกเลิก</Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="error"
+                        onClick={handleConfirmRemovePlayer}
+                        disabled={removingPlayerId === p.idPlayer}
+                      >
+                        {removingPlayerId === p.idPlayer ? <CircularProgress size={16} color="inherit" /> : "ยืนยันลบ"}
+                      </Button>
+                    </Stack>
+                  </>
+                ) : (
+                  <>
+                    <Box>
+                      <Typography variant="body2" fontWeight="bold">{p.playerName}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {p.teamName || "-"} · OVR {p.playerOvr} · ID {p.idPlayer}
+                      </Typography>
+                    </Box>
+                    <Button
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      sx={{ textTransform: 'none' }}
+                      onClick={() => setRemovePlayerTarget(p)}
+                    >
+                      ลบ
+                    </Button>
+                  </>
+                )}
+              </Box>
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => {
+            setRemovePlayerModalOpen(false);
+            setRemovePlayerSearch("");
+            setRemovePlayerResults([]);
+            setRemovePlayerTarget(null);
+          }}>ปิด</Button>
         </DialogActions>
       </Dialog>
 
