@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using eTPL.API.Data;
 using eTPL.API.Models.Auction;
+using eTPL.API.Services;
 
 namespace eTPL.API.Controllers
 {
@@ -85,7 +86,7 @@ namespace eTPL.API.Controllers
                 _context.AuctionUserWallets.Add(wallet);
             }
 
-            wallet.AvailableBalance += bonus.Amount;
+            string debtNote = WalletDebtHelper.ApplyBonusWithDebtRepayment(wallet, bonus.Amount);
 
             // Log transaction
             var transaction = new AuctionTransaction
@@ -94,7 +95,7 @@ namespace eTPL.API.Controllers
                 Amount = bonus.Amount,
                 Direction = "CREDIT",
                 Type = "SPECIAL_BONUS",
-                Description = $"Bonus Approved: {bonus.Reason}",
+                Description = $"Bonus Approved: {bonus.Reason}{debtNote}",
                 BalanceAfter = wallet.AvailableBalance,
                 CreatedAt = DateTime.UtcNow
             };
@@ -149,7 +150,7 @@ namespace eTPL.API.Controllers
                     _context.AuctionUserWallets.Add(wallet);
                 }
 
-                wallet.AvailableBalance += bonus.Amount;
+                string debtNote = WalletDebtHelper.ApplyBonusWithDebtRepayment(wallet, bonus.Amount);
 
                 // Log transaction
                 var transaction = new AuctionTransaction
@@ -158,7 +159,7 @@ namespace eTPL.API.Controllers
                     Amount = bonus.Amount,
                     Direction = "CREDIT",
                     Type = "SPECIAL_BONUS",
-                    Description = $"Bonus Approved: {bonus.Reason}",
+                    Description = $"Bonus Approved: {bonus.Reason}{debtNote}",
                     BalanceAfter = wallet.AvailableBalance,
                     CreatedAt = DateTime.UtcNow
                 };

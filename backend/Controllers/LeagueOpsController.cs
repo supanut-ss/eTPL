@@ -13,6 +13,7 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 using System;
 using System.Text.Json;
+using eTPL.API.Services;
 using eTPL.API.Models.Auction;
 
 using eTPL.API.Models;
@@ -678,7 +679,7 @@ namespace eTPL.API.Controllers
                                     await _context.SaveChangesAsync(); // generate WalletId
                                 }
 
-                                wallet.AvailableBalance += bonusAmount;
+                                string debtNote = WalletDebtHelper.ApplyBonusWithDebtRepayment(wallet, bonusAmount);
 
                                 var tx = new AuctionTransaction
                                 {
@@ -686,7 +687,7 @@ namespace eTPL.API.Controllers
                                     Amount = bonusAmount,
                                     Direction = "CREDIT",
                                     Type = "CYCLE_BONUS",
-                                    Description = $"Cycle End Bonus (Cycle {cycleId}) - {stat.tier ?? "UNKNOWN"}",
+                                    Description = $"Cycle End Bonus (Cycle {cycleId}) - {stat.tier ?? "UNKNOWN"}{debtNote}",
                                     BalanceAfter = wallet.AvailableBalance,
                                     CreatedAt = DateTime.UtcNow
                                 };
@@ -887,7 +888,7 @@ namespace eTPL.API.Controllers
                                     await _context.SaveChangesAsync(); // generate WalletId
                                 }
 
-                                wallet.AvailableBalance += bonusAmount;
+                                string debtNote = WalletDebtHelper.ApplyBonusWithDebtRepayment(wallet, bonusAmount);
 
                                 var tx = new AuctionTransaction
                                 {
@@ -895,7 +896,7 @@ namespace eTPL.API.Controllers
                                     Amount = bonusAmount,
                                     Direction = "CREDIT",
                                     Type = "CYCLE_BONUS",
-                                    Description = $"Cycle End Bonus (Cycle {cycleId}) - {stat.tier ?? "UNKNOWN"}",
+                                    Description = $"Cycle End Bonus (Cycle {cycleId}) - {stat.tier ?? "UNKNOWN"}{debtNote}",
                                     BalanceAfter = wallet.AvailableBalance,
                                     CreatedAt = DateTime.UtcNow
                                 };
