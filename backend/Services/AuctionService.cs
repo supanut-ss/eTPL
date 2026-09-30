@@ -364,6 +364,8 @@ namespace eTPL.API.Services
                         using var transaction = await _context.Database.BeginTransactionAsync();
                         try
                         {
+                            await AcquireAuctionFinalizeLockAsync(auction.AuctionId);
+
                             bool updatedAny = false;
                             foreach (var kvp in refunds)
                             {
@@ -1131,6 +1133,8 @@ namespace eTPL.API.Services
 
         private async Task ExecuteConfirmAuctionInternalAsync(AuctionBoard auction, int winnerId, int winningPrice, List<AuctionBidLog> finalBids, bool isAutoConfirm = false)
         {
+            await AcquireAuctionFinalizeLockAsync(auction.AuctionId);
+
             var playerName2 = auction.Player?.PlayerName ?? "";
             var refunds = new Dictionary<int, int>();
 
@@ -1467,6 +1471,25 @@ namespace eTPL.API.Services
         }
 
         // ─── Transaction helper ──────────────────────────────────────────────────
+
+        // Serializes concurrent finalization/refund attempts on the same auction across requests,
+        // background sweeps, and app instances (sp_getapplock is server-side, not just in-process).
+        // Must be called after BeginTransactionAsync() on the same connection - the lock is held
+        // for @LockOwner='Transaction' and releases automatically on commit or rollback.
+        private async Task AcquireAuctionFinalizeLockAsync(int auctionId)
+        {
+            var resource = $"auction_finalize_{auctionId}";
+            var result = await _context.Database
+                .SqlQueryRaw<int>(
+                    "DECLARE @result int; EXEC @result = sp_getapplock @Resource = {0}, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 15000; SELECT @result;",
+                    resource)
+                .FirstOrDefaultAsync();
+
+            if (result < 0)
+            {
+                throw new Exception($"ไม่สามารถล็อกการประมวลผล auction #{auctionId} ได้ (กำลังถูกประมวลผลจากที่อื่นพร้อมกัน, code={result})");
+            }
+        }
 
         private async Task RecordTransactionAsync(int userId, int amount, string direction, string type, string description, int balanceAfter, int? relatedAuctionId = null, int? relatedPlayerId = null)
         {
