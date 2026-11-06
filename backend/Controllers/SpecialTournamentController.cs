@@ -495,10 +495,7 @@ namespace eTPL.API.Controllers
                 .Where(m => m.TournamentId == id && m.Phase == "group")
                 .ToListAsync();
 
-            // Check all group matches are played
-            var unplayed = allMatches.Where(m => !m.IsPlayed).Count();
-            if (unplayed > 0)
-                return BadRequest(new { message = $"ยังมีแมตช์กลุ่มที่ยังไม่แข่ง {unplayed} นัด" });
+            // Admin may advance before all group matches are played; standings use played matches only
 
             var participants = await _context.SpecialParticipants
                 .Where(p => p.TournamentId == id)
@@ -514,7 +511,7 @@ namespace eTPL.API.Controllers
                 var standings = groupParticipants.Select(p =>
                 {
                     int w = 0, d = 0, l = 0, gf = 0, ga = 0;
-                    foreach (var m in groupMatches)
+                    foreach (var m in groupMatches.Where(x => x.IsPlayed))
                     {
                         bool isHome = m.HomeParticipantId == p.Id;
                         bool isAway = m.AwayParticipantId == p.Id;
