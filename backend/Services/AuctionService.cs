@@ -1365,6 +1365,15 @@ namespace eTPL.API.Services
                 .GroupBy(b => b.PlayerId)
                 .ToDictionary(g => g.Key, g => g.First().CurrentPrice);
 
+            // Latest sold auction price per squad player (any bidder) for release base price
+            var squadPlayerIds = squad.Select(s => s.PlayerId).ToList();
+            var latestSoldRaw = await _context.AuctionBoards
+                .Where(b => squadPlayerIds.Contains(b.PlayerId) && b.DbStatus == "Sold")
+                .ToListAsync();
+            var latestSoldPrice = latestSoldRaw
+                .GroupBy(b => b.PlayerId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(b => b.AuctionId).First().CurrentPrice);
+
             var quotas = await _context.AuctionGradeQuotas.ToListAsync();
             var gradeE = quotas.FirstOrDefault(q => q.GradeName == "E");
             int lowestPriceForReserve = (gradeE?.MinOVR ?? 65) + 1;
@@ -1397,6 +1406,10 @@ namespace eTPL.API.Services
                     PricePaid = (s.PricePaid == 0) && soldBoards.ContainsKey(s.PlayerId) 
                                 ? soldBoards[s.PlayerId] 
                                 : s.PricePaid,
+                    ReleaseBasePrice = ComputeReleaseBasePrice(
+                        s.PricePaid,
+                        s.Player?.PlayerOvr ?? 0,
+                        latestSoldPrice.TryGetValue(s.PlayerId, out var lp) ? lp : (int?)null),
                     AcquiredAt = s.AcquiredAt,
                     SeasonsWithTeam = s.SeasonsWithTeam,
                     IsLoan = s.IsLoan,
@@ -1575,19 +1588,15 @@ namespace eTPL.API.Services
                 .OrderByDescending(b => b.AuctionId)
                 .FirstOrDefaultAsync();
 
-            int latestAuctionPrice = latestSoldAuction?.CurrentPrice ?? playerOvr;
+            return ComputeReleaseBasePrice(pricePaid, playerOvr, latestSoldAuction?.CurrentPrice);
+        }
 
-            // 1. ถ้าราคาต่ำกว่า OVR ให้คืนตาม OVR
-            if (pricePaid < playerOvr)
-            {
-                return playerOvr;
-            }
-            // 2. ถ้าราคาเกินราคาประมูลก่อนการซื้อขาย คิดแค่ราคาประมูลล่าสุด ไม่ว่าจะผ่านมาแล้วกี่คนก็ตาม
-            if (pricePaid > latestAuctionPrice)
-            {
-                return latestAuctionPrice;
-            }
-            // 3. นอกเหนือจากนี้คิดราคาตามจริง
+        // Single source of truth for release base price (used by release logic and squad DTO)
+        private static int ComputeReleaseBasePrice(int pricePaid, int playerOvr, int? latestAuctionPrice)
+        {
+            int latest = latestAuctionPrice ?? playerOvr;
+            if (pricePaid < playerOvr) return playerOvr;   // below OVR -> refund by OVR
+            if (pricePaid > latest) return latest;         // trade price above last auction -> cap at auction price
             return pricePaid;
         }
 

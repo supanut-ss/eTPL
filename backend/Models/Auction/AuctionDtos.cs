@@ -71,6 +71,8 @@ namespace eTPL.API.Models.Auction
         public string? Position { get; set; }
         public string ImageUrl => $"https://pesdb.net/assets/img/card/f{PlayerId}.png";
         public int? PricePaid { get; set; }
+        // Base price used by the backend for release refunds (same rule as GetBaseReleasePriceAsync)
+        public int? ReleaseBasePrice { get; set; }
         public DateTime? AcquiredAt { get; set; }
         public int SeasonsWithTeam { get; set; }
         public bool IsLoan { get; set; }

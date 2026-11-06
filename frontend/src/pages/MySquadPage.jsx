@@ -336,8 +336,8 @@ const MySquadPage = () => {
       });
       
       const releasePercent = q?.releasePercent ?? q?.ReleasePercent ?? 0;
-      const basePrice = Math.max(playerToRelease.pricePaid || 0, playerToRelease.playerOvr || 0);
-      const refund = Math.floor(basePrice * releasePercent / 100);
+      const basePrice = playerToRelease.releaseBasePrice ?? Math.max(playerToRelease.pricePaid || 0, playerToRelease.playerOvr || 0);
+      const refund = Math.round(basePrice * releasePercent / 100);
       const targetSquadId = playerToRelease.squadId;
       await auctionService.releasePlayer(targetSquadId, refund);
       enqueueSnackbar(`Player released. Refunded ${refund.toLocaleString()} TP.`, { variant: "success" });
@@ -2133,7 +2133,7 @@ const MySquadPage = () => {
           <Box sx={{ mt: 3, p: 2, borderRadius: 2, bgcolor: '#f8fafc', border: '1px dashed #e2e8f0' }}>
             <Box display="flex" justifyContent="space-between" mb={1}>
               <Typography variant="caption" color="text.secondary">Base Price (Paid vs OVR):</Typography>
-              <Typography variant="caption" fontWeight="bold">{Math.max(playerToRelease?.pricePaid || 0, playerToRelease?.playerOvr || 0).toLocaleString()} TP</Typography>
+              <Typography variant="caption" fontWeight="bold">{(playerToRelease?.releaseBasePrice ?? Math.max(playerToRelease?.pricePaid || 0, playerToRelease?.playerOvr || 0)).toLocaleString()} TP</Typography>
             </Box>
             <Box display="flex" justifyContent="space-between" mb={1}>
               <Typography variant="caption" color="text.secondary">Release Refund %:</Typography>
@@ -2159,8 +2159,8 @@ const MySquadPage = () => {
                     return playerToRelease?.playerOvr >= min && playerToRelease?.playerOvr <= max;
                   });
                   const rate = q?.releasePercent ?? q?.ReleasePercent ?? 0;
-                  const basePrice = Math.max(playerToRelease?.pricePaid || 0, playerToRelease?.playerOvr || 0);
-                  return Math.floor(basePrice * rate / 100).toLocaleString();
+                  const basePrice = playerToRelease?.releaseBasePrice ?? Math.max(playerToRelease?.pricePaid || 0, playerToRelease?.playerOvr || 0);
+                  return Math.round(basePrice * rate / 100).toLocaleString();
                 })()} TP
               </Typography>
             </Box>
