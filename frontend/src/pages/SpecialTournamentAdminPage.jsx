@@ -807,7 +807,8 @@ const SpecialTournamentAdminPage = () => {
                                 <Box sx={{ p: 1.5 }}>
                                   <Typography variant="caption" color="text.secondary" fontWeight={600} display="block" mb={1}>Group Matches</Typography>
                                   {groupMatches.map(m => {
-                                    const canReport = matchHasBothParticipants(m);
+                                    const knockoutStarted = detail.matches.some(x => x.phase === "knockout");
+                                    const canReport = matchHasBothParticipants(m) && !knockoutStarted;
                                     return (
                                       <Box key={m.id} sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", py: 0.75, px: 1, borderRadius: 1.5, mb: 0.5, bgcolor: m.isPlayed ? "rgba(16,185,129,0.04)" : "rgba(248,250,252,1)", border: "1px solid", borderColor: m.isPlayed ? "rgba(16,185,129,0.15)" : "divider" }}>
                                         <Typography variant="caption" fontWeight={600} sx={{ flex: 1, textAlign: "right", mr: 1 }} noWrap>{m.homeDisplayName || "TBD"}</Typography>
@@ -817,7 +818,7 @@ const SpecialTournamentAdminPage = () => {
                                           </Typography>
                                         </Box>
                                         <Typography variant="caption" fontWeight={600} sx={{ flex: 1, textAlign: "left", ml: 1 }} noWrap>{m.awayDisplayName || "TBD"}</Typography>
-                                        <Tooltip title={canReport ? (m.isPlayed ? "Edit result" : "Report result") : "Cannot report: match has TBD participants"}>
+                                        <Tooltip title={knockoutStarted ? "Locked: knockout stage has started" : canReport ? (m.isPlayed ? "Edit result" : "Report result") : "Cannot report: match has TBD participants"}>
                                           <span>
                                             <IconButton size="small" onClick={() => openReport(m)} sx={{ ml: 1 }} disabled={!canReport}>
                                               {m.isPlayed ? <Edit sx={{ fontSize: 14 }} /> : <SportsSoccer sx={{ fontSize: 14 }} />}

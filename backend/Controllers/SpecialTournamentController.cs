@@ -276,11 +276,15 @@ namespace eTPL.API.Controllers
             return Ok(new { message = "สร้าง Bracket สำเร็จ!" });
         }
 
-        private async Task GenerateKnockoutBracket(Guid tournamentId, List<SpecialParticipant> participants)
+        private async Task GenerateKnockoutBracket(
+            Guid tournamentId,
+            List<SpecialParticipant> participants,
+            List<(SpecialParticipant Home, SpecialParticipant? Away)>? seededPairs = null)
         {
             var rng = new Random();
             int totalSlots = 2;
             while (totalSlots < participants.Count) totalSlots *= 2;
+            if (seededPairs != null) totalSlots = seededPairs.Count * 2;
             int byesCount = totalSlots - participants.Count;
             int round1MatchCount = totalSlots / 2;
 
@@ -315,6 +319,26 @@ namespace eTPL.API.Controllers
 
             // Assign participants to round 1
             var round1 = bracket[totalSlots];
+            if (seededPairs != null)
+            {
+                for (int i = 0; i < round1MatchCount; i++)
+                {
+                    var m = round1[i];
+                    m.HomeParticipantId = seededPairs[i].Home.Id;
+                    if (seededPairs[i].Away == null)
+                    {
+                        m.IsBye = true;
+                        m.IsPlayed = true;
+                        m.WinnerId = m.HomeParticipantId;
+                    }
+                    else
+                    {
+                        m.AwayParticipantId = seededPairs[i].Away!.Id;
+                    }
+                }
+                round1MatchCount = 0; // skip random assignment below
+            }
+
             var matchIndices = Enumerable.Range(0, round1MatchCount).OrderBy(_ => rng.Next()).ToList();
             var byeIndices = new HashSet<int>(matchIndices.Take(byesCount));
             int pIdx = 0;
@@ -502,9 +526,11 @@ namespace eTPL.API.Controllers
                 .ToListAsync();
 
             // Calculate group standings and pick top teams
-            var qualifiedByGroup = new List<List<SpecialParticipant>>();
+            var qualifiers = new List<(SpecialParticipant P, int GroupIdx, int Rank, int Pts, int GD, int GF, int GA)>();
+            int groupIdx = -1;
             foreach (var group in groups)
             {
+                groupIdx++;
                 var groupMatches = allMatches.Where(m => m.GroupId == group.Id).ToList();
                 var groupParticipants = participants.Where(p => p.GroupId == group.Id).ToList();
 
@@ -561,46 +587,78 @@ namespace eTPL.API.Controllers
                     return 0;
                 });
 
-                var groupAdvancers = standings.Take(advanceCount).Select(x => x.Participant).ToList();
-                qualifiedByGroup.Add(groupAdvancers);
-            }
-
-            var advancers = new List<SpecialParticipant>();
-            if (advanceCount == 2 && qualifiedByGroup.Count % 2 == 0 && qualifiedByGroup.All(q => q.Count >= 2))
-            {
-                int numGroups = qualifiedByGroup.Count;
-                int numBlocks = numGroups / 2;
-                var tempMatches = new (SpecialParticipant Home, SpecialParticipant Away)[numGroups];
-
-                for (int b = 0; b < numBlocks; b++)
+                int rank = 0;
+                foreach (var s in standings.Take(advanceCount))
                 {
-                    int g1 = 2 * b;
-                    int g2 = 2 * b + 1;
-
-                    tempMatches[b] = (qualifiedByGroup[g1][0], qualifiedByGroup[g2][1]);
-                    tempMatches[b + numBlocks] = (qualifiedByGroup[g2][0], qualifiedByGroup[g1][1]);
-                }
-
-                foreach (var match in tempMatches)
-                {
-                    advancers.Add(match.Home);
-                    advancers.Add(match.Away);
-                }
-            }
-            else
-            {
-                foreach (var q in qualifiedByGroup)
-                {
-                    advancers.AddRange(q);
+                    rank++;
+                    qualifiers.Add((s.Participant, groupIdx, rank, s.Pts, s.GD, s.GF, s.GA));
                 }
             }
 
-            if (advancers.Count < 2)
+            if (qualifiers.Count < 2)
                 return BadRequest(new { message = "ต้องมีผู้ผ่านรอบอย่างน้อย 2 คน" });
 
-            await GenerateKnockoutBracket(id, advancers);
+            // Seed: all group winners first, then runners-up; ties broken by pts, GD, GF, GA
+            var seeded = qualifiers
+                .OrderBy(q => q.Rank)
+                .ThenByDescending(q => q.Pts)
+                .ThenByDescending(q => q.GD)
+                .ThenByDescending(q => q.GF)
+                .ThenBy(q => q.GA)
+                .ThenBy(q => q.GroupIdx)
+                .ToList();
 
-            return Ok(new { message = $"สร้าง Knockout Bracket สำเร็จ! ({advancers.Count} ทีม)" });
+            var pairs = BuildSeededPairs(seeded.Select(q => (q.P, q.GroupIdx)).ToList());
+            await GenerateKnockoutBracket(id, seeded.Select(q => q.P).ToList(), pairs);
+
+            return Ok(new { message = $"สร้าง Knockout Bracket สำเร็จ! ({seeded.Count} ทีม)" });
+        }
+
+        /// <summary>
+        /// Standard seeded pairing (1 vs N, 2 vs N-1, ...) padded to a power of two.
+        /// Missing opponents become byes for the top seeds. Round-1 same-group clashes are
+        /// resolved by swapping away teams with another match when possible.
+        /// </summary>
+        private static List<(SpecialParticipant Home, SpecialParticipant? Away)> BuildSeededPairs(
+            List<(SpecialParticipant P, int G)> seeds)
+        {
+            int size = 2;
+            while (size < seeds.Count) size *= 2;
+
+            var order = new List<int> { 1 };
+            while (order.Count < size)
+            {
+                int sum = order.Count * 2 + 1;
+                order = order.SelectMany(s => new[] { s, sum - s }).ToList();
+            }
+
+            var groupOf = seeds.ToDictionary(s => s.P.Id, s => s.G);
+            var pairs = new List<(SpecialParticipant Home, SpecialParticipant? Away)>();
+            for (int i = 0; i < size / 2; i++)
+            {
+                int a = order[2 * i], b = order[2 * i + 1];
+                pairs.Add((seeds[a - 1].P, b <= seeds.Count ? seeds[b - 1].P : null));
+            }
+
+            for (int i = 0; i < pairs.Count; i++)
+            {
+                var (home, away) = pairs[i];
+                if (away == null || groupOf[home.Id] != groupOf[away.Id]) continue;
+
+                for (int j = 0; j < pairs.Count; j++)
+                {
+                    if (j == i || pairs[j].Away == null) continue;
+                    var (hj, aj) = pairs[j];
+                    if (groupOf[home.Id] != groupOf[aj!.Id] && groupOf[hj.Id] != groupOf[away.Id])
+                    {
+                        pairs[i] = (home, aj);
+                        pairs[j] = (hj, away);
+                        break;
+                    }
+                }
+            }
+
+            return pairs;
         }
 
         // ─────────────────────────────────────────────────────────────────────────
@@ -662,6 +720,15 @@ namespace eTPL.API.Controllers
         {
             var match = await _context.SpecialMatches.FindAsync(matchId);
             if (match == null) return NotFound(new { message = "ไม่พบแมตช์" });
+
+            // Group results are locked once the knockout bracket has been generated
+            if (match.Phase == "group")
+            {
+                bool knockoutExists = await _context.SpecialMatches
+                    .AnyAsync(m => m.TournamentId == match.TournamentId && m.Phase == "knockout");
+                if (knockoutExists)
+                    return BadRequest(new { message = "เข้ารอบ Knockout แล้ว ไม่สามารถบันทึก/แก้ผลรอบกลุ่มได้" });
+            }
 
             if (match.Phase == "knockout" && dto.HomeScore == dto.AwayScore)
                 return BadRequest(new { message = "รอบ Knockout ต้องมีผู้ชนะ (ห้ามเสมอ)" });
