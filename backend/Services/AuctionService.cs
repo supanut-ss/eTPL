@@ -1624,6 +1624,8 @@ namespace eTPL.API.Services
 
                 var quotas = await _context.AuctionGradeQuotas.ToListAsync();
                 var quota = quotas.FirstOrDefault(q => squad.Player!.PlayerOvr >= q.MinOVR && squad.Player!.PlayerOvr <= q.MaxOVR);
+                // Players below the lowest grade range are treated as the lowest grade (not 0%)
+                quota ??= quotas.Where(q => squad.Player!.PlayerOvr < q.MinOVR).OrderBy(q => q.MinOVR).FirstOrDefault();
                 int releasePercent = quota?.ReleasePercent ?? 0;
 
                 int basePrice = await GetBaseReleasePriceAsync(squad.PlayerId, squad.PricePaid, squad.Player!.PlayerOvr);
